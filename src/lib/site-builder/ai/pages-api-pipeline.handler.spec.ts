@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
-import handler from "./pipeline";
+import handler from "@/pages/api/site-builder/ai/pipeline";
 import { scoreVariantSetDiversity } from "@/lib/site-builder/ai/variant-diversity";
 import { runSitePlanner } from "@/lib/site-builder/ai/planner";
 import { generateSiteSchemaFromPlanner } from "@/lib/site-builder/ai/generator";

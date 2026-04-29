@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount, useConnect, useSwitchChain } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { injected } from "@wagmi/core";
 import { parseEther } from "viem";
 import MobileWalletButton from "@/components/MobileWalletButton";
 import { createStarFleetEntity } from "@/lib/starfleet";

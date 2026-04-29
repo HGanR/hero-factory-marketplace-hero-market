@@ -3,7 +3,7 @@
 // into the server build. (Those packages can pull in optional/test-only files.)
 import { createConfig, http } from "wagmi";
 import { polygon, mainnet, sepolia, polygonAmoy } from "wagmi/chains";
-import { injected } from "wagmi/connectors";
+import { injected } from "@wagmi/core";
 
 export const projectId = (process.env.NEXT_PUBLIC_WALLETCONNECT_ID || "").trim();
 

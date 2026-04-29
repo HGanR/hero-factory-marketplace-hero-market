@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { injected } from "@wagmi/core";
 import { TokenGateWrapper } from '../components/TokenGateWrapper';
 
 // Icons (using Lucide React or similar)

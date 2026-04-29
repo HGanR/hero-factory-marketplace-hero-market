@@ -1,6 +1,11 @@
 // src/lib/db/schema.ts
 import { mysqlEnum, mysqlTable, int, varchar, boolean, timestamp, text, decimal, date } from "drizzle-orm/mysql-core";
 
+// Re-export split runtime schemas so consumers can continue importing from "@/lib/db/schema".
+export * from "./schema.app-runtime";
+export * from "./schema.client-portal";
+export * from "./schema.social-runtime";
+
 export const marketplaceUsers = mysqlTable("marketplace_users", {
   id: int("id").autoincrement().primaryKey(),
   email: varchar("email", { length: 320 }).notNull().unique(),

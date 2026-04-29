@@ -1,7 +1,7 @@
 "use client";
 
 import { useConnect } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { injected } from "@wagmi/core";
 
 export default function MobileWalletButton() {
   const { connectAsync, connectors, isPending } = useConnect();
