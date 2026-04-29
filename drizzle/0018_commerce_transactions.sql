@@ -1,0 +1,26 @@
+-- Commerce Transactions: record payments at commerce nodes
+CREATE TABLE IF NOT EXISTS `commerce_transactions` (
+  `id` varchar(36) NOT NULL,
+  `worldId` varchar(36) NOT NULL,
+  `nodeId` varchar(36) NOT NULL,
+  `payerId` int NOT NULL,
+  `payeeId` int NOT NULL,
+  `amountToken` int,
+  `amountUSD` int,
+  `platformFeeToken` int,
+  `platformFeeUSD` int,
+  `ownerAmountToken` int,
+  `ownerAmountUSD` int,
+  `currency` enum('token','usd','both') NOT NULL DEFAULT 'token',
+  `status` enum('pending','completed','failed','refunded') NOT NULL DEFAULT 'completed',
+  `txRef` varchar(128),
+  `metadataJson` json,
+  `createdAt` timestamp NOT NULL DEFAULT (now()),
+  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY(`id`),
+  KEY `commerce_transactions_world_idx` (`worldId`),
+  KEY `commerce_transactions_node_idx` (`nodeId`),
+  KEY `commerce_transactions_payer_idx` (`payerId`),
+  KEY `commerce_transactions_payee_idx` (`payeeId`),
+  KEY `commerce_transactions_status_idx` (`status`)
+);

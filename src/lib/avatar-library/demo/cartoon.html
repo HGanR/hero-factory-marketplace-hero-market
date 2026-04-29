@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cartoon Avatar Creator — Wreck Room</title>
+  <!-- Three.js from CDN (importmap for demo) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/examples/jsm/controls/OrbitControls.js": "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+    }
+  }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a14;
+      color: #e0e0ff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      background: #111128;
+      border-bottom: 1px solid #2a2a4a;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; color: #a88fff; letter-spacing: 0.04em; }
+    .badge { background: #3322aa; color: #fff; font-size: 0.65rem; padding: 2px 8px; border-radius: 99px; font-weight: 600; letter-spacing: 0.06em; }
+    .save-btn {
+      margin-left: auto;
+      background: linear-gradient(135deg, #6633cc, #3322aa);
+      color: #fff;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .save-btn:hover { opacity: 0.85; }
+
+    /* ── Main layout ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Left panel ── */
+    .panel-left {
+      width: 230px;
+      background: #111128;
+      border-right: 1px solid #2a2a4a;
+      overflow-y: auto;
+      padding: 14px;
+      flex-shrink: 0;
+    }
+
+    /* ── Canvas area ── */
+    .canvas-area {
+      flex: 1;
+      position: relative;
+      background: #0d0d1a;
+    }
+    #avatar-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Camera view buttons */
+    .cam-buttons {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+    }
+    .cam-btn {
+      background: rgba(30,20,60,0.85);
+      border: 1px solid #4433aa;
+      color: #c0b0ff;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .cam-btn:hover, .cam-btn.active { background: #3322aa; color: #fff; }
+
+    /* ── Right panel ── */
+    .panel-right {
+      width: 240px;
+      background: #111128;
+      border-left: 1px solid #2a2a4a;
+      overflow-y: auto;
+      padding: 14px;
+      flex-shrink: 0;
+    }
+
+    /* ── Section headers ── */
+    .section-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.10em;
+      color: #7766cc;
+      text-transform: uppercase;
+      margin: 14px 0 8px;
+    }
+    .section-title:first-child { margin-top: 0; }
+
+    /* ── Skin tone grid ── */
+    .skin-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .skin-swatch {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .skin-swatch:hover { transform: scale(1.08); }
+    .skin-swatch.active { border-color: #a88fff; }
+
+    /* ── Color picker row ── */
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .color-row label { font-size: 0.75rem; color: #9988cc; flex: 1; }
+    .color-row input[type=color] {
+      width: 32px; height: 24px;
+      border: none; border-radius: 4px; cursor: pointer;
+      background: none; padding: 0;
+    }
+
+    /* ── Body shape buttons ── */
+    .shape-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .shape-btn {
+      background: #1a1a38;
+      border: 1px solid #3a3a6a;
+      color: #b0a0e0;
+      padding: 7px 4px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+    .shape-btn:hover { background: #2a2a55; }
+    .shape-btn.active { background: #3322aa; border-color: #6655cc; color: #fff; }
+
+    /* ── Gender toggle ── */
+    .gender-row {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    .gender-btn {
+      flex: 1;
+      background: #1a1a38;
+      border: 1px solid #3a3a6a;
+      color: #b0a0e0;
+      padding: 5px;
+      border-radius: 6px;
+      font-size: 0.70rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+    .gender-btn.active { background: #3322aa; color: #fff; border-color: #6655cc; }
+
+    /* ── Sliders ── */
+    .slider-row {
+      margin-bottom: 10px;
+    }
+    .slider-row label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: #9988cc;
+      margin-bottom: 4px;
+    }
+    .slider-row input[type=range] {
+      width: 100%;
+      accent-color: #6644cc;
+    }
+
+    /* ── Tab bar ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      background: #1a1a38;
+      border: 1px solid #3a3a6a;
+      color: #9988cc;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .tab:hover { background: #2a2a55; }
+    .tab.active { background: #3322aa; color: #fff; border-color: #6655cc; }
+
+    /* ── Style grid ── */
+    .style-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .style-btn {
+      background: #1a1a38;
+      border: 1px solid #3a3a6a;
+      color: #b0a0e0;
+      padding: 6px 4px;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+      line-height: 1.3;
+    }
+    .style-btn:hover { background: #2a2a55; }
+    .style-btn.active { background: #3322aa; border-color: #6655cc; color: #fff; }
+
+    /* ── Expression grid ── */
+    .expr-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .expr-btn {
+      background: #1a1a38;
+      border: 1px solid #3a3a6a;
+      color: #b0a0e0;
+      padding: 6px 4px;
+      border-radius: 6px;
+      font-size: 0.65rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+    .expr-btn:hover { background: #2a2a55; }
+    .expr-btn.active { background: #6633cc; border-color: #9966ff; color: #fff; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #0a0a14; }
+    ::-webkit-scrollbar-thumb { background: #3322aa; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🎭</span>
+  <h1>Cartoon Avatar Creator</h1>
+  <span class="badge">WRECK ROOM</span>
+  <button class="save-btn" onclick="saveAvatar()">💾 Save Avatar</button>
+</header>
+
+<div class="main">
+
+  <!-- ── Left Panel ── -->
+  <div class="panel-left">
+
+    <div class="section-title">Skin Tone</div>
+    <div class="skin-grid" id="skinGrid"></div>
+    <div class="color-row">
+      <label>Custom</label>
+      <input type="color" id="skinCustom" value="#E8A882" oninput="setSkin(this.value)" />
+    </div>
+
+    <div class="section-title">Body Shape</div>
+    <div class="shape-grid" id="shapeGrid"></div>
+
+    <div class="section-title">Gender Blend</div>
+    <div class="gender-row" id="genderRow"></div>
+
+    <div class="section-title">Muscle Tone</div>
+    <div class="slider-row">
+      <label><span>Soft</span><span id="muscleVal">50%</span><span>Ripped</span></label>
+      <input type="range" min="0" max="100" value="50" oninput="setMuscle(this.value)" />
+    </div>
+
+    <div class="section-title">Height</div>
+    <div class="slider-row">
+      <label><span>4'7"</span><span id="heightVal">1.75 m</span><span>7'3"</span></label>
+      <input type="range" min="140" max="220" value="175" oninput="setHeight(this.value)" />
+    </div>
+
+    <div class="section-title">Expression</div>
+    <div class="expr-grid" id="exprGrid"></div>
+
+  </div>
+
+  <!-- ── Canvas ── -->
+  <div class="canvas-area">
+    <div id="avatar-canvas"></div>
+    <div class="cam-buttons">
+      <button class="cam-btn active" onclick="focusCam('full', this)">Full</button>
+      <button class="cam-btn" onclick="focusCam('face', this)">Face</button>
+      <button class="cam-btn" onclick="focusCam('torso', this)">Torso</button>
+      <button class="cam-btn" onclick="focusCam('legs', this)">Legs</button>
+      <button class="cam-btn" onclick="focusCam('feet', this)">Feet</button>
+    </div>
+  </div>
+
+  <!-- ── Right Panel ── -->
+  <div class="panel-right">
+
+    <div class="tabs" id="wardrobeTabs"></div>
+    <div id="wardrobeContent"></div>
+
+  </div>
+</div>
+
+<script type="module">
+import { CartoonAvatarEngine, EXPRESSION_NAMES } from '../src/core/CartoonAvatarEngine.js';
+import { CartoonClothingSystem } from '../src/core/CartoonClothingSystem.js';
+import { CartoonHairSystem } from '../src/core/CartoonHairSystem.js';
+
+// ── Init engine ───────────────────────────────────────────────────────────────
+const container = document.getElementById('avatar-canvas');
+const engine = new CartoonAvatarEngine(container);
+window.engine = engine;
+
+// ── Skin tones ────────────────────────────────────────────────────────────────
+const SKIN_TONES = [
+  '#FDDBB4','#F5C89A','#EAB882','#D4956A',
+  '#C07D52','#A8633C','#8C4A2A','#6B3018',
+  '#4A1E0C','#2E0D04','#F8D5C0','#ECC4A8',
+  '#D4A882','#B88060','#8B5E3C','#5C3520',
+];
+
+const skinGrid = document.getElementById('skinGrid');
+SKIN_TONES.forEach((hex, i) => {
+  const sw = document.createElement('div');
+  sw.className = 'skin-swatch' + (i === 2 ? ' active' : '');
+  sw.style.background = hex;
+  sw.title = hex;
+  sw.onclick = () => {
+    document.querySelectorAll('.skin-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+    engine.setSkinTone(hex);
+    document.getElementById('skinCustom').value = hex;
+  };
+  skinGrid.appendChild(sw);
+});
+
+window.setSkin = (hex) => {
+  document.querySelectorAll('.skin-swatch').forEach(s => s.classList.remove('active'));
+  engine.setSkinTone(hex);
+};
+
+// ── Body shapes ───────────────────────────────────────────────────────────────
+const SHAPES = [
+  { key: 'slim',     label: '🧍 Slim' },
+  { key: 'average',  label: '🧑 Average' },
+  { key: 'athletic', label: '💪 Athletic' },
+  { key: 'heavy',    label: '🏋️ Heavy' },
+  { key: 'curvy',    label: '✨ Curvy' },
+];
+const shapeGrid = document.getElementById('shapeGrid');
+SHAPES.forEach(s => {
+  const btn = document.createElement('button');
+  btn.className = 'shape-btn' + (s.key === 'average' ? ' active' : '');
+  btn.textContent = s.label;
+  btn.onclick = () => {
+    document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    engine.setBodyShape(s.key);
+  };
+  shapeGrid.appendChild(btn);
+});
+
+// ── Gender ────────────────────────────────────────────────────────────────────
+const GENDERS = ['Neutral','Masculine','Feminine'];
+const genderRow = document.getElementById('genderRow');
+GENDERS.forEach(g => {
+  const btn = document.createElement('button');
+  btn.className = 'gender-btn' + (g === 'Neutral' ? ' active' : '');
+  btn.textContent = g;
+  btn.onclick = () => {
+    document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    engine.setGender(g.toLowerCase());
+  };
+  genderRow.appendChild(btn);
+});
+
+// ── Sliders ───────────────────────────────────────────────────────────────────
+window.setMuscle = (v) => {
+  document.getElementById('muscleVal').textContent = v + '%';
+  engine.setMuscleTone(v / 100);
+};
+window.setHeight = (v) => {
+  const m = (v / 100).toFixed(2);
+  document.getElementById('heightVal').textContent = m + ' m';
+  engine.setHeight(parseFloat(m));
+};
+
+// ── Expressions ───────────────────────────────────────────────────────────────
+const EXPR_EMOJIS = { neutral:'😐', happy:'😄', surprised:'😲', angry:'😠', sad:'😢', wink:'😉', smirk:'😏', scared:'😨', disgusted:'🤢', laughing:'😂' };
+const exprGrid = document.getElementById('exprGrid');
+EXPRESSION_NAMES.forEach(name => {
+  const btn = document.createElement('button');
+  btn.className = 'expr-btn' + (name === 'neutral' ? ' active' : '');
+  btn.innerHTML = `${EXPR_EMOJIS[name] || '😐'}<br>${name}`;
+  btn.onclick = () => {
+    document.querySelectorAll('.expr-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    engine.setExpression(name);
+  };
+  exprGrid.appendChild(btn);
+});
+
+// ── Wardrobe ──────────────────────────────────────────────────────────────────
+const WARDROBE_TABS = [
+  { key: 'hair',    label: '💇 Hair' },
+  { key: 'shirt',   label: '👕 Tops' },
+  { key: 'jacket',  label: '🧥 Jackets' },
+  { key: 'bottom',  label: '👖 Bottoms' },
+  { key: 'socks',   label: '🧦 Socks' },
+  { key: 'shoes',   label: '👟 Shoes' },
+  { key: 'eyes',    label: '👁️ Eyes' },
+];
+
+const WARDROBE_DATA = {
+  hair: {
+    styles: CartoonHairSystem.styles,
+    colors: ['#3a1a5e','#1a0a0a','#2a1a08','#c8a060','#e0e0e0','#ff4488','#44aaff','#44ff88','#ff8800','#ffffff'],
+    colorLabel: 'Hair Color',
+    onStyle: (style) => engine.setHairStyle(style),
+    onColor: (hex) => engine.setHairColor(hex),
+  },
+  shirt: {
+    styles: CartoonClothingSystem.shirtStyles,
+    colors: ['#1a1a2e','#2e1a1a','#1a2e1a','#2e2a1a','#ffffff','#ff4444','#4444ff','#44ff44','#ff8800','#aa44ff'],
+    accentColors: ['#c8b560','#ffffff','#ff4444','#44aaff','#44ff88','#ff8800'],
+    colorLabel: 'Primary Color',
+    onStyle: (style, color, accent) => engine.equipClothing('shirt', style, color, accent),
+  },
+  jacket: {
+    styles: CartoonClothingSystem.jacketStyles,
+    colors: ['#1a1a2e','#1a0a0a','#2a1a08','#3a5a8a','#1a1a1a','#2a4a2a','#4a2a2a','#2a2a4a'],
+    accentColors: ['#c8b560','#ffffff','#ff4444','#44aaff','#88ccff'],
+    colorLabel: 'Jacket Color',
+    onStyle: (style, color, accent) => engine.equipClothing('jacket', style, color, accent),
+    hasNone: true,
+  },
+  bottom: {
+    styles: CartoonClothingSystem.bottomStyles,
+    colors: ['#0f0f1a','#1e3a5f','#2a1a0a','#1a2a1a','#1a1a1a','#cc2244','#4444aa','#2a4a2a'],
+    accentColors: ['#c8b560','#ffffff','#88ccff','#ff4444','#44ff88'],
+    colorLabel: 'Bottom Color',
+    onStyle: (style, color, accent) => engine.equipClothing('bottom', style, color, accent),
+  },
+  socks: {
+    styles: CartoonClothingSystem.sockStyles,
+    colors: ['#1a1a2e','#ffffff','#ff4444','#44aaff','#44ff44','#1a1a1a','#cc2244'],
+    accentColors: ['#88ccff','#ffffff','#ff4444','#44ff88','#ffaa00'],
+    colorLabel: 'Sock Color',
+    onStyle: (style, color, accent) => engine.equipClothing('socks', style, color, accent),
+  },
+  shoes: {
+    styles: CartoonClothingSystem.shoeStyles,
+    colors: ['#0a1a3a','#1a1a1a','#f0f0f0','#cc2244','#2a1a0a','#3a5a8a','#4a2a2a'],
+    accentColors: ['#00aaff','#ffffff','#ff4444','#44ff88','#ffaa00','#c8b560'],
+    colorLabel: 'Shoe Color',
+    onStyle: (style, color, accent) => engine.equipClothing('shoes', style, color, accent),
+  },
+  eyes: {
+    colors: ['#d4820a','#3a7bd5','#2a8a2a','#8a2a2a','#8a8a2a','#2a8a8a','#6a2a8a','#888888'],
+    browColors: ['#1a0e28','#2a1a08','#0a0a0a','#8a6a2a','#c0a060','#ff4488'],
+    colorLabel: 'Iris Color',
+    onColor: (hex) => engine.setEyeColor(hex),
+    onBrowColor: (hex) => engine.setBrowColor(hex),
+  },
+};
+
+let activeTab = 'hair';
+let selectedStyles = {};
+let selectedColors = {};
+let selectedAccents = {};
+
+const tabsEl = document.getElementById('wardrobeTabs');
+const contentEl = document.getElementById('wardrobeContent');
+
+WARDROBE_TABS.forEach(tab => {
+  const btn = document.createElement('button');
+  btn.className = 'tab' + (tab.key === 'hair' ? ' active' : '');
+  btn.textContent = tab.label;
+  btn.onclick = () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = tab.key;
+    renderWardrobe();
+  };
+  tabsEl.appendChild(btn);
+});
+
+function renderWardrobe() {
+  contentEl.innerHTML = '';
+  const data = WARDROBE_DATA[activeTab];
+  if (!data) return;
+
+  const currentColor  = selectedColors[activeTab]  || (data.colors  && data.colors[0])  || '#ffffff';
+  const currentAccent = selectedAccents[activeTab] || (data.accentColors && data.accentColors[0]) || '#c8b560';
+  const currentStyle  = selectedStyles[activeTab]  || (data.styles && data.styles[0]);
+
+  // Style grid
+  if (data.styles) {
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = 'Style';
+    contentEl.appendChild(title);
+
+    if (data.hasNone) {
+      const noneBtn = document.createElement('button');
+      noneBtn.className = 'style-btn' + (!currentStyle ? ' active' : '');
+      noneBtn.textContent = '✕ None';
+      noneBtn.style.gridColumn = '1 / -1';
+      noneBtn.onclick = () => {
+        selectedStyles[activeTab] = null;
+        engine.unequipClothing(activeTab);
+        renderWardrobe();
+      };
+      const grid = document.createElement('div');
+      grid.className = 'style-grid';
+      grid.appendChild(noneBtn);
+      contentEl.appendChild(grid);
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'style-grid';
+    data.styles.forEach(style => {
+      const btn = document.createElement('button');
+      btn.className = 'style-btn' + (style === currentStyle ? ' active' : '');
+      btn.textContent = style.replace(/([A-Z])/g, ' $1').trim();
+      btn.onclick = () => {
+        selectedStyles[activeTab] = style;
+        data.onStyle?.(style, currentColor, currentAccent);
+        renderWardrobe();
+      };
+      grid.appendChild(btn);
+    });
+    contentEl.appendChild(grid);
+  }
+
+  // Primary color
+  if (data.colors) {
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = data.colorLabel || 'Color';
+    contentEl.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'skin-grid';
+    data.colors.forEach(hex => {
+      const sw = document.createElement('div');
+      sw.className = 'skin-swatch' + (hex === currentColor ? ' active' : '');
+      sw.style.background = hex;
+      sw.style.borderRadius = '6px';
+      sw.onclick = () => {
+        selectedColors[activeTab] = hex;
+        const style = selectedStyles[activeTab] || (data.styles && data.styles[0]);
+        if (activeTab === 'eyes') {
+          data.onColor?.(hex);
+        } else {
+          data.onStyle?.(style, hex, currentAccent);
+        }
+        renderWardrobe();
+      };
+      grid.appendChild(sw);
+    });
+    contentEl.appendChild(grid);
+  }
+
+  // Accent color
+  if (data.accentColors) {
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = 'Accent Color';
+    contentEl.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'skin-grid';
+    data.accentColors.forEach(hex => {
+      const sw = document.createElement('div');
+      sw.className = 'skin-swatch' + (hex === currentAccent ? ' active' : '');
+      sw.style.background = hex;
+      sw.style.borderRadius = '6px';
+      sw.onclick = () => {
+        selectedAccents[activeTab] = hex;
+        const style = selectedStyles[activeTab] || (data.styles && data.styles[0]);
+        data.onStyle?.(style, currentColor, hex);
+        renderWardrobe();
+      };
+      grid.appendChild(sw);
+    });
+    contentEl.appendChild(grid);
+  }
+
+  // Brow color (eyes tab)
+  if (data.browColors) {
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = 'Brow Color';
+    contentEl.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'skin-grid';
+    data.browColors.forEach(hex => {
+      const sw = document.createElement('div');
+      sw.className = 'skin-swatch' + (hex === (selectedAccents['brow'] || data.browColors[0]) ? ' active' : '');
+      sw.style.background = hex;
+      sw.style.borderRadius = '6px';
+      sw.onclick = () => {
+        selectedAccents['brow'] = hex;
+        data.onBrowColor?.(hex);
+        renderWardrobe();
+      };
+      grid.appendChild(sw);
+    });
+    contentEl.appendChild(grid);
+  }
+}
+
+renderWardrobe();
+
+// ── Camera focus ──────────────────────────────────────────────────────────────
+window.focusCam = (region, btn) => {
+  document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  engine.focusCamera(region);
+};
+
+// ── Save avatar ───────────────────────────────────────────────────────────────
+window.saveAvatar = () => {
+  const state = engine.serialize();
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'my-avatar.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+</script>
+</body>
+</html>

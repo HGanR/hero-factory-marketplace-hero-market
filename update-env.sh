@@ -1,0 +1,12 @@
+#!/bin/bash
+echo "========================================="
+echo "Update .env.local with your credentials"
+echo "========================================="
+echo ""
+echo "Please edit .env.local and replace:"
+echo "  - YOUR_ACTUAL_PASSWORD with your TiDB password"
+echo "  - your_admin_username with your admin username"
+echo "  - your_admin_password with your admin password"
+echo "  - JWT_SECRET with a long random string (32+ chars)"
+echo ""
+echo "After updating, run: npm run db:push"

@@ -1,0 +1,14 @@
+-- Client Hub: optional backfill for `campaigns.clientId` (run manually after review)
+--
+-- Safe strategy:
+-- 1) Never bulk-update without a human rule (e.g. one client per user, or join from a trusted mapping table).
+-- 2) Start with a SELECT to estimate impact:
+--    SELECT id, userId, name, clientId, status FROM campaigns WHERE (clientId IS NULL OR clientId = '') LIMIT 50;
+-- 3) For a single user + known client id (example placeholders):
+--    UPDATE campaigns
+--    SET clientId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', updatedAt = NOW(3)
+--    WHERE userId = '123' AND (clientId IS NULL OR clientId = '') AND id IN ('...');
+-- 4) Re-run the Client Hub campaigns list and activity feed to confirm rows appear.
+--
+-- Leave legacy rows with empty `clientId` if you cannot prove ownership; they stay visible on the
+-- main dashboard but not in per-client Client Hub until attributed (see PATCH /api/campaigns/:id/attribution).

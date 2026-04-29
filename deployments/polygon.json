@@ -1,0 +1,40 @@
+{
+  "network": "polygon",
+  "chainId": 137,
+  "deployer": "0x5c8B7C050d7E83E01A278bE24d578A4Daf3e17EF",
+  "contracts": {
+    "TrooNFT": {
+      "address": "0x99B2d856f2e33B9b25a203ceB6e5fE4ba5e30Bc8",
+      "args": [
+        "Troo NFT",
+        "TROONFT",
+        "0x5c8B7C050d7E83E01A278bE24d578A4Daf3e17EF"
+      ]
+    },
+    "TrooMarketplace": {
+      "address": "0x093b989880Adc41332F13Ba2E99bCcCc47bAf825",
+      "args": [
+        "0x5c8B7C050d7E83E01A278bE24d578A4Daf3e17EF",
+        "0x0000000000000000000000000000000000000000"
+      ]
+    },
+    "TrooNFTFactory": {
+      "address": "0x36B8D04ED9ECBffB0031386bC07B7C30CFfE6ba5",
+      "args": [
+        "0x5c8B7C050d7E83E01A278bE24d578A4Daf3e17EF",
+        250,
+        "0"
+      ]
+    }
+  },
+  "configuration": {
+    "platformWallet": "0x5c8B7C050d7E83E01A278bE24d578A4Daf3e17EF",
+    "trooTokenAddress": "0x0000000000000000000000000000000000000000",
+    "platformFeeBps": "250",
+    "factoryDeployFeeWei": "0",
+    "platformFee": "250",
+    "discountedFee": "150",
+    "mintingFee": "1000000000000000"
+  },
+  "timestamp": "2026-01-27T00:58:41.454Z"
+}

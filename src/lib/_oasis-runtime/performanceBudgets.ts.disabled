@@ -1,0 +1,111 @@
+// Performance budgets for Oasis buildings
+// These prevent production performance degradation
+
+export interface BuildingPerformanceMetrics {
+  triangleCount: number;
+  drawCalls: number;
+  colliderCount: number;
+  prefabCount: number;
+  textureMemoryKB: number;
+  geometryMemoryKB: number;
+}
+
+export const PERFORMANCE_BUDGETS = {
+  maxTrianglesPerBuilding: 50000, // Conservative for mobile/web
+  maxDrawCallsPerBuilding: 100,
+  maxCollidersPerBuilding: 20,
+  maxPrefabsPerBuilding: 25,
+  maxTextureMemoryKB: 8192, // 8MB per building
+  maxGeometryMemoryKB: 4096, // 4MB per building
+} as const;
+
+export function checkPerformanceBudgets(metrics: BuildingPerformanceMetrics): {
+  withinBudget: boolean;
+  violations: string[];
+} {
+  const violations: string[] = [];
+
+  if (metrics.triangleCount > PERFORMANCE_BUDGETS.maxTrianglesPerBuilding) {
+    violations.push(`Triangle count ${metrics.triangleCount} exceeds budget ${PERFORMANCE_BUDGETS.maxTrianglesPerBuilding}`);
+  }
+
+  if (metrics.drawCalls > PERFORMANCE_BUDGETS.maxDrawCallsPerBuilding) {
+    violations.push(`Draw calls ${metrics.drawCalls} exceeds budget ${PERFORMANCE_BUDGETS.maxDrawCallsPerBuilding}`);
+  }
+
+  if (metrics.colliderCount > PERFORMANCE_BUDGETS.maxCollidersPerBuilding) {
+    violations.push(`Colliders ${metrics.colliderCount} exceeds budget ${PERFORMANCE_BUDGETS.maxCollidersPerBuilding}`);
+  }
+
+  if (metrics.prefabCount > PERFORMANCE_BUDGETS.maxPrefabsPerBuilding) {
+    violations.push(`Prefabs ${metrics.prefabCount} exceeds budget ${PERFORMANCE_BUDGETS.maxPrefabsPerBuilding}`);
+  }
+
+  if (metrics.textureMemoryKB > PERFORMANCE_BUDGETS.maxTextureMemoryKB) {
+    violations.push(`Texture memory ${metrics.textureMemoryKB}KB exceeds budget ${PERFORMANCE_BUDGETS.maxTextureMemoryKB}KB`);
+  }
+
+  if (metrics.geometryMemoryKB > PERFORMANCE_BUDGETS.maxGeometryMemoryKB) {
+    violations.push(`Geometry memory ${metrics.geometryMemoryKB}KB exceeds budget ${PERFORMANCE_BUDGETS.maxGeometryMemoryKB}KB`);
+  }
+
+  return {
+    withinBudget: violations.length === 0,
+    violations
+  };
+}
+
+export function calculateBuildingMetrics(building: THREE.Group, manifest: any): BuildingPerformanceMetrics {
+  let triangleCount = 0;
+  let drawCalls = 0;
+  let textureMemoryKB = 0;
+  let geometryMemoryKB = 0;
+
+  building.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      drawCalls++;
+
+      // Count triangles
+      if (child.geometry.index) {
+        triangleCount += child.geometry.index.count / 3;
+      } else if (child.geometry.attributes.position) {
+        triangleCount += child.geometry.attributes.position.count / 3;
+      }
+
+      // Estimate geometry memory
+      if (child.geometry.attributes.position) {
+        geometryMemoryKB += (child.geometry.attributes.position.array.byteLength / 1024);
+      }
+      if (child.geometry.attributes.normal) {
+        geometryMemoryKB += (child.geometry.attributes.normal.array.byteLength / 1024);
+      }
+      if (child.geometry.attributes.uv) {
+        geometryMemoryKB += (child.geometry.attributes.uv.array.byteLength / 1024);
+      }
+      if (child.geometry.index) {
+        geometryMemoryKB += (child.geometry.index.array.byteLength / 1024);
+      }
+
+      // Estimate texture memory (rough approximation)
+      if (child.material instanceof THREE.MeshStandardMaterial) {
+        if (child.material.map) {
+          const tex = child.material.map;
+          textureMemoryKB += ((tex.image?.width || 512) * (tex.image?.height || 512) * 4) / 1024;
+        }
+        if (child.material.normalMap) {
+          const tex = child.material.normalMap;
+          textureMemoryKB += ((tex.image?.width || 512) * (tex.image?.height || 512) * 4) / 1024;
+        }
+      }
+    }
+  });
+
+  return {
+    triangleCount: Math.round(triangleCount),
+    drawCalls,
+    colliderCount: manifest.colliders?.length || 0,
+    prefabCount: manifest.prefabs?.length || 0,
+    textureMemoryKB: Math.round(textureMemoryKB),
+    geometryMemoryKB: Math.round(geometryMemoryKB)
+  };
+}

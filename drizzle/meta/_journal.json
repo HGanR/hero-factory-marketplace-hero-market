@@ -1,0 +1,104 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1767835872261,
+      "tag": "0000_harsh_felicia_hardy",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1772341966302,
+      "tag": "0001_add_marketplace_phone",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1738450000000,
+      "tag": "0002_challenge_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1772746993766,
+      "tag": "0003_add_troo_world_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1741300000000,
+      "tag": "0005_add_npc_building_floor",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1772800000000,
+      "tag": "0006_troo_world_elements_expand_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1773367083897,
+      "tag": "0006_add_revenue_os_module_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1773553069520,
+      "tag": "0007_add_brokerage_deposit_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1773700000000,
+      "tag": "0008_add_instrument_lifecycle_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1773554124899,
+      "tag": "0009_wild_mercury",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1773800000000,
+      "tag": "0010_add_accounting_bridge_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1773900000000,
+      "tag": "0011_add_developer_platform_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1774000000000,
+      "tag": "0012_add_platform_activity",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1773613873891,
+      "tag": "0013_little_tempest",
+      "breakpoints": true
+    }
+  ]
+}

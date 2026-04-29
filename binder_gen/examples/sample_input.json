@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "family_office_name": "Riverview Family Office",
+    "binder_title": "Operating Agreement & Policy Binder",
+    "doc_type": "policy_binder",
+    "effective_date": "2026-01-01",
+    "jurisdiction": "NY",
+    "version": "v1.1",
+    "prepared_for": "Family Council",
+    "prepared_by": "General Counsel",
+    "confidentiality": "CONFIDENTIAL"
+  },
+  "definitions": {},
+  "sections": [
+    {
+      "id": "charitable_compliance_center",
+      "title": "Charitable Compliance Center",
+      "subtitle": "990/990-PF governance, state charitable registrations, and grantmaking policies.",
+      "approvals": {
+        "approved_by": "Family Council Chair",
+        "approval_date": "2026-01-01",
+        "next_review_date": "2027-01-01"
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This section defines compliance controls for the family’s charitable vehicles."
+        },
+        {
+          "type": "paragraph",
+          "text": "A. IRS Filings (Form 990 / 990-PF)"
+        },
+        {
+          "type": "table",
+          "table": {
+            "caption": "Filing Calendar (example)",
+            "headers": ["Entity", "Form", "Due date", "Internal deadline", "Owner"],
+            "col_widths": [1.2, 1.0, 1.1, 1.4, 1.3],
+            "rows": [
+              ["Private Foundation", "990-PF", "05/15", "04/15", "Tax Lead"],
+              ["Operating Charity", "990", "11/15", "10/15", "Tax Lead"]
+            ]
+          }
+        },
+        {
+          "type": "paragraph",
+          "text": "B. State Charities Registration"
+        },
+        {
+          "type": "table",
+          "table": {
+            "caption": "State Registration Matrix (MVP example)",
+            "headers": ["State", "Registration required", "Renewal cadence", "Notes"],
+            "col_widths": [0.8, 1.4, 1.4, 2.4],
+            "rows": [
+              [
+                "NY",
+                "Yes (if soliciting)",
+                "Annual",
+                "Confirm CHAR500 applicability; maintain exemptions where available."
+              ],
+              [
+                "CA",
+                "Yes (if soliciting)",
+                "Annual",
+                "Maintain Registry of Charitable Trusts status and renewals."
+              ]
+            ]
+          }
+        },
+        {
+          "type": "paragraph",
+          "text": "C. Grantmaking Policies"
+        },
+        {
+          "type": "numbered",
+          "items": [
+            "Pre-grant due diligence: verify exempt status (or equivalency determination), screen against sanctions lists.",
+            "Restricted grants: written agreement stating purpose, reporting cadence, and return-of-funds clauses.",
+            "Document retention: maintain grant file for at least 7 years after final reporting."
+          ]
+        }
+      ],
+      "children": []
+    }
+  ]
+}
+
+
+
+

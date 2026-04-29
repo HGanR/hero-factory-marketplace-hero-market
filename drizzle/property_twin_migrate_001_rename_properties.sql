@@ -1,0 +1,4 @@
+-- One-time: only if your database still uses the legacy table name `properties`
+-- for Property Twin rows. If you already have `property_twin_properties`, skip this file.
+--
+-- RENAME TABLE `properties` TO `property_twin_properties`;

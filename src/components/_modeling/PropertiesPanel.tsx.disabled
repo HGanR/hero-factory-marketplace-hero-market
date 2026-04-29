@@ -1,0 +1,35 @@
+"use client";
+
+import type { EnterableCheck } from "@/lib/modeling/enterableValidator";
+
+export function PropertiesPanel(props: {
+  selectedObject: THREE.Object3D | null;
+  editMode: boolean;
+}) {
+  const { selectedObject, editMode } = props;
+
+  return (
+    <div className="space-y-3">
+      <div className="text-sm">
+        <div className="font-semibold">Selection</div>
+        <div className="opacity-80">{selectedObject?.name ?? "None"}</div>
+      </div>
+
+      <div className="text-sm">
+        <div className="font-semibold">Edit Mode</div>
+        <div className="opacity-80">{editMode ? "Interior" : "Exterior"}</div>
+      </div>
+
+      {selectedObject && (
+        <div className="text-sm">
+          <div className="font-semibold">Transform</div>
+          <div className="mt-1 space-y-1">
+            <div>Position: {selectedObject.position.x.toFixed(1)}, {selectedObject.position.y.toFixed(1)}, {selectedObject.position.z.toFixed(1)}</div>
+            <div>Rotation: {selectedObject.rotation.x.toFixed(1)}, {selectedObject.rotation.y.toFixed(1)}, {selectedObject.rotation.z.toFixed(1)}</div>
+            <div>Scale: {selectedObject.scale.x.toFixed(1)}, {selectedObject.scale.y.toFixed(1)}, {selectedObject.scale.z.toFixed(1)}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

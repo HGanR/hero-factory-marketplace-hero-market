@@ -1,0 +1,11 @@
+GIT REPOSITORY ROOT: this directory (hero-market).
+
+The parent folder (hero-factory-marketplace) is NOT part of this git repository.
+Files there (e.g. ../vercel.json, ../package.json) cannot be committed with git
+commands run from here — "outside repository" errors for ../ are expected.
+
+Vercel: connect the Git remote for THIS repo, leave Root Directory empty (or ".")
+so Vercel uses the vercel.json in this directory.
+
+Do not rely on hero-factory-marketplace/vercel.json unless the git root is moved
+to the monorepo parent (separate migration).

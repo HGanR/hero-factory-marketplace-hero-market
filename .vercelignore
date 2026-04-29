@@ -1,0 +1,18 @@
+# Exclude local/generated engine workspace not required by Next.js runtime
+hiber3d-game/**
+
+# Local build artifacts and caches
+.next/**
+out/**
+build/**
+coverage/**
+artifacts/**
+
+# Local tooling/output directories not needed at runtime
+besu-bundle/**
+binder_gen/**
+phase1_consultant_onboarding/**
+docs/**
+legal/**
+migrations/**
+drizzle/**

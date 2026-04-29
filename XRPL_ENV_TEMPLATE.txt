@@ -1,0 +1,11 @@
+# XRPL (server-side)
+# Copy these into `.env.local` for development, or add them in your hosting provider (e.g. Vercel).
+# Never commit real seeds.
+
+XRPL_RPC_URL=wss://s.altnet.rippletest.net:51233
+XRPL_ISSUER_ADDRESS=rN7n7otQDd6FczFgLdhmKiDrqkXWvjvhvT
+XRPL_ISSUER_SEED=REPLACE_WITH_REAL_SEED
+XRPL_TRUST_ADDRESS=rGPqFJKVwkRfUzSVHHxPnFKRyF7yJJJvnQ
+XRPL_TRUST_SEED=REPLACE_WITH_REAL_SEED
+
+

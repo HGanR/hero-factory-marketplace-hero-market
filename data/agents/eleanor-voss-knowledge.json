@@ -1,0 +1,174 @@
+{
+  "agent": {
+    "name": "Eleanor Voss",
+    "role": "Chief Financial Officer",
+    "department": "Currency and Monetary Instruments",
+    "location": "Corporate Tower 01 Floor 2",
+    "mission": "Educate users on currency reporting, negotiable instruments, trust securities issuance, and brokerage deposit procedures."
+  },
+  "domains": [
+    "Currency Reporting",
+    "Monetary Instruments",
+    "Negotiable Instruments",
+    "Trust Securities Issuance",
+    "Brokerage Compliance",
+    "Electronic Financial Instruments"
+  ],
+  "definitions": {
+    "currency": {
+      "description": "Legal tender coin or paper money used as a medium of exchange.",
+      "examples": ["US dollars", "foreign banknotes"]
+    },
+    "monetary_instruments": {
+      "description": "Financial instruments that represent currency or payment obligations.",
+      "examples": [
+        "traveler checks",
+        "cashiers checks",
+        "money orders",
+        "promissory notes",
+        "personal checks",
+        "business checks"
+      ]
+    },
+    "negotiable_instruments": {
+      "description": "Written promise or order to pay a fixed amount of money that can be transferred.",
+      "examples": ["promissory notes", "checks", "drafts"]
+    },
+    "securities": {
+      "description": "Financial assets representing ownership or debt.",
+      "examples": ["stocks", "bonds", "debentures", "trust certificates"]
+    }
+  },
+  "trust_structure": {
+    "assets": [
+      "cash",
+      "stocks",
+      "bonds",
+      "notes receivable",
+      "real estate",
+      "business interests"
+    ],
+    "liabilities": [
+      "promissory notes issued",
+      "bond obligations",
+      "trust debt instruments"
+    ],
+    "equity": [
+      "beneficial interests",
+      "trust certificates",
+      "participation units"
+    ]
+  },
+  "brokerage_deposits": {
+    "accepted_assets": [
+      "public securities",
+      "corporate bonds",
+      "government securities",
+      "cash",
+      "money market funds"
+    ],
+    "possible_private_assets": [
+      "private placements",
+      "restricted securities",
+      "entity issued securities"
+    ],
+    "broker_requirements": [
+      "trust agreement",
+      "certificate of trust",
+      "trust EIN",
+      "trustee identification",
+      "tax forms",
+      "authorization resolution"
+    ]
+  },
+  "trustee_questions": [
+    {
+      "question": "Does the trust instrument authorize the trustee to issue financial instruments?",
+      "type": "authority_verification"
+    },
+    {
+      "question": "Is the instrument being issued by the trust or deposited into the trust?",
+      "type": "instrument_origin"
+    },
+    {
+      "question": "What type of financial instrument is involved?",
+      "options": ["currency", "monetary instrument", "negotiable instrument", "security"]
+    },
+    {
+      "question": "Has the broker completed entity onboarding for the trust?",
+      "type": "broker_compliance"
+    },
+    {
+      "question": "Does the trustee have documented authority to transact with the brokerage firm?",
+      "type": "trustee_authority"
+    }
+  ],
+  "broker_due_diligence": [
+    "verify issuer authority",
+    "verify instrument authenticity",
+    "confirm transferability",
+    "confirm custody eligibility",
+    "confirm regulatory compliance"
+  ],
+  "trustee_responsibilities": [
+    "act in fiduciary capacity",
+    "maintain trust asset records",
+    "document all securities transactions",
+    "retain brokerage confirmations",
+    "report income and gains"
+  ],
+  "faq_training": [
+    {
+      "question": "Who has authority to issue financial instruments for a trust?",
+      "answer": "The trustee if the trust instrument grants the power to issue obligations or securities."
+    },
+    {
+      "question": "Where are securities recorded within a trust?",
+      "answer": "Securities are recorded in the trust asset ledger."
+    },
+    {
+      "question": "What documents will a broker require from a trust?",
+      "answer": "Trust agreement, certificate of trust, EIN confirmation, trustee identification, and tax forms."
+    },
+    {
+      "question": "Can a trust hold securities in a brokerage account?",
+      "answer": "Yes if the trustee has authority and the broker accepts the securities."
+    },
+    {
+      "question": "What must be verified before accepting a security issued by an entity?",
+      "answer": "Issuer authority, documentation, and transfer eligibility."
+    }
+  ],
+  "trustee_certification_exam": [
+    {
+      "question": "What determines whether a trust can issue a financial instrument?",
+      "answer": "Authority granted in the trust instrument."
+    },
+    {
+      "question": "What category of financial asset represents ownership in an entity?",
+      "answer": "Securities."
+    },
+    {
+      "question": "Which trust document confirms trustee authority?",
+      "answer": "Trust agreement or certificate of trust."
+    },
+    {
+      "question": "What must a broker verify before accepting securities?",
+      "answer": "Issuer authority and authenticity."
+    },
+    {
+      "question": "Where should trust securities be recorded?",
+      "answer": "In the trust asset ledger."
+    }
+  ],
+  "agent_behavior": {
+    "steps": [
+      "identify instrument type",
+      "verify issuer authority",
+      "confirm trust authorization",
+      "verify broker onboarding",
+      "assess compliance requirements",
+      "test user competency"
+    ]
+  }
+}

@@ -1,0 +1,353 @@
+import * as THREE from "three";
+import type { BuildingManifestV1, OasisVec3 } from "@/lib/modeling/manifest";
+import { calculateBuildingMetrics, checkPerformanceBudgets } from "./performanceBudgets";
+
+// Telemetry for production monitoring
+interface BuildingLoadTelemetry {
+  buildingId: string;
+  loadTimeMs: number;
+  success: boolean;
+  error?: string;
+  metrics?: {
+    triangleCount: number;
+    drawCalls: number;
+    colliderCount: number;
+    prefabCount: number;
+  };
+}
+
+interface EnterExitTelemetry {
+  buildingId: string;
+  action: 'enter' | 'exit';
+  timestamp: number;
+  visitorId?: string;
+}
+
+// Sample runtime building loader that demonstrates the enterable contract
+// This shows how published buildings should load and behave in the Oasis world
+
+export class OasisBuildingLoader {
+  private scene: THREE.Scene;
+  private physicsWorld: any; // Would be your physics engine (Rapier, Cannon, etc.)
+  private visitor: THREE.Object3D | null = null;
+  private telemetryEnabled: boolean = true;
+
+  constructor(scene: THREE.Scene, physicsWorld: any) {
+    this.scene = scene;
+    this.physicsWorld = physicsWorld;
+  }
+
+  async loadBuilding(buildingId: string, position: THREE.Vector3): Promise<THREE.Group> {
+    const startTime = performance.now();
+    let telemetry: BuildingLoadTelemetry = {
+      buildingId,
+      loadTimeMs: 0,
+      success: false
+    };
+
+    try {
+      // 1. Fetch building data from your API
+      const buildingData = await this.fetchBuildingData(buildingId);
+
+      // 2. Load manifest first (fail fast if invalid)
+      const manifest = await this.loadManifest(buildingData.manifestUri);
+
+      // 3. Load GLB geometry
+      const glbLoader = new THREE.GLTFLoader();
+      const gltf = await glbLoader.loadAsync(buildingData.assetUri);
+
+      // 4. Create building instance
+      const building = new THREE.Group();
+      building.name = `Building_${buildingId}`;
+      building.position.copy(position);
+
+      // Add GLB content
+      building.add(gltf.scene);
+
+      // 5. Performance check
+      const metrics = calculateBuildingMetrics(building, manifest);
+      const budgetCheck = checkPerformanceBudgets(metrics);
+
+      if (!budgetCheck.withinBudget) {
+        console.warn(`Building ${buildingId} exceeds performance budgets:`, budgetCheck.violations);
+        // In production, you might choose to reject loading or flag for optimization
+      }
+
+      // 6. Set up physics colliders from manifest
+      this.setupColliders(building, manifest);
+
+      // 7. Set up interactables from manifest
+      this.setupInteractables(building, manifest);
+
+      // 8. Instantiate prefabs from manifest
+      await this.setupPrefabs(building, manifest);
+
+      // 9. Register enterable behavior
+      this.registerEnterableBehavior(building, manifest);
+
+      this.scene.add(building);
+
+      // Success telemetry
+      telemetry.success = true;
+      telemetry.loadTimeMs = performance.now() - startTime;
+      telemetry.metrics = {
+        triangleCount: metrics.triangleCount,
+        drawCalls: metrics.drawCalls,
+        colliderCount: metrics.colliderCount,
+        prefabCount: metrics.prefabCount
+      };
+
+      if (this.telemetryEnabled) {
+        this.logTelemetry(telemetry);
+      }
+
+      return building;
+
+    } catch (error) {
+      // Error telemetry
+      telemetry.success = false;
+      telemetry.loadTimeMs = performance.now() - startTime;
+      telemetry.error = error instanceof Error ? error.message : 'Unknown error';
+
+      if (this.telemetryEnabled) {
+        this.logTelemetry(telemetry);
+      }
+
+      throw error;
+    }
+  }
+
+  private async fetchBuildingData(buildingId: string) {
+    // Fetch from your API
+    const res = await fetch(`/api/oasis/elements/${buildingId}`);
+    if (!res.ok) throw new Error("Failed to load building data");
+    return await res.json();
+  }
+
+  private async loadManifest(manifestUri: string): Promise<BuildingManifestV1> {
+    const res = await fetch(manifestUri);
+    if (!res.ok) throw new Error("Failed to load manifest");
+    return await res.json();
+  }
+
+  private setupColliders(building: THREE.Group, manifest: BuildingManifestV1) {
+    manifest.colliders.forEach(colliderDef => {
+      if (colliderDef.kind === "box") {
+        // Create physics collider
+        const size = new THREE.Vector3(colliderDef.size.x, colliderDef.size.y, colliderDef.size.z);
+        const center = new THREE.Vector3(colliderDef.center.x, colliderDef.center.y, colliderDef.center.z);
+
+        // Add to physics world
+        this.addBoxCollider(building, center, size, colliderDef.tag, colliderDef.id);
+      }
+    });
+  }
+
+  private setupInteractables(building: THREE.Group, manifest: BuildingManifestV1) {
+    manifest.interactables.forEach(interactableDef => {
+      const node = building.getObjectByName(interactableDef.nodeName);
+      if (!node) {
+        console.warn(`Interactable node not found: ${interactableDef.nodeName}`);
+        return;
+      }
+
+      // Register interaction handler
+      this.registerInteractable(node, interactableDef);
+    });
+  }
+
+  private async setupPrefabs(building: THREE.Group, manifest: BuildingManifestV1) {
+    for (const prefab of manifest.prefabs) {
+      // Load prefab from library
+      const prefabData = await this.fetchBuildingData(prefab.elementId);
+
+      // Load GLB
+      const glbLoader = new THREE.GLTFLoader();
+      const gltf = await glbLoader.loadAsync(prefabData.assetUri);
+
+      // Position according to manifest
+      const prefabGroup = new THREE.Group();
+      prefabGroup.name = `Prefab_${prefab.id}`;
+      prefabGroup.position.set(prefab.transform.position.x, prefab.transform.position.y, prefab.transform.position.z);
+      prefabGroup.rotation.set(prefab.transform.rotation.x, prefab.transform.rotation.y, prefab.transform.rotation.z);
+      prefabGroup.scale.set(prefab.transform.scale.x, prefab.transform.scale.y, prefab.transform.scale.z);
+
+      prefabGroup.add(gltf.scene);
+
+      // Add to correct group
+      const targetGroup = building.getObjectByName(prefab.parentGroup);
+      if (targetGroup) {
+        targetGroup.add(prefabGroup);
+      } else {
+        building.add(prefabGroup);
+      }
+    }
+  }
+
+  private registerEnterableBehavior(building: THREE.Group, manifest: BuildingManifestV1) {
+    // Register entry triggers
+    const entryTriggers = manifest.colliders.filter(c => c.tag === "entry");
+
+    entryTriggers.forEach(trigger => {
+      this.physicsWorld.onCollision(trigger.id, (other: any) => {
+        if (other === this.visitor) {
+          // Visitor entered entry trigger - teleport to interior
+          this.teleportToInterior(manifest.spawns.interior);
+
+          // Log enter event
+          if (this.telemetryEnabled) {
+            this.logEnterExit({
+              buildingId: building.name,
+              action: 'enter',
+              timestamp: Date.now(),
+              visitorId: this.visitor?.name
+            });
+          }
+        }
+      });
+    });
+
+    // Register exit triggers (door interactions)
+    const doorTriggers = manifest.colliders.filter(c => c.tag === "door");
+    doorTriggers.forEach(trigger => {
+      this.physicsWorld.onCollision(trigger.id, (other: any) => {
+        if (other === this.visitor) {
+          // Visitor exited via door - teleport to exterior
+          this.teleportToExterior(manifest.spawns.exterior);
+
+          // Log exit event
+          if (this.telemetryEnabled) {
+            this.logEnterExit({
+              buildingId: building.name,
+              action: 'exit',
+              timestamp: Date.now(),
+              visitorId: this.visitor?.name
+            });
+          }
+        }
+      });
+    });
+  }
+
+  private addBoxCollider(building: THREE.Group, center: THREE.Vector3, size: THREE.Vector3, tag: string, id: string) {
+    // Create visual debug collider (optional)
+    const debugGeometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+    const debugMaterial = new THREE.MeshBasicMaterial({
+      color: tag === "entry" ? 0x00ff00 : tag === "door" ? 0x0000ff : 0xff0000,
+      transparent: true,
+      opacity: 0.1,
+      wireframe: true
+    });
+
+    const debugMesh = new THREE.Mesh(debugGeometry, debugMaterial);
+    debugMesh.position.copy(center);
+    debugMesh.name = `ColliderDebug_${id}`;
+    building.add(debugMesh);
+
+    // Add to physics world
+    this.physicsWorld.addBoxCollider({
+      id,
+      position: center,
+      size: size,
+      tag,
+      buildingId: building.name,
+      isTrigger: tag === "entry" || tag === "door"
+    });
+  }
+
+  private registerInteractable(node: THREE.Object3D, interactableDef: any) {
+    // Register click/interaction handler
+    node.userData.interactable = interactableDef;
+
+    // Example: Door interaction
+    if (interactableDef.type === "Door") {
+      node.addEventListener("click", () => {
+        this.handleDoorInteraction(node, interactableDef);
+      });
+    }
+  }
+
+  private handleDoorInteraction(doorNode: THREE.Object3D, interactableDef: any) {
+    // Simple door animation or portal teleport
+    if (interactableDef.config.behavior === "portalOrAnimate") {
+      // For now, just teleport visitor to exterior spawn
+      if (this.visitor) {
+        // Find building manifest
+        const building = doorNode.parent;
+        while (building && !building.userData.manifest) {
+          building = building.parent;
+        }
+
+        if (building?.userData.manifest) {
+          this.teleportToExterior(building.userData.manifest.spawns.exterior);
+        }
+      }
+    }
+  }
+
+  private teleportToInterior(spawnPos: OasisVec3) {
+    if (!this.visitor) return;
+
+    console.log("Teleporting visitor to interior:", spawnPos);
+    this.visitor.position.set(spawnPos.x, spawnPos.y, spawnPos.z);
+
+    // Update physics position
+    this.physicsWorld.setPosition(this.visitor, spawnPos);
+
+    // Update camera if visitor has camera
+    // camera.position.copy(visitor.position).add(new THREE.Vector3(0, 1.7, 2));
+  }
+
+  private teleportToExterior(spawnPos: OasisVec3) {
+    if (!this.visitor) return;
+
+    console.log("Teleporting visitor to exterior:", spawnPos);
+    this.visitor.position.set(spawnPos.x, spawnPos.y, spawnPos.z);
+
+    // Update physics position
+    this.physicsWorld.setPosition(this.visitor, spawnPos);
+  }
+
+  setVisitor(visitor: THREE.Object3D) {
+    this.visitor = visitor;
+  }
+}
+
+  private logTelemetry(telemetry: BuildingLoadTelemetry): void {
+    // In production, send to your analytics/monitoring system
+    console.log('BuildingLoad:', telemetry);
+
+    // Example: send to analytics
+    // analytics.track('building_load', telemetry);
+  }
+
+  private logEnterExit(telemetry: EnterExitTelemetry): void {
+    // Track actual usage of enterable buildings
+    console.log('BuildingEnterExit:', telemetry);
+
+    // Example: send to analytics
+    // analytics.track('building_enter_exit', telemetry);
+  }
+
+  // Enable/disable telemetry collection
+  setTelemetryEnabled(enabled: boolean): void {
+    this.telemetryEnabled = enabled;
+  }
+}
+
+// Usage example:
+/*
+const buildingLoader = new OasisBuildingLoader(scene, physicsWorld);
+buildingLoader.setVisitor(visitorObject);
+
+// Load and place a building
+const building = await buildingLoader.loadBuilding("building_123", new THREE.Vector3(10, 0, 10));
+
+// The building is now enterable:
+// - Walk into EntryTrigger_* → teleport to interior spawn
+// - Click Door_* → teleport to exterior spawn
+// - Prefabs are loaded and positioned
+// - Colliders prevent walking through walls
+// - Performance metrics are monitored
+// - Usage telemetry is collected
+*/

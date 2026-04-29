@@ -1,0 +1,46 @@
+-- Meeting node placements (Troo World) + invites — matches src/lib/db/schema.ts
+CREATE TABLE IF NOT EXISTS `meeting_node_placements` (
+  `id` varchar(36) NOT NULL,
+  `worldId` varchar(64) NOT NULL,
+  `parentPlacementId` int NOT NULL,
+  `parentSystem` varchar(24) NOT NULL DEFAULT 'troo_placement',
+  `nodeAssetKey` varchar(80) NOT NULL DEFAULT 'corporate_meeting_node_v1',
+  `roomId` varchar(80) NOT NULL,
+  `title` varchar(120) NOT NULL,
+  `accessType` enum('public','private','invite_only') NOT NULL DEFAULT 'public',
+  `capacity` int NOT NULL DEFAULT 12,
+  `webEnabled` tinyint(1) NOT NULL DEFAULT 1,
+  `webxrEnabled` tinyint(1) NOT NULL DEFAULT 0,
+  `vrEnabled` tinyint(1) NOT NULL DEFAULT 0,
+  `isActive` tinyint(1) NOT NULL DEFAULT 1,
+  `posX` decimal(12,4) NOT NULL,
+  `posY` decimal(12,4) NOT NULL,
+  `posZ` decimal(12,4) NOT NULL,
+  `rotY` decimal(12,4) NOT NULL DEFAULT 0,
+  `scale` decimal(12,4) NOT NULL DEFAULT 1,
+  `createdByUserId` int NOT NULL,
+  `createdAt` timestamp NOT NULL DEFAULT (now()),
+  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `meeting_node_placements_world_idx` (`worldId`),
+  KEY `meeting_node_placements_parent_idx` (`parentPlacementId`),
+  KEY `meeting_node_placements_room_idx` (`roomId`)
+);
+
+CREATE TABLE IF NOT EXISTS `meeting_invites` (
+  `id` varchar(36) NOT NULL,
+  `meetingNodeId` varchar(36) NOT NULL,
+  `invitedByUserId` int NOT NULL,
+  `inviteeUserId` int,
+  `inviteeEmail` varchar(320),
+  `inviteeWallet` varchar(42),
+  `inviteToken` varchar(64) NOT NULL,
+  `status` enum('pending','accepted','revoked','expired') NOT NULL DEFAULT 'pending',
+  `expiresAt` timestamp NULL,
+  `createdAt` timestamp NOT NULL DEFAULT (now()),
+  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `meeting_invites_token_uidx` (`inviteToken`),
+  KEY `meeting_invites_node_idx` (`meetingNodeId`),
+  KEY `meeting_invites_status_idx` (`status`)
+);

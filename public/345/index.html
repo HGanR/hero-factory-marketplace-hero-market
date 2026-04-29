@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="0; url=/besu-bundle" />
+    <title>BESU Bundle</title>
+  </head>
+  <body>
+    <p>
+      This page has moved to <a href="/besu-bundle">/besu-bundle</a>.
+    </p>
+  </body>
+</html>
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BESU (345) Bundle</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #020617;
+        --panel: #0b1220;
+        --border: #1f2937;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --link: #22d3ee;
+        --linkHover: #67e8f9;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial,
+          "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: radial-gradient(1200px 800px at 20% 0%, rgba(34, 211, 238, 0.12), transparent 60%),
+          radial-gradient(1200px 800px at 80% 20%, rgba(59, 130, 246, 0.10), transparent 55%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 28px 18px 48px;
+      }
+
+      .card {
+        background: rgba(11, 18, 32, 0.9);
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+
+      h1 {
+        margin: 0 0 6px 0;
+        font-size: 22px;
+        letter-spacing: 0.2px;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+      .grid {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      @media (min-width: 740px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      a {
+        color: var(--link);
+        text-decoration: none;
+      }
+      a:hover {
+        color: var(--linkHover);
+        text-decoration: underline;
+      }
+
+      .file {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(2, 6, 23, 0.55);
+        border: 1px solid rgba(31, 41, 55, 0.8);
+      }
+
+      .name {
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Monaco,
+          Consolas,
+          "Liberation Mono",
+          "Courier New",
+          monospace;
+        font-size: 12.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .tag {
+        font-size: 11px;
+        color: var(--muted);
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        padding: 3px 8px;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>BESU (345) Bundle</h1>
+        <p>
+          Static files copied from your Desktop <span class="name">345.zip</span> into
+          <span class="name">public/345/</span>. Use these links to view/download the files from the app.
+        </p>
+        <div class="grid">
+          <div class="file"><a class="name" href="./BesuWeb3Service.ts">BesuWeb3Service.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./BesuTransactionService.ts">BesuTransactionService.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./BlockchainVerificationService.ts">BlockchainVerificationService.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./trustBlockchainRouter.ts">trustBlockchainRouter.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./TrustRecordsPage-WithBlockchain.tsx">TrustRecordsPage-WithBlockchain.tsx</a><span class="tag">tsx</span></div>
+          <div class="file"><a class="name" href="./TrustRecordsPage-WithVerification.tsx">TrustRecordsPage-WithVerification.tsx</a><span class="tag">tsx</span></div>
+          <div class="file"><a class="name" href="./VerifyTrustComponent.tsx">VerifyTrustComponent.tsx</a><span class="tag">tsx</span></div>
+          <div class="file"><a class="name" href="./TrustVerificationButton.tsx">TrustVerificationButton.tsx</a><span class="tag">tsx</span></div>
+          <div class="file"><a class="name" href="./TrustVerification.abi.json">TrustVerification.abi.json</a><span class="tag">json</span></div>
+          <div class="file"><a class="name" href="./migration_add_blockchain_fields.sql">migration_add_blockchain_fields.sql</a><span class="tag">sql</span></div>
+          <div class="file"><a class="name" href="./verificationTrpcProcedures.ts">verificationTrpcProcedures.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./verifyTrustProcedure.ts">verifyTrustProcedure.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./verifyTrustProcedure-Complete.ts">verifyTrustProcedure-Complete.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./verifyTrustTrpcProcedure.ts">verifyTrustTrpcProcedure.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./TrustVerification.interface.ts">TrustVerification.interface.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./TrustVerification.test.ts">TrustVerification.test.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./CertificateGenerationService.ts">CertificateGenerationService.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./CertificateSigningService.ts">CertificateSigningService.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./CertificateTypes.ts">CertificateTypes.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./certificateExportProcedure.ts">certificateExportProcedure.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./DashboardBlockchainSection.tsx">DashboardBlockchainSection.tsx</a><span class="tag">tsx</span></div>
+          <div class="file"><a class="name" href="./BlockchainStatusComponents.tsx">BlockchainStatusComponents.tsx</a><span class="tag">tsx</span></div>
+          <div class="file"><a class="name" href="./useBlockchainTrust.ts">useBlockchainTrust.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./verifiedTrustsRouter.ts">verifiedTrustsRouter.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./verify-instrument.ts">verify-instrument.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./record-instrument.ts">record-instrument.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./record-payment.ts">record-payment.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./recordInstrumentTrpcProcedure.ts">recordInstrumentTrpcProcedure.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./authorize-issuer.ts">authorize-issuer.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./deploy.ts">deploy.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./deploy-trustverification.ts">deploy-trustverification.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./hardhat.config.ts">hardhat.config.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./hardhat.config.complete.ts">hardhat.config.complete.ts</a><span class="tag">ts</span></div>
+          <div class="file"><a class="name" href="./TrustRecordTypes-Updated.ts">TrustRecordTypes-Updated.ts</a><span class="tag">ts</span></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+

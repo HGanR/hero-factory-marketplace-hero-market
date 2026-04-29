@@ -1,0 +1,27 @@
+-- Part 48: paid social / ads campaign drafts (scaffolding; no execution layer).
+CREATE TABLE IF NOT EXISTS campaign_paid_social_campaigns (
+  id VARCHAR(36) NOT NULL PRIMARY KEY,
+  campaign_id VARCHAR(36) NOT NULL,
+  provider VARCHAR(32) NOT NULL,
+  internal_name VARCHAR(200) NOT NULL,
+  ad_set_name VARCHAR(200) NULL,
+  ad_name VARCHAR(200) NULL,
+  objective VARCHAR(32) NOT NULL DEFAULT '',
+  draft_status VARCHAR(24) NOT NULL DEFAULT 'draft',
+  budget_type VARCHAR(16) NOT NULL DEFAULT 'none',
+  budget_amount_minor INT NULL,
+  currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+  start_at TIMESTAMP NULL,
+  end_at TIMESTAMP NULL,
+  destination_url VARCHAR(1024) NULL,
+  cta_label VARCHAR(120) NULL,
+  lead_form_placeholder VARCHAR(512) NULL,
+  audience_json JSON NULL,
+  placements_json JSON NULL,
+  creative_config_json JSON NULL,
+  created_by_user_id VARCHAR(64) NOT NULL,
+  updated_by_user_id VARCHAR(64) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY camp_paid_social_campaign_idx (campaign_id)
+);

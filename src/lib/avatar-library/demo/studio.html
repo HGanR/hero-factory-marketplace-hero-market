@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wreck Room — 3D Avatar Studio</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #080818;
+    --panel:    #0d0d2a;
+    --border:   #1e2060;
+    --accent:   #4a6cff;
+    --accent2:  #c8a800;
+    --text:     #e8eaff;
+    --muted:    #6870a0;
+    --radius:   10px;
+    --panel-w:  280px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  #app {
+    display: grid;
+    grid-template-columns: var(--panel-w) 1fr var(--panel-w);
+    grid-template-rows: 56px 1fr 52px;
+    height: 100vh;
+    gap: 0;
+  }
+
+  /* ── Header ── */
+  #header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: rgba(8,8,24,0.97);
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+    gap: 12px;
+  }
+  #header h1 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Avatar type switcher */
+  .avatar-type-switcher {
+    display: flex;
+    gap: 4px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 10px;
+    padding: 3px;
+    border: 1px solid var(--border);
+  }
+  .type-btn {
+    padding: 5px 14px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .type-btn:hover { color: var(--text); }
+  .type-btn.active { background: var(--accent); color: #fff; }
+
+  .header-views {
+    display: flex;
+    gap: 4px;
+  }
+  .view-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.15s;
+  }
+  .view-btn:hover, .view-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .header-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .btn-primary {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 12px;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Panels ── */
+  #left-panel, #right-panel {
+    background: var(--panel);
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #left-panel  { border-right: 1px solid var(--border); }
+  #right-panel { border-left:  1px solid var(--border); }
+
+  /* ── Canvas ── */
+  #canvas-wrap {
+    position: relative;
+    background: #080818;
+    overflow: hidden;
+  }
+  #canvas-wrap canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  #rotate-toggle {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(8,8,24,0.8);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 11px;
+    backdrop-filter: blur(4px);
+    transition: all 0.15s;
+  }
+  #rotate-toggle:hover { color: var(--accent); border-color: var(--accent); }
+  #loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    flex-direction: column;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  #footer {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 20px;
+    background: rgba(8,8,24,0.95);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── Section ── */
+  .section { display: flex; flex-direction: column; gap: 8px; }
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Skin / color swatches ── */
+  .skin-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px;
+  }
+  .skin-swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s, border-color 0.1s;
+  }
+  .skin-swatch:hover { transform: scale(1.15); }
+  .skin-swatch.active { border-color: #fff; transform: scale(1.1); }
+
+  /* ── Color picker row ── */
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .color-row label { flex: 1; color: var(--muted); font-size: 11px; }
+  .color-row input[type=color] {
+    width: 32px; height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 1px;
+    background: var(--bg);
+  }
+
+  /* ── Slider ── */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .slider-row label { width: 90px; color: var(--muted); font-size: 11px; flex-shrink: 0; }
+  .slider-row input[type=range] {
+    flex: 1;
+    accent-color: var(--accent);
+    height: 4px;
+  }
+  .slider-val {
+    width: 28px;
+    text-align: right;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  /* ── Shape buttons ── */
+  .shape-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .shape-btn {
+    padding: 6px 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 10px;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .shape-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .shape-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Style grid ── */
+  .style-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+  .style-btn {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 10px;
+    text-align: center;
+    transition: all 0.15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .style-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .style-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Wardrobe tabs ── */
+  .tab-bar {
+    display: flex;
+    gap: 2px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 5px 4px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 600;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { background: var(--accent); color: #fff; }
+  .tab-content { display: none; flex-direction: column; gap: 8px; }
+  .tab-content.active { display: flex; }
+
+  /* ── Clothing item ── */
+  .clothing-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .clothing-item:hover { border-color: var(--accent); }
+  .clothing-item.active { border-color: var(--accent); background: rgba(74,108,255,0.12); }
+  .clothing-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .clothing-name { flex: 1; font-size: 11px; }
+  .clothing-colors { display: flex; gap: 3px; }
+  .clothing-color-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.2);
+    transition: transform 0.1s;
+  }
+  .clothing-color-dot:hover { transform: scale(1.3); }
+
+  /* ── Chibi creature badge ── */
+  .chibi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, #ff6600, #ff3366);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(74,108,255,0.95);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 100;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header id="header">
+    <h1>⚡ Avatar Studio</h1>
+
+    <!-- Avatar Type Switcher -->
+    <div class="avatar-type-switcher">
+      <button class="type-btn active" id="type-humanoid" onclick="switchAvatarType('humanoid')">🧍 Humanoid</button>
+      <button class="type-btn" id="type-chibi" onclick="switchAvatarType('chibi')">🐾 Chibi Creature</button>
+    </div>
+
+    <!-- View buttons (humanoid only) -->
+    <div class="header-views" id="humanoid-views">
+      <button class="view-btn active" onclick="setView('full')">Full</button>
+      <button class="view-btn" onclick="setView('face')">Face</button>
+      <button class="view-btn" onclick="setView('torso')">Torso</button>
+      <button class="view-btn" onclick="setView('legs')">Legs</button>
+      <button class="view-btn" onclick="setView('feet')">Feet</button>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-secondary" onclick="randomize()">🎲 Random</button>
+      <button class="btn-secondary" onclick="loadAvatar()">📂 Load</button>
+      <button class="btn-primary" onclick="saveAvatar()">💾 Save Avatar</button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       LEFT PANEL
+  ═══════════════════════════════════════════════════════════════ -->
+  <aside id="left-panel">
+
+    <!-- ── HUMANOID CONTROLS ── -->
+    <div id="humanoid-left-panel">
+
+      <div class="section">
+        <div class="section-title">Skin Tone</div>
+        <div class="skin-grid" id="skin-grid"></div>
+        <div class="color-row">
+          <label>Custom</label>
+          <input type="color" id="skin-custom" value="#f4c5a0" oninput="setSkin(this.value)" />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Eye Color</div>
+        <div class="skin-grid" id="eye-grid"></div>
+        <div class="color-row">
+          <label>Custom</label>
+          <input type="color" id="eye-custom" value="#d4820a" oninput="setEye(this.value)" />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Body Shape</div>
+        <div class="shape-grid">
+          <button class="shape-btn" onclick="setShape('slim')">Slim</button>
+          <button class="shape-btn active" onclick="setShape('average')">Average</button>
+          <button class="shape-btn" onclick="setShape('athletic')">Athletic</button>
+          <button class="shape-btn" onclick="setShape('heavy')">Heavy</button>
+          <button class="shape-btn" onclick="setShape('tall')">Tall</button>
+          <button class="shape-btn" onclick="setShape('petite')">Petite</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Muscle Tone</div>
+        <div class="slider-row">
+          <label>Tone</label>
+          <input type="range" min="0" max="100" value="50" id="muscle-slider"
+            oninput="setMuscle(this.value/100); document.getElementById('muscle-val').textContent=this.value+'%'" />
+          <span class="slider-val" id="muscle-val">50%</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Body Type</div>
+        <div class="slider-row">
+          <label>Masc ↔ Fem</label>
+          <input type="range" min="0" max="100" value="50" id="gender-slider"
+            oninput="setGender(this.value/100); document.getElementById('gender-val').textContent=this.value+'%'" />
+          <span class="slider-val" id="gender-val">50%</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Height</div>
+        <div class="slider-row">
+          <label>Height</label>
+          <input type="range" min="150" max="210" value="175" id="height-slider"
+            oninput="setHeight(this.value/100); document.getElementById('height-val').textContent=this.value+'cm'" />
+          <span class="slider-val" id="height-val">175cm</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Hair Style</div>
+        <div class="style-grid" id="hair-style-grid"></div>
+        <div class="color-row">
+          <label>Hair Color</label>
+          <input type="color" id="hair-color" value="#4a35c8" oninput="setHairColor(this.value)" />
+        </div>
+      </div>
+
+    </div><!-- end humanoid-left-panel -->
+
+    <!-- ── CHIBI CONTROLS ── -->
+    <div id="chibi-left-panel" style="display:none; flex-direction:column; gap:14px;">
+
+      <div style="text-align:center; padding: 4px 0;">
+        <span class="chibi-badge">🐾 Chibi Creature Mode</span>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Body Color</div>
+        <div class="skin-grid" id="chibi-color-grid"></div>
+        <div class="color-row">
+          <label>Custom</label>
+          <input type="color" id="chibi-color-custom" value="#e85a10" oninput="setChibiColor(this.value)" />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Eye Color</div>
+        <div class="skin-grid" id="chibi-eye-grid"></div>
+        <div class="color-row">
+          <label>Custom</label>
+          <input type="color" id="chibi-eye-custom" value="#111111" oninput="setChibiEye(this.value)" />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Ear Style</div>
+        <div class="shape-grid" id="chibi-ear-grid">
+          <button class="shape-btn active" onclick="setChibiEar('bear', this)">Bear</button>
+          <button class="shape-btn" onclick="setChibiEar('round', this)">Round</button>
+          <button class="shape-btn" onclick="setChibiEar('pointed', this)">Pointed</button>
+          <button class="shape-btn" onclick="setChibiEar('cat', this)">Cat</button>
+          <button class="shape-btn" onclick="setChibiEar('bunny', this)">Bunny</button>
+          <button class="shape-btn" onclick="setChibiEar('none', this)">None</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Body Size</div>
+        <div class="slider-row">
+          <label>Chubby</label>
+          <input type="range" min="0" max="100" value="60" id="chibi-chubby-slider"
+            oninput="setChibiChubby(this.value/100); document.getElementById('chibi-chubby-val').textContent=this.value+'%'" />
+          <span class="slider-val" id="chibi-chubby-val">60%</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Tail</div>
+        <div class="shape-grid">
+          <button class="shape-btn active" id="chibi-tail-on"  onclick="setChibiTail(true, this)">With Tail</button>
+          <button class="shape-btn"        id="chibi-tail-off" onclick="setChibiTail(false, this)">No Tail</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Belly Button</div>
+        <div class="shape-grid">
+          <button class="shape-btn active" id="chibi-belly-on"  onclick="setChibiBelly(true, this)">Show</button>
+          <button class="shape-btn"        id="chibi-belly-off" onclick="setChibiBelly(false, this)">Hide</button>
+        </div>
+      </div>
+
+    </div><!-- end chibi-left-panel -->
+
+  </aside>
+
+  <!-- 3D Canvas -->
+  <main id="canvas-wrap">
+    <div id="loading">
+      <div class="spinner"></div>
+      <span>Loading 3D Studio...</span>
+    </div>
+    <button id="rotate-toggle" onclick="toggleRotate()">⟳ Auto-Rotate: ON</button>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       RIGHT PANEL
+  ═══════════════════════════════════════════════════════════════ -->
+  <aside id="right-panel">
+
+    <!-- ── HUMANOID WARDROBE ── -->
+    <div id="humanoid-right-panel">
+      <div class="section">
+        <div class="section-title">Wardrobe</div>
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="showTab('shirts')">Tops</button>
+          <button class="tab-btn" onclick="showTab('jackets')">Jackets</button>
+          <button class="tab-btn" onclick="showTab('bottoms')">Bottoms</button>
+          <button class="tab-btn" onclick="showTab('socks')">Socks</button>
+          <button class="tab-btn" onclick="showTab('footwear')">Shoes</button>
+        </div>
+        <div class="tab-content active" id="tab-shirts"><div id="shirt-list"></div></div>
+        <div class="tab-content" id="tab-jackets"><div id="jacket-list"></div></div>
+        <div class="tab-content" id="tab-bottoms"><div id="bottom-list"></div></div>
+        <div class="tab-content" id="tab-socks"><div id="sock-list"></div></div>
+        <div class="tab-content" id="tab-footwear"><div id="footwear-list"></div></div>
+      </div>
+    </div>
+
+    <!-- ── CHIBI ACCESSORIES ── -->
+    <div id="chibi-right-panel" style="display:none; flex-direction:column; gap:14px;">
+
+      <div style="text-align:center; padding: 4px 0;">
+        <span class="chibi-badge">🎩 Accessories</span>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Hat</div>
+        <div class="style-grid" id="chibi-hat-grid"></div>
+        <div class="color-row">
+          <label>Color</label>
+          <input type="color" id="chibi-hat-color" value="#222266" oninput="updateChibiHat()" />
+          <label>Accent</label>
+          <input type="color" id="chibi-hat-accent" value="#ffffff" oninput="updateChibiHat()" />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Glasses</div>
+        <div class="style-grid" id="chibi-glasses-grid"></div>
+        <div class="color-row">
+          <label>Frame</label>
+          <input type="color" id="chibi-glasses-frame" value="#222222" oninput="updateChibiGlasses()" />
+          <label>Lens</label>
+          <input type="color" id="chibi-glasses-lens" value="#88ccff" oninput="updateChibiGlasses()" />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Necklace</div>
+        <div class="style-grid" id="chibi-necklace-grid"></div>
+        <div class="color-row">
+          <label>Color</label>
+          <input type="color" id="chibi-necklace-color" value="#c8a800" oninput="updateChibiNecklace()" />
+        </div>
+      </div>
+
+    </div><!-- end chibi-right-panel -->
+
+  </aside>
+
+  <!-- Footer -->
+  <footer id="footer">
+    <span>Drag to rotate · Scroll to zoom · Right-click to pan</span>
+    <span style="margin: 0 12px; color: var(--border)">|</span>
+    <span id="footer-status">Ready</span>
+  </footer>
+
+</div>
+
+<div id="toast"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { CartoonAvatarStudio } from '../src/core/v3/CartoonAvatarStudio.js';
+
+let studio;
+let autoRotate = true;
+let currentAvatarType = 'humanoid';
+
+// ── Data ──────────────────────────────────────────────────────────────────────
+
+const SKIN_TONES = [
+  '#fde8d0','#f4c5a0','#e8a87c','#d4845a','#c06840','#a04828','#7a3018','#4a1808',
+  '#fce0d0','#f0b8a0','#e09070','#c87850','#a85838','#885030','#603820','#402010',
+];
+const EYE_COLORS = [
+  '#4a90d9','#2a5a8a','#6aaa40','#2a7a20','#d4820a','#8a4010','#808080','#404040',
+  '#c84040','#9040c0','#40c0a0','#c0a040','#4040c0','#c04080','#80c040','#404040',
+];
+const HAIR_STYLES = [
+  { id: 'longWavy',    label: 'Long Wavy'  },
+  { id: 'shortCrop',   label: 'Short Crop' },
+  { id: 'afro',        label: 'Afro'       },
+  { id: 'highPonytail',label: 'Ponytail'   },
+  { id: 'cornrows',    label: 'Cornrows'   },
+  { id: 'mohawk',      label: 'Mohawk'     },
+  { id: 'bun',         label: 'Bun'        },
+  { id: 'dreadlocks',  label: 'Dreads'     },
+  { id: 'slickedBack', label: 'Slicked'    },
+  { id: 'curlyMedium', label: 'Curly'      },
+  { id: 'buzzCut',     label: 'Buzz Cut'   },
+  { id: 'twinBuns',    label: 'Twin Buns'  },
+];
+const WARDROBE = {
+  shirts:   [
+    { id: 'jersey',     label: 'Jersey',     icon: '⭐', colors: ['#1a2a6c','#c80000','#006600','#222222'] },
+    { id: 'tshirt',     label: 'T-Shirt',    icon: '👕', colors: ['#ffffff','#111111','#c80000','#1a2a6c'] },
+    { id: 'hoodie',     label: 'Hoodie',     icon: '🧥', colors: ['#444444','#1a2a6c','#c80000','#006600'] },
+    { id: 'cropTop',    label: 'Crop Top',   icon: '✂️', colors: ['#ffffff','#c80000','#ff69b4','#1a2a6c'] },
+    { id: 'turtleneck', label: 'Turtleneck', icon: '🔵', colors: ['#111111','#ffffff','#c80000','#1a2a6c'] },
+  ],
+  jackets:  [
+    { id: 'bomber', label: 'Bomber', icon: '🧥', colors: ['#1a2a6c','#111111','#c80000','#006600'] },
+    { id: 'denim',  label: 'Denim',  icon: '👖', colors: ['#4a6a9c','#2a3a6c','#6a8aac','#1a2a4c'] },
+  ],
+  bottoms:  [
+    { id: 'shorts', label: 'Shorts', icon: '🩳', colors: ['#1a2a6c','#111111','#c80000','#006600'] },
+    { id: 'pants',  label: 'Pants',  icon: '👖', colors: ['#111111','#1a2a6c','#444444','#c80000'] },
+  ],
+  socks:    [
+    { id: 'kneeHigh', label: 'Knee-High', icon: '🧦', colors: ['#1a2a6c','#ffffff','#c80000','#111111'] },
+    { id: 'ankle',    label: 'Ankle',     icon: '🧦', colors: ['#ffffff','#111111','#c80000','#1a2a6c'] },
+  ],
+  footwear: [
+    { id: 'chunkyBoots', label: 'Chunky Boots', icon: '👢', colors: ['#0a0a1a','#c80000','#1a2a6c','#444444'] },
+    { id: 'sneakers',    label: 'Sneakers',     icon: '👟', colors: ['#ffffff','#111111','#c80000','#1a2a6c'] },
+    { id: 'heels',       label: 'Heels',        icon: '👠', colors: ['#c80000','#111111','#c8a800','#ff69b4'] },
+  ],
+};
+const ACCENT_COLORS = ['#c8a800','#ffffff','#ff4444','#44ff88','#4488ff','#ff44ff'];
+
+// Chibi data
+const CHIBI_BODY_COLORS = [
+  '#e85a10','#ff3366','#ff9900','#ffcc00','#44cc44','#0088ff',
+  '#8844ff','#ff44cc','#22dddd','#ffffff','#888888','#222222',
+  '#8B4513','#cc6600','#006633','#003366',
+];
+const CHIBI_EYE_COLORS = [
+  '#111111','#1a1a4a','#004400','#440000','#000044',
+  '#2244aa','#aa2244','#224422','#442222',
+];
+const CHIBI_HATS = [
+  { id: 'none',         label: 'None'       },
+  { id: 'baseballCap',  label: 'Cap'        },
+  { id: 'beanie',       label: 'Beanie'     },
+  { id: 'topHat',       label: 'Top Hat'    },
+  { id: 'propellerHat', label: 'Propeller'  },
+  { id: 'crownHat',     label: 'Crown'      },
+  { id: 'witchHat',     label: 'Witch'      },
+  { id: 'halo',         label: 'Halo'       },
+  { id: 'bunnyEars',    label: 'Bunny Ears' },
+];
+const CHIBI_GLASSES = [
+  { id: 'none',              label: 'None'    },
+  { id: 'roundGlasses',      label: 'Round'   },
+  { id: 'heartGlasses',      label: 'Heart'   },
+  { id: 'starGlasses',       label: 'Star'    },
+  { id: 'aviatorSunglasses', label: 'Aviator' },
+];
+const CHIBI_NECKLACES = [
+  { id: 'none',       label: 'None'     },
+  { id: 'chain',      label: 'Chain'    },
+  { id: 'pendant',    label: 'Pendant'  },
+  { id: 'beads',      label: 'Beads'    },
+  { id: 'bowtie',     label: 'Bow Tie'  },
+];
+
+let selectedChibiHat      = 'none';
+let selectedChibiGlasses  = 'none';
+let selectedChibiNecklace = 'none';
+
+// ── Build UI grids ────────────────────────────────────────────────────────────
+
+function buildSwatchGrid(containerId, colors, onSelect, customInputId) {
+  const grid = document.getElementById(containerId);
+  colors.forEach((hex, i) => {
+    const sw = document.createElement('div');
+    sw.className = 'skin-swatch' + (i === 0 ? ' active' : '');
+    sw.style.background = hex;
+    sw.title = hex;
+    sw.onclick = () => {
+      grid.querySelectorAll('.skin-swatch').forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+      if (customInputId) document.getElementById(customInputId).value = hex;
+      onSelect(hex);
+    };
+    grid.appendChild(sw);
+  });
+}
+
+function buildStyleGrid(containerId, items, onSelect) {
+  const grid = document.getElementById(containerId);
+  items.forEach((item, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'style-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = item.label;
+    btn.title = item.label;
+    btn.onclick = () => {
+      grid.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onSelect(item.id);
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function buildWardrobeList(slot, items, containerId) {
+  const container = document.getElementById(containerId);
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'clothing-item' + (i === 0 ? ' active' : '');
+    div.id = `item-${slot}-${item.id}`;
+    const icon = document.createElement('div');
+    icon.className = 'clothing-icon';
+    icon.textContent = item.icon;
+    const name = document.createElement('div');
+    name.className = 'clothing-name';
+    name.textContent = item.label;
+    const colors = document.createElement('div');
+    colors.className = 'clothing-colors';
+    item.colors.forEach((c, ci) => {
+      const dot = document.createElement('div');
+      dot.className = 'clothing-color-dot';
+      dot.style.background = c;
+      dot.title = c;
+      dot.onclick = (e) => {
+        e.stopPropagation();
+        equipItem(slot, item.id, c, ACCENT_COLORS[ci % ACCENT_COLORS.length]);
+        document.querySelectorAll(`.clothing-item[id^="item-${slot}-"]`).forEach(el => el.classList.remove('active'));
+        div.classList.add('active');
+      };
+      colors.appendChild(dot);
+    });
+    div.appendChild(icon); div.appendChild(name); div.appendChild(colors);
+    div.onclick = () => {
+      document.querySelectorAll(`.clothing-item[id^="item-${slot}-"]`).forEach(el => el.classList.remove('active'));
+      div.classList.add('active');
+      equipItem(slot, item.id, item.colors[0], ACCENT_COLORS[0]);
+    };
+    container.appendChild(div);
+  });
+}
+
+// ── Avatar type switcher ──────────────────────────────────────────────────────
+
+window.switchAvatarType = (type) => {
+  if (type === currentAvatarType) return;
+  currentAvatarType = type;
+  studio?.setAvatarType(type);
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`type-${type}`).classList.add('active');
+  const isHumanoid = type === 'humanoid';
+  document.getElementById('humanoid-left-panel').style.display  = isHumanoid ? '' : 'none';
+  document.getElementById('chibi-left-panel').style.display     = isHumanoid ? 'none' : 'flex';
+  document.getElementById('humanoid-right-panel').style.display = isHumanoid ? '' : 'none';
+  document.getElementById('chibi-right-panel').style.display    = isHumanoid ? 'none' : 'flex';
+  document.getElementById('humanoid-views').style.display       = isHumanoid ? '' : 'none';
+  showToast(isHumanoid ? '🧍 Humanoid Avatar' : '🐾 Chibi Creature Avatar');
+};
+
+// ── Chibi API wrappers ────────────────────────────────────────────────────────
+
+window.setChibiColor  = (hex) => studio?.setChibiBodyColor(hex);
+window.setChibiEye    = (hex) => studio?.setChibiEyeColor(hex);
+window.setChibiChubby = (v)   => studio?.setChibiChubby(v);
+
+window.setChibiEar = (style, btn) => {
+  document.querySelectorAll('#chibi-ear-grid .shape-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  studio?.setChibiEarStyle(style);
+};
+
+window.setChibiTail = (v, btn) => {
+  document.getElementById('chibi-tail-on').classList.toggle('active', v === true);
+  document.getElementById('chibi-tail-off').classList.toggle('active', v === false);
+  studio?.setChibiHasTail(v);
+};
+
+window.setChibiBelly = (v, btn) => {
+  document.getElementById('chibi-belly-on').classList.toggle('active', v === true);
+  document.getElementById('chibi-belly-off').classList.toggle('active', v === false);
+  studio?.setChibiShowBelly(v);
+};
+
+window.updateChibiHat = () => {
+  const color  = document.getElementById('chibi-hat-color').value;
+  const accent = document.getElementById('chibi-hat-accent').value;
+  studio?.equipChibiHat(selectedChibiHat, color, accent);
+};
+window.updateChibiGlasses = () => {
+  const frame = document.getElementById('chibi-glasses-frame').value;
+  const lens  = document.getElementById('chibi-glasses-lens').value;
+  studio?.equipChibiGlasses(selectedChibiGlasses, frame, lens);
+};
+window.updateChibiNecklace = () => {
+  const color = document.getElementById('chibi-necklace-color').value;
+  studio?.equipChibiNecklace(selectedChibiNecklace, color);
+};
+
+// ── Humanoid API wrappers ─────────────────────────────────────────────────────
+
+window.setSkin      = (hex)   => studio?.setSkinTone(hex);
+window.setEye       = (hex)   => studio?.setEyeColor(hex);
+window.setHairColor = (hex)   => studio?.setHairColor(hex);
+window.setHairStyle = (style) => studio?.setHairStyle(style);
+window.setShape     = (shape) => {
+  document.querySelectorAll('#humanoid-left-panel .shape-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  studio?.setBodyShape(shape);
+};
+window.setMuscle = (v) => studio?.setMuscleTone(v);
+window.setGender = (g) => studio?.setGender(g);
+window.setHeight = (m) => studio?.setHeight(m);
+window.equipItem = (slot, style, color, accent) => studio?.equipItem(slot, style, color, accent);
+
+window.setView = (view) => {
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  studio?.setCameraView(view);
+};
+window.toggleRotate = () => {
+  autoRotate = !autoRotate;
+  studio?.setAutoRotate(autoRotate);
+  document.getElementById('rotate-toggle').textContent = `⟳ Auto-Rotate: ${autoRotate ? 'ON' : 'OFF'}`;
+};
+window.showTab = (tab) => {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+};
+
+window.saveAvatar = () => {
+  if (!studio) return;
+  const cfg = studio.exportConfig();
+  const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'my-avatar.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Avatar saved!');
+};
+window.loadAvatar = () => {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try { studio?.importConfig(JSON.parse(ev.target.result)); showToast('Avatar loaded!'); }
+      catch { showToast('Invalid avatar file'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+};
+
+window.randomize = () => {
+  if (!studio) return;
+  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const randHex = () => '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+  if (currentAvatarType === 'humanoid') {
+    studio.setSkinTone(rand(SKIN_TONES));
+    studio.setEyeColor(rand(EYE_COLORS));
+    studio.setHairColor(randHex());
+    studio.setHairStyle(rand(HAIR_STYLES).id);
+    studio.setBodyShape(rand(['slim','average','athletic','heavy','tall','petite']));
+    studio.setMuscleTone(Math.random());
+    studio.setGender(Math.random());
+    const s = rand(WARDROBE.shirts);   studio.equipItem('shirt',   s.id, rand(s.colors), rand(ACCENT_COLORS));
+    const b = rand(WARDROBE.bottoms);  studio.equipItem('bottom',  b.id, rand(b.colors), rand(ACCENT_COLORS));
+    const f = rand(WARDROBE.footwear); studio.equipItem('footwear',f.id, rand(f.colors), rand(ACCENT_COLORS));
+  } else {
+    studio.setChibiBodyColor(rand(CHIBI_BODY_COLORS));
+    studio.setChibiEyeColor(rand(CHIBI_EYE_COLORS));
+    studio.setChibiEarStyle(rand(['bear','round','pointed','cat','bunny','none']));
+    studio.setChibiHasTail(Math.random() > 0.4);
+    studio.setChibiChubby(0.4 + Math.random() * 0.5);
+    studio.equipChibiHat(rand(CHIBI_HATS).id, randHex(), randHex());
+  }
+  showToast('Randomized!');
+};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+buildSwatchGrid('skin-grid',        SKIN_TONES,        setSkin,       'skin-custom');
+buildSwatchGrid('eye-grid',         EYE_COLORS,        setEye,        'eye-custom');
+buildSwatchGrid('chibi-color-grid', CHIBI_BODY_COLORS, setChibiColor, 'chibi-color-custom');
+buildSwatchGrid('chibi-eye-grid',   CHIBI_EYE_COLORS,  setChibiEye,   'chibi-eye-custom');
+
+buildStyleGrid('hair-style-grid',    HAIR_STYLES,     (id) => studio?.setHairStyle(id));
+buildStyleGrid('chibi-hat-grid',     CHIBI_HATS,      (id) => { selectedChibiHat = id; updateChibiHat(); });
+buildStyleGrid('chibi-glasses-grid', CHIBI_GLASSES,   (id) => { selectedChibiGlasses = id; updateChibiGlasses(); });
+buildStyleGrid('chibi-necklace-grid',CHIBI_NECKLACES, (id) => { selectedChibiNecklace = id; updateChibiNecklace(); });
+
+buildWardrobeList('shirt',    WARDROBE.shirts,    'shirt-list');
+buildWardrobeList('jacket',   WARDROBE.jackets,   'jacket-list');
+buildWardrobeList('bottom',   WARDROBE.bottoms,   'bottom-list');
+buildWardrobeList('socks',    WARDROBE.socks,     'sock-list');
+buildWardrobeList('footwear', WARDROBE.footwear,  'footwear-list');
+
+setTimeout(() => {
+  const wrap = document.getElementById('canvas-wrap');
+  studio = new CartoonAvatarStudio(wrap);
+  studio.onChange(({ type }) => {
+    document.getElementById('footer-status').textContent = `Updated: ${type}`;
+  });
+  document.getElementById('loading').style.display = 'none';
+}, 200);
+</script>
+</body>
+</html>

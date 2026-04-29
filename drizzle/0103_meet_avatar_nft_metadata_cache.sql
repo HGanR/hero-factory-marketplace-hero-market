@@ -1,0 +1,25 @@
+-- Meet avatar NFT metadata cache (Phase 2): resolved metadata only; ownership stays live.
+CREATE TABLE IF NOT EXISTS `meet_avatar_nft_metadata_cache` (
+  `id` varchar(36) NOT NULL,
+  `chain_id` int NOT NULL,
+  `contract_address` varchar(66) NOT NULL,
+  `token_id` varchar(255) NOT NULL,
+  `source` varchar(32) NOT NULL,
+  `metadata_url` text,
+  `name` text,
+  `image` text,
+  `animation_url` text,
+  `external_url` text,
+  `description` text,
+  `raw_metadata_json` json,
+  `fetch_status` varchar(24) NOT NULL,
+  `fetch_error` text,
+  `fetched_at` datetime NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `meet_avatar_nft_metadata_cache_uk` (`chain_id`, `contract_address`, `token_id`, `source`),
+  KEY `meet_avatar_nft_metadata_cache_expires` (`expires_at`),
+  KEY `meet_avatar_nft_metadata_cache_status` (`fetch_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

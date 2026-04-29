@@ -1,0 +1,521 @@
+"use client";
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as THREE from "three";
+import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, TransformControls } from "@react-three/drei";
+
+// import { createEnterableBuildingRoot } from "@/lib/modeling/buildingTemplate";
+// import { validateEnterable } from "@/lib/modeling/enterableValidator";
+// import { exportGLB, vec3ToOasis } from "@/lib/modeling/exportGlb";
+// import { createMeshFromObject, OBJECT_PRESETS, type ParametricObject, type ObjectType } from "@/lib/modeling/parametric-objects";
+// import { subtractMeshes, validateMeshForBoolean } from "@/lib/modeling/boolean-operations";
+// import type { BuildingManifestV1, PrefabInstance } from "@/lib/modeling/manifest";
+// import { EditorToolbar, type EditorMode } from "@/components/modeling/EditorToolbar";
+
+type EditMode = 'exterior' | 'interior';
+// import { PropertiesPanel } from "@/components/modeling/PropertiesPanel";
+// import { PublishPanel } from "@/components/modeling/PublishPanel";
+
+type OasisElement = { id: string; name: string; categoryId?: string; assetUri?: string };
+
+function findByName(root: THREE.Object3D, name: string) {
+  let found: THREE.Object3D | null = null;
+  root.traverse((o) => { if (o.name === name) found = o; });
+  return found;
+}
+
+function findPath(root: THREE.Object3D, path: string) {
+  const parts = path.split("/");
+  let cur: THREE.Object3D | undefined = root;
+  for (const p of parts) {
+    cur = cur?.children.find((c) => c.name === p);
+    if (!cur) return null;
+  }
+  return cur;
+}
+
+function ensureGroup(root: THREE.Object3D, name: string) {
+  const existing = root.children.find((c) => c.name === name);
+  if (existing) return existing;
+  const g = new THREE.Group(); g.name = name;
+  root.add(g);
+  return g;
+}
+
+function EditorScene(props: {
+  root: THREE.Group;
+  mode: EditorMode;
+  interiorMode: boolean;
+  setSelected: (o: THREE.Object3D | null) => void;
+  selected: THREE.Object3D | null;
+  prefabs: OasisElement[];
+  activePrefabId: string | null;
+  setActivePrefabId: (id: string | null) => void;
+  prefabInstances: PrefabInstance[];
+  setPrefabInstances: (next: PrefabInstance[]) => void;
+}) {
+  const { camera, gl } = useThree();
+  const { root, mode, editMode === 'interior', selected, setSelected } = props;
+
+  const orbit = useRef<any>(null);
+  const transform = useRef<any>(null);
+
+  // Camera + visibility behavior for interior mode
+  useEffect(() => {
+    const exterior = findByName(root, "Exterior") as THREE.Object3D | null;
+    const interior = findByName(root, "Interior") as THREE.Object3D | null;
+
+    if (exterior && interior) {
+      if (editMode === 'interior') {
+        // Ghost exterior, show interior
+        exterior.traverse((o) => {
+          const m = (o as any).material as THREE.Material | undefined;
+          if (m && "opacity" in m) {
+            (m as any).transparent = true;
+            (m as any).opacity = 0.25;
+          }
+        });
+        interior.visible = true;
+
+        // Move camera inside
+        camera.position.set(0, 2.5, 2.5);
+        camera.lookAt(0, 1.5, 0);
+      } else {
+        // Restore exterior opacity (simple reset)
+        exterior.traverse((o) => {
+          const m = (o as any).material as THREE.Material | undefined;
+          if (m && "opacity" in m) {
+            (m as any).transparent = false;
+            (m as any).opacity = 1.0;
+          }
+        });
+        interior.visible = true;
+        camera.position.set(12, 10, 12);
+        camera.lookAt(0, 2, 0);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode === 'interior']);
+
+  // Disable orbit controls while transforming
+  useEffect(() => {
+    const tc = transform.current;
+    if (!tc) return;
+    const cb = (e: any) => { if (orbit.current) orbit.current.enabled = !e.value; };
+    tc.addEventListener("dragging-changed", cb);
+    return () => tc.removeEventListener("dragging-changed", cb);
+  }, []);
+
+  // TransformControls mode
+  useEffect(() => {
+    const tc = transform.current;
+    if (!tc) return;
+    const map: Record<EditorMode, "translate" | "rotate" | "scale"> = {
+      select: "translate",
+      move: "translate",
+      rotate: "rotate",
+      scale: "scale",
+      placePrefab: "translate",
+      addTrigger: "translate",
+    };
+    tc.setMode(map[mode] ?? "translate");
+  }, [mode]);
+
+  function onPointerDown(e: ThreeEvent<PointerEvent>) {
+    e.stopPropagation();
+
+    // Place parametric objects
+    if (mode === "placePrefab" && props.activePrefabId) {
+      const hit = e.point;
+      const id = `prefab_${crypto.randomUUID()}`;
+      const inst: PrefabInstance = {
+        id,
+        elementId: props.activePrefabId,
+        transform: {
+          position: { x: hit.x, y: hit.y, z: hit.z },
+          rotation: { x: 0, y: 0, z: 0 },
+          scale: { x: 1, y: 1, z: 1 },
+        },
+        parentGroup: editMode === 'interior' ? "Interior" : "Exterior",
+      };
+      props.setPrefabInstances([...props.prefabInstances, inst]);
+      return;
+    }
+
+    // Add parametric objects (walls, windows, doors)
+    if (mode === "select") {
+      // For now, just handle selection
+    }
+
+    // Add trigger mode
+    if (mode === "addTrigger") {
+      const colliders = ensureGroup(root, "Colliders");
+      const trig = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 2, 2),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      trig.name = `EntryTrigger_${colliders.children.filter((c: THREE.Object3D) => c.name.startsWith("EntryTrigger_")).length + 1}`;
+      trig.position.copy(e.point);
+      trig.position.y = Math.max(1, trig.position.y);
+      colliders.add(trig);
+      setSelected(trig);
+      return;
+    }
+
+    // Selection
+    const obj = e.object;
+    setSelected(obj);
+  }
+
+  return (
+    <>
+      <primitive object={root} onPointerDown={onPointerDown} />
+
+      {/* basic lights */}
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[10, 20, 10]} intensity={0.8} />
+
+      <gridHelper args={[100, 100]} />
+
+      <OrbitControls ref={orbit} makeDefault enableDamping dampingFactor={0.08} />
+
+      {selected ? (
+        <TransformControls
+          ref={transform}
+          object={selected}
+          enabled={mode === "move" || mode === "rotate" || mode === "scale"}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export default function ModelingCanvas() {
+  const [root, setRoot] = useState<THREE.Group>(() => createEnterableBuildingRoot());
+  const [mode, setMode] = useState<EditorMode>("select");
+  const [editMode, setEditMode] = useState<EditMode>('exterior');
+  const [selected, setSelected] = useState<THREE.Object3D | null>(null);
+
+  const [prefabs, setPrefabs] = useState<OasisElement[]>([]);
+  const [activePrefabId, setActivePrefabId] = useState<string | null>(null);
+  const [prefabInstances, setPrefabInstances] = useState<PrefabInstance[]>([]);
+
+  const validation = useMemo(() => validateEnterable(root), [root, selected, prefabInstances, editMode]);
+
+  async function loadPrefabs(categoryId?: string) {
+    // You can point this to your existing elements endpoint. This is a safe default.
+    const url = categoryId ? `/api/admin/oasis/elements?categoryId=${encodeURIComponent(categoryId)}` : `/api/admin/oasis/elements`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to load prefabs");
+    const json = await res.json();
+    const items = (json.elements ?? json.data ?? []) as OasisElement[];
+    setPrefabs(items);
+
+    // Auto-select first prefab for placement convenience
+    if (items[0]?.id) setActivePrefabId(items[0].id);
+  }
+
+  function resetTemplate() {
+    setSelected(null);
+    setPrefabInstances([]);
+    setActivePrefabId(null);
+    setPrefabs([]);
+    setRoot(createEnterableBuildingRoot());
+    setEditMode('exterior');
+    setMode("select");
+  }
+
+  function buildManifest(args: { name: string; categoryId: string; glbUri: string }): BuildingManifestV1 {
+    const spawns = findPath(root, "Spawns");
+    const exteriorSpawn = spawns?.children.find((c) => c.name === "ExteriorSpawn") ?? null;
+    const interiorSpawn = spawns?.children.find((c) => c.name === "InteriorSpawn") ?? null;
+
+    const collidersGroup = findPath(root, "Colliders");
+    const colliders: BuildingManifestV1["colliders"] = [];
+
+    collidersGroup?.children.forEach((c) => {
+      if (!(c instanceof THREE.Mesh)) return;
+      const geo = (c as THREE.Mesh).geometry;
+      if (geo instanceof THREE.BoxGeometry) {
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox!;
+        const size = new THREE.Vector3();
+        bb.getSize(size);
+        colliders.push({
+          id: c.name,
+          kind: "box",
+          center: vec3ToOasis(c.getWorldPosition(new THREE.Vector3())),
+          size: { x: size.x, y: size.y, z: size.z },
+          tag: c.name.startsWith("EntryTrigger_") ? "entry" : c.name.startsWith("DoorTrigger_") ? "door" : "building",
+        });
+      }
+    });
+
+    const manifest: BuildingManifestV1 = {
+      schemaVersion: 1,
+      asset: { name: args.name, categoryId: args.categoryId, glbUri: args.glbUri },
+      contract: { enterable: true },
+      spawns: {
+        exterior: exteriorSpawn ? vec3ToOasis(exteriorSpawn.getWorldPosition(new THREE.Vector3())) : { x: 0, y: 0, z: 7 },
+        interior: interiorSpawn ? vec3ToOasis(interiorSpawn.getWorldPosition(new THREE.Vector3())) : { x: 0, y: 0, z: 0 },
+      },
+      colliders,
+      interactables: [
+        // Minimal example: treat Door_1 as an interactable door (runtime will honor it)
+        {
+          id: "door_1",
+          type: "Door",
+          nodeName: "Door_1",
+          colliderId: "DoorTrigger_1",
+          config: { behavior: "portalOrAnimate" },
+          persistence: { scope: "instance", key: "door_1_state" },
+        },
+      ],
+      prefabs: prefabInstances,
+    };
+
+    return manifest;
+  }
+
+  async function publish({ name, categoryId }: { name: string; categoryId: string }) {
+    if (!validation.ok) throw new Error("Enterable contract not satisfied. Fix blockers before publishing.");
+
+    // Export GLB
+    const glbBlob = await exportGLB(root);
+
+    // Upload GLB first (manifest needs glbUri)
+    // We upload GLB + a temporary manifest stub first; then re-upload manifest with glbUri.
+    // Simpler: upload both after generating manifest with placeholder, then patch manifestUri is acceptable for MVP.
+    // We do correct: generate stub -> upload -> rebuild manifest with returned glbUri -> upload manifest again.
+    const stubManifest = new Blob([JSON.stringify({ schemaVersion: 1 })], { type: "application/json" });
+    const form1 = new FormData();
+    form1.append("glb", new File([glbBlob], `${name}.glb`, { type: "model/gltf-binary" }));
+    form1.append("manifest", new File([stubManifest], `${name}.manifest.json`, { type: "application/json" }));
+
+    const up1 = await fetch("/api/admin/oasis/models/upload", { method: "POST", body: form1 });
+    if (!up1.ok) throw new Error("Upload failed");
+    const upJson = await up1.json();
+    if (!upJson.ok) throw new Error(upJson.error ?? "Upload failed");
+
+    const glbUri = upJson.glbUri as string;
+    const manifest = buildManifest({ name, categoryId, glbUri });
+    const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" });
+
+    // Re-upload manifest so manifestUri corresponds to this asset id; easiest is to upload both again
+    const form2 = new FormData();
+    form2.append("glb", new File([glbBlob], `${name}.glb`, { type: "model/gltf-binary" }));
+    form2.append("manifest", new File([manifestBlob], `${name}.manifest.json`, { type: "application/json" }));
+
+    const up2 = await fetch("/api/admin/oasis/models/upload", { method: "POST", body: form2 });
+    if (!up2.ok) throw new Error("Upload failed");
+    const upJson2 = await up2.json();
+    if (!upJson2.ok) throw new Error(upJson2.error ?? "Upload failed");
+
+    const finalGlbUri = upJson2.glbUri as string;
+    const manifestUri = upJson2.manifestUri as string;
+
+    // Register element under existing categories
+    const reg = await fetch("/api/admin/oasis/elements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        categoryId,
+        assetUri: finalGlbUri,
+        manifestUri,
+        assetType: "building",
+        enterable: true,
+      }),
+    });
+    if (!reg.ok) throw new Error("Registering Oasis element failed");
+  }
+
+  const addParametricObject = async (type: ObjectType) => {
+    const preset = OBJECT_PRESETS[type];
+    const newObject: ParametricObject = {
+      id: `parametric_${crypto.randomUUID()}`,
+      type,
+      name: preset.name,
+      parameters: { ...preset.parameters },
+      position: [0, 0, 0],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+      material: { ...preset.material }
+    };
+
+    try {
+      const mesh = await createMeshFromObject(newObject);
+
+      if (editMode === 'interior') {
+        // Add to interior group
+        const interiorGroup = findByName(root, "Interior");
+        if (interiorGroup) {
+          interiorGroup.add(mesh);
+        }
+      } else {
+        // Add to exterior or main scene
+        root.add(mesh);
+      }
+
+      // Select the new object
+      setSelected(mesh);
+    } catch (error) {
+      console.error("Failed to create parametric object:", error);
+    }
+  };
+
+  const applyBooleanCut = () => {
+    if (!selected || mode !== "placePrefab") return;
+
+    // Find all cutter objects (windows/doors) and apply cuts to walls
+    const walls: THREE.Mesh[] = [];
+    const cutters: THREE.Mesh[] = [];
+
+    root.traverse((obj) => {
+      if (obj instanceof THREE.Mesh && obj.name) {
+        if (obj.name.includes("Wall")) {
+          walls.push(obj);
+        } else if (obj.name.includes("Window") || obj.name.includes("Door")) {
+          cutters.push(obj);
+        }
+      }
+    });
+
+    // Apply cuts
+    for (const wall of walls) {
+      for (const cutter of cutters) {
+        const wallValidation = validateMeshForBoolean(wall);
+        const cutterValidation = validateMeshForBoolean(cutter);
+
+        if (wallValidation.valid && cutterValidation.valid) {
+          const resultMesh = subtractMeshes(wall, cutter);
+          // Replace wall in scene
+          wall.parent?.remove(wall);
+          wall.parent?.add(resultMesh);
+          resultMesh.position.copy(wall.position);
+          resultMesh.name = wall.name;
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-12 gap-4">
+      <div className="col-span-12">
+        <EditorToolbar
+          toolMode={mode}
+          onToolModeChange={setMode}
+          editMode={editMode === 'interior'}
+          onEditModeChange={(interior) => setEditMode(interior ? 'interior' : 'exterior')}
+          onResetTemplate={resetTemplate}
+          onAddWall={() => addParametricObject("wall")}
+          onAddWindow={() => addParametricObject("window")}
+          onAddDoor={() => addParametricObject("door")}
+        />
+      </div>
+
+      <div className="col-span-9 h-[70vh] rounded border overflow-hidden">
+        <Canvas camera={{ position: [12, 10, 12], fov: 50 }}>
+          <EditorScene
+            root={root}
+            mode={mode}
+            editMode === 'interior'={editMode === 'interior'}
+            selected={selected}
+            setSelected={setSelected}
+            prefabs={prefabs}
+            activePrefabId={activePrefabId}
+            setActivePrefabId={setActivePrefabId}
+            prefabInstances={prefabInstances}
+            setPrefabInstances={setPrefabInstances}
+          />
+        </Canvas>
+      </div>
+
+      <div className="col-span-3 space-y-4">
+        <div className="rounded border p-3">
+          <PropertiesPanel
+            selectedObject={selected}
+            editMode={editMode === 'interior'}
+          />
+        </div>
+
+        <div className="rounded border p-3">
+          <div className="text-sm font-semibold mb-2">Parametric Objects</div>
+          <div className="text-xs opacity-70 mb-2">
+            Add walls, windows, and doors to your building
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => addParametricObject("wall")}
+              className="px-3 py-2 rounded border text-sm hover:bg-gray-700"
+            >
+              Add Wall
+            </button>
+            <button
+              onClick={() => addParametricObject("window")}
+              className="px-3 py-2 rounded border text-sm hover:bg-gray-700"
+            >
+              Add Window
+            </button>
+            <button
+              onClick={() => addParametricObject("door")}
+              className="px-3 py-2 rounded border text-sm hover:bg-gray-700"
+            >
+              Add Door
+            </button>
+            <button
+              onClick={applyBooleanCut}
+              className="px-3 py-2 rounded border text-sm hover:bg-red-700"
+            >
+              Apply Cuts
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded border p-3">
+          <div className="text-sm font-semibold mb-2">Enterable Readiness</div>
+          <div className={validation.ok ? "text-green-400" : "text-red-400"}>
+            {validation.ok ? "✅ Ready to publish" : "❌ Not publishable"}
+          </div>
+          <div className="mt-2 space-y-1">
+            {validation.checks.map((check, index) => (
+              <div key={index} className="flex items-start gap-2">
+                <span className={check.ok ? "text-green-400" : "text-red-400"}>{check.ok ? "●" : "●"}</span>
+                <span className="opacity-80 text-xs">{check.ok ? check.id : check.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded border p-3">
+          <div className="text-sm font-semibold mb-2">Prefab Placement</div>
+          <div className="text-xs opacity-70 mb-2">
+            Select a prefab, then switch to "Place Prefab" mode and click in the scene.
+          </div>
+          <select
+            className="w-full rounded border bg-transparent px-2 py-2 text-sm"
+            value={activePrefabId ?? ""}
+            onChange={(e) => setActivePrefabId(e.target.value || null)}
+          >
+            <option value="" className="text-black">No prefab selected</option>
+            {prefabs.map((p) => (
+              <option key={p.id} value={p.id} className="text-black">
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="rounded border p-3">
+          <PublishPanel
+            contractOk={validation.ok}
+            onPublish={publish}
+            onLoadPrefabs={loadPrefabs}
+            prefabs={prefabs}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

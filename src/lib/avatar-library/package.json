@@ -1,0 +1,28 @@
+{
+  "name": "avatar-creator-library",
+  "version": "1.0.0",
+  "description": "Comprehensive 3D avatar creation library for web — body, face, hair, clothing, jewelry, footwear, and more.",
+  "type": "module",
+  "main": "src/AvatarCreator.js",
+  "exports": {
+    ".": "./src/AvatarCreator.js",
+    "./css": "./src/ui/avatar-library.css",
+    "./engine": "./src/core/AvatarEngine.js",
+    "./face": "./src/core/FaceBuilder.js",
+    "./registry": "./src/assets/AssetRegistry.js"
+  },
+  "keywords": [
+    "avatar", "3d", "three.js", "character-creator",
+    "customization", "wardrobe", "webgl"
+  ],
+  "peerDependencies": {
+    "three": ">=0.150.0"
+  },
+  "devDependencies": {
+    "three": "^0.160.0"
+  },
+  "scripts": {
+    "demo": "npx serve . --port 3000"
+  },
+  "license": "MIT"
+}
