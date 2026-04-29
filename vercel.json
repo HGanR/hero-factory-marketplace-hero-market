@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "installCommand": "bash scripts/vercel-exec-in-app.sh npm install",
-  "buildCommand": "bash scripts/vercel-exec-in-app.sh npm run build",
-  "devCommand": "bash scripts/vercel-exec-in-app.sh npm run dev"
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev"
 }
