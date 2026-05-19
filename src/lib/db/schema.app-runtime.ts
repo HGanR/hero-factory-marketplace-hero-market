@@ -163,6 +163,16 @@ export const widgetMessages = mysqlTable("widget_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+
+/** Agent plugin / widget turn memory (`agents-ensure.ts`). */
+export const agentConversationSessions = mysqlTable("agent_conversation_sessions", {
+  sessionKey: varchar("sessionKey", { length: 128 }).primaryKey(),
+  agentId: varchar("agentId", { length: 36 }).notNull(),
+  userId: int("userId").notNull(),
+  turnsJson: text("turnsJson").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
 export const developerWebhooks = mysqlTable("developer_webhooks", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: int("userId").notNull(),

@@ -666,4 +666,31 @@ export const skipperPromptOverlays = mysqlTable("skipper_prompt_overlays", {
   approvedAt: timestamp("approvedAt"),
 });
 
+export const oasisNpcSessions = mysqlTable("oasis_npc_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: varchar("sessionId", { length: 128 }).notNull().unique(),
+  npcId: int("npcId").notNull(),
+  npcNpcId: varchar("npcNpcId", { length: 128 }).notNull(),
+  userId: int("userId"),
+  currentTopic: varchar("currentTopic", { length: 255 }),
+  messageCount: int("messageCount").notNull().default(0),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  lastActivity: timestamp("lastActivity").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+  jarvaWorkflowPath: varchar("jarvaWorkflowPath", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const oasisNpcMessages = mysqlTable("oasis_npc_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  role: varchar("role", { length: 16 }).notNull(),
+  content: text("content").notNull(),
+  intent: varchar("intent", { length: 100 }),
+  intentConfidence: int("intentConfidence"),
+  sentiment: varchar("sentiment", { length: 16 }),
+  responseSource: varchar("responseSource", { length: 16 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type InsertOasisNpcRow = typeof oasisNpcs.$inferInsert;

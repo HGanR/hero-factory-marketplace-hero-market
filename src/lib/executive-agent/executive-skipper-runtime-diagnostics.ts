@@ -191,11 +191,16 @@ export async function buildExecutiveSkipperRuntimeDiagnostics(
   const analyticsToolAvailable = analyticsFromTools || Boolean(process.env.OPENAI_API_KEY?.trim());
 
   const agentIdForMemory = voicePick?.agentId ?? preferredRow.id;
-  const [mem] = await db
-    .select({ c: count() })
-    .from(agentConversationSessions)
-    .where(eq(agentConversationSessions.agentId, agentIdForMemory));
-  const memoryAvailable = Number(mem?.c ?? 0) > 0;
+  let memoryAvailable = false;
+  try {
+    const [mem] = await db
+      .select({ c: count() })
+      .from(agentConversationSessions)
+      .where(eq(agentConversationSessions.agentId, agentIdForMemory));
+    memoryAvailable = Number(mem?.c ?? 0) > 0;
+  } catch {
+    /* Table may be absent until agents-ensure / migrations run. */
+  }
 
   const reasons: string[] = [];
   if (!orchestratorLlmConfigured()) {
