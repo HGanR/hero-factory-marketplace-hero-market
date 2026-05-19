@@ -73,7 +73,7 @@ export class VoiceFrequencyAnalyzer {
       this.smoothedRms += (0 - this.smoothedRms) * SMOOTH;
       return { rms: this.smoothedRms, bands: new Uint8Array(0), speaking: false };
     }
-    this.analyser.getByteFrequencyData(this.data);
+    this.analyser.getByteFrequencyData(this.data as Uint8Array<ArrayBuffer>);
     let sum = 0;
     for (let i = 0; i < this.data.length; i++) sum += this.data[i] ?? 0;
     const raw = sum / (this.data.length * 255);
