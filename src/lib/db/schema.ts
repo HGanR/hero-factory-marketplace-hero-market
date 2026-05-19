@@ -5,6 +5,7 @@ import { mysqlEnum, mysqlTable, int, varchar, boolean, timestamp, text, decimal,
 export * from "./schema.app-runtime";
 export * from "./schema.client-portal";
 export * from "./schema.social-runtime";
+export * from "./schema.platform-extras";
 
 export const marketplaceUsers = mysqlTable("marketplace_users", {
   id: int("id").autoincrement().primaryKey(),

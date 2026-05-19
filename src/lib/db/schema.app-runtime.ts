@@ -19,6 +19,8 @@ export const aiAgents = mysqlTable("ai_agents", {
   industriesJson: text("industriesJson"),
   avatarImageUrl: text("avatarImageUrl"),
   avatarAltText: varchar("avatarAltText", { length: 160 }),
+  /** Discriminator for test/widget runtime persona (e.g. executive_admin for SKIPPER). */
+  agentRuntimeType: varchar("agentRuntimeType", { length: 32 }),
   status: varchar("status", { length: 32 }).notNull().default("draft"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -8,6 +8,7 @@ import {
   decimal,
   int,
   json,
+  longtext,
   mysqlEnum,
   mysqlTable,
   text,
@@ -401,7 +402,7 @@ export const oasisNpcs = mysqlTable("oasis_npcs", {
   id: int("id").autoincrement().primaryKey(),
   npcId: varchar("npcId", { length: 128 }).notNull(),
   name: varchar("name", { length: 100 }).notNull(),
-  role: mysqlEnum("role", ["secretary", "avatar", "guide", "voice_agent"]).notNull(),
+  role: mysqlEnum("role", ["secretary", "avatar", "guide", "voice_agent", "executive_admin"]).notNull(),
   title: varchar("title", { length: 200 }),
   avatarEmoji: varchar("avatarEmoji", { length: 16 }).notNull().default("🤖"),
   voiceStyle: mysqlEnum("voiceStyle", ["professional", "friendly", "authoritative", "warm"]).default("friendly"),
@@ -421,6 +422,248 @@ export const oasisNpcs = mysqlTable("oasis_npcs", {
   telegramConnectedAt: timestamp("telegramConnectedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** drizzle/0122_executive_agent_audit_and_approvals.sql */
+export const executiveAgentAuditLogs = mysqlTable("executive_agent_audit_logs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  prompt: text("prompt"),
+  toolName: varchar("toolName", { length: 120 }).notNull(),
+  actionType: varchar("actionType", { length: 64 }).notNull(),
+  targetType: varchar("targetType", { length: 64 }),
+  targetId: varchar("targetId", { length: 191 }),
+  inputJson: text("inputJson"),
+  outputJson: text("outputJson"),
+  approvalStatus: varchar("approvalStatus", { length: 32 }).notNull().default("not_required"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const executiveAgentApprovals = mysqlTable("executive_agent_approvals", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  proposedAction: varchar("proposedAction", { length: 120 }).notNull(),
+  targetType: varchar("targetType", { length: 64 }),
+  targetId: varchar("targetId", { length: 191 }),
+  payloadJson: text("payloadJson").notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected", "executed", "failed"]).notNull().default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  executedAt: timestamp("executedAt"),
+});
+
+/** drizzle/0123_executive_agent_voice.sql — text + JSON only; no audio blobs. */
+export const executiveAgentVoiceSessions = mysqlTable("executive_agent_voice_sessions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  provider: varchar("provider", { length: 32 }).notNull(),
+  status: mysqlEnum("status", ["active", "ended"]).notNull().default("active"),
+  inputMode: varchar("inputMode", { length: 32 }).notNull(),
+  outputMode: varchar("outputMode", { length: 32 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  clientConfigJson: text("clientConfigJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+});
+
+export const executiveAgentVoiceTurns = mysqlTable("executive_agent_voice_turns", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  sessionId: varchar("sessionId", { length: 36 }).notNull(),
+  adminUserId: int("adminUserId").notNull(),
+  transcriptText: text("transcriptText").notNull(),
+  responseText: text("responseText").notNull(),
+  plannerMetaJson: text("plannerMetaJson"),
+  proposedApprovalsCount: int("proposedApprovalsCount").notNull().default(0),
+  orchestratorSource: varchar("orchestratorSource", { length: 24 }).notNull().default("voice"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const EXECUTIVE_MEMORY_TYPES = [
+  "preference",
+  "client_priority",
+  "recurring_issue",
+  "agent_pattern",
+  "system_note",
+  "decision",
+] as const;
+
+export const EXECUTIVE_MEMORY_SOURCES = ["chat", "voice", "approval", "system"] as const;
+
+/** drizzle/0124_executive_agent_memory_briefing.sql */
+export const executiveAgentMemoryItems = mysqlTable("executive_agent_memory_items", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  memoryType: mysqlEnum("memoryType", EXECUTIVE_MEMORY_TYPES).notNull(),
+  subjectType: varchar("subjectType", { length: 64 }),
+  subjectId: varchar("subjectId", { length: 191 }),
+  title: varchar("title", { length: 500 }).notNull(),
+  summary: text("summary").notNull(),
+  source: mysqlEnum("source", EXECUTIVE_MEMORY_SOURCES).notNull(),
+  confidence: decimal("confidence", { precision: 5, scale: 4 }).notNull().default("0.8000"),
+  expiresAt: timestamp("expiresAt"),
+  archivedAt: timestamp("archivedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const executiveAgentBriefings = mysqlTable("executive_agent_briefings", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  briefingDate: varchar("briefingDate", { length: 10 }).notNull(),
+  summaryJson: text("summaryJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const EXECUTIVE_ROUTINE_TYPES = [
+  "daily_briefing",
+  "stale_client_scan",
+  "pending_account_scan",
+  "bentley_readiness_scan",
+  "approval_digest",
+  "skipper_learning_digest",
+] as const;
+
+export const EXECUTIVE_ROUTINE_CADENCES = ["daily", "hourly", "weekly"] as const;
+
+/** drizzle/0125_executive_agent_routines.sql */
+export const executiveAgentRoutines = mysqlTable("executive_agent_routines", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  routineType: mysqlEnum("routineType", EXECUTIVE_ROUTINE_TYPES).notNull(),
+  cadence: mysqlEnum("cadence", EXECUTIVE_ROUTINE_CADENCES).notNull().default("daily"),
+  enabled: boolean("enabled").notNull().default(true),
+  configJson: text("configJson").notNull(),
+  lastRunAt: timestamp("lastRunAt"),
+  nextRunAt: timestamp("nextRunAt").notNull(),
+  lastOutputJson: text("lastOutputJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** drizzle/0126_executive_analytics_knowledge_inbox.sql */
+export const SITE_ANALYTICS_EVENT_TYPES = [
+  "page_view",
+  "button_click",
+  "conversion_intent",
+  "outbound_paypal",
+  "agent_interaction",
+] as const;
+
+export const siteAnalyticsEvents = mysqlTable("site_analytics_events", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull(),
+  visitorId: varchar("visitorId", { length: 64 }).notNull(),
+  path: varchar("path", { length: 512 }).notNull(),
+  eventType: mysqlEnum("eventType", SITE_ANALYTICS_EVENT_TYPES).notNull(),
+  source: varchar("source", { length: 64 }).notNull().default(""),
+  medium: varchar("medium", { length: 64 }).notNull().default(""),
+  campaign: varchar("campaign", { length: 128 }).notNull().default(""),
+  referrer: text("referrer"),
+  userAgent: text("userAgent"),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const EXECUTIVE_QUESTION_SOURCES = ["chat", "voice"] as const;
+
+export const executiveAgentQuestionHistory = mysqlTable("executive_agent_question_history", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  source: mysqlEnum("source", EXECUTIVE_QUESTION_SOURCES).notNull(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  selectedAgentsJson: text("selectedAgentsJson"),
+  selectedTimeRange: varchar("selectedTimeRange", { length: 32 }),
+  dashboardMode: varchar("dashboardMode", { length: 64 }),
+  plannerMetaJson: text("plannerMetaJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const EXECUTIVE_KNOWLEDGE_SOURCE_TYPES = ["note", "url", "upload", "crawl"] as const;
+
+export const executiveAgentKnowledgeDocuments = mysqlTable("executive_agent_knowledge_documents", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  sourceType: mysqlEnum("sourceType", EXECUTIVE_KNOWLEDGE_SOURCE_TYPES).notNull(),
+  sourceUrl: text("sourceUrl"),
+  contentText: longtext("contentText").notNull(),
+  summary: text("summary"),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const EXECUTIVE_DEPARTMENT_MESSAGE_KINDS = ["user_to_executive", "executive_to_user", "executive_broadcast"] as const;
+
+export const executiveDepartmentMessages = mysqlTable("executive_department_messages", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  kind: mysqlEnum("kind", EXECUTIVE_DEPARTMENT_MESSAGE_KINDS).notNull(),
+  fromAdminUserId: int("fromAdminUserId"),
+  fromMarketplaceUserId: int("fromMarketplaceUserId"),
+  toMarketplaceUserId: int("toMarketplaceUserId"),
+  bodyText: text("bodyText").notNull(),
+  metadataJson: text("metadataJson"),
+  /** JSON array of ExecutiveInboxAttachment (see executive-inbox-attachments.ts) */
+  attachmentsJson: text("attachmentsJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+/** drizzle/0127_skipper_controlled_learning.sql */
+export const skipperLearningEvents = mysqlTable("skipper_learning_events", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  eventType: varchar("eventType", { length: 64 }).notNull(),
+  source: varchar("source", { length: 32 }).notNull().default("chat"),
+  payloadJson: text("payloadJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const skipperLearningSummaries = mysqlTable("skipper_learning_summaries", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  windowStart: timestamp("windowStart").notNull(),
+  windowEnd: timestamp("windowEnd").notNull(),
+  compressedJson: text("compressedJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const SKIPPER_IMPROVEMENT_SUGGESTION_STATUSES = ["pending", "approved", "rejected"] as const;
+
+export const skipperPromptImprovementSuggestions = mysqlTable("skipper_prompt_improvement_suggestions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  summaryId: varchar("summaryId", { length: 36 }).notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  rationale: text("rationale").notNull(),
+  proposedOverlayContent: text("proposedOverlayContent").notNull(),
+  status: mysqlEnum("status", SKIPPER_IMPROVEMENT_SUGGESTION_STATUSES).notNull().default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+});
+
+export const skipperCapabilitySuggestions = mysqlTable("skipper_capability_suggestions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  summaryId: varchar("summaryId", { length: 36 }).notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description").notNull(),
+  suggestedFlagKey: varchar("suggestedFlagKey", { length: 120 }),
+  status: mysqlEnum("status", SKIPPER_IMPROVEMENT_SUGGESTION_STATUSES).notNull().default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+});
+
+export const SKIPPER_PROMPT_OVERLAY_STATUSES = ["pending", "approved", "rejected", "active", "archived"] as const;
+
+export const skipperPromptOverlays = mysqlTable("skipper_prompt_overlays", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  content: text("content").notNull(),
+  status: mysqlEnum("status", SKIPPER_PROMPT_OVERLAY_STATUSES).notNull().default("pending"),
+  sourceSummaryId: varchar("sourceSummaryId", { length: 36 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  approvedAt: timestamp("approvedAt"),
 });
 
 export type InsertOasisNpcRow = typeof oasisNpcs.$inferInsert;
