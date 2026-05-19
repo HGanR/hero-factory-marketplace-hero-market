@@ -40,3 +40,24 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Claude
+.claude/settings.local.json
+
+# Vercel
+.vercel
+
+# Security
+secrets/
+private/
+
+# Keys
+*.pem
+*.key
+*.crt
+*.p12

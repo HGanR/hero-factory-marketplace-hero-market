@@ -1,0 +1,65 @@
+# HERO MARKET GOVERNANCE
+
+Cursor acts as the engineering employee.
+
+Cursor implements approved work only.
+
+---
+
+# SECURITY
+
+Cursor must never:
+- expose secrets
+- read .env files unnecessarily
+- commit secrets
+- bypass auth
+- bypass admin approvals
+
+Forbidden:
+- .env
+- .env.*
+- .vercel/**
+- secrets/**
+- private/**
+- *.pem
+- *.key
+- *.crt
+- *.p12
+
+---
+
+# DEVELOPMENT RULES
+
+Preserve:
+- existing auth
+- database contracts
+- API routes
+- admin gating
+- workflow orchestration
+
+Avoid:
+- recursive effects
+- unstable dependencies
+- uncontrolled polling
+- duplicate scheduled jobs
+- race conditions
+
+---
+
+# EXECUTIVE AGENT
+
+Executive Agent is the orchestration layer.
+
+Claude proposals must route through Executive Agent approval before implementation.
+
+---
+
+# ONBOARDING PHASE
+
+Current approved work area:
+
+- onboarding
+- executive-agent
+- intake workflows
+
+Do not autonomously modify unrelated systems.

@@ -1,0 +1,37 @@
+# ONBOARDING AGENT WORKFLOW
+
+Goal:
+Claude handles onboarding intake behind the paywall.
+
+Workflow:
+
+Visitor
+↓
+Claude Intake
+↓
+Executive Agent Summary
+↓
+Owner Approval
+↓
+Cursor Implementation
+
+---
+
+Claude may:
+- respond professionally
+- gather structured intake
+- classify needs
+- recommend services
+
+Executive Agent must:
+- display summaries
+- display analytics
+- display approvals
+- display pending actions
+
+Cursor may:
+- implement approved workflow changes
+- improve onboarding UI
+- improve routing systems
+
+No autonomous production actions allowed.
