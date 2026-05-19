@@ -10,6 +10,8 @@ import { aiAgents, aiAgentKnowledgeItems } from "@/lib/db/schema";
 import { canAccessAgent } from "@/lib/agents/agent-access";
 import { normalizeConversationHistory } from "@/lib/agent-plugins/conversation-normalize";
 import type { AgentChatTurn } from "@/lib/agent-plugins/write-confirmation-context";
+import { resolveUnifiedAgentRuntimeContext } from "@/lib/agents/unified-skipper-runtime-context";
+import { resolveUnifiedSkipperRuntimeContext } from "@/lib/agents/skipper-unified-runtime";
 
 export type RunAgentTestResult = {
   reply: string;
@@ -37,7 +39,6 @@ export async function runAgentTest(
 
   const rows = await db
     .select({
-      systemPrompt: aiAgents.systemPrompt,
       llmEndpoint: aiAgents.llmEndpoint,
       llmApiKeyEnc: aiAgents.llmApiKeyEnc,
       model: aiAgents.model,
@@ -49,7 +50,6 @@ export async function runAgentTest(
   const row = rows[0];
   if (!row) throw new Error("Agent not found");
 
-  let systemPrompt = row.systemPrompt || "You are a helpful assistant.";
   const agentLlmConfig = row.llmEndpoint?.trim()
     ? { llmEndpoint: row.llmEndpoint, llmApiKeyEnc: row.llmApiKeyEnc, model: row.model }
     : null;
@@ -79,9 +79,22 @@ export async function runAgentTest(
     knowledgeContext = buildKnowledgeContextFromRows(knowledgeRows, message, 8);
   }
 
-  if (knowledgeContext) {
-    systemPrompt += `\n\n---\n${knowledgeContext}`;
-  }
+  const cognitive = await resolveUnifiedSkipperRuntimeContext({
+    surface: "ai_agency_test",
+    db,
+    userId,
+    agentId,
+    knowledgeUserMessage: message,
+  });
+  const base =
+    cognitive ??
+    (await resolveUnifiedAgentRuntimeContext(db, {
+      entryPoint: "ai_agency_test_chat",
+      userId,
+      agentId,
+      knowledgeUserMessage: message,
+    }));
+  const systemPrompt = base.systemPrompt;
 
   const normalizedPrior = normalizeConversationHistory(Array.isArray(priorMessages) ? priorMessages : []);
 
