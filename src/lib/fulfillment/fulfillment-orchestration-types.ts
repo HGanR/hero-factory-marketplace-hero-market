@@ -213,6 +213,8 @@ export type ClientFulfillmentOperationsDto = {
   skipperBrief: string;
   timelineSummary: string;
 };
+
+export type ExecutiveFulfillmentOperationsOverviewDto = {
   ok: true;
   generatedAt: string;
   totals: {

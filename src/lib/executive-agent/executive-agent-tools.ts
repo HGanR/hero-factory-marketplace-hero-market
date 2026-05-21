@@ -428,6 +428,41 @@ export async function getExecutiveFulfillmentOperationsMemoryInsights(
   };
 }
 
+/** Subject-scoped executive workspace — timeline, recommendations, memory for active desk context. */
+export async function getExecutiveSubjectWorkspace(
+  ctx: ExecutiveToolContext,
+  input?: { subjectId?: string | null; orderId?: string | null }
+) {
+  const { buildSubjectExecutiveWorkspace } = await import(
+    "@/lib/executive-agent/subject-workspace-service"
+  );
+  const { isExecutiveSubjectId } = await import("@/lib/executive-agent/executive-subject-nav");
+  const subjectId = (input?.subjectId ?? "command_center").trim();
+  if (!isExecutiveSubjectId(subjectId)) {
+    return { error: "invalid_subject_id", message: "Unknown executive subject id." };
+  }
+  const workspace = await buildSubjectExecutiveWorkspace(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    subjectId,
+    clientId: ctx.selectedClientId ?? null,
+    orderId: input?.orderId ?? null,
+  });
+  return {
+    recommendationOnly: true,
+    scope: workspace.scope,
+    headline: workspace.headline,
+    skipperContext: workspace.skipperContext,
+    timelineSummary: workspace.timelineSummary,
+    recommendations: workspace.recommendations.slice(0, 10),
+    timeline: workspace.timeline.slice(0, 12),
+    orders: workspace.orders.slice(0, 8),
+    health: workspace.health,
+    memoryHighlights: workspace.memoryHighlights,
+    meta: workspace.meta,
+    generatedAt: workspace.generatedAt,
+  };
+}
+
 /** Executive desk overview across WEBSITE + TRUST fulfillment — no autonomous actions. */
 export async function getExecutiveFulfillmentOperationsOverview(ctx: ExecutiveToolContext, limit = 30) {
   const { buildExecutiveFulfillmentOperationsOverview } = await import(

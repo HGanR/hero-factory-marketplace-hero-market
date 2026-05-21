@@ -10,6 +10,7 @@ import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingP
 import { OperationalMemoryInsightsPanel } from "./OperationalMemoryInsightsPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
+import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import { VoiceCommandDiagnosticsPanel, type ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
@@ -408,6 +409,8 @@ export function ExecutiveAgentDashboard() {
   const [bottomTab, setBottomTab] = useState<(typeof BOTTOM_TABS)[number]>("Command Center");
   const [activeSubjectId, setActiveSubjectId] = useState<ExecutiveSubjectId>("command_center");
   const [subjectChatOpen, setSubjectChatOpen] = useState(true);
+  const [workspaceOrderId, setWorkspaceOrderId] = useState("");
+  const [subjectSkipperContext, setSubjectSkipperContext] = useState<string | null>(null);
   const activeSubject = useMemo(() => getExecutiveSubject(activeSubjectId), [activeSubjectId]);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSession, setVoiceSession] = useState<VoiceSessionJson | null>(null);
@@ -2376,6 +2379,25 @@ export function ExecutiveAgentDashboard() {
                 {runtimeHudLabel}
               </span>
             </div>
+            <div className="hidden h-8 w-px bg-[#00e5ff]/15 xl:block" aria-hidden />
+            <div className="hidden min-w-[10rem] flex-col gap-0.5 xl:flex">
+              <span className="text-[#00b7ff]/55">Workspace client</span>
+              <input
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="Client UUID"
+                className="w-full rounded border border-[#00e5ff]/25 bg-[#02070d] px-1.5 py-1 text-[9px] font-mono normal-case tracking-normal text-[#00e5ff] outline-none"
+              />
+            </div>
+            <div className="hidden min-w-[10rem] flex-col gap-0.5 xl:flex">
+              <span className="text-[#00b7ff]/55">Fulfillment order</span>
+              <input
+                value={workspaceOrderId}
+                onChange={(e) => setWorkspaceOrderId(e.target.value)}
+                placeholder="Order UUID"
+                className="w-full rounded border border-[#00e5ff]/25 bg-[#02070d] px-1.5 py-1 text-[9px] font-mono normal-case tracking-normal text-[#00e5ff] outline-none"
+              />
+            </div>
           </div>
         </header>
 
@@ -2530,26 +2552,37 @@ export function ExecutiveAgentDashboard() {
               )}
             </ul>
           </section>
-        ) : subjectChatOpen ? (
-          <ExecutiveSubjectAgentChatPanel
-            subject={activeSubject}
-            clientId={clientId}
-            campaignId={campaignId}
-            dryRun={dryRun}
-            timeRange={timeRange}
-            busy={busy !== null}
-            onClose={() => setSubjectChatOpen(false)}
-          />
         ) : (
-          <div className="mb-4 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setSubjectChatOpen(true)}
-              className="rounded-full border border-[#00e5ff]/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/50"
-            >
-              Open {activeSubject.shortLabel} agent chat
-            </button>
-          </div>
+          <>
+            <ExecutiveSubjectWorkspacePanel
+              subjectId={activeSubjectId}
+              clientId={clientId}
+              orderId={workspaceOrderId}
+              onSkipperContext={setSubjectSkipperContext}
+            />
+            {subjectChatOpen ? (
+              <ExecutiveSubjectAgentChatPanel
+                subject={activeSubject}
+                clientId={clientId}
+                campaignId={campaignId}
+                dryRun={dryRun}
+                timeRange={timeRange}
+                busy={busy !== null}
+                skipperWorkspaceContext={subjectSkipperContext}
+                onClose={() => setSubjectChatOpen(false)}
+              />
+            ) : (
+              <div className="mb-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSubjectChatOpen(true)}
+                  className="rounded-full border border-[#00e5ff]/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/50"
+                >
+                  Open {activeSubject.shortLabel} agent chat
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {bottomTab === "Settings" ? (

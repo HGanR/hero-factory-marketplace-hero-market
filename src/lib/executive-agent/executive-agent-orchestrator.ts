@@ -165,6 +165,9 @@ async function runReadTool(
       case "getExecutiveFulfillmentOperationsMemoryInsights":
         data = await Tools.getExecutiveFulfillmentOperationsMemoryInsights(ctx);
         break;
+      case "getExecutiveSubjectWorkspace":
+        data = await Tools.getExecutiveSubjectWorkspace(ctx);
+        break;
       default:
         return null;
     }
