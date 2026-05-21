@@ -162,6 +162,13 @@
       "when": 1778400000000,
       "tag": "0129_site_builder_fulfillment",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1778500000000,
+      "tag": "0130_fulfillment_client_delivery",
+      "breakpoints": true
     }
   ]
 }

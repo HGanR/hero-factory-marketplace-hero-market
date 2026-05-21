@@ -4,7 +4,10 @@ import type {
   FulfillmentPaymentConfirmationSummaryDto,
   FulfillmentQueueOrderSummaryDto,
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
+import type { ClientDeliveryAdminDto } from "@/lib/fulfillment/fulfillment-client-delivery-dtos";
 import type { FulfillmentDeliverableDraftDto } from "@/lib/fulfillment/fulfillment-deliverable-draft-dtos";
+
+export type { ClientDeliveryAdminDto };
 import type {
   WebsiteIntakeNormalized,
   WebsiteIntakeReadiness,
@@ -32,6 +35,9 @@ export const FULFILLMENT_NEXT_ADMIN_ACTIONS = [
   "ready_to_propose_site_builder_draft",
   "waiting_on_approval",
   "draft_created_owner_review",
+  "ready_to_generate_client_delivery",
+  "client_delivery_in_progress",
+  "client_delivery_approved",
   "order_closed",
   "none",
 ] as const;
@@ -47,6 +53,11 @@ export type FulfillmentTimelineEntryKind =
   | "site_builder_draft_linked"
   | "deliverable_approved_for_release"
   | "deliverable_revision_requested"
+  | "client_delivery_link_generated"
+  | "client_delivery_link_revoked"
+  | "client_delivery_workspace_viewed"
+  | "client_delivery_client_approved"
+  | "client_delivery_client_revision_requested"
   | "stage_transition";
 
 export type FulfillmentTimelineEntryDto = {
@@ -92,5 +103,6 @@ export type FulfillmentOrderDetailResultDto = {
   nextAction: FulfillmentNextActionDto;
   websiteIntake: WebsiteIntakeDetailDto;
   deliverableDraft: FulfillmentDeliverableDraftDto | null;
+  clientDelivery: ClientDeliveryAdminDto | null;
   meta: { primaryService: typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE };
 };

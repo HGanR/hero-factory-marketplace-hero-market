@@ -77,6 +77,45 @@ describe("fulfillment order detail logic", () => {
     assert.equal(timeline[0]!.occurredAt <= timeline[timeline.length - 1]!.occurredAt, true);
   });
 
+  it("resolves client delivery link generation after owner approval", () => {
+    assert.equal(
+      resolveNextAdminAction({
+        pipelineStage: "approved_for_release",
+        paymentStatus: "confirmed",
+        paymentConsumed: true,
+        approvalStatus: "executed",
+        hasClaudeHandoffEvent: true,
+        orderSource: "claude_worker",
+        deliverableReviewStatus: "approved",
+        clientDeliveryStatus: "not_sent",
+      }),
+      "ready_to_generate_client_delivery"
+    );
+  });
+
+  it("classifies client delivery timeline events", () => {
+    const timeline = buildFulfillmentOrderTimeline({
+      paymentConfirmedAt: null,
+      paymentStatus: "confirmed",
+      events: [
+        {
+          id: "ev-delivery",
+          actorType: "admin_human",
+          actorId: "1",
+          fromStage: "approved_for_release",
+          toStage: "approved_for_release",
+          payloadJson: JSON.stringify({
+            action: "client_delivery_link_generated",
+            draftVersion: 2,
+          }),
+          createdAt: new Date("2026-05-21T12:00:00.000Z"),
+        },
+      ],
+      approval: null,
+    });
+    assert.ok(timeline.some((t) => t.kind === "client_delivery_link_generated"));
+  });
+
   it("detects Claude handoff events", () => {
     assert.equal(
       hasClaudeHandoffEvent([

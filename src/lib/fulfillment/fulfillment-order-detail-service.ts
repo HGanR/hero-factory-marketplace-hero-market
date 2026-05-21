@@ -26,6 +26,7 @@ import {
   toIso,
   type FulfillmentExecutiveApprovalStatus,
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
+import { getClientDeliveryAdminForOrder } from "@/lib/fulfillment/fulfillment-client-delivery-service";
 import { loadDeliverableDraftForOrder } from "@/lib/fulfillment/fulfillment-deliverable-draft";
 import {
   excerptText,
@@ -98,6 +99,7 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
         artifactType: fulfillmentDeliverables.artifactType,
         ownerReviewStatus: fulfillmentDeliverables.ownerReviewStatus,
         artifactRef: fulfillmentDeliverables.artifactRef,
+        clientDeliveryStatus: fulfillmentDeliverables.clientDeliveryStatus,
       })
       .from(fulfillmentDeliverables)
       .where(eq(fulfillmentDeliverables.orderId, order.id))
@@ -148,6 +150,17 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
   const paymentStatus = payment?.status ?? "pending";
   const paymentConsumed = Boolean(payment?.consumedAt ?? payment?.consumedByOrderId);
 
+  const [deliverableDraft, clientDelivery] = await Promise.all([
+    loadDeliverableDraftForOrder(db, {
+      orderId: order.id,
+      adminUserId: input.adminUserId,
+    }),
+    getClientDeliveryAdminForOrder(db, {
+      orderId: order.id,
+      adminUserId: input.adminUserId,
+    }),
+  ]);
+
   const nextActionKey = resolveNextAdminAction({
     pipelineStage: order.pipelineStage,
     paymentStatus,
@@ -157,11 +170,7 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
     orderSource: order.source,
     deliverableLinked: deliverableDraft?.linked ?? Boolean(deliverable?.artifactRef),
     deliverableReviewStatus: deliverable?.ownerReviewStatus,
-  });
-
-  const deliverableDraft = await loadDeliverableDraftForOrder(db, {
-    orderId: order.id,
-    adminUserId: input.adminUserId,
+    clientDeliveryStatus: clientDelivery?.status,
   });
 
   const websiteIntakePkg = loadWebsiteIntakeFromOrder({
@@ -271,6 +280,7 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
       siteBuilderBriefExcerpt: excerptText(websiteIntakePkg.siteBuilderBrief, 600),
     },
     deliverableDraft,
+    clientDelivery,
     meta: { primaryService: FULFILLMENT_PRIMARY_SERVICE_WEBSITE },
   };
 }

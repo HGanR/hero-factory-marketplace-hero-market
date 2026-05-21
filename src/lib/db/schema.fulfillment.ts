@@ -83,6 +83,33 @@ export const fulfillmentDeliverables = mysqlTable("fulfillment_deliverables", {
   ownerReviewStatus: mysqlEnum("ownerReviewStatus", ["pending", "approved", "rejected"])
     .notNull()
     .default("pending"),
+  draftVersion: int("draftVersion").notNull().default(1),
+  clientDeliveryStatus: mysqlEnum("clientDeliveryStatus", [
+    "not_sent",
+    "workspace_active",
+    "client_approved",
+    "client_revision_requested",
+  ])
+    .notNull()
+    .default("not_sent"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Expiring read-only client review links — owner-generated only; no email/SMS. */
+export const fulfillmentClientDeliveryTokens = mysqlTable("fulfillment_client_delivery_tokens", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  orderId: varchar("orderId", { length: 36 }).notNull(),
+  deliverableId: varchar("deliverableId", { length: 36 }).notNull(),
+  clientId: varchar("clientId", { length: 36 }).notNull(),
+  ownerAdminUserId: int("ownerAdminUserId").notNull(),
+  tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+  tokenPrefix: varchar("tokenPrefix", { length: 16 }).notNull(),
+  draftVersion: int("draftVersion").notNull().default(1),
+  status: mysqlEnum("status", ["active", "revoked", "expired"]).notNull().default("active"),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdByAdminUserId: int("createdByAdminUserId").notNull(),
+  lastAccessedAt: timestamp("lastAccessedAt"),
+  revokedAt: timestamp("revokedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

@@ -106,8 +106,45 @@ function timelineDotClass(kind: FulfillmentTimelineEntryKind): string {
       return "bg-emerald-500";
     case "deliverable_revision_requested":
       return "bg-orange-400";
+    case "client_delivery_link_generated":
+      return "bg-teal-400";
+    case "client_delivery_link_revoked":
+      return "bg-slate-500";
+    case "client_delivery_workspace_viewed":
+      return "bg-sky-300";
+    case "client_delivery_client_approved":
+      return "bg-emerald-400";
+    case "client_delivery_client_revision_requested":
+      return "bg-orange-300";
     default:
       return "bg-slate-500";
+  }
+}
+
+function clientDeliveryBadgeClass(status: string): string {
+  switch (status) {
+    case "workspace_active":
+      return "border-cyan-500/40 bg-cyan-950/35 text-cyan-100/90";
+    case "client_approved":
+      return "border-emerald-500/40 bg-emerald-950/35 text-emerald-100/90";
+    case "client_revision_requested":
+      return "border-orange-500/40 bg-orange-950/35 text-orange-100/90";
+    case "not_sent":
+    default:
+      return "border-slate-600/50 bg-slate-900/40 text-slate-400";
+  }
+}
+
+function tokenStatusBadgeClass(status: string): string {
+  switch (status) {
+    case "active":
+      return "text-emerald-300";
+    case "expired":
+      return "text-amber-300";
+    case "revoked":
+      return "text-slate-500";
+    default:
+      return "text-slate-400";
   }
 }
 
@@ -126,6 +163,8 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
   const [detail, setDetail] = useState<FulfillmentOrderDetailResultDto | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [lastWorkspaceUrl, setLastWorkspaceUrl] = useState<string | null>(null);
+  const [deliveryMsg, setDeliveryMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setConfirmClientId(defaultClientId);
@@ -236,6 +275,152 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
     setDetailOrderId(null);
     setDetail(null);
     setDetailError(null);
+    setLastWorkspaceUrl(null);
+    setDeliveryMsg(null);
+  }, []);
+
+  const refreshDetailIfOpen = useCallback(
+    (orderId: string) => {
+      void loadQueue();
+      if (detailOrderId === orderId) {
+        void loadOrderDetail(orderId);
+      }
+    },
+    [detailOrderId, loadOrderDetail, loadQueue]
+  );
+
+  const approveDeliverableDraft = useCallback(
+    async (orderId: string) => {
+      setActionBusy(`approve-draft-${orderId}`);
+      try {
+        const r = await fetch(
+          `/api/admin/executive-agent/fulfillment-orders/${encodeURIComponent(orderId)}/deliverable/approve-draft`,
+          { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" }
+        );
+        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; message?: string; code?: string };
+        if (!r.ok) {
+          window.alert(j.message ?? j.code ?? `Approve failed (${r.status})`);
+          return;
+        }
+        refreshDetailIfOpen(orderId);
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : String(e));
+      } finally {
+        setActionBusy(null);
+      }
+    },
+    [refreshDetailIfOpen]
+  );
+
+  const requestDeliverableRevision = useCallback(
+    async (orderId: string) => {
+      const note = window.prompt("Revision note for internal desk (optional):")?.trim() || null;
+      setActionBusy(`revision-draft-${orderId}`);
+      try {
+        const r = await fetch(
+          `/api/admin/executive-agent/fulfillment-orders/${encodeURIComponent(orderId)}/deliverable/request-revision`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ revisionNote: note }),
+          }
+        );
+        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; message?: string; code?: string };
+        if (!r.ok) {
+          window.alert(j.message ?? j.code ?? `Revision failed (${r.status})`);
+          return;
+        }
+        refreshDetailIfOpen(orderId);
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : String(e));
+      } finally {
+        setActionBusy(null);
+      }
+    },
+    [refreshDetailIfOpen]
+  );
+
+  const generateClientDeliveryLink = useCallback(
+    async (orderId: string, regenerate: boolean) => {
+      setActionBusy(regenerate ? `regen-delivery-${orderId}` : `gen-delivery-${orderId}`);
+      setDeliveryMsg(null);
+      try {
+        const r = await fetch(
+          `/api/admin/executive-agent/fulfillment-orders/${encodeURIComponent(orderId)}/client-delivery/generate-link`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ expiresInDays: 14, regenerate }),
+          }
+        );
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          workspaceUrl?: string;
+          message?: string;
+          code?: string;
+        };
+        if (!r.ok) {
+          setDeliveryMsg(j.message ?? j.code ?? `Link generation failed (${r.status})`);
+          return;
+        }
+        if (j.workspaceUrl) {
+          setLastWorkspaceUrl(j.workspaceUrl);
+        }
+        setDeliveryMsg(j.message ?? "Client review link ready — copy and share manually.");
+        refreshDetailIfOpen(orderId);
+      } catch (e) {
+        setDeliveryMsg(e instanceof Error ? e.message : String(e));
+      } finally {
+        setActionBusy(null);
+      }
+    },
+    [refreshDetailIfOpen]
+  );
+
+  const revokeClientDeliveryLinks = useCallback(
+    async (orderId: string) => {
+      if (!window.confirm("Revoke all active client delivery links for this order?")) return;
+      setActionBusy(`revoke-delivery-${orderId}`);
+      setDeliveryMsg(null);
+      try {
+        const r = await fetch(
+          `/api/admin/executive-agent/fulfillment-orders/${encodeURIComponent(orderId)}/client-delivery/revoke-links`,
+          { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" }
+        );
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          revoked?: number;
+          message?: string;
+        };
+        if (!r.ok) {
+          setDeliveryMsg(j.message ?? `Revoke failed (${r.status})`);
+          return;
+        }
+        setLastWorkspaceUrl(null);
+        setDeliveryMsg(
+          typeof j.revoked === "number"
+            ? `Revoked ${j.revoked} active link(s).`
+            : "Delivery links revoked."
+        );
+        refreshDetailIfOpen(orderId);
+      } catch (e) {
+        setDeliveryMsg(e instanceof Error ? e.message : String(e));
+      } finally {
+        setActionBusy(null);
+      }
+    },
+    [refreshDetailIfOpen]
+  );
+
+  const copyWorkspaceUrl = useCallback(async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setDeliveryMsg("Workspace URL copied to clipboard.");
+    } catch {
+      setDeliveryMsg("Copy failed — select the URL manually.");
+    }
   }, []);
 
   const proposeSiteBuilderDraft = useCallback(
@@ -639,14 +824,16 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
                         </h5>
                         <span
                           className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${
-                            detail.deliverableDraft.clientDeliveryStatus === "approved_for_release"
+                            detail.deliverableDraft.ownerReviewStatus === "approved" &&
+                            detail.deliverableDraft.pipelineStage === "approved_for_release"
                               ? "border-emerald-500/40 bg-emerald-950/35 text-emerald-100/90"
                               : "border-slate-600/50 bg-slate-900/40 text-slate-400"
                           }`}
                         >
-                          {detail.deliverableDraft.clientDeliveryStatus === "approved_for_release"
-                            ? "approved for release"
-                            : "not sent to client"}
+                          {detail.deliverableDraft.ownerReviewStatus === "approved" &&
+                          detail.deliverableDraft.pipelineStage === "approved_for_release"
+                            ? "owner approved for release"
+                            : `owner review: ${detail.deliverableDraft.ownerReviewStatus}`}
                         </span>
                       </div>
                       {detail.deliverableDraft.linked && detail.deliverableDraft.previewText ? (
@@ -694,6 +881,97 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
                             Request revision
                           </button>
                         </div>
+                      ) : null}
+                    </section>
+                  ) : null}
+
+                  {detail.clientDelivery ? (
+                    <section className="mb-3 rounded-lg border border-teal-500/25 bg-slate-900/55 p-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h5 className="text-[9px] font-semibold uppercase tracking-wide text-teal-200/90">
+                          Client delivery workspace
+                        </h5>
+                        <span
+                          className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${clientDeliveryBadgeClass(detail.clientDelivery.status)}`}
+                        >
+                          {detail.clientDelivery.status.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        Draft v{detail.clientDelivery.draftVersion} · expiring read-only links · no email or SMS
+                      </p>
+                      {detail.clientDelivery.timeline.length > 0 ? (
+                        <ol className="mt-2 space-y-1 border-l border-slate-800 pl-2">
+                          {detail.clientDelivery.timeline.map((entry) => (
+                            <li key={entry.id} className="text-[9px] text-slate-400">
+                              <span className="text-slate-300">{entry.label}</span>
+                              <span className="ml-1 text-slate-600">{formatWhen(entry.occurredAt)}</span>
+                              {entry.detail ? (
+                                <span className="ml-1 text-slate-600">· {entry.detail}</span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ol>
+                      ) : null}
+                      {lastWorkspaceUrl ? (
+                        <div className="mt-2 rounded border border-teal-600/30 bg-slate-950/60 p-2">
+                          <div className="text-[9px] uppercase tracking-wide text-teal-300/80">
+                            Latest generated link (copy now)
+                          </div>
+                          <p className="mt-1 break-all font-mono text-[9px] text-teal-100/90">
+                            {lastWorkspaceUrl}
+                          </p>
+                          <button
+                            type="button"
+                            disabled={actionBusy != null}
+                            onClick={() => void copyWorkspaceUrl(lastWorkspaceUrl)}
+                            className="mt-1 rounded border border-teal-500/40 px-2 py-0.5 text-[9px] text-teal-100/90 disabled:opacity-40"
+                          >
+                            Copy URL
+                          </button>
+                        </div>
+                      ) : null}
+                      {detail.clientDelivery.tokens.length > 0 ? (
+                        <ul className="mt-2 space-y-1 text-[9px] text-slate-500">
+                          {detail.clientDelivery.tokens.map((t) => (
+                            <li key={t.id} className="font-mono">
+                              {t.tokenPrefix} · v{t.draftVersion} ·{" "}
+                              <span className={tokenStatusBadgeClass(t.status)}>{t.status}</span> · exp{" "}
+                              {formatWhen(t.expiresAt)}
+                              {t.lastAccessedAt ? ` · viewed ${formatWhen(t.lastAccessedAt)}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          disabled={actionBusy != null || !detail.clientDelivery.canGenerateLink}
+                          onClick={() => void generateClientDeliveryLink(detail.order.orderId, false)}
+                          className="rounded bg-teal-700/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white disabled:opacity-40"
+                        >
+                          Generate client link
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionBusy != null || !detail.clientDelivery.canGenerateLink}
+                          onClick={() => void generateClientDeliveryLink(detail.order.orderId, true)}
+                          className="rounded border border-teal-500/45 px-2 py-1 text-[10px] text-teal-100/90 disabled:opacity-40"
+                          title="Revokes prior links and bumps draft version"
+                        >
+                          Regenerate link
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionBusy != null}
+                          onClick={() => void revokeClientDeliveryLinks(detail.order.orderId)}
+                          className="rounded border border-slate-600/50 px-2 py-1 text-[10px] text-slate-400 disabled:opacity-40"
+                        >
+                          Revoke links
+                        </button>
+                      </div>
+                      {deliveryMsg ? (
+                        <p className="mt-2 text-[10px] text-teal-100/85">{deliveryMsg}</p>
                       ) : null}
                     </section>
                   ) : null}
