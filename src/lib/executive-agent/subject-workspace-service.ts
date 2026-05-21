@@ -201,6 +201,9 @@ export async function buildSubjectExecutiveWorkspace(
     const { buildExecutiveOperationalThreadsContext } = await import(
       "@/lib/executive-agent/operational-thread-service"
     );
+    const { buildExecutivePendingDecisionsForSkipper } = await import(
+      "@/lib/executive-agent/decision-recording-service"
+    );
     const threadsCtx = await buildExecutiveOperationalThreadsContext(db, {
       adminUserId: input.adminUserId,
       subjectId: input.subjectId,
@@ -211,8 +214,17 @@ export async function buildSubjectExecutiveWorkspace(
     if (threadsCtx.skipperThreadContext) {
       skipperContext = `${skipperContext} ${threadsCtx.skipperThreadContext}`;
     }
+    const decisionsCtx = await buildExecutivePendingDecisionsForSkipper(db, {
+      adminUserId: input.adminUserId,
+      subjectId: input.subjectId,
+      clientId: scope.clientId,
+      orderId: scope.orderId,
+    });
+    if (decisionsCtx.skipperDecisionContext) {
+      skipperContext = `${skipperContext} ${decisionsCtx.skipperDecisionContext}`;
+    }
   } catch {
-    /* threads table may be absent in some dev DBs */
+    /* threads/decisions tables may be absent in some dev DBs */
   }
 
   await auditFulfillmentExecutiveAction(db, {

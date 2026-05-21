@@ -463,6 +463,32 @@ export async function getExecutiveSubjectWorkspace(
   };
 }
 
+/** Pending owner decisions — read-only; Skipper recommends but must not decide. */
+export async function getExecutivePendingDecisions(
+  ctx: ExecutiveToolContext,
+  input?: {
+    subjectId?: string | null;
+    threadId?: string | null;
+    orderId?: string | null;
+  }
+) {
+  const { buildExecutivePendingDecisionsForSkipper } = await import(
+    "@/lib/executive-agent/decision-recording-service"
+  );
+  const { isExecutiveSubjectId } = await import("@/lib/executive-agent/executive-subject-nav");
+  const subjectId = input?.subjectId?.trim() ?? null;
+  if (subjectId && !isExecutiveSubjectId(subjectId)) {
+    return { error: "invalid_subject_id", message: "Unknown executive subject id." };
+  }
+  return buildExecutivePendingDecisionsForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    subjectId,
+    threadId: input?.threadId ?? null,
+    orderId: input?.orderId ?? null,
+    clientId: ctx.selectedClientId ?? null,
+  });
+}
+
 /** Internal operational threads — read-only context for Skipper (no autonomous replies). */
 export async function getExecutiveOperationalThreads(
   ctx: ExecutiveToolContext,

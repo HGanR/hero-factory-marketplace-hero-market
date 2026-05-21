@@ -5,9 +5,11 @@ import type { MySql2Database } from "drizzle-orm/mysql2";
 import { and, desc, eq, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 import {
+  executiveOperationalDecisions,
   executiveOperationalThreadMessages,
   executiveOperationalThreads,
 } from "@/lib/db/schema";
+import { inArray, or, lte, isNull } from "drizzle-orm";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
 import {
   buildSkipperThreadAwarenessLines,
@@ -261,7 +263,7 @@ export async function getExecutiveOperationalThreadDetail(
   };
 }
 
-async function refreshThreadMemory(db: Db, threadId: string, adminUserId: number): Promise<void> {
+export async function refreshThreadMemory(db: Db, threadId: string, adminUserId: number): Promise<void> {
   const [threadRow] = await db
     .select()
     .from(executiveOperationalThreads)
@@ -293,6 +295,80 @@ async function refreshThreadMemory(db: Db, threadId: string, adminUserId: number
       updatedAt: sql`NOW()`,
     })
     .where(eq(executiveOperationalThreads.id, threadId));
+}
+
+/** Recompute thread.decisionNeeded from open decisions and uncovered decision_request messages. */
+export async function syncThreadDecisionNeededState(
+  db: Db,
+  threadId: string,
+  adminUserId: number
+): Promise<void> {
+  const now = new Date();
+  const openDecisions = await db
+    .select({ id: executiveOperationalDecisions.id })
+    .from(executiveOperationalDecisions)
+    .where(
+      and(
+        eq(executiveOperationalDecisions.threadId, threadId),
+        eq(executiveOperationalDecisions.adminUserId, adminUserId),
+        or(
+          eq(executiveOperationalDecisions.status, "open"),
+          and(
+            eq(executiveOperationalDecisions.status, "deferred"),
+            or(
+              isNull(executiveOperationalDecisions.deferredUntil),
+              lte(executiveOperationalDecisions.deferredUntil, now)
+            )
+          )
+        )
+      )
+    );
+
+  const msgRows = await db
+    .select({
+      id: executiveOperationalThreadMessages.id,
+      messageKind: executiveOperationalThreadMessages.messageKind,
+    })
+    .from(executiveOperationalThreadMessages)
+    .where(eq(executiveOperationalThreadMessages.threadId, threadId));
+
+  const coveredIds = new Set(
+    (
+      await db
+        .select({
+          promotedFromMessageId: executiveOperationalDecisions.promotedFromMessageId,
+          questionMessageId: executiveOperationalDecisions.questionMessageId,
+        })
+        .from(executiveOperationalDecisions)
+        .where(
+          and(
+            eq(executiveOperationalDecisions.threadId, threadId),
+            eq(executiveOperationalDecisions.adminUserId, adminUserId),
+            inArray(executiveOperationalDecisions.status, ["open", "deferred", "decided"])
+          )
+        )
+    )
+      .flatMap((r) => [r.promotedFromMessageId, r.questionMessageId])
+      .filter(Boolean) as string[]
+  );
+
+  const uncoveredRequest = msgRows.some(
+    (m) =>
+      m.messageKind === "decision_request" &&
+      !coveredIds.has(m.id)
+  );
+
+  const decisionNeeded = openDecisions.length > 0 || uncoveredRequest;
+
+  await db
+    .update(executiveOperationalThreads)
+    .set({ decisionNeeded, updatedAt: now })
+    .where(
+      and(
+        eq(executiveOperationalThreads.id, threadId),
+        eq(executiveOperationalThreads.adminUserId, adminUserId)
+      )
+    );
 }
 
 export async function createExecutiveOperationalThread(
@@ -420,6 +496,22 @@ export async function postExecutiveOperationalThreadMessage(
     .where(eq(executiveOperationalThreads.id, input.threadId));
 
   await refreshThreadMemory(db, input.threadId, input.adminUserId);
+  await syncThreadDecisionNeededState(db, input.threadId, input.adminUserId);
+
+  if (messageKind === "decision_request" || messageKind === "question") {
+    try {
+      const { promoteUnresolvedQuestionsForThread } = await import(
+        "@/lib/executive-agent/decision-queue-service"
+      );
+      await promoteUnresolvedQuestionsForThread(db, {
+        adminUserId: input.adminUserId,
+        threadId: input.threadId,
+      });
+      await syncThreadDecisionNeededState(db, input.threadId, input.adminUserId);
+    } catch {
+      /* decisions table may be absent in some dev DBs */
+    }
+  }
 
   const [msgRow] = await db
     .select()

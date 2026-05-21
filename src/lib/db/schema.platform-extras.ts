@@ -766,4 +766,47 @@ export const executiveOperationalThreadMessages = mysqlTable("executive_operatio
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+/** drizzle/0132_executive_operational_decisions.sql — human-only decision ledger */
+export const EXECUTIVE_OPERATIONAL_DECISION_STATUSES = [
+  "open",
+  "decided",
+  "deferred",
+  "superseded",
+] as const;
+
+export const EXECUTIVE_OPERATIONAL_DECISION_SOURCE_KINDS = [
+  "manual",
+  "decision_request",
+  "question",
+  "approval",
+] as const;
+
+export const executiveOperationalDecisions = mysqlTable("executive_operational_decisions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  promptSummary: text("promptSummary").notNull(),
+  status: mysqlEnum("status", EXECUTIVE_OPERATIONAL_DECISION_STATUSES).notNull().default("open"),
+  priority: mysqlEnum("priority", EXECUTIVE_OPERATIONAL_THREAD_PRIORITIES).notNull().default("normal"),
+  sourceKind: mysqlEnum("sourceKind", EXECUTIVE_OPERATIONAL_DECISION_SOURCE_KINDS).notNull().default("manual"),
+  threadId: varchar("threadId", { length: 36 }),
+  questionMessageId: varchar("questionMessageId", { length: 36 }),
+  promotedFromMessageId: varchar("promotedFromMessageId", { length: 36 }),
+  approvalId: varchar("approvalId", { length: 36 }),
+  orderId: varchar("orderId", { length: 191 }),
+  clientId: varchar("clientId", { length: 191 }),
+  subjectId: varchar("subjectId", { length: 64 }),
+  department: varchar("department", { length: 32 }),
+  decisionText: text("decisionText"),
+  decidedAt: timestamp("decidedAt"),
+  decidedByAdminUserId: int("decidedByAdminUserId"),
+  deferredUntil: timestamp("deferredUntil"),
+  deferReason: text("deferReason"),
+  supersededByDecisionId: varchar("supersededByDecisionId", { length: 36 }),
+  supersedesDecisionId: varchar("supersedesDecisionId", { length: 36 }),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type InsertOasisNpcRow = typeof oasisNpcs.$inferInsert;

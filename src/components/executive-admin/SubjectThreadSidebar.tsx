@@ -35,6 +35,7 @@ export function SubjectThreadSidebar({
   onThreadsLoaded,
 }: Props) {
   const [threads, setThreads] = useState<ExecutiveOperationalThreadDto[]>([]);
+  const [openDecisionCounts, setOpenDecisionCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,15 +59,33 @@ export function SubjectThreadSidebar({
       if (!r.ok) {
         setError(j.message ?? j.error ?? `Load failed (${r.status})`);
         setThreads([]);
+        setOpenDecisionCounts({});
         onThreadsLoaded?.([]);
         return;
       }
       const list = j.threads ?? [];
       setThreads(list);
       onThreadsLoaded?.(list);
+
+      const dParams = new URLSearchParams({ subjectId, promote: "false", limit: "80" });
+      if (clientId.trim()) dParams.set("clientId", clientId.trim());
+      if (orderId.trim()) dParams.set("orderId", orderId.trim());
+      const dr = await fetch(`/api/admin/executive-agent/decisions?${dParams}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const dj = (await dr.json().catch(() => ({}))) as {
+        pending?: Array<{ threadId: string | null }>;
+      };
+      const counts: Record<string, number> = {};
+      for (const d of dj.pending ?? []) {
+        if (d.threadId) counts[d.threadId] = (counts[d.threadId] ?? 0) + 1;
+      }
+      setOpenDecisionCounts(counts);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setThreads([]);
+      setOpenDecisionCounts({});
       onThreadsLoaded?.([]);
     } finally {
       setLoading(false);
@@ -119,7 +138,11 @@ export function SubjectThreadSidebar({
                     {t.priority}
                   </span>
                   <span className="text-[8px] uppercase text-slate-500">{t.status}</span>
-                  {t.decisionNeeded ? (
+                  {(openDecisionCounts[t.id] ?? 0) > 0 ? (
+                    <span className="rounded border border-amber-500/50 bg-amber-950/40 px-1 text-[8px] font-semibold text-amber-200">
+                      {openDecisionCounts[t.id]} dec
+                    </span>
+                  ) : t.decisionNeeded ? (
                     <span className="rounded border border-amber-500/40 px-1 text-[8px] text-amber-200">
                       decision
                     </span>

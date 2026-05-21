@@ -5,19 +5,33 @@ import type {
   ExecutiveOperationalThreadDetailDto,
   ExecutiveOperationalThreadDto,
 } from "@/lib/executive-agent/executive-conversation-threads";
+import type {
+  ExecutiveOperationalDecisionDto,
+  ExecutivePendingDecisionsDto,
+} from "@/lib/executive-agent/executive-operational-decisions";
 
 type Props = {
   threadId: string | null;
   onSkipperContext?: (context: string | null) => void;
   onCreateThread?: () => void;
+  onDecisionRecorded?: () => void;
 };
 
-export function ExecutiveThreadPanel({ threadId, onSkipperContext, onCreateThread }: Props) {
+export function ExecutiveThreadPanel({
+  threadId,
+  onSkipperContext,
+  onCreateThread,
+  onDecisionRecorded,
+}: Props) {
   const [detail, setDetail] = useState<ExecutiveOperationalThreadDetailDto | null>(null);
+  const [pendingDecisions, setPendingDecisions] = useState<ExecutiveOperationalDecisionDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [decisionDraft, setDecisionDraft] = useState("");
+  const [activeDecisionId, setActiveDecisionId] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const [messageKind, setMessageKind] = useState<
     "discussion" | "operational_note" | "question" | "decision_request" | "owner_annotation"
   >("discussion");
@@ -25,6 +39,7 @@ export function ExecutiveThreadPanel({ threadId, onSkipperContext, onCreateThrea
   const load = useCallback(async () => {
     if (!threadId) {
       setDetail(null);
+      setPendingDecisions([]);
       onSkipperContext?.(null);
       return;
     }
@@ -46,6 +61,13 @@ export function ExecutiveThreadPanel({ threadId, onSkipperContext, onCreateThrea
       }
       setDetail(j);
       onSkipperContext?.(j.skipperThreadContext);
+
+      const dr = await fetch(
+        `/api/admin/executive-agent/decisions?threadId=${encodeURIComponent(threadId)}&promote=true`,
+        { credentials: "include", cache: "no-store" }
+      );
+      const dj = (await dr.json().catch(() => ({}))) as ExecutivePendingDecisionsDto;
+      setPendingDecisions(dj.ok ? dj.pending : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setDetail(null);
@@ -58,6 +80,30 @@ export function ExecutiveThreadPanel({ threadId, onSkipperContext, onCreateThrea
   useEffect(() => {
     void load();
   }, [load]);
+
+  const recordDecision = async (decisionId: string) => {
+    if (!decisionDraft.trim()) return;
+    setDeciding(true);
+    try {
+      const r = await fetch(`/api/admin/executive-agent/decisions/${decisionId}/decide`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decisionText: decisionDraft.trim() }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!r.ok || !j.ok) {
+        setError(j.error ?? `Record failed (${r.status})`);
+        return;
+      }
+      setDecisionDraft("");
+      setActiveDecisionId(null);
+      onDecisionRecorded?.();
+      await load();
+    } finally {
+      setDeciding(false);
+    }
+  };
 
   const postMessage = async () => {
     if (!threadId || !draft.trim()) return;
@@ -143,6 +189,58 @@ export function ExecutiveThreadPanel({ threadId, onSkipperContext, onCreateThrea
           <span className="text-slate-600">Memory: </span>
           {thread.memorySummary}
         </p>
+      ) : null}
+      {pendingDecisions.length > 0 ? (
+        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2">
+          <p className="text-[9px] font-semibold uppercase text-amber-400/80">
+            Pending owner decisions ({pendingDecisions.length})
+          </p>
+          <ul className="mt-2 space-y-2">
+            {pendingDecisions.map((d) => (
+              <li key={d.id} className="text-[10px] text-slate-300">
+                <div className="font-medium text-amber-100/90">{d.title}</div>
+                <p className="line-clamp-2 text-slate-500">{d.promptSummary}</p>
+                {activeDecisionId === d.id ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <textarea
+                      value={decisionDraft}
+                      onChange={(e) => setDecisionDraft(e.target.value)}
+                      rows={2}
+                      placeholder="Record owner decision"
+                      className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[11px]"
+                    />
+                    <button
+                      type="button"
+                      disabled={deciding || !decisionDraft.trim()}
+                      onClick={() => void recordDecision(d.id)}
+                      className="rounded-full border border-emerald-500/40 px-2.5 py-1 text-[9px] uppercase text-emerald-200 disabled:opacity-40"
+                    >
+                      Record decision
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDecisionId(null)}
+                      className="text-[9px] uppercase text-slate-500"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveDecisionId(d.id);
+                      setDecisionDraft("");
+                    }}
+                    className="mt-1 text-[9px] uppercase text-amber-300/90"
+                  >
+                    Record decision…
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {error ? <p className="mb-2 text-xs text-amber-200">{error}</p> : null}
       {loading ? <p className="text-xs text-slate-500">Loading messages…</p> : null}

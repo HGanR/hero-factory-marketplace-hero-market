@@ -22,7 +22,8 @@ export type ExecutiveReadToolKey =
   | "getExecutiveFulfillmentOperationsBriefing"
   | "getExecutiveFulfillmentOperationsMemoryInsights"
   | "getExecutiveSubjectWorkspace"
-  | "getExecutiveOperationalThreads";
+  | "getExecutiveOperationalThreads"
+  | "getExecutivePendingDecisions";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -120,6 +121,14 @@ export function pickExecutiveReadTools(
   ) {
     out.add("getExecutiveOperationalThreads");
     out.add("getExecutiveSubjectWorkspace");
+  }
+  if (
+    /pending decision|decision queue|owner decision|what.*decide|deferred decision|record decision|decision ledger/.test(
+      p
+    )
+  ) {
+    out.add("getExecutivePendingDecisions");
+    out.add("getExecutiveOperationalThreads");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

@@ -14,6 +14,7 @@ import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel
 import { SubjectThreadSidebar } from "./SubjectThreadSidebar";
 import { ExecutiveThreadPanel } from "./ExecutiveThreadPanel";
 import { FulfillmentThreadView } from "./FulfillmentThreadView";
+import { ExecutiveDecisionQueuePanel } from "./ExecutiveDecisionQueuePanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import { VoiceCommandDiagnosticsPanel, type ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
@@ -416,11 +417,40 @@ export function ExecutiveAgentDashboard() {
   const [subjectSkipperContext, setSubjectSkipperContext] = useState<string | null>(null);
   const [selectedOpsThreadId, setSelectedOpsThreadId] = useState<string | null>(null);
   const [threadSkipperContext, setThreadSkipperContext] = useState<string | null>(null);
+  const [decisionSkipperContext, setDecisionSkipperContext] = useState<string | null>(null);
+  const [threadSidebarKey, setThreadSidebarKey] = useState(0);
   const activeSubject = useMemo(() => getExecutiveSubject(activeSubjectId), [activeSubjectId]);
   const combinedSkipperWorkspaceContext = useMemo(() => {
-    const parts = [subjectSkipperContext, threadSkipperContext].filter(Boolean);
+    const parts = [subjectSkipperContext, threadSkipperContext, decisionSkipperContext].filter(
+      Boolean
+    );
     return parts.length ? parts.join(" ") : null;
-  }, [subjectSkipperContext, threadSkipperContext]);
+  }, [subjectSkipperContext, threadSkipperContext, decisionSkipperContext]);
+
+  const refreshDecisionContext = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        subjectId: activeSubjectId,
+        promote: "true",
+      });
+      if (clientId.trim()) params.set("clientId", clientId.trim());
+      if (workspaceOrderId.trim()) params.set("orderId", workspaceOrderId.trim());
+      if (selectedOpsThreadId) params.set("threadId", selectedOpsThreadId);
+      const r = await fetch(`/api/admin/executive-agent/decisions?${params}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await r.json().catch(() => ({}))) as { skipperDecisionContext?: string };
+      setDecisionSkipperContext(j.skipperDecisionContext ?? null);
+    } catch {
+      setDecisionSkipperContext(null);
+    }
+  }, [activeSubjectId, clientId, workspaceOrderId, selectedOpsThreadId]);
+
+  useEffect(() => {
+    void refreshDecisionContext();
+  }, [refreshDecisionContext]);
+
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSession, setVoiceSession] = useState<VoiceSessionJson | null>(null);
   const [voiceRailTurns, setVoiceRailTurns] = useState<VoiceRailTurn[]>([]);
@@ -2569,8 +2599,20 @@ export function ExecutiveAgentDashboard() {
               orderId={workspaceOrderId}
               onSkipperContext={setSubjectSkipperContext}
             />
+            <ExecutiveDecisionQueuePanel
+              subjectId={activeSubjectId}
+              clientId={clientId}
+              orderId={workspaceOrderId}
+              threadId={selectedOpsThreadId}
+              onSelectThread={(id) => setSelectedOpsThreadId(id)}
+              onDecisionRecorded={() => {
+                setThreadSidebarKey((k) => k + 1);
+                void refreshDecisionContext();
+              }}
+            />
             <div className="mb-4 flex flex-col gap-3 lg:flex-row">
               <SubjectThreadSidebar
+                key={threadSidebarKey}
                 subjectId={activeSubjectId}
                 clientId={clientId}
                 orderId={workspaceOrderId}
@@ -2581,6 +2623,10 @@ export function ExecutiveAgentDashboard() {
                 <ExecutiveThreadPanel
                   threadId={selectedOpsThreadId}
                   onSkipperContext={setThreadSkipperContext}
+                  onDecisionRecorded={() => {
+                    setThreadSidebarKey((k) => k + 1);
+                    void refreshDecisionContext();
+                  }}
                   onCreateThread={async () => {
                     const title = window.prompt("Thread title");
                     if (!title?.trim()) return;
