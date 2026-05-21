@@ -463,6 +463,46 @@ export async function getExecutiveSubjectWorkspace(
   };
 }
 
+/** Internal operational threads — read-only context for Skipper (no autonomous replies). */
+export async function getExecutiveOperationalThreads(
+  ctx: ExecutiveToolContext,
+  input?: {
+    subjectId?: string | null;
+    orderId?: string | null;
+    approvalId?: string | null;
+    limit?: number;
+  }
+) {
+  const { buildExecutiveOperationalThreadsContext } = await import(
+    "@/lib/executive-agent/operational-thread-service"
+  );
+  const { isExecutiveSubjectId } = await import("@/lib/executive-agent/executive-subject-nav");
+  const subjectId = input?.subjectId?.trim() ?? null;
+  if (subjectId && !isExecutiveSubjectId(subjectId)) {
+    return { error: "invalid_subject_id", message: "Unknown executive subject id." };
+  }
+  const bundle = await buildExecutiveOperationalThreadsContext(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    subjectId,
+    clientId: ctx.selectedClientId ?? null,
+    orderId: input?.orderId ?? null,
+    approvalId: input?.approvalId ?? null,
+    limit: input?.limit ?? 25,
+  });
+  return {
+    recommendationOnly: true,
+    internalOnly: true,
+    noAutonomousReplies: true,
+    headline: "Internal operational threads — human-authored messaging only.",
+    activeDiscussion: bundle.activeDiscussion,
+    threads: bundle.threads.slice(0, 15),
+    unresolvedQuestions: bundle.unresolvedQuestions.slice(0, 8),
+    pendingDecisions: bundle.pendingDecisions.slice(0, 8),
+    skipperThreadContext: bundle.skipperThreadContext,
+    generatedAt: bundle.generatedAt,
+  };
+}
+
 /** Executive desk overview across WEBSITE + TRUST fulfillment — no autonomous actions. */
 export async function getExecutiveFulfillmentOperationsOverview(ctx: ExecutiveToolContext, limit = 30) {
   const { buildExecutiveFulfillmentOperationsOverview } = await import(

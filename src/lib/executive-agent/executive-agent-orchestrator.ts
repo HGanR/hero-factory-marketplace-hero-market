@@ -168,6 +168,9 @@ async function runReadTool(
       case "getExecutiveSubjectWorkspace":
         data = await Tools.getExecutiveSubjectWorkspace(ctx);
         break;
+      case "getExecutiveOperationalThreads":
+        data = await Tools.getExecutiveOperationalThreads(ctx);
+        break;
       default:
         return null;
     }

@@ -208,6 +208,9 @@ export const resolutions = mysqlTable("resolutions", {
   status: mysqlEnum("status", ["draft", "approved", "rejected"]).notNull().default("draft"),
 });
 
+export type MinuteRow = typeof minutes.$inferSelect;
+export type ResolutionRow = typeof resolutions.$inferSelect;
+
 const oasisListingCurrency = [
   "TROO",
   "TROO_POO",
@@ -296,15 +299,8 @@ export const oasisAssetPacks = mysqlTable("oasis_asset_packs", {
 export const trooWorldElements = mysqlTable("troo_world_elements", {
   id: int("id").autoincrement().primaryKey(),
   worldId: varchar("worldId", { length: 64 }).notNull().default("default"),
-  type: mysqlEnum("type", [
-    "tree",
-    "street_light",
-    "bench",
-    "road_segment",
-    "crosswalk",
-    "bush",
-    "fountain",
-  ]).notNull(),
+  /** Physical column is `varchar(64)` after `0006_troo_world_elements_expand_types.sql`. */
+  type: varchar("type", { length: 64 }).notNull(),
   posX: decimal("posX", { precision: 12, scale: 4 }).notNull().default("0"),
   posY: decimal("posY", { precision: 12, scale: 4 }).notNull().default("0"),
   posZ: decimal("posZ", { precision: 12, scale: 4 }).notNull().default("0"),
@@ -323,6 +319,9 @@ export const trooWorlds = mysqlTable("troo_worlds", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: varchar("name", { length: 180 }).notNull(),
   slug: varchar("slug", { length: 200 }).notNull(),
+  terrainType: mysqlEnum("terrainType", ["urban-flat", "green-hills", "desert", "snow", "water-city"])
+    .notNull()
+    .default("urban-flat"),
   isDefault: boolean("isDefault").notNull().default(false),
   isPublished: boolean("isPublished").notNull().default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -420,6 +419,46 @@ export const oasisNpcs = mysqlTable("oasis_npcs", {
   telegramBotToken: varchar("telegramBotToken", { length: 256 }),
   telegramWebhookKey: varchar("telegramWebhookKey", { length: 64 }),
   telegramConnectedAt: timestamp("telegramConnectedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const oasisNpcSessions = mysqlTable("oasis_npc_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: varchar("sessionId", { length: 128 }).notNull().unique(),
+  npcId: int("npcId").notNull(),
+  npcNpcId: varchar("npcNpcId", { length: 128 }).notNull(),
+  userId: int("userId"),
+  currentTopic: varchar("currentTopic", { length: 255 }),
+  messageCount: int("messageCount").notNull().default(0),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  lastActivity: timestamp("lastActivity").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+  jarvaWorkflowPath: varchar("jarvaWorkflowPath", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const oasisNpcMessages = mysqlTable("oasis_npc_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  role: varchar("role", { length: 16 }).notNull(),
+  content: text("content").notNull(),
+  intent: varchar("intent", { length: 100 }),
+  intentConfidence: int("intentConfidence"),
+  sentiment: varchar("sentiment", { length: 16 }),
+  responseSource: varchar("responseSource", { length: 16 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const oasisNpcQA = mysqlTable("oasis_npc_qa", {
+  id: int("id").autoincrement().primaryKey(),
+  npcId: int("npcId").notNull(),
+  question: text("question").notNull(),
+  correctAnswers: text("correctAnswers").notNull(),
+  wrongAnswerResponse: text("wrongAnswerResponse").notNull(),
+  successResponse: text("successResponse"),
+  orderIndex: int("orderIndex").notNull().default(0),
+  isActive: boolean("isActive").notNull().default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -666,30 +705,64 @@ export const skipperPromptOverlays = mysqlTable("skipper_prompt_overlays", {
   approvedAt: timestamp("approvedAt"),
 });
 
-export const oasisNpcSessions = mysqlTable("oasis_npc_sessions", {
-  id: int("id").autoincrement().primaryKey(),
-  sessionId: varchar("sessionId", { length: 128 }).notNull().unique(),
-  npcId: int("npcId").notNull(),
-  npcNpcId: varchar("npcNpcId", { length: 128 }).notNull(),
-  userId: int("userId"),
-  currentTopic: varchar("currentTopic", { length: 255 }),
-  messageCount: int("messageCount").notNull().default(0),
-  startedAt: timestamp("startedAt").defaultNow().notNull(),
-  lastActivity: timestamp("lastActivity").defaultNow().notNull(),
-  endedAt: timestamp("endedAt"),
-  jarvaWorkflowPath: varchar("jarvaWorkflowPath", { length: 64 }),
+/** drizzle/0131_executive_operational_threads.sql — internal ops only; not client inbox. */
+export const EXECUTIVE_OPERATIONAL_THREAD_KINDS = [
+  "subject",
+  "department",
+  "fulfillment_case",
+  "approval",
+  "internal_note",
+] as const;
+
+export const EXECUTIVE_OPERATIONAL_THREAD_STATUSES = [
+  "open",
+  "monitoring",
+  "resolved",
+  "archived",
+] as const;
+
+export const EXECUTIVE_OPERATIONAL_THREAD_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+
+export const EXECUTIVE_OPERATIONAL_MESSAGE_KINDS = [
+  "discussion",
+  "operational_note",
+  "question",
+  "decision_request",
+  "status_update",
+  "owner_annotation",
+] as const;
+
+export const executiveOperationalThreads = mysqlTable("executive_operational_threads", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  threadKind: mysqlEnum("threadKind", EXECUTIVE_OPERATIONAL_THREAD_KINDS).notNull(),
+  status: mysqlEnum("status", EXECUTIVE_OPERATIONAL_THREAD_STATUSES).notNull().default("open"),
+  priority: mysqlEnum("priority", EXECUTIVE_OPERATIONAL_THREAD_PRIORITIES).notNull().default("normal"),
+  subjectId: varchar("subjectId", { length: 64 }),
+  department: varchar("department", { length: 32 }),
+  clientId: varchar("clientId", { length: 191 }),
+  orderId: varchar("orderId", { length: 191 }),
+  approvalId: varchar("approvalId", { length: 36 }),
+  decisionNeeded: boolean("decisionNeeded").notNull().default(false),
+  pinnedNoteText: text("pinnedNoteText"),
+  memorySummary: text("memorySummary"),
+  unresolvedQuestionCount: int("unresolvedQuestionCount").notNull().default(0),
+  lastMessageAt: timestamp("lastMessageAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-export const oasisNpcMessages = mysqlTable("oasis_npc_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  sessionId: int("sessionId").notNull(),
-  role: varchar("role", { length: 16 }).notNull(),
-  content: text("content").notNull(),
-  intent: varchar("intent", { length: 100 }),
-  intentConfidence: int("intentConfidence"),
-  sentiment: varchar("sentiment", { length: 16 }),
-  responseSource: varchar("responseSource", { length: 16 }),
+export const executiveOperationalThreadMessages = mysqlTable("executive_operational_thread_messages", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  threadId: varchar("threadId", { length: 36 }).notNull(),
+  adminUserId: int("adminUserId").notNull(),
+  bodyText: text("bodyText").notNull(),
+  messageKind: mysqlEnum("messageKind", EXECUTIVE_OPERATIONAL_MESSAGE_KINDS).notNull().default("discussion"),
+  priorityTag: varchar("priorityTag", { length: 32 }),
+  isPinned: boolean("isPinned").notNull().default(false),
+  ownerOnly: boolean("ownerOnly").notNull().default(false),
+  metadataJson: text("metadataJson"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

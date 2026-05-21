@@ -187,7 +187,7 @@ export async function buildSubjectExecutiveWorkspace(
 
   const headline = buildDeskWorkspaceHeadline(scope);
   const activeOrderIds = orders.map((o) => o.orderId);
-  const skipperContext = buildSubjectSkipperContext({
+  let skipperContext = buildSubjectSkipperContext({
     scope,
     headline,
     timelineSummary,
@@ -196,6 +196,24 @@ export async function buildSubjectExecutiveWorkspace(
     memoryHighlights,
     activeOrderIds,
   });
+
+  try {
+    const { buildExecutiveOperationalThreadsContext } = await import(
+      "@/lib/executive-agent/operational-thread-service"
+    );
+    const threadsCtx = await buildExecutiveOperationalThreadsContext(db, {
+      adminUserId: input.adminUserId,
+      subjectId: input.subjectId,
+      clientId: scope.clientId,
+      orderId: scope.orderId,
+      limit: 12,
+    });
+    if (threadsCtx.skipperThreadContext) {
+      skipperContext = `${skipperContext} ${threadsCtx.skipperThreadContext}`;
+    }
+  } catch {
+    /* threads table may be absent in some dev DBs */
+  }
 
   await auditFulfillmentExecutiveAction(db, {
     adminUserId: input.adminUserId,

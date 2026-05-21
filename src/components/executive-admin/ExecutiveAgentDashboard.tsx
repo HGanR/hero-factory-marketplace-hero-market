@@ -11,6 +11,9 @@ import { OperationalMemoryInsightsPanel } from "./OperationalMemoryInsightsPanel
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
+import { SubjectThreadSidebar } from "./SubjectThreadSidebar";
+import { ExecutiveThreadPanel } from "./ExecutiveThreadPanel";
+import { FulfillmentThreadView } from "./FulfillmentThreadView";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import { VoiceCommandDiagnosticsPanel, type ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
@@ -411,7 +414,13 @@ export function ExecutiveAgentDashboard() {
   const [subjectChatOpen, setSubjectChatOpen] = useState(true);
   const [workspaceOrderId, setWorkspaceOrderId] = useState("");
   const [subjectSkipperContext, setSubjectSkipperContext] = useState<string | null>(null);
+  const [selectedOpsThreadId, setSelectedOpsThreadId] = useState<string | null>(null);
+  const [threadSkipperContext, setThreadSkipperContext] = useState<string | null>(null);
   const activeSubject = useMemo(() => getExecutiveSubject(activeSubjectId), [activeSubjectId]);
+  const combinedSkipperWorkspaceContext = useMemo(() => {
+    const parts = [subjectSkipperContext, threadSkipperContext].filter(Boolean);
+    return parts.length ? parts.join(" ") : null;
+  }, [subjectSkipperContext, threadSkipperContext]);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSession, setVoiceSession] = useState<VoiceSessionJson | null>(null);
   const [voiceRailTurns, setVoiceRailTurns] = useState<VoiceRailTurn[]>([]);
@@ -2560,6 +2569,47 @@ export function ExecutiveAgentDashboard() {
               orderId={workspaceOrderId}
               onSkipperContext={setSubjectSkipperContext}
             />
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row">
+              <SubjectThreadSidebar
+                subjectId={activeSubjectId}
+                clientId={clientId}
+                orderId={workspaceOrderId}
+                selectedThreadId={selectedOpsThreadId}
+                onSelectThread={setSelectedOpsThreadId}
+              />
+              <div className="min-w-0 flex-1">
+                <ExecutiveThreadPanel
+                  threadId={selectedOpsThreadId}
+                  onSkipperContext={setThreadSkipperContext}
+                  onCreateThread={async () => {
+                    const title = window.prompt("Thread title");
+                    if (!title?.trim()) return;
+                    const r = await fetch("/api/admin/executive-agent/threads", {
+                      method: "POST",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        title: title.trim(),
+                        threadKind: "subject",
+                        subjectId: activeSubjectId,
+                        clientId: clientId.trim() || null,
+                        orderId: workspaceOrderId.trim() || null,
+                      }),
+                    });
+                    const j = (await r.json().catch(() => ({}))) as { thread?: { id: string } };
+                    if (j.thread?.id) setSelectedOpsThreadId(j.thread.id);
+                  }}
+                />
+              </div>
+            </div>
+            {workspaceOrderId.trim() ? (
+              <FulfillmentThreadView
+                orderId={workspaceOrderId.trim()}
+                clientId={clientId.trim() || undefined}
+                department={activeSubjectId === "trust_jarva" ? "TRUST" : "WEBSITE"}
+                subjectId={activeSubjectId === "trust_jarva" ? "trust_jarva" : "site_builder"}
+              />
+            ) : null}
             {subjectChatOpen ? (
               <ExecutiveSubjectAgentChatPanel
                 subject={activeSubject}
@@ -2568,7 +2618,7 @@ export function ExecutiveAgentDashboard() {
                 dryRun={dryRun}
                 timeRange={timeRange}
                 busy={busy !== null}
-                skipperWorkspaceContext={subjectSkipperContext}
+                skipperWorkspaceContext={combinedSkipperWorkspaceContext}
                 onClose={() => setSubjectChatOpen(false)}
               />
             ) : (
