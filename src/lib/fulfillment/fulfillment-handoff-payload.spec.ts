@@ -42,6 +42,21 @@ describe("claude fulfillment handoff payload", () => {
     assert.ok(ClaudeFulfillmentHandoffBodySchema.safeParse(valid).success);
   });
 
+  it("accepts optional structured websiteIntake", () => {
+    const r = ClaudeFulfillmentHandoffBodySchema.safeParse({
+      ...valid,
+      websiteIntake: {
+        businessName: "Northline HVAC",
+        industry: "Home services",
+        desiredPages: ["Home", "Services", "Contact"],
+        primaryCTA: "Request quote",
+        contactInfo: { phone: "555-0101" },
+        launchUrgency: "normal",
+      },
+    });
+    assert.ok(r.success);
+  });
+
   it("rejects non-WEBSITE primary service", () => {
     assert.equal(
       ClaudeFulfillmentHandoffBodySchema.safeParse({

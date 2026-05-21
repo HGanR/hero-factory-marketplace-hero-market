@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CreateSiteBuilderTaskPayloadSchema } from "@/lib/executive-agent/executive-action-payloads";
+import { loadWebsiteIntakeFromOrder } from "@/lib/fulfillment/website-intake-summary";
 
 export const ProposeSiteBuilderDraftBodySchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),
@@ -12,6 +13,7 @@ export type FulfillmentOrderPayloadSource = {
   clientId: string;
   salesSummaryText: string | null;
   requestedDeliverableJson: string | null;
+  executiveHandoffJson?: string | null;
 };
 
 function parseRequestedDeliverable(json: string | null): {
@@ -43,12 +45,19 @@ export function buildSiteBuilderTaskPayloadFromOrder(
     deliverable.title?.trim() ||
     "Site Builder fulfillment package";
 
+  const intake = loadWebsiteIntakeFromOrder({
+    executiveHandoffJson: order.executiveHandoffJson,
+    salesSummaryText: order.salesSummaryText,
+    requestedDeliverableJson: order.requestedDeliverableJson,
+  });
+
   const summary = order.salesSummaryText?.trim() ?? "";
   const notes = deliverable.notes?.trim() ?? "";
   const due = deliverable.dueHint?.trim();
   const defaultInstruction = [
     "[Fulfillment — Site Builder draft intake]",
-    summary ? `Sales summary:\n${summary}` : null,
+    intake.siteBuilderBrief,
+    summary ? `Sales summary (raw):\n${summary}` : null,
     notes ? `Deliverable notes:\n${notes}` : null,
     due ? `Due hint: ${due}` : null,
     "",

@@ -4,7 +4,23 @@ import type {
   FulfillmentPaymentConfirmationSummaryDto,
   FulfillmentQueueOrderSummaryDto,
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
+import type {
+  WebsiteIntakeNormalized,
+  WebsiteIntakeReadiness,
+  WebsiteIntakeReadinessTier,
+} from "@/lib/fulfillment/website-intake-types";
 import { FULFILLMENT_PRIMARY_SERVICE_WEBSITE } from "@/lib/fulfillment/fulfillment-types";
+
+export type { WebsiteIntakeReadinessTier };
+
+export type WebsiteIntakeReadinessDto = WebsiteIntakeReadiness;
+
+export type WebsiteIntakeDetailDto = {
+  normalized: WebsiteIntakeNormalized;
+  readiness: WebsiteIntakeReadinessDto;
+  skipperSummary: string;
+  siteBuilderBriefExcerpt: string;
+};
 
 /** Recommended desk action for Skipper / executive ops (WEBSITE slice only). */
 export const FULFILLMENT_NEXT_ADMIN_ACTIONS = [
@@ -68,5 +84,6 @@ export type FulfillmentOrderDetailResultDto = {
   approval: FulfillmentOrderDetailApprovalDto | null;
   timeline: FulfillmentTimelineEntryDto[];
   nextAction: FulfillmentNextActionDto;
+  websiteIntake: WebsiteIntakeDetailDto;
   meta: { primaryService: typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE };
 };

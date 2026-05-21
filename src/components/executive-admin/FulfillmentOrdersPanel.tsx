@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   FulfillmentOrderDetailResultDto,
   FulfillmentTimelineEntryKind,
+  WebsiteIntakeReadinessTier,
 } from "@/lib/fulfillment/fulfillment-order-detail-dtos";
 import type { FulfillmentQueueListResultDto, FulfillmentQueueOrderSummaryDto } from "@/lib/fulfillment/fulfillment-queue-dtos";
 import { FULFILLMENT_PIPELINE_STAGES } from "@/lib/fulfillment/fulfillment-types";
@@ -73,6 +74,18 @@ function formatWhen(iso: string | null): string {
 
 function shortId(id: string): string {
   return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+}
+
+function intakeTierBadgeClass(tier: WebsiteIntakeReadinessTier): string {
+  switch (tier) {
+    case "strong":
+      return "border-emerald-500/45 bg-emerald-950/40 text-emerald-100";
+    case "medium":
+      return "border-amber-500/40 bg-amber-950/35 text-amber-100/90";
+    case "weak":
+    default:
+      return "border-red-500/35 bg-red-950/30 text-red-200/90";
+  }
 }
 
 function timelineDotClass(kind: FulfillmentTimelineEntryKind): string {
@@ -486,6 +499,45 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
                     <div className="mt-1 font-mono text-[9px] text-slate-500">code: {detail.nextAction.action}</div>
                   </div>
 
+                  <div className="mb-3 rounded-lg border border-slate-700/60 bg-slate-900/50 p-2">
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                      Intake readiness
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${intakeTierBadgeClass(detail.websiteIntake.readiness.tier)}`}
+                      >
+                        {detail.websiteIntake.readiness.tier} intake
+                      </span>
+                      <span className="rounded border border-slate-600/60 px-1.5 py-0.5 text-[9px] text-slate-300">
+                        score {detail.websiteIntake.readiness.score}/100
+                      </span>
+                      <span
+                        className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${
+                          detail.websiteIntake.readiness.fulfillmentReady
+                            ? "border-emerald-500/40 bg-emerald-950/30 text-emerald-100/90"
+                            : "border-amber-500/35 bg-amber-950/25 text-amber-100/85"
+                        }`}
+                      >
+                        {detail.websiteIntake.readiness.fulfillmentReady
+                          ? "fulfillment-ready"
+                          : "not ready"}
+                      </span>
+                    </div>
+                    {detail.websiteIntake.readiness.missingFields.length > 0 ? (
+                      <div className="mt-2">
+                        <div className="text-[9px] uppercase tracking-wide text-slate-500">Missing information</div>
+                        <ul className="mt-1 list-inside list-disc text-[10px] text-amber-100/80">
+                          {detail.websiteIntake.readiness.missingFields.map((field) => (
+                            <li key={field}>{field}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[10px] text-emerald-100/80">No critical intake gaps flagged.</p>
+                    )}
+                  </div>
+
                   <div className="mb-3 flex flex-wrap gap-1">
                     <span
                       className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${stageBadgeClass(detail.order.pipelineStage)}`}
@@ -546,9 +598,18 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
                     </div>
                   </section>
 
+                  <section className="mb-3 rounded border border-slate-800/80 bg-slate-900/35 p-2">
+                    <h5 className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                      Skipper intake summary
+                    </h5>
+                    <pre className="mt-1.5 max-h-48 overflow-y-auto whitespace-pre-wrap font-sans text-[10px] leading-relaxed text-slate-400">
+                      {detail.websiteIntake.skipperSummary}
+                    </pre>
+                  </section>
+
                   <section className="mb-3">
                     <h5 className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                      Claude sales summary
+                      Claude sales excerpt
                     </h5>
                     {detail.order.salesSummaryExcerpt ? (
                       <p className="mt-1 text-slate-400">{detail.order.salesSummaryExcerpt}</p>

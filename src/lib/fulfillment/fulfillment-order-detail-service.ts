@@ -27,6 +27,10 @@ import {
   type FulfillmentExecutiveApprovalStatus,
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
 import {
+  excerptText,
+  loadWebsiteIntakeFromOrder,
+} from "@/lib/fulfillment/website-intake-summary";
+import {
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -152,6 +156,12 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
     orderSource: order.source,
   });
 
+  const websiteIntakePkg = loadWebsiteIntakeFromOrder({
+    executiveHandoffJson: order.executiveHandoffJson,
+    salesSummaryText: order.salesSummaryText,
+    requestedDeliverableJson: order.requestedDeliverableJson,
+  });
+
   const timeline = buildFulfillmentOrderTimeline({
     paymentConfirmedAt: payment?.confirmedAt ?? null,
     paymentStatus,
@@ -174,7 +184,12 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
     targetType: "client_service_order",
     targetId: order.id,
     inputJson: { clientId: order.clientId, pipelineStage: order.pipelineStage },
-    outputJson: { nextAction: nextActionKey, timelineCount: timeline.length },
+    outputJson: {
+      nextAction: nextActionKey,
+      timelineCount: timeline.length,
+      intakeTier: websiteIntakePkg.readiness.tier,
+      fulfillmentReady: websiteIntakePkg.readiness.fulfillmentReady,
+    },
   });
 
   return {
@@ -241,6 +256,12 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
       : null,
     timeline,
     nextAction: buildNextActionDto(nextActionKey),
+    websiteIntake: {
+      normalized: websiteIntakePkg.normalized,
+      readiness: websiteIntakePkg.readiness,
+      skipperSummary: websiteIntakePkg.skipperSummary,
+      siteBuilderBriefExcerpt: excerptText(websiteIntakePkg.siteBuilderBrief, 600),
+    },
     meta: { primaryService: FULFILLMENT_PRIMARY_SERVICE_WEBSITE },
   };
 }

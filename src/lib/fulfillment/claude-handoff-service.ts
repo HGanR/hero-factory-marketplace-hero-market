@@ -19,6 +19,7 @@ import {
   consumePaymentConfirmationForOrder,
 } from "@/lib/fulfillment/payment-confirmation-service";
 import { ClaudeFulfillmentHandoffBodySchema } from "@/lib/fulfillment/fulfillment-payload-schemas";
+import { buildWebsiteIntakeSnapshot } from "@/lib/fulfillment/website-intake-summary";
 import {
   FULFILLMENT_ARTIFACT_SITE_BUILDER_PACKAGE,
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
@@ -142,6 +143,12 @@ export async function submitClaudeFulfillmentHandoff(
 
   const orderId = uuidv4();
   const deliverableId = uuidv4();
+  const intakeSnapshot = buildWebsiteIntakeSnapshot({
+    websiteIntake: parsed.data.websiteIntake,
+    salesSummaryText: parsed.data.salesSummary.text,
+    requestedDeliverableJson: JSON.stringify(parsed.data.requestedDeliverable),
+  });
+
   const handoffSnapshot = {
     version: parsed.data.version,
     client: parsed.data.client,
@@ -153,6 +160,8 @@ export async function submitClaudeFulfillmentHandoff(
     },
     requestedDeliverable: parsed.data.requestedDeliverable,
     metadata: parsed.data.metadata ?? null,
+    websiteIntake: parsed.data.websiteIntake ?? null,
+    intake: intakeSnapshot,
   };
 
   await db.transaction(async (tx) => {
@@ -198,6 +207,9 @@ export async function submitClaudeFulfillmentHandoff(
         primaryService: service.primary,
         paymentConfirmationId: payment.confirmationId,
         deliverableId,
+        intakeReadinessTier: intakeSnapshot.readiness.tier,
+        intakeScore: intakeSnapshot.readiness.score,
+        fulfillmentReady: intakeSnapshot.readiness.fulfillmentReady,
       },
     });
 
@@ -212,7 +224,12 @@ export async function submitClaudeFulfillmentHandoff(
         paymentConfirmationId: payment.confirmationId,
         keyPrefix: input.worker.keyPrefix,
       },
-      outputJson: { stage: FULFILLMENT_INITIAL_STAGE, deliverableId },
+      outputJson: {
+        stage: FULFILLMENT_INITIAL_STAGE,
+        deliverableId,
+        intakeReadinessTier: intakeSnapshot.readiness.tier,
+        fulfillmentReady: intakeSnapshot.readiness.fulfillmentReady,
+      },
     });
   });
 

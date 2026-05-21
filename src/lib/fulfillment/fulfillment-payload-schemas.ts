@@ -1,8 +1,11 @@
 import { z } from "zod";
+import { ClaudeWebsiteIntakeSchema } from "@/lib/fulfillment/website-intake-types";
 import {
   FULFILLMENT_ARTIFACT_SITE_BUILDER_PACKAGE,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
+
+export { ClaudeWebsiteIntakeSchema } from "@/lib/fulfillment/website-intake-types";
 
 export const AdminManualPaymentConfirmBodySchema = z.object({
   clientId: z.string().uuid(),
@@ -64,4 +67,6 @@ export const ClaudeFulfillmentHandoffBodySchema = z.object({
       source: z.string().trim().max(64).optional(),
     })
     .optional(),
+  /** Structured WEBSITE intake — Claude sales desk; optional with salesSummary fallback. */
+  websiteIntake: ClaudeWebsiteIntakeSchema.optional(),
 });
