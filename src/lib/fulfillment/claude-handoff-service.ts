@@ -155,63 +155,65 @@ export async function submitClaudeFulfillmentHandoff(
     metadata: parsed.data.metadata ?? null,
   };
 
-  await db.insert(clientServiceOrders).values({
-    id: orderId,
-    clientId: client.clientId,
-    marketplaceUserId: client.marketplaceUserId ?? payGate.row.marketplaceUserId ?? null,
-    primaryService: service.primary,
-    requestedServicesJson: JSON.stringify(service.requested ?? [FULFILLMENT_PRIMARY_SERVICE_WEBSITE]),
-    pipelineStage: FULFILLMENT_INITIAL_STAGE,
-    paymentConfirmationId: payment.confirmationId,
-    assignedDepartment: FULFILLMENT_DEPARTMENT_SITE_BUILDER,
-    salesSummaryText: parsed.data.salesSummary.text,
-    consentJson: parsed.data.consent ? JSON.stringify(parsed.data.consent) : null,
-    requestedDeliverableJson: JSON.stringify(parsed.data.requestedDeliverable),
-    executiveHandoffJson: JSON.stringify(handoffSnapshot).slice(0, 100_000),
-    source: FULFILLMENT_ORDER_SOURCE_CLAUDE_WORKER,
-    claudeWorkerApiKeyId: input.worker.apiKeyId,
-    ownerAdminUserId: adminUserId,
-    claudeIdempotencyKey: input.idempotencyKey?.trim() || null,
-  });
-
-  await db.insert(fulfillmentDeliverables).values({
-    id: deliverableId,
-    orderId,
-    department: FULFILLMENT_DEPARTMENT_SITE_BUILDER,
-    artifactType: FULFILLMENT_ARTIFACT_SITE_BUILDER_PACKAGE,
-    ownerReviewStatus: "pending",
-  });
-
-  await consumePaymentConfirmationForOrder(db, {
-    confirmationId: payment.confirmationId,
-    orderId,
-  });
-
-  await insertFulfillmentOrderEvent(db, {
-    orderId,
-    actorType: "claude_worker",
-    actorId: input.worker.apiKeyId,
-    fromStage: null,
-    toStage: FULFILLMENT_INITIAL_STAGE,
-    payloadJson: {
-      primaryService: service.primary,
-      paymentConfirmationId: payment.confirmationId,
-      deliverableId,
-    },
-  });
-
-  await auditFulfillmentExecutiveAction(db, {
-    adminUserId,
-    toolName: "claude_worker.fulfillment_handoff",
-    actionType: "fulfillment_handoff_received",
-    targetType: "client_service_order",
-    targetId: orderId,
-    inputJson: {
+  await db.transaction(async (tx) => {
+    await tx.insert(clientServiceOrders).values({
+      id: orderId,
       clientId: client.clientId,
+      marketplaceUserId: client.marketplaceUserId ?? payGate.row.marketplaceUserId ?? null,
+      primaryService: service.primary,
+      requestedServicesJson: JSON.stringify(service.requested ?? [FULFILLMENT_PRIMARY_SERVICE_WEBSITE]),
+      pipelineStage: FULFILLMENT_INITIAL_STAGE,
       paymentConfirmationId: payment.confirmationId,
-      keyPrefix: input.worker.keyPrefix,
-    },
-    outputJson: { stage: FULFILLMENT_INITIAL_STAGE, deliverableId },
+      assignedDepartment: FULFILLMENT_DEPARTMENT_SITE_BUILDER,
+      salesSummaryText: parsed.data.salesSummary.text,
+      consentJson: parsed.data.consent ? JSON.stringify(parsed.data.consent) : null,
+      requestedDeliverableJson: JSON.stringify(parsed.data.requestedDeliverable),
+      executiveHandoffJson: JSON.stringify(handoffSnapshot).slice(0, 100_000),
+      source: FULFILLMENT_ORDER_SOURCE_CLAUDE_WORKER,
+      claudeWorkerApiKeyId: input.worker.apiKeyId,
+      ownerAdminUserId: adminUserId,
+      claudeIdempotencyKey: input.idempotencyKey?.trim() || null,
+    });
+
+    await tx.insert(fulfillmentDeliverables).values({
+      id: deliverableId,
+      orderId,
+      department: FULFILLMENT_DEPARTMENT_SITE_BUILDER,
+      artifactType: FULFILLMENT_ARTIFACT_SITE_BUILDER_PACKAGE,
+      ownerReviewStatus: "pending",
+    });
+
+    await consumePaymentConfirmationForOrder(tx, {
+      confirmationId: payment.confirmationId,
+      orderId,
+    });
+
+    await insertFulfillmentOrderEvent(tx, {
+      orderId,
+      actorType: "claude_worker",
+      actorId: input.worker.apiKeyId,
+      fromStage: null,
+      toStage: FULFILLMENT_INITIAL_STAGE,
+      payloadJson: {
+        primaryService: service.primary,
+        paymentConfirmationId: payment.confirmationId,
+        deliverableId,
+      },
+    });
+
+    await auditFulfillmentExecutiveAction(tx, {
+      adminUserId,
+      toolName: "claude_worker.fulfillment_handoff",
+      actionType: "fulfillment_handoff_received",
+      targetType: "client_service_order",
+      targetId: orderId,
+      inputJson: {
+        clientId: client.clientId,
+        paymentConfirmationId: payment.confirmationId,
+        keyPrefix: input.worker.keyPrefix,
+      },
+      outputJson: { stage: FULFILLMENT_INITIAL_STAGE, deliverableId },
+    });
   });
 
   return {
