@@ -27,6 +27,7 @@ import {
   type FulfillmentExecutiveApprovalStatus,
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
 import { getClientDeliveryAdminForOrder } from "@/lib/fulfillment/fulfillment-client-delivery-service";
+import { loadFulfillmentDraftQualityForOrder } from "@/lib/fulfillment/fulfillment-draft-quality-load";
 import { loadDeliverableDraftForOrder } from "@/lib/fulfillment/fulfillment-deliverable-draft";
 import {
   excerptText,
@@ -100,6 +101,7 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
         ownerReviewStatus: fulfillmentDeliverables.ownerReviewStatus,
         artifactRef: fulfillmentDeliverables.artifactRef,
         clientDeliveryStatus: fulfillmentDeliverables.clientDeliveryStatus,
+        draftVersion: fulfillmentDeliverables.draftVersion,
       })
       .from(fulfillmentDeliverables)
       .where(eq(fulfillmentDeliverables.orderId, order.id))
@@ -179,6 +181,16 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
     requestedDeliverableJson: order.requestedDeliverableJson,
   });
 
+  const draftQuality = await loadFulfillmentDraftQualityForOrder(db, {
+    orderId: order.id,
+    clientId: order.clientId,
+    executiveHandoffJson: order.executiveHandoffJson,
+    salesSummaryText: order.salesSummaryText,
+    requestedDeliverableJson: order.requestedDeliverableJson,
+    artifactRef: deliverable?.artifactRef ?? null,
+    draftVersion: deliverable?.draftVersion ?? 1,
+  });
+
   const timeline = buildFulfillmentOrderTimeline({
     paymentConfirmedAt: payment?.confirmedAt ?? null,
     paymentStatus,
@@ -206,6 +218,7 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
       timelineCount: timeline.length,
       intakeTier: websiteIntakePkg.readiness.tier,
       fulfillmentReady: websiteIntakePkg.readiness.fulfillmentReady,
+      draftQualityScore: draftQuality.draftQualityScore,
     },
   });
 
@@ -281,6 +294,7 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
     },
     deliverableDraft,
     clientDelivery,
+    draftQuality,
     meta: { primaryService: FULFILLMENT_PRIMARY_SERVICE_WEBSITE },
   };
 }

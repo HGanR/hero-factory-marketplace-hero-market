@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { CreateSiteBuilderTaskPayloadSchema } from "@/lib/executive-agent/executive-action-payloads";
+import { extractRevisionIntent } from "@/lib/fulfillment/revision-intelligence";
+import { buildStructuredSiteBuilderBrief } from "@/lib/fulfillment/site-builder-brief-builder";
 import { loadWebsiteIntakeFromOrder } from "@/lib/fulfillment/website-intake-summary";
 
 export const ProposeSiteBuilderDraftBodySchema = z.object({
@@ -37,7 +39,8 @@ function parseRequestedDeliverable(json: string | null): {
 /** Builds internal Site Builder task payload — draft note only after approval executes. */
 export function buildSiteBuilderTaskPayloadFromOrder(
   order: FulfillmentOrderPayloadSource,
-  overrides?: z.infer<typeof ProposeSiteBuilderDraftBodySchema>
+  overrides?: z.infer<typeof ProposeSiteBuilderDraftBodySchema>,
+  context?: { revisionNotes?: string[]; draftVersion?: number }
 ): z.infer<typeof CreateSiteBuilderTaskPayloadSchema> {
   const deliverable = parseRequestedDeliverable(order.requestedDeliverableJson);
   const title =
@@ -51,15 +54,27 @@ export function buildSiteBuilderTaskPayloadFromOrder(
     requestedDeliverableJson: order.requestedDeliverableJson,
   });
 
+  const revisionIntent = extractRevisionIntent(context?.revisionNotes ?? []);
+  const structuredBrief = buildStructuredSiteBuilderBrief({
+    normalized: intake.normalized,
+    readiness: intake.readiness,
+    salesSummary: order.salesSummaryText,
+    revisionIntent: revisionIntent.sourceCount ? revisionIntent : null,
+    draftVersion: context?.draftVersion,
+  });
+
   const summary = order.salesSummaryText?.trim() ?? "";
   const notes = deliverable.notes?.trim() ?? "";
   const due = deliverable.dueHint?.trim();
   const defaultInstruction = [
     "[Fulfillment — Site Builder draft intake]",
-    intake.siteBuilderBrief,
+    structuredBrief,
     summary ? `Sales summary (raw):\n${summary}` : null,
     notes ? `Deliverable notes:\n${notes}` : null,
     due ? `Due hint: ${due}` : null,
+    revisionIntent.sourceCount
+      ? `[Revision intelligence]\n${revisionIntent.summary}`
+      : null,
     "",
     "On approval: internal client note only. No deploy, publish, or email send.",
   ]

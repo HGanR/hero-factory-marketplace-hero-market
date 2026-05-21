@@ -148,6 +148,18 @@ function tokenStatusBadgeClass(status: string): string {
   }
 }
 
+function conversionReadinessBadgeClass(tier: string): string {
+  switch (tier) {
+    case "high":
+      return "border-emerald-500/45 bg-emerald-950/40 text-emerald-100";
+    case "medium":
+      return "border-amber-500/40 bg-amber-950/35 text-amber-100/90";
+    case "low":
+    default:
+      return "border-red-500/35 bg-red-950/30 text-red-200/90";
+  }
+}
+
 export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, onApprovalsRefresh }: Props) {
   const [orders, setOrders] = useState<FulfillmentQueueOrderSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -728,6 +740,103 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
                       <p className="mt-2 text-[10px] text-emerald-100/80">No critical intake gaps flagged.</p>
                     )}
                   </div>
+
+                  {detail.draftQuality ? (
+                    <div className="mb-3 rounded-lg border border-violet-500/25 bg-slate-900/55 p-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h5 className="text-[9px] font-semibold uppercase tracking-wide text-violet-200/90">
+                          Draft quality & conversion
+                        </h5>
+                        <span className="text-[9px] text-slate-500">
+                          {detail.draftQuality.businessArchetype.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="rounded border border-violet-500/40 bg-violet-950/35 px-2 py-0.5 text-[9px] font-semibold text-violet-100">
+                          quality {detail.draftQuality.draftQualityScore}/100
+                        </span>
+                        <span
+                          className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${conversionReadinessBadgeClass(detail.draftQuality.conversionReadiness)}`}
+                        >
+                          conversion {detail.draftQuality.conversionReadiness}
+                        </span>
+                      </div>
+                      {detail.draftQuality.missingBusinessSignals.length > 0 ? (
+                        <div className="mt-2">
+                          <div className="text-[9px] uppercase tracking-wide text-slate-500">
+                            Missing business signals
+                          </div>
+                          <ul className="mt-1 list-inside list-disc text-[10px] text-amber-100/80">
+                            {detail.draftQuality.missingBusinessSignals.map((s) => (
+                              <li key={s}>{s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {detail.draftQuality.weakCtaWarnings.length > 0 ? (
+                        <div className="mt-2">
+                          <div className="text-[9px] uppercase tracking-wide text-orange-300/90">
+                            Weak CTA warnings
+                          </div>
+                          <ul className="mt-1 list-inside list-disc text-[10px] text-orange-100/85">
+                            {detail.draftQuality.weakCtaWarnings.map((w) => (
+                              <li key={w}>{w}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {detail.draftQuality.revisionIntentSummary ? (
+                        <div className="mt-2 rounded border border-slate-800/80 bg-slate-950/50 p-2 text-[10px] text-slate-300">
+                          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                            Revision intent
+                          </span>
+                          <p className="mt-1">{detail.draftQuality.revisionIntentSummary}</p>
+                          {detail.draftQuality.revisionThemes.length > 0 ? (
+                            <p className="mt-1 text-[9px] text-slate-500">
+                              Themes: {detail.draftQuality.revisionThemes.join(", ")}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {detail.draftQuality.versionComparison?.hasComparison ? (
+                        <div className="mt-2 text-[10px] text-slate-400">
+                          <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                            Version delta
+                          </div>
+                          <p className="mt-1 text-slate-300">
+                            {detail.draftQuality.versionComparison.summary}
+                          </p>
+                          {detail.draftQuality.versionComparison.improvements.length > 0 ? (
+                            <ul className="mt-1 list-inside list-disc text-emerald-100/80">
+                              {detail.draftQuality.versionComparison.improvements.map((i) => (
+                                <li key={i}>{i}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="mt-2">
+                        <div className="text-[9px] uppercase tracking-wide text-slate-500">
+                          Conversion checklist
+                        </div>
+                        <ul className="mt-1 space-y-0.5 text-[9px]">
+                          {detail.draftQuality.conversionChecklist.map((item) => (
+                            <li
+                              key={item.id}
+                              className={item.passed ? "text-emerald-100/85" : "text-slate-500"}
+                            >
+                              {item.passed ? "✓" : "○"} {item.label}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {detail.draftQuality.recommendedCtas.length > 0 ? (
+                        <p className="mt-2 text-[9px] text-slate-500">
+                          Recommended CTAs: {detail.draftQuality.recommendedCtas.join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="mb-3 flex flex-wrap gap-1">
                     <span

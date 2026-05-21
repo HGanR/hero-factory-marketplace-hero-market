@@ -6,6 +6,7 @@ import type {
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
 import type { ClientDeliveryAdminDto } from "@/lib/fulfillment/fulfillment-client-delivery-dtos";
 import type { FulfillmentDeliverableDraftDto } from "@/lib/fulfillment/fulfillment-deliverable-draft-dtos";
+import type { FulfillmentDraftQualityDto } from "@/lib/fulfillment/fulfillment-quality-score";
 
 export type { ClientDeliveryAdminDto };
 import type {
@@ -15,6 +16,7 @@ import type {
 } from "@/lib/fulfillment/website-intake-types";
 
 export type { FulfillmentDeliverableDraftDto };
+export type { FulfillmentDraftQualityDto };
 import { FULFILLMENT_PRIMARY_SERVICE_WEBSITE } from "@/lib/fulfillment/fulfillment-types";
 
 export type { WebsiteIntakeReadinessTier };
@@ -104,5 +106,6 @@ export type FulfillmentOrderDetailResultDto = {
   websiteIntake: WebsiteIntakeDetailDto;
   deliverableDraft: FulfillmentDeliverableDraftDto | null;
   clientDelivery: ClientDeliveryAdminDto | null;
+  draftQuality: FulfillmentDraftQualityDto;
   meta: { primaryService: typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE };
 };

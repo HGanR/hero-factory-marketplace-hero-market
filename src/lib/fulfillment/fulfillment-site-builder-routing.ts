@@ -4,7 +4,12 @@ import { randomUUID } from "crypto";
 import { and, eq } from "drizzle-orm";
 import type { MySql2Database } from "drizzle-orm/mysql2";
 import * as schema from "@/lib/db/schema";
-import { clientServiceOrders, executiveAgentApprovals } from "@/lib/db/schema";
+import {
+  clientServiceOrderEvents,
+  clientServiceOrders,
+  executiveAgentApprovals,
+  fulfillmentDeliverables,
+} from "@/lib/db/schema";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
 import { CreateSiteBuilderTaskPayloadSchema } from "@/lib/executive-agent/executive-action-payloads";
 import { insertExecutiveApproval } from "@/lib/executive-agent/executive-agent-approvals-store";
@@ -16,6 +21,7 @@ import {
   buildSiteBuilderTaskPayloadFromOrder,
   ProposeSiteBuilderDraftBodySchema,
 } from "@/lib/fulfillment/fulfillment-site-builder-payload";
+import { collectRevisionNotesFromEvents } from "@/lib/fulfillment/revision-intelligence";
 import {
   FULFILLMENT_ARTIFACT_SITE_BUILDER_PACKAGE,
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
@@ -127,7 +133,29 @@ export async function proposeSiteBuilderDraftFromFulfillmentOrder(
     };
   }
 
-  const payload = buildSiteBuilderTaskPayloadFromOrder(order, parsedBody.data);
+  const eventRows = await db
+    .select({ payloadJson: clientServiceOrderEvents.payloadJson })
+    .from(clientServiceOrderEvents)
+    .where(eq(clientServiceOrderEvents.orderId, order.id))
+    .limit(50);
+
+  const [deliverable] = await db
+    .select({ draftVersion: fulfillmentDeliverables.draftVersion })
+    .from(fulfillmentDeliverables)
+    .where(eq(fulfillmentDeliverables.orderId, order.id))
+    .limit(1);
+
+  const revisionNotes = collectRevisionNotesFromEvents(eventRows);
+  const baseVersion = deliverable?.draftVersion ?? 1;
+  const draftVersion =
+    revisionNotes.length > 0 && order.pipelineStage === "service_drafting"
+      ? baseVersion + 1
+      : baseVersion;
+
+  const payload = buildSiteBuilderTaskPayloadFromOrder(order, parsedBody.data, {
+    revisionNotes,
+    draftVersion: Math.max(1, draftVersion),
+  });
   const payloadValidated = CreateSiteBuilderTaskPayloadSchema.safeParse(payload);
   if (!payloadValidated.success) {
     return {

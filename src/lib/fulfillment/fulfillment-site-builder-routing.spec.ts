@@ -18,6 +18,7 @@ describe("buildSiteBuilderTaskPayloadFromOrder", () => {
     assert.equal(payload.clientId, CLIENT_ID);
     assert.equal(payload.title, "Starter site");
     assert.ok(payload.instruction.includes("starter website"));
+    assert.ok(payload.instruction.includes("Structured Site Builder brief"));
     assert.ok(payload.instruction.includes("No deploy"));
   });
 

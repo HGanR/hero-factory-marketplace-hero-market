@@ -1,5 +1,6 @@
 import { redactSensitiveIntakeText } from "@/lib/executive-agent/pending-clients-note-redact";
 import { normalizeWebsiteIntake, parseWebsiteIntakeFromHandoffJson } from "@/lib/fulfillment/website-intake-normalizer";
+import { buildStructuredSiteBuilderBrief } from "@/lib/fulfillment/site-builder-brief-builder";
 import { scoreWebsiteIntakeReadiness } from "@/lib/fulfillment/website-intake-readiness";
 import type {
   WebsiteIntakeNormalized,
@@ -72,9 +73,7 @@ export function buildSiteBuilderIntakeBrief(
   profile: WebsiteIntakeNormalized,
   readiness: WebsiteIntakeReadiness
 ): string {
-  const header = `[Site Builder intake brief · ${readiness.tier} · readiness ${readiness.score}%]`;
-  const body = buildSkipperIntakeSummary(profile, readiness);
-  return `${header}\n${body}`.slice(0, 20_000);
+  return buildStructuredSiteBuilderBrief({ normalized: profile, readiness });
 }
 
 export function buildWebsiteIntakePackage(input: {
