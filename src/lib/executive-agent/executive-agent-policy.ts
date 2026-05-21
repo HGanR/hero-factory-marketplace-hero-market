@@ -90,6 +90,7 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getClientFulfillmentOperations: "read:crm",
     getExecutiveFulfillmentOperationsOverview: "read:crm",
     getExecutiveFulfillmentOperationsBriefing: "read:crm",
+    getExecutiveFulfillmentOperationsMemoryInsights: "read:crm",
   };
   const need = map[toolName];
   if (!need) return false;

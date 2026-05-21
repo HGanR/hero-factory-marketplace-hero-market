@@ -19,7 +19,8 @@ export type ExecutiveReadToolKey =
   | "getKnowledgeBaseSummary"
   | "getClientFulfillmentOperations"
   | "getExecutiveFulfillmentOperationsOverview"
-  | "getExecutiveFulfillmentOperationsBriefing";
+  | "getExecutiveFulfillmentOperationsBriefing"
+  | "getExecutiveFulfillmentOperationsMemoryInsights";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -94,6 +95,13 @@ export function pickExecutiveReadTools(
   }
   if (/briefing|needs my attention|urgent action|owner sequence|operations briefing/.test(p)) {
     out.add("getExecutiveFulfillmentOperationsBriefing");
+  }
+  if (
+    /operational memory|memory insight|learned pattern|revision analytics|approval latency|bottleneck recurrence|what.*prioriti|fulfillment success score/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveFulfillmentOperationsMemoryInsights");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

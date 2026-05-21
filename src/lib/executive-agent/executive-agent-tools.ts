@@ -397,6 +397,37 @@ export async function getExecutiveFulfillmentOperationsBriefing(ctx: ExecutiveTo
     generatedAt: briefing.generatedAt,
   };
 }
+/** Operational memory + learning feedback — read-only desk patterns for Skipper. */
+export async function getExecutiveFulfillmentOperationsMemoryInsights(
+  ctx: ExecutiveToolContext,
+  limit = 80
+) {
+  const { buildExecutiveFulfillmentOperationsMemoryInsights } = await import(
+    "@/lib/fulfillment/fulfillment-operations-service"
+  );
+  const insights = await buildExecutiveFulfillmentOperationsMemoryInsights(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+  });
+  return {
+    recommendationOnly: true,
+    headline: insights.headline,
+    highlights: insights.highlights,
+    revisionAnalytics: insights.revisionAnalytics,
+    skipperSummary: insights.skipperSummary,
+    recommendationSignals: insights.memory.recommendationSignals.slice(0, 8),
+    operatorPatterns: insights.memory.operatorPatterns.slice(0, 8),
+    bottleneckRecurrence: insights.memory.bottleneckRecurrence.slice(0, 6),
+    approvalLatency: insights.memory.approvalLatency.slice(0, 6),
+    clientLifecycle: insights.memory.clientLifecycle
+      .filter((c) => c.guidanceScore >= 55)
+      .slice(0, 10),
+    successScores: insights.memory.successScores.slice(0, 12),
+    meta: insights.meta,
+    generatedAt: insights.generatedAt,
+  };
+}
+
 /** Executive desk overview across WEBSITE + TRUST fulfillment — no autonomous actions. */
 export async function getExecutiveFulfillmentOperationsOverview(ctx: ExecutiveToolContext, limit = 30) {
   const { buildExecutiveFulfillmentOperationsOverview } = await import(

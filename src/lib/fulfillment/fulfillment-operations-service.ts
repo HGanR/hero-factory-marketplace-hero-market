@@ -8,6 +8,8 @@ import {
   clientServiceOrderEvents,
   clientServiceOrders,
   executiveAgentApprovals,
+  executiveAgentAuditLogs,
+  executiveAgentMemoryItems,
   fulfillmentDeliverables,
   paymentConfirmations,
 } from "@/lib/db/schema";
@@ -43,6 +45,12 @@ import {
   summarizeTimelineForSkipper,
 } from "@/lib/fulfillment/unified-client-timeline";
 import { buildExecutiveFulfillmentOperationsBriefingFromDesk } from "@/lib/fulfillment/fulfillment-executive-operations-briefing-builder";
+import { buildExecutiveFulfillmentOperationalMemoryInsights } from "@/lib/fulfillment/fulfillment-operational-memory-insights-builder";
+import { buildOperationalMemoryStore } from "@/lib/fulfillment/operational-memory-store";
+import type {
+  ExecutiveFulfillmentOperationalMemoryInsightsDto,
+  OperationalMemoryOrderRecord,
+} from "@/lib/fulfillment/fulfillment-operational-memory-types";
 import type {
   BriefingApprovalBacklogItem,
   BriefingClientContext,
@@ -327,6 +335,8 @@ export async function buildClientFulfillmentOperations(
       (o.pipelineStage === "approved_for_release" || o.pipelineStage === "released")
   );
 
+  const memoryWeights = await loadFulfillmentRecommendationMemoryWeights(db, input.adminUserId);
+
   const engineInput = {
     clientId,
     orders,
@@ -335,6 +345,7 @@ export async function buildClientFulfillmentOperations(
     health,
     campaignCount: campaignCountRow.length,
     websiteApprovedForRelease: websiteApproved,
+    memoryWeights,
   };
 
   const recommendations = buildFulfillmentRecommendations(engineInput);
@@ -664,6 +675,7 @@ export async function buildExecutiveFulfillmentOperationsBriefing(
   }
 
   const clients: BriefingClientContext[] = [];
+  const memoryWeights = await loadFulfillmentRecommendationMemoryWeights(db, input.adminUserId);
 
   for (const [clientId, clientOrders] of byClient.entries()) {
     const readiness = buildSharedClientReadinessSummary({
@@ -700,6 +712,7 @@ export async function buildExecutiveFulfillmentOperationsBriefing(
           o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE &&
           (o.pipelineStage === "approved_for_release" || o.pipelineStage === "released")
       ),
+      memoryWeights,
     });
 
     const crossSellOpportunities = detectCrossSellOpportunities({
@@ -760,4 +773,272 @@ export async function buildExecutiveFulfillmentOperationsBriefing(
   });
 
   return briefing;
+}
+
+function toOperationalMemoryOrderRecords(
+  snapshots: ClientFulfillmentOrderSnapshot[],
+  deliverables: Map<
+    string,
+    {
+      ownerReviewStatus: "pending" | "approved" | "rejected";
+      clientDeliveryStatus?: OperationalMemoryOrderRecord["clientDeliveryStatus"];
+      draftVersion?: number;
+    }
+  >
+): OperationalMemoryOrderRecord[] {
+  return snapshots.map((s) => {
+    const del = deliverables.get(s.orderId);
+    return {
+      orderId: s.orderId,
+      clientId: s.clientId,
+      department: s.department,
+      pipelineStage: s.pipelineStage,
+      approvalStatus: s.approvalStatus,
+      ownerReviewStatus: del?.ownerReviewStatus ?? "pending",
+      clientDeliveryStatus: del?.clientDeliveryStatus ?? "not_sent",
+      draftVersion: del?.draftVersion ?? 1,
+      daysInCurrentStage: s.daysInCurrentStage,
+      paymentConsumed: s.paymentConsumed,
+      updatedAt: s.updatedAt,
+      createdAt: s.createdAt,
+    };
+  });
+}
+
+function countRevisionEventsByOrder(
+  events: Array<{ orderId: string; toStage: string }>
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const e of events) {
+    if (
+      e.toStage === "client_delivery_client_revision_requested" ||
+      e.toStage.includes("revision")
+    ) {
+      map.set(e.orderId, (map.get(e.orderId) ?? 0) + 1);
+    }
+  }
+  return map;
+}
+
+/**
+ * Read-only operational memory + learning feedback for Skipper — derived analytics only.
+ */
+export async function buildExecutiveFulfillmentOperationsMemoryInsights(
+  db: Db,
+  input: { adminUserId: number; limit?: number }
+): Promise<ExecutiveFulfillmentOperationalMemoryInsightsDto> {
+  const limit = Math.min(Math.max(input.limit ?? 80, 1), 150);
+
+  const orderRows = await db
+    .select()
+    .from(clientServiceOrders)
+    .where(eq(clientServiceOrders.ownerAdminUserId, input.adminUserId))
+    .orderBy(desc(clientServiceOrders.updatedAt))
+    .limit(limit * 4);
+
+  const fulfillmentRows = orderRows.filter((r) => departmentFromOrder(r) != null);
+  const orderIds = fulfillmentRows.map((r) => r.id);
+  const paymentIds = [...new Set(fulfillmentRows.map((r) => r.paymentConfirmationId))];
+  const orderIdToDept = new Map(
+    fulfillmentRows.map((r) => [r.id, departmentFromOrder(r)] as const)
+  );
+
+  const [
+    paymentRows,
+    deliverableRows,
+    approvalHistoryRows,
+    eventRows,
+    auditRows,
+    memoryRows,
+  ] = await Promise.all([
+    paymentIds.length
+      ? db
+          .select({
+            id: paymentConfirmations.id,
+            status: paymentConfirmations.status,
+            consumedAt: paymentConfirmations.consumedAt,
+            consumedByOrderId: paymentConfirmations.consumedByOrderId,
+          })
+          .from(paymentConfirmations)
+          .where(inArray(paymentConfirmations.id, paymentIds))
+      : Promise.resolve([]),
+    orderIds.length
+      ? db
+          .select({
+            orderId: fulfillmentDeliverables.orderId,
+            ownerReviewStatus: fulfillmentDeliverables.ownerReviewStatus,
+            clientDeliveryStatus: fulfillmentDeliverables.clientDeliveryStatus,
+            draftVersion: fulfillmentDeliverables.draftVersion,
+          })
+          .from(fulfillmentDeliverables)
+          .where(inArray(fulfillmentDeliverables.orderId, orderIds))
+      : Promise.resolve([]),
+    db
+      .select({
+        id: executiveAgentApprovals.id,
+        proposedAction: executiveAgentApprovals.proposedAction,
+        targetId: executiveAgentApprovals.targetId,
+        status: executiveAgentApprovals.status,
+        createdAt: executiveAgentApprovals.createdAt,
+        executedAt: executiveAgentApprovals.executedAt,
+      })
+      .from(executiveAgentApprovals)
+      .where(
+        and(
+          eq(executiveAgentApprovals.adminUserId, input.adminUserId),
+          inArray(executiveAgentApprovals.proposedAction, [...FULFILLMENT_ACTIONS])
+        )
+      )
+      .orderBy(desc(executiveAgentApprovals.createdAt))
+      .limit(200),
+    orderIds.length
+      ? db
+          .select({
+            orderId: clientServiceOrderEvents.orderId,
+            toStage: clientServiceOrderEvents.toStage,
+          })
+          .from(clientServiceOrderEvents)
+          .where(inArray(clientServiceOrderEvents.orderId, orderIds))
+      : Promise.resolve([]),
+    db
+      .select({
+        actionType: executiveAgentAuditLogs.actionType,
+        toolName: executiveAgentAuditLogs.toolName,
+      })
+      .from(executiveAgentAuditLogs)
+      .where(eq(executiveAgentAuditLogs.adminUserId, input.adminUserId))
+      .orderBy(desc(executiveAgentAuditLogs.createdAt))
+      .limit(300),
+    db
+      .select({ title: executiveAgentMemoryItems.title })
+      .from(executiveAgentMemoryItems)
+      .where(eq(executiveAgentMemoryItems.adminUserId, input.adminUserId))
+      .orderBy(desc(executiveAgentMemoryItems.updatedAt))
+      .limit(40),
+  ]);
+
+  const paymentById = new Map(
+    paymentRows.map((p) => [
+      p.id,
+      {
+        status: p.status as "pending" | "confirmed" | "failed",
+        consumedAt: p.consumedAt,
+        consumedByOrderId: p.consumedByOrderId,
+      },
+    ])
+  );
+  const deliverableByOrder = new Map(deliverableRows.map((d) => [d.orderId, d]));
+  const approvalRows = await loadLatestApprovalsByOrder(db, {
+    adminUserId: input.adminUserId,
+    orderIds,
+  });
+  const snapshots = buildOrderSnapshots(
+    fulfillmentRows.slice(0, limit),
+    paymentById,
+    deliverableByOrder,
+    approvalRows
+  );
+
+  const memoryOrders = toOperationalMemoryOrderRecords(snapshots, deliverableByOrder);
+  const revisionEventCounts = countRevisionEventsByOrder(eventRows);
+
+  const insights = buildExecutiveFulfillmentOperationalMemoryInsights({
+    orders: memoryOrders,
+    revisionEventCounts,
+    approvals: approvalHistoryRows.map((a) => ({
+      id: a.id,
+      proposedAction: a.proposedAction,
+      targetId: a.targetId?.trim() ?? null,
+      status: a.status,
+      createdAt: toIso(a.createdAt),
+      executedAt: toIso(a.executedAt),
+      department: a.targetId ? orderIdToDept.get(a.targetId.trim()) ?? null : null,
+    })),
+    auditActions: auditRows.map((a) => ({
+      actionType: a.actionType,
+      toolName: a.toolName,
+    })),
+    memoryItemTitles: memoryRows.map((m) => m.title),
+  });
+
+  await auditFulfillmentExecutiveAction(db, {
+    adminUserId: input.adminUserId,
+    toolName: "fulfillment.operations.memory_insights",
+    actionType: "memory_insights_viewed",
+    targetType: "platform",
+    inputJson: { limit, ordersAnalyzed: insights.memory.ordersAnalyzed },
+    outputJson: {
+      trustStalled: insights.highlights.trustStalledPackets,
+      clientsNeedingGuidance: insights.highlights.clientsNeedingGuidance,
+    },
+  });
+
+  return insights;
+}
+
+/** Memory weights for recommendation ranking — read-only, no audit side-effect. */
+export async function loadFulfillmentRecommendationMemoryWeights(
+  db: Db,
+  adminUserId: number
+): Promise<import("@/lib/fulfillment/fulfillment-operational-memory-types").RecommendationMemoryWeights> {
+  const limit = 60;
+  const orderRows = await db
+    .select()
+    .from(clientServiceOrders)
+    .where(eq(clientServiceOrders.ownerAdminUserId, adminUserId))
+    .orderBy(desc(clientServiceOrders.updatedAt))
+    .limit(limit * 2);
+
+  const fulfillmentRows = orderRows.filter((r) => departmentFromOrder(r) != null).slice(0, limit);
+  const orderIds = fulfillmentRows.map((r) => r.id);
+  const paymentIds = [...new Set(fulfillmentRows.map((r) => r.paymentConfirmationId))];
+
+  const [paymentRows, deliverableRows, approvalRows] = await Promise.all([
+    paymentIds.length
+      ? db
+          .select({
+            id: paymentConfirmations.id,
+            status: paymentConfirmations.status,
+            consumedAt: paymentConfirmations.consumedAt,
+            consumedByOrderId: paymentConfirmations.consumedByOrderId,
+          })
+          .from(paymentConfirmations)
+          .where(inArray(paymentConfirmations.id, paymentIds))
+      : Promise.resolve([]),
+    orderIds.length
+      ? db
+          .select({
+            orderId: fulfillmentDeliverables.orderId,
+            ownerReviewStatus: fulfillmentDeliverables.ownerReviewStatus,
+            clientDeliveryStatus: fulfillmentDeliverables.clientDeliveryStatus,
+            draftVersion: fulfillmentDeliverables.draftVersion,
+          })
+          .from(fulfillmentDeliverables)
+          .where(inArray(fulfillmentDeliverables.orderId, orderIds))
+      : Promise.resolve([]),
+    loadLatestApprovalsByOrder(db, { adminUserId, orderIds }),
+  ]);
+
+  const paymentById = new Map(
+    paymentRows.map((p) => [
+      p.id,
+      {
+        status: p.status as "pending" | "confirmed" | "failed",
+        consumedAt: p.consumedAt,
+        consumedByOrderId: p.consumedByOrderId,
+      },
+    ])
+  );
+  const deliverableByOrder = new Map(deliverableRows.map((d) => [d.orderId, d]));
+  const snapshots = buildOrderSnapshots(fulfillmentRows, paymentById, deliverableByOrder, approvalRows);
+  const memoryOrders = toOperationalMemoryOrderRecords(snapshots, deliverableByOrder);
+
+  const store = buildOperationalMemoryStore({
+    orders: memoryOrders,
+    revisionEventCounts: new Map(),
+    approvals: [],
+    auditActions: [],
+    memoryItemTitles: [],
+  });
+  return store.recommendationWeights;
 }

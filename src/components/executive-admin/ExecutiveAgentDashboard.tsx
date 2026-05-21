@@ -7,6 +7,9 @@ import { Mic } from "lucide-react";
 import { FulfillmentOrdersPanel } from "./FulfillmentOrdersPanel";
 import { TrustFulfillmentOrdersPanel } from "./TrustFulfillmentOrdersPanel";
 import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingPanel";
+import { OperationalMemoryInsightsPanel } from "./OperationalMemoryInsightsPanel";
+import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
+import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import { VoiceCommandDiagnosticsPanel, type ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
@@ -36,6 +39,12 @@ import {
 import type { LiveMetricsResponse } from "@/lib/executive-agent/executive-live-metrics";
 import type { ExecutiveDashboardMode } from "@/lib/executive-agent/executive-agent-chat-request";
 import { EXECUTIVE_DASHBOARD_MODES } from "@/lib/executive-agent/executive-agent-chat-request";
+import {
+  getExecutiveSubject,
+  subjectIdFromBottomTab,
+  type ExecutiveSubjectConfig,
+  type ExecutiveSubjectId,
+} from "@/lib/executive-agent/executive-subject-nav";
 import {
   ExecutiveInboxAttachmentsList,
   formatExecutiveInboxTimestamp,
@@ -212,6 +221,7 @@ const BOTTOM_TABS = [
   "Analytics",
   "Inbox",
   "Tasks",
+  "Jarva",
   "Settings",
 ] as const;
 
@@ -221,6 +231,15 @@ const AGENT_LABEL: Record<ExecutiveAgentKey, string> = {
   bentley: "Bentley",
   executive_admin: "Executive Admin",
   skipper: "SKIPPER",
+};
+
+/** Domain label shown under agent name in the network panel. */
+const AGENT_DOMAIN_LABEL: Record<ExecutiveAgentKey, string> = {
+  reality: "ENGAGEMENT",
+  eleanor: "ACCOUNTING",
+  bentley: "REVENUE OS",
+  executive_admin: "ADMIN",
+  skipper: "NEXUS",
 };
 
 const SELF_HOSTED_STT_DEV_HINT =
@@ -387,6 +406,9 @@ export function ExecutiveAgentDashboard() {
   const [timeRange, setTimeRange] = useState<(typeof TIME_OPTIONS)[number]>("LIVE");
   const [dashboardMode, setDashboardMode] = useState<ExecutiveDashboardMode>("OVERVIEW");
   const [bottomTab, setBottomTab] = useState<(typeof BOTTOM_TABS)[number]>("Command Center");
+  const [activeSubjectId, setActiveSubjectId] = useState<ExecutiveSubjectId>("command_center");
+  const [subjectChatOpen, setSubjectChatOpen] = useState(true);
+  const activeSubject = useMemo(() => getExecutiveSubject(activeSubjectId), [activeSubjectId]);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSession, setVoiceSession] = useState<VoiceSessionJson | null>(null);
   const [voiceRailTurns, setVoiceRailTurns] = useState<VoiceRailTurn[]>([]);
@@ -1279,10 +1301,10 @@ export function ExecutiveAgentDashboard() {
       void loadKnowledgeDocs();
       void loadQuestionHistory();
     }
-    if (bottomTab === "Inbox") {
+    if (bottomTab === "Inbox" || activeSubjectId === "inbox") {
       void loadExecutiveInboxAdmin();
     }
-  }, [bottomTab, loadExecutiveRoutines, loadKnowledgeDocs, loadQuestionHistory, loadExecutiveInboxAdmin]);
+  }, [bottomTab, activeSubjectId, loadExecutiveRoutines, loadKnowledgeDocs, loadQuestionHistory, loadExecutiveInboxAdmin]);
 
   const loadSummary = useCallback(async () => {
     setBusy("summary");
@@ -2205,24 +2227,26 @@ export function ExecutiveAgentDashboard() {
     return "idle";
   }, [voice.error, voice.listening, voice.speaking, busy, simSpeaking, voiceApprovalFlash, voiceSttBusy, voiceMode]);
 
+  const applySubject = useCallback((subject: ExecutiveSubjectConfig) => {
+    setActiveSubjectId(subject.id);
+    setSubjectChatOpen(true);
+    const tabLabel = (BOTTOM_TABS as readonly string[]).includes(subject.navLabel)
+      ? (subject.navLabel as (typeof BOTTOM_TABS)[number])
+      : "Command Center";
+    setBottomTab(tabLabel);
+    setDashboardMode(subject.dashboardMode);
+    setCustomAgents(new Set(subject.delegateAgents));
+    if (subject.id === "inbox") {
+      setSubjectChatOpen(false);
+      void loadExecutiveInboxAdmin();
+    } else if (subject.id === "ai_agents") setDataPreset("ALL");
+    else if (subject.id === "analytics") setDataPreset("BENTLEY");
+    else if (subject.id === "crm_intelligence" || subject.id === "trust_jarva") setDataPreset("EXECUTIVE_ADMIN");
+    else if (subject.id === "command_center" || subject.id === "new_command") setDataPreset("ALL");
+  }, [loadExecutiveInboxAdmin]);
+
   const mapTabToMode = (tab: (typeof BOTTOM_TABS)[number]) => {
-    const m: ExecutiveDashboardMode =
-      tab === "CRM Intelligence"
-        ? "CRM"
-        : tab === "AI Agents"
-          ? "CONVERSATIONS"
-          : tab === "Site Builder"
-            ? "SITE_BUILDER"
-            : tab === "Analytics"
-              ? "OVERVIEW"
-              : tab === "Inbox"
-                ? "CONVERSATIONS"
-                : tab === "Tasks"
-                  ? "TASKS"
-                  : tab === "Settings"
-                    ? "SYSTEM_HEALTH"
-                    : "OVERVIEW";
-    setDashboardMode(m);
+    applySubject(getExecutiveSubject(subjectIdFromBottomTab(tab)));
   };
 
   const topPages = liveMetrics?.topPages?.items ?? [];
@@ -2263,7 +2287,7 @@ export function ExecutiveAgentDashboard() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,229,255,0.07),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(0,183,255,0.05),transparent_48%)]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(0,229,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(0,229,255,0.035)_1px,transparent_1px)] bg-[size:28px_28px] opacity-50" />
 
-      <div className="relative z-10 mx-auto max-w-[1920px] px-3 pb-24 pt-3 sm:px-5">
+      <div className="relative z-10 mx-auto max-w-[1920px] px-3 pb-36 pt-3 sm:px-5">
         <header className="mb-3 space-y-3 border-b border-[#00e5ff]/18 pb-3">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -2354,6 +2378,179 @@ export function ExecutiveAgentDashboard() {
             </div>
           </div>
         </header>
+
+        {activeSubjectId === "inbox" ? (
+          <section className="mb-4 rounded-2xl border border-[#00e5ff]/28 bg-slate-950/70 p-4 shadow-[0_0_28px_rgba(0,229,255,0.08)] backdrop-blur-md">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00e5ff]/90">
+                  Admin Executive inbox
+                </h2>
+                <p className="mt-0.5 text-[10px] text-slate-500">
+                  Broadcast to approved accounts or send a direct message · members reply from their dashboard inbox
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadExecutiveInboxAdmin()}
+                className="rounded-full border border-[#00e5ff]/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/40"
+              >
+                Refresh
+              </button>
+            </div>
+            <label className="mb-2 flex items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={inboxBroadcast}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setInboxBroadcast(on);
+                  if (on) {
+                    setInboxRecipientFilter("");
+                    setInboxTarget("");
+                  }
+                }}
+              />
+              Broadcast to all approved accounts
+            </label>
+            {!inboxBroadcast ? (
+              <div className="mb-3 max-w-md space-y-2">
+                <div className="text-[10px] text-slate-500">
+                  Direct message: pick one <span className="text-slate-400">approved and active</span> marketplace
+                  account. {inboxRecipients.length} account{inboxRecipients.length === 1 ? "" : "s"} in this list (server
+                  cap 2,500).
+                </div>
+                <input
+                  type="search"
+                  value={inboxRecipientFilter}
+                  onChange={(e) => setInboxRecipientFilter(e.target.value)}
+                  placeholder="Filter by username or email…"
+                  className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm placeholder:text-slate-600"
+                  autoComplete="off"
+                />
+                <select
+                  className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm"
+                  value={inboxTarget === "" ? "" : String(inboxTarget)}
+                  onChange={(e) => setInboxTarget(e.target.value ? Number(e.target.value) : "")}
+                >
+                  <option value="">Select recipient…</option>
+                  {filteredInboxRecipients.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.username} ({u.email}) — id {u.id}
+                    </option>
+                  ))}
+                </select>
+                {inboxRecipientFilter.trim() && filteredInboxRecipients.length === 0 ? (
+                  <p className="text-[10px] text-amber-300/90">No accounts match that filter.</p>
+                ) : null}
+              </div>
+            ) : null}
+            <textarea
+              className="mb-2 min-h-[96px] w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm"
+              placeholder="Message body (optional if you attach files or a voice note)…"
+              value={inboxBody}
+              onChange={(e) => setInboxBody(e.target.value)}
+            />
+            <input
+              ref={inboxFileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,audio/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadInboxFileFromInput(f);
+                e.target.value = "";
+              }}
+            />
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => inboxFileInputRef.current?.click()}
+                disabled={inboxPendingAttachments.length >= 5}
+                className="rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+              >
+                Attach file
+              </button>
+              <button
+                type="button"
+                onClick={() => (inboxRecording ? stopInboxVoiceRecording() : void startInboxVoiceRecording())}
+                disabled={inboxPendingAttachments.length >= 5}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                  inboxRecording
+                    ? "border-rose-500/60 bg-rose-950/50 text-rose-200"
+                    : "border-slate-600 bg-slate-900/80 text-slate-200 hover:bg-slate-800"
+                } disabled:opacity-40`}
+              >
+                {inboxRecording ? "Stop recording" : "Record voice"}
+              </button>
+              <span className="text-[10px] text-slate-500">Up to 5 attachments · 12 MB each · images, PDF, audio</span>
+            </div>
+            {inboxPendingAttachments.length ? (
+              <div className="mb-3 rounded-lg border border-slate-700/60 bg-slate-900/40 px-2 py-2">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pending attachments</div>
+                <ExecutiveInboxAttachmentsList items={inboxPendingAttachments} compact />
+                <button
+                  type="button"
+                  className="mt-2 text-[10px] text-rose-300 hover:underline"
+                  onClick={() => setInboxPendingAttachments([])}
+                >
+                  Clear all
+                </button>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void sendExecutiveInbox()}
+              className="rounded-lg bg-[#00e5ff] px-4 py-2 text-sm font-semibold text-slate-950"
+            >
+              Send
+            </button>
+            <h3 className="mb-2 mt-5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Thread (oldest first)</h3>
+            <ul className="mt-1 max-h-[min(32rem,60vh)] space-y-3 overflow-y-auto pr-1 text-[11px] text-slate-400">
+              {inboxMessages.length === 0 ? (
+                <li className="text-xs text-slate-500">No messages yet — send a broadcast or direct message above.</li>
+              ) : (
+                [...inboxMessages].reverse().map((m) => (
+                  <li key={String(m.id)} className="rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-800/60 pb-1">
+                      <span className="font-mono text-[9px] uppercase text-slate-500">{String(m.kind ?? "")}</span>
+                      <span className="text-[10px] text-slate-500">{formatExecutiveInboxTimestamp(m.createdAt)}</span>
+                    </div>
+                    <div className="mt-1 text-[10px] leading-snug text-cyan-200/90">
+                      {formatExecutiveInboxRoutingLine(m, inboxRecipients, inboxDirectory)}
+                    </div>
+                    {String(m.bodyText ?? "").trim() ? (
+                      <div className="mt-2 whitespace-pre-wrap text-sm text-slate-200">{String(m.bodyText)}</div>
+                    ) : (
+                      <div className="mt-2 text-[10px] italic text-slate-600">(No text — attachments only)</div>
+                    )}
+                    <ExecutiveInboxAttachmentsList items={parseInboxAttachmentsJson(m.attachmentsJson)} compact />
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
+        ) : subjectChatOpen ? (
+          <ExecutiveSubjectAgentChatPanel
+            subject={activeSubject}
+            clientId={clientId}
+            campaignId={campaignId}
+            dryRun={dryRun}
+            timeRange={timeRange}
+            busy={busy !== null}
+            onClose={() => setSubjectChatOpen(false)}
+          />
+        ) : (
+          <div className="mb-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setSubjectChatOpen(true)}
+              className="rounded-full border border-[#00e5ff]/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/50"
+            >
+              Open {activeSubject.shortLabel} agent chat
+            </button>
+          </div>
+        )}
 
         {bottomTab === "Settings" ? (
           <section className="mb-4 rounded-2xl border border-[#00e5ff]/20 bg-slate-950/70 p-4 backdrop-blur-md">
@@ -2501,140 +2698,6 @@ export function ExecutiveAgentDashboard() {
                 ))}
               </ul>
             </div>
-          </section>
-        ) : null}
-
-        {bottomTab === "Inbox" ? (
-          <section className="mb-4 rounded-2xl border border-[#00e5ff]/20 bg-slate-950/70 p-4 backdrop-blur-md">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00e5ff]/90">Executive department inbox</h2>
-            <p className="mb-3 text-xs text-slate-500">Broadcast to all approved accounts or send a direct message. Members reply from their dashboard Inbox.</p>
-            <label className="mb-2 flex items-center gap-2 text-xs text-slate-300">
-              <input
-                type="checkbox"
-                checked={inboxBroadcast}
-                onChange={(e) => {
-                  const on = e.target.checked;
-                  setInboxBroadcast(on);
-                  if (on) {
-                    setInboxRecipientFilter("");
-                    setInboxTarget("");
-                  }
-                }}
-              />
-              Broadcast to all approved accounts
-            </label>
-            {!inboxBroadcast ? (
-              <div className="mb-3 max-w-md space-y-2">
-                <div className="text-[10px] text-slate-500">
-                  Direct message: pick one <span className="text-slate-400">approved and active</span> marketplace
-                  account. {inboxRecipients.length} account{inboxRecipients.length === 1 ? "" : "s"} in this list (server
-                  cap 2,500).
-                </div>
-                <input
-                  type="search"
-                  value={inboxRecipientFilter}
-                  onChange={(e) => setInboxRecipientFilter(e.target.value)}
-                  placeholder="Filter by username or email…"
-                  className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm placeholder:text-slate-600"
-                  autoComplete="off"
-                />
-                <select
-                  className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm"
-                  value={inboxTarget === "" ? "" : String(inboxTarget)}
-                  onChange={(e) => setInboxTarget(e.target.value ? Number(e.target.value) : "")}
-                >
-                  <option value="">Select recipient…</option>
-                  {filteredInboxRecipients.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.username} ({u.email}) — id {u.id}
-                    </option>
-                  ))}
-                </select>
-                {inboxRecipientFilter.trim() && filteredInboxRecipients.length === 0 ? (
-                  <p className="text-[10px] text-amber-300/90">No accounts match that filter.</p>
-                ) : null}
-              </div>
-            ) : null}
-            <textarea
-              className="mb-2 min-h-[96px] w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm"
-              placeholder="Message body (optional if you attach files or a voice note)…"
-              value={inboxBody}
-              onChange={(e) => setInboxBody(e.target.value)}
-            />
-            <input
-              ref={inboxFileInputRef}
-              type="file"
-              className="hidden"
-              accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,audio/*"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadInboxFileFromInput(f);
-                e.target.value = "";
-              }}
-            />
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => inboxFileInputRef.current?.click()}
-                disabled={inboxPendingAttachments.length >= 5}
-                className="rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-40"
-              >
-                Attach file
-              </button>
-              <button
-                type="button"
-                onClick={() => (inboxRecording ? stopInboxVoiceRecording() : void startInboxVoiceRecording())}
-                disabled={inboxPendingAttachments.length >= 5}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                  inboxRecording
-                    ? "border-rose-500/60 bg-rose-950/50 text-rose-200"
-                    : "border-slate-600 bg-slate-900/80 text-slate-200 hover:bg-slate-800"
-                } disabled:opacity-40`}
-              >
-                {inboxRecording ? "Stop recording" : "Record voice"}
-              </button>
-              <span className="text-[10px] text-slate-500">Up to 5 attachments · 12 MB each · images, PDF, audio</span>
-            </div>
-            {inboxPendingAttachments.length ? (
-              <div className="mb-3 rounded-lg border border-slate-700/60 bg-slate-900/40 px-2 py-2">
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pending attachments</div>
-                <ExecutiveInboxAttachmentsList items={inboxPendingAttachments} compact />
-                <button
-                  type="button"
-                  className="mt-2 text-[10px] text-rose-300 hover:underline"
-                  onClick={() => setInboxPendingAttachments([])}
-                >
-                  Clear all
-                </button>
-              </div>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void sendExecutiveInbox()}
-              className="rounded-lg bg-[#00e5ff] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Send
-            </button>
-            <h3 className="mb-2 mt-5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Thread (oldest first)</h3>
-            <ul className="mt-1 max-h-[min(28rem,55vh)] space-y-3 overflow-y-auto pr-1 text-[11px] text-slate-400">
-              {[...inboxMessages].reverse().map((m) => (
-                <li key={String(m.id)} className="rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-2">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-800/60 pb-1">
-                    <span className="font-mono text-[9px] uppercase text-slate-500">{String(m.kind ?? "")}</span>
-                    <span className="text-[10px] text-slate-500">{formatExecutiveInboxTimestamp(m.createdAt)}</span>
-                  </div>
-                  <div className="mt-1 text-[10px] leading-snug text-cyan-200/90">
-                    {formatExecutiveInboxRoutingLine(m, inboxRecipients, inboxDirectory)}
-                  </div>
-                  {String(m.bodyText ?? "").trim() ? (
-                    <div className="mt-2 whitespace-pre-wrap text-sm text-slate-200">{String(m.bodyText)}</div>
-                  ) : (
-                    <div className="mt-2 text-[10px] italic text-slate-600">(No text — attachments only)</div>
-                  )}
-                  <ExecutiveInboxAttachmentsList items={parseInboxAttachmentsJson(m.attachmentsJson)} compact />
-                </li>
-              ))}
-            </ul>
           </section>
         ) : null}
 
@@ -2793,7 +2856,12 @@ export function ExecutiveAgentDashboard() {
                   className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-2 py-2"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-slate-200">{a.displayName}</span>
+                    <div>
+                      <span className="font-medium text-slate-200">{a.displayName}</span>
+                      <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">
+                        {AGENT_DOMAIN_LABEL[a.agentKey]}
+                      </div>
+                    </div>
                     <span
                       className={`h-2 w-2 shrink-0 rounded-full ${
                         a.status === "online" ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-slate-600"
@@ -2811,6 +2879,20 @@ export function ExecutiveAgentDashboard() {
                   </div>
                 </li>
               ))}
+              {activeSubjectId === "ai_agents" ? (
+                <li className="rounded-lg border border-dashed border-violet-500/30 bg-violet-950/20 px-2 py-2">
+                  <div className="font-medium text-slate-200">Maania</div>
+                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">PROPERTY</div>
+                  <p className="mt-1 text-[10px] text-slate-500">Routed via Skipper — full Maania API wiring later.</p>
+                </li>
+              ) : null}
+              {activeSubjectId === "trust_jarva" ? (
+                <li className="rounded-lg border border-dashed border-cyan-500/30 bg-cyan-950/20 px-2 py-2">
+                  <div className="font-medium text-slate-200">Jarva</div>
+                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/80">TRUST</div>
+                  <p className="mt-1 text-[10px] text-slate-500">TRUST legal-review desk — use chat + TRUST fulfillment panel.</p>
+                </li>
+              ) : null}
             </ul>
             <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/60">Activity</h3>
             <ul className="max-h-48 space-y-2 overflow-y-auto text-[11px] text-slate-400">
@@ -3316,6 +3398,7 @@ export function ExecutiveAgentDashboard() {
                 });
               }}
             />
+            <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
               onApprovalsRefresh={() => void loadApprovals()}
@@ -3505,26 +3588,7 @@ export function ExecutiveAgentDashboard() {
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00e5ff]/18 bg-[#050b13]/95 px-2 py-2 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1920px] flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:gap-3">
-            {BOTTOM_TABS.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => {
-                  setBottomTab(tab);
-                  mapTabToMode(tab);
-                }}
-                className={`rounded-lg px-2 py-1.5 sm:px-3 ${bottomTab === tab ? "bg-[#00e5ff]/15 text-[#00e5ff]" : "hover:text-slate-300"}`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-          <span className="hidden text-[10px] text-slate-600 sm:inline">Filters: {selectedAgents.join(", ")} · {timeRange}</span>
-        </div>
-      </nav>
+      <ExecutiveSubjectNavBar activeSubjectId={activeSubjectId} onSelectSubject={applySubject} />
     </div>
   );
 }

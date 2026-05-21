@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
 import { resolveCrossDepartmentDependencyNarrative } from "@/lib/fulfillment/department-dependency-map";
+import type { RecommendationMemoryWeights } from "@/lib/fulfillment/fulfillment-operational-memory-types";
+import { applyMemoryWeightsToRecommendations } from "@/lib/fulfillment/recommendation-feedback";
 import type {
   ClientFulfillmentOrderSnapshot,
   ClientHealthScore,
@@ -23,6 +25,8 @@ export type RecommendationEngineInput = {
   health: ClientHealthScore;
   campaignCount: number;
   websiteApprovedForRelease: boolean;
+  /** Read-only operational memory weights — reorders recommendations only. */
+  memoryWeights?: RecommendationMemoryWeights;
 };
 
 function findOrder(orders: ClientFulfillmentOrderSnapshot[], dept: "WEBSITE" | "TRUST") {
@@ -281,12 +285,13 @@ export function buildFulfillmentRecommendations(input: RecommendationEngineInput
   }
 
   const seen = new Set<string>();
-  return recs.filter((r) => {
+  const deduped = recs.filter((r) => {
     const k = `${r.kind}:${r.title}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
   });
+  return applyMemoryWeightsToRecommendations(deduped, input.memoryWeights);
 }
 
 export function detectOperationalBottlenecks(
