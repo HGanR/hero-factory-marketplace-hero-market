@@ -100,6 +100,12 @@ function timelineDotClass(kind: FulfillmentTimelineEntryKind): string {
       return "bg-amber-400";
     case "approval_executed":
       return "bg-violet-400";
+    case "site_builder_draft_linked":
+      return "bg-sky-400";
+    case "deliverable_approved_for_release":
+      return "bg-emerald-500";
+    case "deliverable_revision_requested":
+      return "bg-orange-400";
     default:
       return "bg-slate-500";
   }
@@ -625,10 +631,80 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
                     </section>
                   ) : null}
 
+                  {detail.deliverableDraft ? (
+                    <section className="mb-3 rounded-lg border border-[#00e5ff]/25 bg-slate-900/55 p-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h5 className="text-[9px] font-semibold uppercase tracking-wide text-[#00e5ff]/90">
+                          Site Builder draft (owner review)
+                        </h5>
+                        <span
+                          className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${
+                            detail.deliverableDraft.clientDeliveryStatus === "approved_for_release"
+                              ? "border-emerald-500/40 bg-emerald-950/35 text-emerald-100/90"
+                              : "border-slate-600/50 bg-slate-900/40 text-slate-400"
+                          }`}
+                        >
+                          {detail.deliverableDraft.clientDeliveryStatus === "approved_for_release"
+                            ? "approved for release"
+                            : "not sent to client"}
+                        </span>
+                      </div>
+                      {detail.deliverableDraft.linked && detail.deliverableDraft.previewText ? (
+                        <>
+                          {detail.deliverableDraft.title ? (
+                            <div className="mt-2 text-[11px] font-semibold text-slate-200">
+                              {detail.deliverableDraft.title}
+                              {detail.deliverableDraft.priority
+                                ? ` · ${detail.deliverableDraft.priority}`
+                                : ""}
+                            </div>
+                          ) : null}
+                          <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded border border-slate-800/80 bg-slate-950/60 p-2 font-sans text-[10px] leading-relaxed text-slate-300">
+                            {detail.deliverableDraft.previewText}
+                          </pre>
+                          <div className="mt-1 font-mono text-[9px] text-slate-500">
+                            note {detail.deliverableDraft.clientNoteId
+                              ? shortId(detail.deliverableDraft.clientNoteId)
+                              : "—"}{" "}
+                            · review {detail.deliverableDraft.ownerReviewStatus}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-[10px] text-slate-500">
+                          Draft not linked yet. Execute the Site Builder task approval to attach the internal
+                          note.
+                        </p>
+                      )}
+                      {detail.deliverableDraft.canApprove || detail.deliverableDraft.canRequestRevision ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            disabled={actionBusy != null || !detail.deliverableDraft.canApprove}
+                            onClick={() => void approveDeliverableDraft(detail.order.orderId)}
+                            className="rounded bg-emerald-600/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white disabled:opacity-40"
+                          >
+                            Approve draft for release
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionBusy != null || !detail.deliverableDraft.canRequestRevision}
+                            onClick={() => void requestDeliverableRevision(detail.order.orderId)}
+                            className="rounded border border-amber-500/45 px-2 py-1 text-[10px] text-amber-100/90 disabled:opacity-40"
+                          >
+                            Request revision
+                          </button>
+                        </div>
+                      ) : null}
+                    </section>
+                  ) : null}
+
                   {detail.deliverable ? (
                     <section className="mb-3 text-[10px] text-slate-500">
-                      Deliverable status: {detail.deliverable.artifactType} · review{" "}
+                      Deliverable shell: {detail.deliverable.artifactType} · review{" "}
                       {detail.deliverable.ownerReviewStatus}
+                      {detail.deliverable.artifactRef
+                        ? ` · ref ${shortId(detail.deliverable.artifactRef)}`
+                        : ""}
                     </section>
                   ) : null}
 

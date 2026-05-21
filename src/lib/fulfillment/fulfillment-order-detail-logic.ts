@@ -46,9 +46,9 @@ const NEXT_ACTION_COPY: Record<FulfillmentNextAdminAction, { title: string; desc
     description: "Review and approve the pending Site Builder task in the executive approvals queue.",
   },
   draft_created_owner_review: {
-    title: "Draft captured — owner review",
+    title: "Review Site Builder draft",
     description:
-      "Site Builder task was approved into an internal client note. Review deliverable status; no autonomous release.",
+      "Site Builder task is in an internal client note. Preview the draft, then approve for release or request revision — no email or deploy.",
   },
   order_closed: {
     title: "Order closed",
@@ -72,6 +72,8 @@ export function resolveNextAdminAction(input: {
   approvalStatus: FulfillmentExecutiveApprovalStatus;
   hasClaudeHandoffEvent: boolean;
   orderSource: string;
+  deliverableLinked?: boolean;
+  deliverableReviewStatus?: "pending" | "approved" | "rejected";
 }): FulfillmentNextAdminAction {
   if (input.pipelineStage === "released" || input.pipelineStage === "closed") {
     return "order_closed";
@@ -79,6 +81,21 @@ export function resolveNextAdminAction(input: {
 
   if (input.approvalStatus === "pending" || input.approvalStatus === "approved") {
     return "waiting_on_approval";
+  }
+
+  if (
+    input.pipelineStage === "approved_for_release" &&
+    input.deliverableReviewStatus === "approved"
+  ) {
+    return "none";
+  }
+
+  if (
+    input.deliverableLinked &&
+    input.deliverableReviewStatus === "pending" &&
+    (input.pipelineStage === "owner_review" || input.approvalStatus === "executed")
+  ) {
+    return "draft_created_owner_review";
   }
 
   if (input.approvalStatus === "executed" || input.pipelineStage === "owner_review") {
@@ -127,6 +144,10 @@ function parsePayload(raw: string | null): Record<string, unknown> | null {
 
 function classifyEventRow(row: OrderEventRow): FulfillmentTimelineEntryKind {
   const payload = parsePayload(row.payloadJson);
+  const action = typeof payload?.action === "string" ? payload.action : null;
+  if (action === "site_builder_draft_linked") return "site_builder_draft_linked";
+  if (action === "deliverable_approved_for_release") return "deliverable_approved_for_release";
+  if (action === "deliverable_revision_requested") return "deliverable_revision_requested";
   if (row.actorType === "claude_worker" && row.toStage === "executive_handoff_received") {
     return "claude_handoff_received";
   }
@@ -146,6 +167,12 @@ function labelForKind(kind: FulfillmentTimelineEntryKind, row: OrderEventRow): s
       return "Claude handoff received";
     case "site_builder_draft_proposed":
       return "Site Builder draft proposed";
+    case "site_builder_draft_linked":
+      return "Site Builder draft linked for review";
+    case "deliverable_approved_for_release":
+      return "Draft approved for release (internal)";
+    case "deliverable_revision_requested":
+      return "Revision requested";
     case "stage_transition":
       return row.fromStage
         ? `Stage: ${row.fromStage.replace(/_/g, " ")} → ${row.toStage.replace(/_/g, " ")}`

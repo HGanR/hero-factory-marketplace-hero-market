@@ -26,6 +26,7 @@ import {
   toIso,
   type FulfillmentExecutiveApprovalStatus,
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
+import { loadDeliverableDraftForOrder } from "@/lib/fulfillment/fulfillment-deliverable-draft";
 import {
   excerptText,
   loadWebsiteIntakeFromOrder,
@@ -154,6 +155,13 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
     approvalStatus,
     hasClaudeHandoffEvent: handoffEvent,
     orderSource: order.source,
+    deliverableLinked: deliverableDraft?.linked ?? Boolean(deliverable?.artifactRef),
+    deliverableReviewStatus: deliverable?.ownerReviewStatus,
+  });
+
+  const deliverableDraft = await loadDeliverableDraftForOrder(db, {
+    orderId: order.id,
+    adminUserId: input.adminUserId,
   });
 
   const websiteIntakePkg = loadWebsiteIntakeFromOrder({
@@ -262,6 +270,7 @@ export async function getWebsiteFulfillmentOrderDetailForAdmin(
       skipperSummary: websiteIntakePkg.skipperSummary,
       siteBuilderBriefExcerpt: excerptText(websiteIntakePkg.siteBuilderBrief, 600),
     },
+    deliverableDraft,
     meta: { primaryService: FULFILLMENT_PRIMARY_SERVICE_WEBSITE },
   };
 }

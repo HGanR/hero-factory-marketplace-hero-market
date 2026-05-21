@@ -4,11 +4,14 @@ import type {
   FulfillmentPaymentConfirmationSummaryDto,
   FulfillmentQueueOrderSummaryDto,
 } from "@/lib/fulfillment/fulfillment-queue-dtos";
+import type { FulfillmentDeliverableDraftDto } from "@/lib/fulfillment/fulfillment-deliverable-draft-dtos";
 import type {
   WebsiteIntakeNormalized,
   WebsiteIntakeReadiness,
   WebsiteIntakeReadinessTier,
 } from "@/lib/fulfillment/website-intake-types";
+
+export type { FulfillmentDeliverableDraftDto };
 import { FULFILLMENT_PRIMARY_SERVICE_WEBSITE } from "@/lib/fulfillment/fulfillment-types";
 
 export type { WebsiteIntakeReadinessTier };
@@ -41,6 +44,9 @@ export type FulfillmentTimelineEntryKind =
   | "site_builder_draft_proposed"
   | "approval_created"
   | "approval_executed"
+  | "site_builder_draft_linked"
+  | "deliverable_approved_for_release"
+  | "deliverable_revision_requested"
   | "stage_transition";
 
 export type FulfillmentTimelineEntryDto = {
@@ -85,5 +91,6 @@ export type FulfillmentOrderDetailResultDto = {
   timeline: FulfillmentTimelineEntryDto[];
   nextAction: FulfillmentNextActionDto;
   websiteIntake: WebsiteIntakeDetailDto;
+  deliverableDraft: FulfillmentDeliverableDraftDto | null;
   meta: { primaryService: typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE };
 };

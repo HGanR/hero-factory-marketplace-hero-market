@@ -17,6 +17,7 @@ import {
 } from "@/lib/executive-agent/executive-action-payloads";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
 import { isWriteAction, type ExecutiveWriteActionName } from "@/lib/executive-agent/executive-agent-policy";
+import { linkSiteBuilderDraftToFulfillmentDeliverable } from "@/lib/fulfillment/fulfillment-deliverable-draft";
 import { runMarketIntelligenceSweepPipeline } from "@/lib/revenue-os/market-sweep-pipeline";
 import { syncBentleyCampaignPostsAndSchedule, type SyncBentleyLaunchInput } from "@/lib/revenue-os/bentley-sync-launch-server";
 
@@ -363,8 +364,9 @@ async function runCreateSiteBuilderTask(ctx: ExecCtx, raw: unknown): Promise<Exe
   const own = await assertClientOwnedByAdmin(ctx.db, parsed.data.clientId, ctx.adminUserId);
   if (!own.ok) return { ok: false, status: "failed", message: own.message };
   const slug = parsed.data.pageSlug?.trim() ? `\nPage slug: ${parsed.data.pageSlug.trim()}` : "";
+  const clientNoteId = randomUUID();
   await ctx.db.insert(clientNotes).values({
-    id: randomUUID(),
+    id: clientNoteId,
     clientId: parsed.data.clientId,
     createdByUserId: ctx.adminUserId,
     visibility: "internal",
@@ -374,7 +376,7 @@ async function runCreateSiteBuilderTask(ctx: ExecCtx, raw: unknown): Promise<Exe
     ok: true,
     status: "executed",
     message: "Site Builder task captured as internal note (intake only).",
-    data: { clientId: parsed.data.clientId },
+    data: { clientId: parsed.data.clientId, clientNoteId },
   };
 }
 
@@ -463,6 +465,20 @@ export async function executeExecutiveApprovedAction(
     payloadJson: approval.payloadJson,
     result,
   });
+
+  if (
+    action === "createSiteBuilderTask" &&
+    result.ok &&
+    result.data?.clientNoteId &&
+    typeof result.data.clientNoteId === "string"
+  ) {
+    await linkSiteBuilderDraftToFulfillmentDeliverable(db, {
+      adminUserId,
+      approvalId: approval.id,
+      clientNoteId: result.data.clientNoteId,
+      payload,
+    });
+  }
 
   return result;
 }
