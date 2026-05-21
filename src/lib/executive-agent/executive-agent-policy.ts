@@ -94,6 +94,7 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getExecutiveSubjectWorkspace: "read:crm",
     getExecutiveOperationalThreads: "read:crm",
     getExecutivePendingDecisions: "read:crm",
+    getExecutiveOperationalTasks: "read:crm",
   };
   const need = map[toolName];
   if (!need) return false;

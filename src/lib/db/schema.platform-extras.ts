@@ -809,4 +809,42 @@ export const executiveOperationalDecisions = mysqlTable("executive_operational_d
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** drizzle/0133_executive_operational_tasks.sql — human-coordinated ops tasks */
+export const EXECUTIVE_OPERATIONAL_TASK_STATUSES = [
+  "open",
+  "in_progress",
+  "blocked",
+  "completed",
+  "canceled",
+] as const;
+
+export const EXECUTIVE_OPERATIONAL_TASK_OWNER_LABELS = ["executive_owner", "department_lead"] as const;
+
+export const executiveOperationalTasks = mysqlTable("executive_operational_tasks", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description").notNull(),
+  status: mysqlEnum("status", EXECUTIVE_OPERATIONAL_TASK_STATUSES).notNull().default("open"),
+  priority: mysqlEnum("priority", EXECUTIVE_OPERATIONAL_THREAD_PRIORITIES).notNull().default("normal"),
+  ownerLabel: varchar("ownerLabel", { length: 64 }).notNull().default("executive_owner"),
+  department: varchar("department", { length: 32 }),
+  recommendedAgent: varchar("recommendedAgent", { length: 64 }),
+  decisionId: varchar("decisionId", { length: 36 }),
+  threadId: varchar("threadId", { length: 36 }),
+  approvalId: varchar("approvalId", { length: 36 }),
+  orderId: varchar("orderId", { length: 191 }),
+  clientId: varchar("clientId", { length: 191 }),
+  subjectId: varchar("subjectId", { length: 64 }),
+  blockedReason: text("blockedReason"),
+  blockedAt: timestamp("blockedAt"),
+  dueAt: timestamp("dueAt"),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  dependsOnTaskIdsJson: text("dependsOnTaskIdsJson"),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type InsertOasisNpcRow = typeof oasisNpcs.$inferInsert;

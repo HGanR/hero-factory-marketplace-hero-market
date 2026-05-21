@@ -463,6 +463,32 @@ export async function getExecutiveSubjectWorkspace(
   };
 }
 
+/** Operational task queue — read-only; human-coordinated, no autonomous execution. */
+export async function getExecutiveOperationalTasks(
+  ctx: ExecutiveToolContext,
+  input?: {
+    subjectId?: string | null;
+    threadId?: string | null;
+    orderId?: string | null;
+    decisionId?: string | null;
+  }
+) {
+  const { buildExecutiveOperationalTasksForSkipper } = await import(
+    "@/lib/executive-agent/operational-task-service"
+  );
+  const { isExecutiveSubjectId } = await import("@/lib/executive-agent/executive-subject-nav");
+  const subjectId = input?.subjectId?.trim() ?? null;
+  if (subjectId && !isExecutiveSubjectId(subjectId)) {
+    return { error: "invalid_subject_id", message: "Unknown executive subject id." };
+  }
+  return buildExecutiveOperationalTasksForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    subjectId,
+    threadId: input?.threadId ?? null,
+    orderId: input?.orderId ?? null,
+  });
+}
+
 /** Pending owner decisions — read-only; Skipper recommends but must not decide. */
 export async function getExecutivePendingDecisions(
   ctx: ExecutiveToolContext,

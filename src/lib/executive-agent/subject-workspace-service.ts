@@ -223,8 +223,19 @@ export async function buildSubjectExecutiveWorkspace(
     if (decisionsCtx.skipperDecisionContext) {
       skipperContext = `${skipperContext} ${decisionsCtx.skipperDecisionContext}`;
     }
+    const { buildExecutiveOperationalTasksForSkipper } = await import(
+      "@/lib/executive-agent/operational-task-service"
+    );
+    const tasksCtx = await buildExecutiveOperationalTasksForSkipper(db, {
+      adminUserId: input.adminUserId,
+      subjectId: input.subjectId,
+      orderId: scope.orderId,
+    });
+    if (tasksCtx.skipperTaskContext) {
+      skipperContext = `${skipperContext} ${tasksCtx.skipperTaskContext}`;
+    }
   } catch {
-    /* threads/decisions tables may be absent in some dev DBs */
+    /* threads/decisions/tasks tables may be absent in some dev DBs */
   }
 
   await auditFulfillmentExecutiveAction(db, {

@@ -36,6 +36,7 @@ export function SubjectThreadSidebar({
 }: Props) {
   const [threads, setThreads] = useState<ExecutiveOperationalThreadDto[]>([]);
   const [openDecisionCounts, setOpenDecisionCounts] = useState<Record<string, number>>({});
+  const [activeTaskCounts, setActiveTaskCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +61,7 @@ export function SubjectThreadSidebar({
         setError(j.message ?? j.error ?? `Load failed (${r.status})`);
         setThreads([]);
         setOpenDecisionCounts({});
+        setActiveTaskCounts({});
         onThreadsLoaded?.([]);
         return;
       }
@@ -82,10 +84,32 @@ export function SubjectThreadSidebar({
         if (d.threadId) counts[d.threadId] = (counts[d.threadId] ?? 0) + 1;
       }
       setOpenDecisionCounts(counts);
+
+      const tParams = new URLSearchParams({ subjectId });
+      if (clientId.trim()) tParams.set("clientId", clientId.trim());
+      if (orderId.trim()) tParams.set("orderId", orderId.trim());
+      const tr = await fetch(`/api/admin/executive-agent/tasks?${tParams}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const tj = (await tr.json().catch(() => ({}))) as {
+        open?: Array<{ threadId: string | null; isOverdue?: boolean; isBlocked?: boolean }>;
+        inProgress?: Array<{ threadId: string | null }>;
+        blocked?: Array<{ threadId: string | null }>;
+        overdue?: Array<{ threadId: string | null }>;
+      };
+      const tCounts: Record<string, number> = {};
+      for (const bucket of [tj.open, tj.inProgress, tj.blocked, tj.overdue]) {
+        for (const t of bucket ?? []) {
+          if (t.threadId) tCounts[t.threadId] = (tCounts[t.threadId] ?? 0) + 1;
+        }
+      }
+      setActiveTaskCounts(tCounts);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setThreads([]);
       setOpenDecisionCounts({});
+      setActiveTaskCounts({});
       onThreadsLoaded?.([]);
     } finally {
       setLoading(false);
@@ -149,6 +173,11 @@ export function SubjectThreadSidebar({
                   ) : null}
                   {t.unresolvedQuestionCount > 0 ? (
                     <span className="text-[8px] text-cyan-400/80">{t.unresolvedQuestionCount} Q</span>
+                  ) : null}
+                  {(activeTaskCounts[t.id] ?? 0) > 0 ? (
+                    <span className="rounded border border-cyan-500/40 px-1 text-[8px] text-cyan-200">
+                      {activeTaskCounts[t.id]} task
+                    </span>
                   ) : null}
                 </div>
               </button>

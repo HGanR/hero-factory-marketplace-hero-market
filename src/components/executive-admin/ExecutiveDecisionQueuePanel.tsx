@@ -32,6 +32,7 @@ export function ExecutiveDecisionQueuePanel({
   const [deferUntil, setDeferUntil] = useState("");
   const [deferReason, setDeferReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [taskCountByDecision, setTaskCountByDecision] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +56,27 @@ export function ExecutiveDecisionQueuePanel({
         return;
       }
       setBundle(j);
+
+      const tParams = new URLSearchParams({ subjectId });
+      if (clientId.trim()) tParams.set("clientId", clientId.trim());
+      if (orderId.trim()) tParams.set("orderId", orderId.trim());
+      if (threadId?.trim()) tParams.set("threadId", threadId.trim());
+      const tr = await fetch(`/api/admin/executive-agent/tasks?${tParams}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const tj = (await tr.json().catch(() => ({}))) as {
+        open?: Array<{ decisionId: string | null }>;
+        inProgress?: Array<{ decisionId: string | null }>;
+        blocked?: Array<{ decisionId: string | null }>;
+      };
+      const counts: Record<string, number> = {};
+      for (const bucket of [tj.open, tj.inProgress, tj.blocked]) {
+        for (const t of bucket ?? []) {
+          if (t.decisionId) counts[t.decisionId] = (counts[t.decisionId] ?? 0) + 1;
+        }
+      }
+      setTaskCountByDecision(counts);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBundle(null);
@@ -133,6 +155,11 @@ export function ExecutiveDecisionQueuePanel({
             <span>{d.priority}</span>
             {d.department ? <span>{d.department}</span> : null}
             {d.sourceKind ? <span>{d.sourceKind}</span> : null}
+            {(taskCountByDecision[d.id] ?? 0) > 0 ? (
+              <span className="rounded border border-cyan-500/40 px-1 text-cyan-200">
+                {taskCountByDecision[d.id]} task
+              </span>
+            ) : null}
           </div>
         </div>
         {d.threadId && onSelectThread ? (

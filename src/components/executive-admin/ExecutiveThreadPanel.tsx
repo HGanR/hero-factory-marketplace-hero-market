@@ -9,6 +9,10 @@ import type {
   ExecutiveOperationalDecisionDto,
   ExecutivePendingDecisionsDto,
 } from "@/lib/executive-agent/executive-operational-decisions";
+import type {
+  ExecutiveOperationalTaskDto,
+  ExecutiveOperationalTasksQueueDto,
+} from "@/lib/executive-agent/executive-operational-tasks";
 
 type Props = {
   threadId: string | null;
@@ -25,6 +29,7 @@ export function ExecutiveThreadPanel({
 }: Props) {
   const [detail, setDetail] = useState<ExecutiveOperationalThreadDetailDto | null>(null);
   const [pendingDecisions, setPendingDecisions] = useState<ExecutiveOperationalDecisionDto[]>([]);
+  const [linkedTasks, setLinkedTasks] = useState<ExecutiveOperationalTaskDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -40,6 +45,7 @@ export function ExecutiveThreadPanel({
     if (!threadId) {
       setDetail(null);
       setPendingDecisions([]);
+      setLinkedTasks([]);
       onSkipperContext?.(null);
       return;
     }
@@ -68,6 +74,17 @@ export function ExecutiveThreadPanel({
       );
       const dj = (await dr.json().catch(() => ({}))) as ExecutivePendingDecisionsDto;
       setPendingDecisions(dj.ok ? dj.pending : []);
+
+      const tr = await fetch(
+        `/api/admin/executive-agent/tasks?threadId=${encodeURIComponent(threadId)}`,
+        { credentials: "include", cache: "no-store" }
+      );
+      const tj = (await tr.json().catch(() => ({}))) as ExecutiveOperationalTasksQueueDto;
+      if (tj.ok) {
+        setLinkedTasks([...tj.open, ...tj.inProgress, ...tj.blocked, ...tj.overdue]);
+      } else {
+        setLinkedTasks([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setDetail(null);
@@ -189,6 +206,27 @@ export function ExecutiveThreadPanel({
           <span className="text-slate-600">Memory: </span>
           {thread.memorySummary}
         </p>
+      ) : null}
+      {linkedTasks.length > 0 ? (
+        <div className="mb-3 rounded-lg border border-cyan-500/25 bg-cyan-950/15 px-3 py-2">
+          <p className="text-[9px] font-semibold uppercase text-cyan-400/80">
+            Linked tasks ({linkedTasks.length})
+          </p>
+          <ul className="mt-1 space-y-1">
+            {linkedTasks.slice(0, 5).map((t) => (
+              <li key={t.id} className="text-[10px] text-slate-400">
+                {t.title}
+                <span className="ml-1 uppercase text-slate-600">{t.status}</span>
+                {t.isOverdue ? (
+                  <span className="ml-1 text-red-300/90">overdue</span>
+                ) : null}
+                {t.isBlocked ? (
+                  <span className="ml-1 text-amber-300/90">blocked</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {pendingDecisions.length > 0 ? (
         <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2">

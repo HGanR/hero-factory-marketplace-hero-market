@@ -61,7 +61,7 @@ Output: respond with a single JSON object only (no markdown outside JSON). Schem
 - proposedActions[].action must be one of: createTodo, assignFollowUp, createSpecializedAgent, updateClientStatus, triggerBentleyAnalysis, triggerCampaignSync, createSiteBuilderTask — only if the admin clearly wants that; otherwise use [].
 
 Allowed readTools (exact strings only):
-getPendingAccounts, getApprovedAccounts, getActiveAccounts, getClientSummary, getClientTodos, getAgentConversationSummary, getBentleyCampaignOutputs, getBentleyExecutiveBridgeSummary, getAiRevenueOsStatus, getSiteBuilderProjectStatus, getPlatformAnalyticsSummary, getInboxEngagementSummary, getKnowledgeBaseSummary, getClientFulfillmentOperations, getExecutiveFulfillmentOperationsOverview, getExecutiveFulfillmentOperationsBriefing, getExecutiveFulfillmentOperationsMemoryInsights, getExecutiveSubjectWorkspace, getExecutiveOperationalThreads, getExecutivePendingDecisions`;
+getPendingAccounts, getApprovedAccounts, getActiveAccounts, getClientSummary, getClientTodos, getAgentConversationSummary, getBentleyCampaignOutputs, getBentleyExecutiveBridgeSummary, getAiRevenueOsStatus, getSiteBuilderProjectStatus, getPlatformAnalyticsSummary, getInboxEngagementSummary, getKnowledgeBaseSummary, getClientFulfillmentOperations, getExecutiveFulfillmentOperationsOverview, getExecutiveFulfillmentOperationsBriefing, getExecutiveFulfillmentOperationsMemoryInsights, getExecutiveSubjectWorkspace, getExecutiveOperationalThreads, getExecutivePendingDecisions, getExecutiveOperationalTasks`;
 
 /**
  * Admin intent JSON planner — embeds the same executive identity as conversational SKIPPER, then JSON-only planner rules.

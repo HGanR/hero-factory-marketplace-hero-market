@@ -174,6 +174,9 @@ async function runReadTool(
       case "getExecutivePendingDecisions":
         data = await Tools.getExecutivePendingDecisions(ctx);
         break;
+      case "getExecutiveOperationalTasks":
+        data = await Tools.getExecutiveOperationalTasks(ctx);
+        break;
       default:
         return null;
     }
