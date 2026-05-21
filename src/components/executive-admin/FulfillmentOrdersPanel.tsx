@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  FulfillmentOrderDetailResultDto,
+  FulfillmentTimelineEntryKind,
+} from "@/lib/fulfillment/fulfillment-order-detail-dtos";
 import type { FulfillmentQueueListResultDto, FulfillmentQueueOrderSummaryDto } from "@/lib/fulfillment/fulfillment-queue-dtos";
 import { FULFILLMENT_PIPELINE_STAGES } from "@/lib/fulfillment/fulfillment-types";
 
@@ -71,6 +75,23 @@ function shortId(id: string): string {
   return id.length > 10 ? `${id.slice(0, 8)}…` : id;
 }
 
+function timelineDotClass(kind: FulfillmentTimelineEntryKind): string {
+  switch (kind) {
+    case "payment_confirmed":
+      return "bg-emerald-400";
+    case "claude_handoff_received":
+      return "bg-cyan-400";
+    case "site_builder_draft_proposed":
+      return "bg-[#00e5ff]";
+    case "approval_created":
+      return "bg-amber-400";
+    case "approval_executed":
+      return "bg-violet-400";
+    default:
+      return "bg-slate-500";
+  }
+}
+
 export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, onApprovalsRefresh }: Props) {
   const [orders, setOrders] = useState<FulfillmentQueueOrderSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +103,10 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
   const [confirmRef, setConfirmRef] = useState("");
   const [confirmNote, setConfirmNote] = useState("");
   const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<FulfillmentOrderDetailResultDto | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   useEffect(() => {
     setConfirmClientId(defaultClientId);
@@ -161,6 +186,39 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
     }
   }, [confirmClientId, confirmNote, confirmRef, loadQueue]);
 
+  const loadOrderDetail = useCallback(async (orderId: string) => {
+    setDetailOrderId(orderId);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetail(null);
+    try {
+      const r = await fetch(
+        `/api/admin/executive-agent/fulfillment-orders/${encodeURIComponent(orderId)}`,
+        { credentials: "include", cache: "no-store" }
+      );
+      const j = (await r.json().catch(() => ({}))) as FulfillmentOrderDetailResultDto & {
+        ok?: boolean;
+        message?: string;
+        code?: string;
+      };
+      if (!r.ok || !j.ok) {
+        setDetailError(j.message ?? j.code ?? `Detail load failed (${r.status})`);
+        return;
+      }
+      setDetail(j);
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    setDetailOrderId(null);
+    setDetail(null);
+    setDetailError(null);
+  }, []);
+
   const proposeSiteBuilderDraft = useCallback(
     async (order: FulfillmentQueueOrderSummaryDto) => {
       setActionBusy(`propose-${order.orderId}`);
@@ -186,6 +244,9 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
         }
         onApprovalsRefresh?.();
         void loadQueue();
+        if (detailOrderId === order.orderId) {
+          void loadOrderDetail(order.orderId);
+        }
         if (j.approvalId) {
           onOpenApproval?.(j.approvalId);
         }
@@ -195,7 +256,7 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
         setActionBusy(null);
       }
     },
-    [loadQueue, onApprovalsRefresh, onOpenApproval]
+    [detailOrderId, loadOrderDetail, loadQueue, onApprovalsRefresh, onOpenApproval]
   );
 
   const empty = !loading && !error && orders.length === 0;
@@ -342,6 +403,14 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
                 <div className="mt-2 flex flex-wrap gap-1">
                   <button
                     type="button"
+                    disabled={actionBusy != null}
+                    onClick={() => void loadOrderDetail(o.orderId)}
+                    className="rounded border border-emerald-500/40 px-2 py-1 text-[10px] text-emerald-100/90 hover:bg-emerald-950/40"
+                  >
+                    View details
+                  </button>
+                  <button
+                    type="button"
                     disabled={actionBusy != null || pay.status === "confirmed"}
                     title={
                       pay.status === "confirmed"
@@ -374,6 +443,182 @@ export function FulfillmentOrdersPanel({ defaultClientId = "", onOpenApproval, o
             );
           })}
         </ul>
+      ) : null}
+
+      {detailOrderId ? (
+        <div
+          className="fixed inset-0 z-[85] flex justify-end bg-black/55 backdrop-blur-[2px]"
+          role="presentation"
+          onClick={closeDetail}
+        >
+          <div
+            role="dialog"
+            aria-labelledby="fulfillment-order-detail-title"
+            className="flex h-full w-full max-w-md flex-col border-l border-emerald-500/25 bg-slate-950 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+              <h4
+                id="fulfillment-order-detail-title"
+                className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200/90"
+              >
+                Order detail
+              </h4>
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-200"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 text-[11px]">
+              {detailLoading ? <p className="text-slate-500">Loading order detail…</p> : null}
+              {detailError ? <p className="text-amber-200/90">{detailError}</p> : null}
+              {detail?.ok ? (
+                <>
+                  <div className="mb-3 rounded-lg border border-emerald-500/35 bg-emerald-950/25 p-2">
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-emerald-200/80">
+                      Next action
+                    </div>
+                    <div className="mt-1 text-[11px] font-semibold text-emerald-50">{detail.nextAction.title}</div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-slate-400">{detail.nextAction.description}</p>
+                    <div className="mt-1 font-mono text-[9px] text-slate-500">code: {detail.nextAction.action}</div>
+                  </div>
+
+                  <div className="mb-3 flex flex-wrap gap-1">
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${stageBadgeClass(detail.order.pipelineStage)}`}
+                    >
+                      {detail.order.pipelineStage.replace(/_/g, " ")}
+                    </span>
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${approvalBadgeClass(detail.order.approvalStatus)}`}
+                    >
+                      approval: {detail.order.approvalStatus}
+                    </span>
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[9px] uppercase ${paymentBadgeClass(detail.paymentConfirmation.status)}`}
+                    >
+                      payment: {detail.paymentConfirmation.status}
+                    </span>
+                  </div>
+
+                  <div className="mb-3 font-mono text-[10px] text-slate-400">
+                    order {detail.order.orderId} · client {shortId(detail.order.clientId)}
+                    <br />
+                    source {detail.order.source} · {formatWhen(detail.order.createdAt)}
+                  </div>
+
+                  <section className="mb-3">
+                    <h5 className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Timeline</h5>
+                    {detail.timeline.length === 0 ? (
+                      <p className="mt-1 text-slate-600">No timeline events yet.</p>
+                    ) : (
+                      <ol className="mt-2 space-y-2 border-l border-slate-800 pl-3">
+                        {detail.timeline.map((entry) => (
+                          <li key={entry.id} className="relative">
+                            <span
+                              className={`absolute -left-[1.15rem] top-1 h-2 w-2 rounded-full ${timelineDotClass(entry.kind)}`}
+                            />
+                            <div className="text-[10px] text-slate-200">{entry.label}</div>
+                            <div className="text-[9px] text-slate-500">{formatWhen(entry.occurredAt)}</div>
+                            {entry.detail ? (
+                              <div className="text-[9px] text-slate-600">{entry.detail}</div>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </section>
+
+                  <section className="mb-3 rounded border border-slate-800/80 bg-slate-900/40 p-2">
+                    <h5 className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Payment</h5>
+                    <div className="mt-1 text-[10px] text-slate-400">
+                      {detail.paymentConfirmation.provider} · {detail.paymentConfirmation.status}
+                      {detail.paymentConfirmation.externalRefMasked
+                        ? ` · ref ${detail.paymentConfirmation.externalRefMasked}`
+                        : ""}
+                    </div>
+                    <div className="text-[9px] text-slate-600">
+                      confirmed {formatWhen(detail.paymentConfirmation.confirmedAt)} · consumed{" "}
+                      {formatWhen(detail.paymentConfirmation.consumedAt)}
+                    </div>
+                  </section>
+
+                  <section className="mb-3">
+                    <h5 className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                      Claude sales summary
+                    </h5>
+                    {detail.order.salesSummaryExcerpt ? (
+                      <p className="mt-1 text-slate-400">{detail.order.salesSummaryExcerpt}</p>
+                    ) : (
+                      <p className="mt-1 text-slate-600">No excerpt on file.</p>
+                    )}
+                  </section>
+
+                  {detail.order.requestedDeliverable ? (
+                    <section className="mb-3 text-[10px] text-slate-500">
+                      Deliverable request: {detail.order.requestedDeliverable.type} —{" "}
+                      {detail.order.requestedDeliverable.title}
+                    </section>
+                  ) : null}
+
+                  {detail.deliverable ? (
+                    <section className="mb-3 text-[10px] text-slate-500">
+                      Deliverable status: {detail.deliverable.artifactType} · review{" "}
+                      {detail.deliverable.ownerReviewStatus}
+                    </section>
+                  ) : null}
+
+                  {detail.approval ? (
+                    <section className="mb-3 text-[10px] text-slate-500">
+                      Approval {shortId(detail.approval.id)} · {detail.approval.status} ·{" "}
+                      {detail.approval.proposedAction}
+                    </section>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-1 border-t border-slate-800 pt-3">
+                    {detail.nextAction.action === "ready_to_propose_site_builder_draft" ? (
+                      <button
+                        type="button"
+                        disabled={actionBusy != null}
+                        onClick={() =>
+                          void proposeSiteBuilderDraft({
+                            orderId: detail.order.orderId,
+                            clientId: detail.order.clientId,
+                            pipelineStage: detail.order.pipelineStage,
+                            approvalStatus: detail.order.approvalStatus,
+                            approvalId: detail.order.approvalId,
+                            proposedAction: detail.order.proposedAction,
+                            paymentConfirmation: detail.paymentConfirmation,
+                            createdAt: detail.order.createdAt,
+                            salesSummaryExcerpt: detail.order.salesSummaryExcerpt,
+                            deliverable: detail.deliverable,
+                            assignedDepartment: detail.order.assignedDepartment,
+                            service: detail.order.service,
+                          })
+                        }
+                        className="rounded bg-[#00e5ff]/75 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-950 disabled:opacity-40"
+                      >
+                        Propose Site Builder draft
+                      </button>
+                    ) : null}
+                    {detail.order.approvalId ? (
+                      <button
+                        type="button"
+                        className="rounded border border-[#00e5ff]/40 px-2 py-1 text-[10px] text-[#00e5ff]"
+                        onClick={() => onOpenApproval?.(detail.order.approvalId!)}
+                      >
+                        Open approval
+                      </button>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
