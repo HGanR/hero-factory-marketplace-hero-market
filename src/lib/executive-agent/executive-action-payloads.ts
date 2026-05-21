@@ -64,6 +64,17 @@ export const CreateSiteBuilderTaskPayloadSchema = z.object({
   priority: z.enum(["low", "normal", "high"]).optional().default("normal"),
 });
 
+/** TRUST fulfillment — internal legal-review packet note only (Slice 1). */
+export const CreateTrustFulfillmentPacketPayloadSchema = z.object({
+  clientId: z.string().uuid(),
+  title: z.string().trim().min(1).max(500),
+  packetMarkdown: z.string().trim().min(1).max(100_000),
+  deliverableType: z.enum(["trust_review_packet", "smart_trust_setup_brief"]),
+  priority: z.enum(["low", "normal", "high"]).optional().default("normal"),
+  fulfillmentOrderId: z.string().uuid(),
+  primaryService: z.literal("TRUST"),
+});
+
 /** Invariants for executive-approved campaign sync: never schedule or platform-publish in this executor. */
 export function assertSafeExecutiveCampaignSyncInput(input: SyncBentleyLaunchInput): void {
   if (input.postCreationMode !== "draft_unscheduled") {

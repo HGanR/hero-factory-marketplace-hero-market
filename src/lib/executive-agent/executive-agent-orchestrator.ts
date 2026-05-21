@@ -83,6 +83,7 @@ function enrichProposedWritePayload(
       action === "createSpecializedAgent" ||
       action === "updateClientStatus" ||
       action === "createSiteBuilderTask" ||
+      action === "createTrustFulfillmentPacket" ||
       action === "triggerBentleyAnalysis"
     ) {
       out.clientId = cid;

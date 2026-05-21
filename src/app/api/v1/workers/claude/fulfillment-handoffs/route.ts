@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { submitClaudeFulfillmentHandoff } from "@/lib/fulfillment/claude-handoff-service";
+import { submitClaudeFulfillmentHandoff } from "@/lib/fulfillment/claude-fulfillment-handoff-dispatch";
 import { authenticateClaudeWorkerRequest } from "@/lib/workers/claude-worker-auth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/v1/workers/claude/fulfillment-handoffs
- * Claude worker submits paid WEBSITE handoff after admin_manual payment confirmation.
+ * Claude worker submits paid WEBSITE or TRUST handoff after admin_manual payment confirmation.
  * No paywall, no PayPal webhook, no auto-fulfillment.
  */
 export async function POST(req: NextRequest) {

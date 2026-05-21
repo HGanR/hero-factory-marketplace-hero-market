@@ -39,6 +39,7 @@ export const WRITE_ACTION_NAMES = [
   "triggerBentleyAnalysis",
   "triggerCampaignSync",
   "createSiteBuilderTask",
+  "createTrustFulfillmentPacket",
 ] as const;
 
 export type ExecutiveWriteActionName = (typeof WRITE_ACTION_NAMES)[number];
@@ -48,6 +49,7 @@ export function scopeForWriteAction(action: string): ExecutiveAgentScope | null 
     case "createTodo":
     case "assignFollowUp":
     case "createSiteBuilderTask":
+    case "createTrustFulfillmentPacket":
       return "write:todos";
     case "createSpecializedAgent":
       return "write:agents";

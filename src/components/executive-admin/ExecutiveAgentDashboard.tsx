@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Mic } from "lucide-react";
 import { FulfillmentOrdersPanel } from "./FulfillmentOrdersPanel";
+import { TrustFulfillmentOrdersPanel } from "./TrustFulfillmentOrdersPanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import { VoiceCommandDiagnosticsPanel, type ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
@@ -3307,6 +3308,16 @@ export function ExecutiveAgentDashboard() {
               ) : null}
             </div>
             <FulfillmentOrdersPanel
+              defaultClientId={clientIdTrim}
+              onApprovalsRefresh={() => void loadApprovals()}
+              onOpenApproval={(approvalId) => {
+                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                });
+              }}
+            />
+            <TrustFulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
               onApprovalsRefresh={() => void loadApprovals()}
               onOpenApproval={(approvalId) => {

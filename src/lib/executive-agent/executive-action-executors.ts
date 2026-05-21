@@ -10,6 +10,7 @@ import {
   AssignFollowUpPayloadSchema,
   assertSafeExecutiveCampaignSyncInput,
   CreateSiteBuilderTaskPayloadSchema,
+  CreateTrustFulfillmentPacketPayloadSchema,
   CreateSpecializedAgentPayloadSchema,
   CreateTodoPayloadSchema,
   TriggerBentleyAnalysisPayloadSchema,
@@ -18,6 +19,14 @@ import {
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
 import { isWriteAction, type ExecutiveWriteActionName } from "@/lib/executive-agent/executive-agent-policy";
 import { linkSiteBuilderDraftToFulfillmentDeliverable } from "@/lib/fulfillment/fulfillment-deliverable-draft";
+import { linkTrustPacketToFulfillmentDeliverable } from "@/lib/fulfillment/fulfillment-trust-deliverable-draft";
+import {
+  TRUST_FULFILLMENT_LEGAL_DISCLAIMER,
+  TRUST_FULFILLMENT_NOTE_FOOTER,
+  TRUST_REVIEW_PACKET_NOTE_MARKER,
+  TRUST_SETUP_BRIEF_NOTE_MARKER,
+} from "@/lib/fulfillment/fulfillment-trust-legal";
+import { FULFILLMENT_ARTIFACT_SMART_TRUST_SETUP_BRIEF } from "@/lib/fulfillment/fulfillment-types";
 import { runMarketIntelligenceSweepPipeline } from "@/lib/revenue-os/market-sweep-pipeline";
 import { syncBentleyCampaignPostsAndSchedule, type SyncBentleyLaunchInput } from "@/lib/revenue-os/bentley-sync-launch-server";
 
@@ -351,6 +360,65 @@ async function runTriggerCampaignSync(ctx: ExecCtx, raw: unknown): Promise<Execu
   }
 }
 
+async function runCreateTrustFulfillmentPacket(
+  ctx: ExecCtx,
+  raw: unknown
+): Promise<ExecutiveActionExecutorResult> {
+  const parsed = CreateTrustFulfillmentPacketPayloadSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: "failed",
+      message: "Invalid createTrustFulfillmentPacket payload.",
+      data: { issues: parsed.error.flatten() },
+    };
+  }
+  if (parsed.data.primaryService !== "TRUST") {
+    return {
+      ok: false,
+      status: "failed",
+      message: "createTrustFulfillmentPacket requires primaryService TRUST.",
+    };
+  }
+  const own = await assertClientOwnedByAdmin(ctx.db, parsed.data.clientId, ctx.adminUserId);
+  if (!own.ok) return { ok: false, status: "failed", message: own.message };
+
+  const marker =
+    parsed.data.deliverableType === FULFILLMENT_ARTIFACT_SMART_TRUST_SETUP_BRIEF
+      ? TRUST_SETUP_BRIEF_NOTE_MARKER
+      : TRUST_REVIEW_PACKET_NOTE_MARKER;
+
+  const clientNoteId = randomUUID();
+  await ctx.db.insert(clientNotes).values({
+    id: clientNoteId,
+    clientId: parsed.data.clientId,
+    createdByUserId: ctx.adminUserId,
+    visibility: "internal",
+    note: `${marker}
+Title: ${parsed.data.title}
+Priority: ${parsed.data.priority}
+Packet type: ${parsed.data.deliverableType}
+
+${TRUST_FULFILLMENT_LEGAL_DISCLAIMER}
+
+${parsed.data.packetMarkdown}
+
+${TRUST_FULFILLMENT_NOTE_FOOTER}`,
+  });
+
+  return {
+    ok: true,
+    status: "executed",
+    message:
+      "Trust fulfillment packet captured as internal legal-review note. No trust apply, execution, or client delivery.",
+    data: {
+      clientId: parsed.data.clientId,
+      clientNoteId,
+      fulfillmentOrderId: parsed.data.fulfillmentOrderId,
+    },
+  };
+}
+
 async function runCreateSiteBuilderTask(ctx: ExecCtx, raw: unknown): Promise<ExecutiveActionExecutorResult> {
   const parsed = CreateSiteBuilderTaskPayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -392,6 +460,7 @@ export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, Execut
   triggerBentleyAnalysis: runTriggerBentleyAnalysis,
   triggerCampaignSync: runTriggerCampaignSync,
   createSiteBuilderTask: runCreateSiteBuilderTask,
+  createTrustFulfillmentPacket: runCreateTrustFulfillmentPacket,
   updateClientStatus: async () => ({
     ok: false,
     status: "failed",
@@ -473,6 +542,20 @@ export async function executeExecutiveApprovedAction(
     typeof result.data.clientNoteId === "string"
   ) {
     await linkSiteBuilderDraftToFulfillmentDeliverable(db, {
+      adminUserId,
+      approvalId: approval.id,
+      clientNoteId: result.data.clientNoteId,
+      payload,
+    });
+  }
+
+  if (
+    action === "createTrustFulfillmentPacket" &&
+    result.ok &&
+    result.data?.clientNoteId &&
+    typeof result.data.clientNoteId === "string"
+  ) {
+    await linkTrustPacketToFulfillmentDeliverable(db, {
       adminUserId,
       approvalId: approval.id,
       clientNoteId: result.data.clientNoteId,
