@@ -20,6 +20,7 @@ import {
 } from "@/lib/fulfillment/payment-confirmation-service";
 import { ClaudeFulfillmentHandoffBodySchema } from "@/lib/fulfillment/fulfillment-payload-schemas";
 import {
+  FULFILLMENT_ARTIFACT_SITE_BUILDER_PACKAGE,
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
   FULFILLMENT_INITIAL_STAGE,
   FULFILLMENT_ORDER_SOURCE_CLAUDE_WORKER,
