@@ -21,6 +21,12 @@ describe("subject workspace state", () => {
     assert.equal(scope.department, "TRUST");
   });
 
+  it("resolves REVENUE_OS workspace from revenue_os subject", () => {
+    const scope = resolveSubjectWorkspace({ subjectId: "revenue_os" });
+    assert.equal(scope.workspaceKind, "revenue_os");
+    assert.equal(scope.department, "REVENUE_OS");
+  });
+
   it("resolves fulfillment_case when order pinned", () => {
     const scope = resolveSubjectWorkspace({
       subjectId: "crm_intelligence",

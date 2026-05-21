@@ -489,6 +489,21 @@ export async function getExecutiveOperationalTasks(
   });
 }
 
+/** REVENUE_OS governed campaign fulfillment — read-only; no autonomous launch or publish. */
+export async function getExecutiveRevenueOsFulfillment(
+  ctx: ExecutiveToolContext,
+  input?: { orderId?: string | null }
+) {
+  const { buildExecutiveRevenueOsFulfillmentForSkipper } = await import(
+    "@/lib/fulfillment/revenue-os-fulfillment-service"
+  );
+  return buildExecutiveRevenueOsFulfillmentForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    orderId: input?.orderId ?? null,
+    clientId: ctx.selectedClientId ?? null,
+  });
+}
+
 /** Pending owner decisions — read-only; Skipper recommends but must not decide. */
 export async function getExecutivePendingDecisions(
   ctx: ExecutiveToolContext,

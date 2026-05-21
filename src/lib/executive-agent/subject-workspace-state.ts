@@ -9,6 +9,7 @@ export type SubjectWorkspaceKind =
   | "desk"
   | "website"
   | "trust"
+  | "revenue_os"
   | "client"
   | "fulfillment_case";
 
@@ -69,6 +70,17 @@ export function resolveSubjectWorkspace(input: ResolveSubjectWorkspaceInput): Su
     };
   }
 
+  if (clientId && input.subjectId === "revenue_os") {
+    return {
+      subjectId: input.subjectId,
+      workspaceKind: "revenue_os",
+      department: "REVENUE_OS",
+      clientId,
+      orderId: null,
+      label: `REVENUE_OS client · ${clientId.slice(0, 8)}…`,
+    };
+  }
+
   if (clientId) {
     return {
       subjectId: input.subjectId,
@@ -102,6 +114,17 @@ export function resolveSubjectWorkspace(input: ResolveSubjectWorkspaceInput): Su
     };
   }
 
+  if (input.subjectId === "revenue_os") {
+    return {
+      subjectId: input.subjectId,
+      workspaceKind: "revenue_os",
+      department: "REVENUE_OS",
+      clientId: null,
+      orderId: null,
+      label: "REVENUE_OS campaign fulfillment workspace",
+    };
+  }
+
   if (input.subjectId === "crm_intelligence") {
     return {
       subjectId: input.subjectId,
@@ -128,6 +151,7 @@ function inferDepartmentFromSubject(
 ): FulfillmentOrchestrationDepartment | null {
   if (subjectId === "site_builder") return "WEBSITE";
   if (subjectId === "trust_jarva") return "TRUST";
+  if (subjectId === "revenue_os") return "REVENUE_OS";
   return null;
 }
 

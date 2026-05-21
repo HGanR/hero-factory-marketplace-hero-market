@@ -177,6 +177,9 @@ async function runReadTool(
       case "getExecutiveOperationalTasks":
         data = await Tools.getExecutiveOperationalTasks(ctx);
         break;
+      case "getExecutiveRevenueOsFulfillment":
+        data = await Tools.getExecutiveRevenueOsFulfillment(ctx);
+        break;
       default:
         return null;
     }

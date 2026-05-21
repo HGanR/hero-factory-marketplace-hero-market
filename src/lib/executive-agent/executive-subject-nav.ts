@@ -13,6 +13,7 @@ export type ExecutiveSubjectId =
   | "inbox"
   | "tasks"
   | "trust_jarva"
+  | "revenue_os"
   | "settings"
   | "new_command";
 
@@ -154,6 +155,21 @@ export const EXECUTIVE_SUBJECTS: ExecutiveSubjectConfig[] = [
     ],
   },
   {
+    id: "revenue_os",
+    navLabel: "Revenue OS",
+    shortLabel: "Revenue",
+    description:
+      "AI Revenue OS campaign fulfillment — review packets, launch readiness, KPI snapshots (no autonomous launch).",
+    workspaceKind: "revenue_os",
+    departmentFocus: "REVENUE_OS",
+    dashboardMode: "REVENUE",
+    delegateAgents: withSkipperNexus(["bentley", "executive_admin"]),
+    agentSlots: [
+      { routeKey: "bentley", displayName: "Bentley", domainLabel: "REVENUE OS" },
+      { routeKey: "skipper", displayName: "SKIPPER", domainLabel: "FULFILLMENT" },
+    ],
+  },
+  {
     id: "settings",
     navLabel: "Settings",
     shortLabel: "Settings",
@@ -193,6 +209,7 @@ export function subjectIdFromBottomTab(tab: string): ExecutiveSubjectId {
     Tasks: "tasks",
     Settings: "settings",
     Jarva: "trust_jarva",
+    "Revenue OS": "revenue_os",
   };
   return map[tab] ?? "command_center";
 }

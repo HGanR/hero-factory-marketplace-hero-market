@@ -24,7 +24,8 @@ export type ExecutiveReadToolKey =
   | "getExecutiveSubjectWorkspace"
   | "getExecutiveOperationalThreads"
   | "getExecutivePendingDecisions"
-  | "getExecutiveOperationalTasks";
+  | "getExecutiveOperationalTasks"
+  | "getExecutiveRevenueOsFulfillment";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -49,6 +50,7 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveOperationalThreads: "getExecutiveOperationalThreads",
   getExecutivePendingDecisions: "getExecutivePendingDecisions",
   getExecutiveOperationalTasks: "getExecutiveOperationalTasks",
+  getExecutiveRevenueOsFulfillment: "getExecutiveRevenueOsFulfillment",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -88,6 +90,15 @@ export function pickExecutiveReadTools(
   if (/bentley|campaign output|revenue os|scheduled post/.test(p)) {
     out.add("getBentleyCampaignOutputs");
     out.add("getAiRevenueOsStatus");
+    out.add("getExecutiveRevenueOsFulfillment");
+  }
+  if (
+    /campaign fulfillment|launch readiness|launch blocker|kpi health|revision pattern|stalled campaign|campaign review packet|revenue.?os fulfillment/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveRevenueOsFulfillment");
+    out.add("getBentleyExecutiveBridgeSummary");
   }
   if (/bentley cadence|executive bridge|launch readiness|blocked post|pending approval/.test(p)) {
     out.add("getBentleyExecutiveBridgeSummary");
@@ -163,6 +174,7 @@ export function pickExecutiveReadTools(
     out.add("getBentleyCampaignOutputs");
     out.add("getAiRevenueOsStatus");
     out.add("getBentleyExecutiveBridgeSummary");
+    out.add("getExecutiveRevenueOsFulfillment");
     out.add("getPlatformAnalyticsSummary");
   }
   if (mode === "CRM") {

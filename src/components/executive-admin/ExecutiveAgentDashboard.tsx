@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Mic } from "lucide-react";
 import { FulfillmentOrdersPanel } from "./FulfillmentOrdersPanel";
 import { TrustFulfillmentOrdersPanel } from "./TrustFulfillmentOrdersPanel";
+import { RevenueOsFulfillmentPanel } from "./RevenueOsFulfillmentPanel";
 import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingPanel";
 import { OperationalMemoryInsightsPanel } from "./OperationalMemoryInsightsPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
@@ -2685,8 +2686,20 @@ export function ExecutiveAgentDashboard() {
               <FulfillmentThreadView
                 orderId={workspaceOrderId.trim()}
                 clientId={clientId.trim() || undefined}
-                department={activeSubjectId === "trust_jarva" ? "TRUST" : "WEBSITE"}
-                subjectId={activeSubjectId === "trust_jarva" ? "trust_jarva" : "site_builder"}
+                department={
+                  activeSubjectId === "trust_jarva"
+                    ? "TRUST"
+                    : activeSubjectId === "revenue_os"
+                      ? "REVENUE_OS"
+                      : "WEBSITE"
+                }
+                subjectId={
+                  activeSubjectId === "trust_jarva"
+                    ? "trust_jarva"
+                    : activeSubjectId === "revenue_os"
+                      ? "revenue_os"
+                      : "site_builder"
+                }
               />
             ) : null}
             {subjectChatOpen ? (
@@ -3053,6 +3066,15 @@ export function ExecutiveAgentDashboard() {
                   <div className="font-medium text-slate-200">Jarva</div>
                   <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/80">TRUST</div>
                   <p className="mt-1 text-[10px] text-slate-500">TRUST legal-review desk — use chat + TRUST fulfillment panel.</p>
+                </li>
+              ) : null}
+              {activeSubjectId === "revenue_os" ? (
+                <li className="rounded-lg border border-dashed border-fuchsia-500/30 bg-fuchsia-950/20 px-2 py-2">
+                  <div className="font-medium text-slate-200">Bentley</div>
+                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-fuchsia-300/80">REVENUE OS</div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Campaign fulfillment desk — review packets and launch readiness checkpoints only.
+                  </p>
                 </li>
               ) : null}
             </ul>
@@ -3572,6 +3594,16 @@ export function ExecutiveAgentDashboard() {
               }}
             />
             <TrustFulfillmentOrdersPanel
+              defaultClientId={clientIdTrim}
+              onApprovalsRefresh={() => void loadApprovals()}
+              onOpenApproval={(approvalId) => {
+                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                });
+              }}
+            />
+            <RevenueOsFulfillmentPanel
               defaultClientId={clientIdTrim}
               onApprovalsRefresh={() => void loadApprovals()}
               onOpenApproval={(approvalId) => {

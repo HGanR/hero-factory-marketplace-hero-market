@@ -7,7 +7,7 @@ import { ExecutiveThreadPanel } from "./ExecutiveThreadPanel";
 type Props = {
   orderId: string;
   clientId?: string;
-  department: "WEBSITE" | "TRUST";
+  department: "WEBSITE" | "TRUST" | "REVENUE_OS";
   subjectId: "site_builder" | "trust_jarva";
 };
 

@@ -10,9 +10,11 @@ import {
   AssignFollowUpPayloadSchema,
   assertSafeExecutiveCampaignSyncInput,
   CreateSiteBuilderTaskPayloadSchema,
+  CreateRevenueOsCampaignReviewPacketPayloadSchema,
   CreateTrustFulfillmentPacketPayloadSchema,
   CreateSpecializedAgentPayloadSchema,
   CreateTodoPayloadSchema,
+  RecordRevenueOsLaunchReadinessPayloadSchema,
   TriggerBentleyAnalysisPayloadSchema,
   TriggerCampaignSyncPayloadSchema,
 } from "@/lib/executive-agent/executive-action-payloads";
@@ -20,6 +22,16 @@ import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-ag
 import { isWriteAction, type ExecutiveWriteActionName } from "@/lib/executive-agent/executive-agent-policy";
 import { linkSiteBuilderDraftToFulfillmentDeliverable } from "@/lib/fulfillment/fulfillment-deliverable-draft";
 import { linkTrustPacketToFulfillmentDeliverable } from "@/lib/fulfillment/fulfillment-trust-deliverable-draft";
+import {
+  linkRevenueOsCampaignReviewToFulfillmentDeliverable,
+  recordRevenueOsLaunchReadinessOnOrder,
+} from "@/lib/fulfillment/revenue-os-fulfillment-deliverable";
+import {
+  REVENUE_OS_CAMPAIGN_REVIEW_NOTE_MARKER,
+  REVENUE_OS_FULFILLMENT_DISCLAIMER,
+  REVENUE_OS_FULFILLMENT_NOTE_FOOTER,
+  REVENUE_OS_LAUNCH_READINESS_NOTE_MARKER,
+} from "@/lib/fulfillment/revenue-os-campaign-review";
 import {
   TRUST_FULFILLMENT_LEGAL_DISCLAIMER,
   TRUST_FULFILLMENT_NOTE_FOOTER,
@@ -360,6 +372,124 @@ async function runTriggerCampaignSync(ctx: ExecCtx, raw: unknown): Promise<Execu
   }
 }
 
+async function runCreateRevenueOsCampaignReviewPacket(
+  ctx: ExecCtx,
+  raw: unknown
+): Promise<ExecutiveActionExecutorResult> {
+  const parsed = CreateRevenueOsCampaignReviewPacketPayloadSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: "failed",
+      message: "Invalid createRevenueOsCampaignReviewPacket payload.",
+      data: { issues: parsed.error.flatten() },
+    };
+  }
+  if (parsed.data.primaryService !== "REVENUE_OS") {
+    return {
+      ok: false,
+      status: "failed",
+      message: "createRevenueOsCampaignReviewPacket requires primaryService REVENUE_OS.",
+    };
+  }
+  const own = await assertClientOwnedByAdmin(ctx.db, parsed.data.clientId, ctx.adminUserId);
+  if (!own.ok) return { ok: false, status: "failed", message: own.message };
+
+  const clientNoteId = randomUUID();
+  await ctx.db.insert(clientNotes).values({
+    id: clientNoteId,
+    clientId: parsed.data.clientId,
+    createdByUserId: ctx.adminUserId,
+    visibility: "internal",
+    note: `${REVENUE_OS_CAMPAIGN_REVIEW_NOTE_MARKER}
+Title: ${parsed.data.title}
+Campaign: ${parsed.data.campaignId}
+Priority: ${parsed.data.priority}
+
+${REVENUE_OS_FULFILLMENT_DISCLAIMER}
+
+${parsed.data.packetMarkdown}
+
+${REVENUE_OS_FULFILLMENT_NOTE_FOOTER}`,
+  });
+
+  return {
+    ok: true,
+    status: "executed",
+    message:
+      "Campaign review packet captured as internal note. No publish, launch, ad spend, or Content360 execution.",
+    data: {
+      clientId: parsed.data.clientId,
+      clientNoteId,
+      fulfillmentOrderId: parsed.data.fulfillmentOrderId,
+      campaignId: parsed.data.campaignId,
+    },
+  };
+}
+
+async function runRecordRevenueOsLaunchReadinessCheckpoint(
+  ctx: ExecCtx,
+  raw: unknown
+): Promise<ExecutiveActionExecutorResult> {
+  const parsed = RecordRevenueOsLaunchReadinessPayloadSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: "failed",
+      message: "Invalid recordRevenueOsLaunchReadinessCheckpoint payload.",
+      data: { issues: parsed.error.flatten() },
+    };
+  }
+  if (parsed.data.primaryService !== "REVENUE_OS") {
+    return {
+      ok: false,
+      status: "failed",
+      message: "recordRevenueOsLaunchReadinessCheckpoint requires primaryService REVENUE_OS.",
+    };
+  }
+  const own = await assertClientOwnedByAdmin(ctx.db, parsed.data.clientId, ctx.adminUserId);
+  if (!own.ok) return { ok: false, status: "failed", message: own.message };
+
+  const clientNoteId = randomUUID();
+  await ctx.db.insert(clientNotes).values({
+    id: clientNoteId,
+    clientId: parsed.data.clientId,
+    createdByUserId: ctx.adminUserId,
+    visibility: "internal",
+    note: `${REVENUE_OS_LAUNCH_READINESS_NOTE_MARKER}
+Campaign: ${parsed.data.campaignId}
+Order: ${parsed.data.fulfillmentOrderId}
+
+${REVENUE_OS_FULFILLMENT_DISCLAIMER}
+
+${parsed.data.readinessSummary}
+
+Owner attestation:
+${parsed.data.ownerAttestation}
+
+${REVENUE_OS_FULFILLMENT_NOTE_FOOTER}`,
+  });
+
+  await recordRevenueOsLaunchReadinessOnOrder(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    approvalId: ctx.approvalId,
+    payload: parsed.data,
+  });
+
+  return {
+    ok: true,
+    status: "executed",
+    message:
+      "Launch readiness checkpoint recorded. Does not run sync-launch, schedule posts, or spend ad budget.",
+    data: {
+      clientId: parsed.data.clientId,
+      clientNoteId,
+      fulfillmentOrderId: parsed.data.fulfillmentOrderId,
+      campaignId: parsed.data.campaignId,
+    },
+  };
+}
+
 async function runCreateTrustFulfillmentPacket(
   ctx: ExecCtx,
   raw: unknown
@@ -461,6 +591,8 @@ export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, Execut
   triggerCampaignSync: runTriggerCampaignSync,
   createSiteBuilderTask: runCreateSiteBuilderTask,
   createTrustFulfillmentPacket: runCreateTrustFulfillmentPacket,
+  createRevenueOsCampaignReviewPacket: runCreateRevenueOsCampaignReviewPacket,
+  recordRevenueOsLaunchReadinessCheckpoint: runRecordRevenueOsLaunchReadinessCheckpoint,
   updateClientStatus: async () => ({
     ok: false,
     status: "failed",
@@ -556,6 +688,20 @@ export async function executeExecutiveApprovedAction(
     typeof result.data.clientNoteId === "string"
   ) {
     await linkTrustPacketToFulfillmentDeliverable(db, {
+      adminUserId,
+      approvalId: approval.id,
+      clientNoteId: result.data.clientNoteId,
+      payload,
+    });
+  }
+
+  if (
+    action === "createRevenueOsCampaignReviewPacket" &&
+    result.ok &&
+    result.data?.clientNoteId &&
+    typeof result.data.clientNoteId === "string"
+  ) {
+    await linkRevenueOsCampaignReviewToFulfillmentDeliverable(db, {
       adminUserId,
       approvalId: approval.id,
       clientNoteId: result.data.clientNoteId,

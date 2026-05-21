@@ -4,15 +4,31 @@ export const FULFILLMENT_PRIMARY_SERVICE_WEBSITE = "WEBSITE" as const;
 /** TRUST / Trust Records + Smart Trust fulfillment slice (Slice 1). */
 export const FULFILLMENT_PRIMARY_SERVICE_TRUST = "TRUST" as const;
 
+/** AI Revenue OS campaign fulfillment — governed orchestration only (no autonomous launch). */
+export const FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS = "REVENUE_OS" as const;
+
 export const FULFILLMENT_DEPARTMENT_SITE_BUILDER = "site_builder" as const;
 
 export const FULFILLMENT_DEPARTMENT_TRUST_RECORDS = "trust_records" as const;
+
+export const FULFILLMENT_DEPARTMENT_AI_REVENUE_OS = "ai_revenue_os" as const;
 
 export const FULFILLMENT_ARTIFACT_SITE_BUILDER_PACKAGE = "site_builder_package" as const;
 
 export const FULFILLMENT_ARTIFACT_TRUST_REVIEW_PACKET = "trust_review_packet" as const;
 
 export const FULFILLMENT_ARTIFACT_SMART_TRUST_SETUP_BRIEF = "smart_trust_setup_brief" as const;
+
+export const FULFILLMENT_ARTIFACT_CAMPAIGN_REVIEW_PACKET = "campaign_review_packet" as const;
+
+export const FULFILLMENT_ARTIFACT_LAUNCH_READINESS_BRIEF = "launch_readiness_brief" as const;
+
+export const FULFILLMENT_REVENUE_OS_ARTIFACT_TYPES = [
+  FULFILLMENT_ARTIFACT_CAMPAIGN_REVIEW_PACKET,
+  FULFILLMENT_ARTIFACT_LAUNCH_READINESS_BRIEF,
+] as const;
+
+export type FulfillmentRevenueOsArtifactType = (typeof FULFILLMENT_REVENUE_OS_ARTIFACT_TYPES)[number];
 
 export const FULFILLMENT_TRUST_ARTIFACT_TYPES = [
   FULFILLMENT_ARTIFACT_TRUST_REVIEW_PACKET,

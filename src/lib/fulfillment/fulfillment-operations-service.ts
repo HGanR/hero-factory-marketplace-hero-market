@@ -37,6 +37,8 @@ import { auditFulfillmentExecutiveAction } from "@/lib/fulfillment/fulfillment-a
 import {
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
   FULFILLMENT_DEPARTMENT_TRUST_RECORDS,
+  FULFILLMENT_DEPARTMENT_AI_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -83,6 +85,12 @@ function departmentFromOrder(row: {
     row.assignedDepartment === FULFILLMENT_DEPARTMENT_TRUST_RECORDS
   ) {
     return FULFILLMENT_PRIMARY_SERVICE_TRUST;
+  }
+  if (
+    row.primaryService === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
+    row.assignedDepartment === FULFILLMENT_DEPARTMENT_AI_REVENUE_OS
+  ) {
+    return FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
   }
   return null;
 }

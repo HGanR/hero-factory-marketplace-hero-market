@@ -10,6 +10,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import {
@@ -27,6 +28,7 @@ const ICONS: Record<ExecutiveSubjectId, typeof LayoutDashboard> = {
   inbox: Mail,
   tasks: ListTodo,
   trust_jarva: Shield,
+  revenue_os: TrendingUp,
   settings: Settings,
   new_command: Sparkles,
 };

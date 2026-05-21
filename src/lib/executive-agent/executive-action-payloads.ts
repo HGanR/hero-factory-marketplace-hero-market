@@ -75,6 +75,29 @@ export const CreateTrustFulfillmentPacketPayloadSchema = z.object({
   primaryService: z.literal("TRUST"),
 });
 
+/** REVENUE_OS fulfillment — internal campaign review packet (no publish or Content360 execution). */
+export const CreateRevenueOsCampaignReviewPacketPayloadSchema = z.object({
+  clientId: z.string().uuid(),
+  campaignId: z.string().uuid(),
+  title: z.string().trim().min(1).max(500),
+  packetMarkdown: z.string().trim().min(1).max(100_000),
+  deliverableType: z.literal("campaign_review_packet"),
+  priority: z.enum(["low", "normal", "high"]).optional().default("normal"),
+  fulfillmentOrderId: z.string().uuid(),
+  primaryService: z.literal("REVENUE_OS"),
+});
+
+/** REVENUE_OS launch readiness checkpoint — owner approval record only; never triggers sync-launch. */
+export const RecordRevenueOsLaunchReadinessPayloadSchema = z.object({
+  clientId: z.string().uuid(),
+  campaignId: z.string().uuid(),
+  fulfillmentOrderId: z.string().uuid(),
+  primaryService: z.literal("REVENUE_OS"),
+  readinessSummary: z.string().trim().min(1).max(20_000),
+  blockersResolved: z.array(z.string().trim().max(500)).max(30).optional().default([]),
+  ownerAttestation: z.string().trim().min(1).max(2000),
+});
+
 /** Invariants for executive-approved campaign sync: never schedule or platform-publish in this executor. */
 export function assertSafeExecutiveCampaignSyncInput(input: SyncBentleyLaunchInput): void {
   if (input.postCreationMode !== "draft_unscheduled") {

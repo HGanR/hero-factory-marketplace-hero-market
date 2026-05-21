@@ -1,14 +1,16 @@
 import type {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
 
-/** Active fulfillment departments (Slice 1). AI Revenue OS is advisory-only — not a fulfillment department. */
+/** Active fulfillment departments — governed orchestration; no autonomous launch from fulfillment layer. */
 export type FulfillmentDepartmentKey =
   | typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE
-  | typeof FULFILLMENT_PRIMARY_SERVICE_TRUST;
+  | typeof FULFILLMENT_PRIMARY_SERVICE_TRUST
+  | typeof FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
 
-export const FULFILLMENT_ORCHESTRATION_DEPARTMENTS = ["WEBSITE", "TRUST"] as const;
+export const FULFILLMENT_ORCHESTRATION_DEPARTMENTS = ["WEBSITE", "TRUST", "REVENUE_OS"] as const;
 
 export type FulfillmentOrchestrationDepartment = (typeof FULFILLMENT_ORCHESTRATION_DEPARTMENTS)[number];
 

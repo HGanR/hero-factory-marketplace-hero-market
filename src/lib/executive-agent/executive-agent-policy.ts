@@ -40,6 +40,8 @@ export const WRITE_ACTION_NAMES = [
   "triggerCampaignSync",
   "createSiteBuilderTask",
   "createTrustFulfillmentPacket",
+  "createRevenueOsCampaignReviewPacket",
+  "recordRevenueOsLaunchReadinessCheckpoint",
 ] as const;
 
 export type ExecutiveWriteActionName = (typeof WRITE_ACTION_NAMES)[number];
@@ -50,6 +52,8 @@ export function scopeForWriteAction(action: string): ExecutiveAgentScope | null 
     case "assignFollowUp":
     case "createSiteBuilderTask":
     case "createTrustFulfillmentPacket":
+    case "createRevenueOsCampaignReviewPacket":
+    case "recordRevenueOsLaunchReadinessCheckpoint":
       return "write:todos";
     case "createSpecializedAgent":
       return "write:agents";
@@ -95,6 +99,7 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getExecutiveOperationalThreads: "read:crm",
     getExecutivePendingDecisions: "read:crm",
     getExecutiveOperationalTasks: "read:crm",
+    getExecutiveRevenueOsFulfillment: "read:bentley",
   };
   const need = map[toolName];
   if (!need) return false;

@@ -3,6 +3,7 @@ import type {
   FulfillmentOrchestrationDepartment,
 } from "@/lib/fulfillment/fulfillment-orchestration-types";
 import {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -31,6 +32,21 @@ export const FULFILLMENT_DEPARTMENT_DEPENDENCIES: CrossDepartmentDependency[] = 
     kind: "downstream_benefit",
     summary:
       "When WEBSITE draft is approved for release, AI Revenue OS onboarding may help drive traffic — advisory recommendation only.",
+    optional: true,
+  },
+  {
+    from: FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
+    to: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+    kind: "soft_prerequisite",
+    summary:
+      "Campaign landing experiences benefit from WEBSITE progress — recommend site release before heavy paid spend.",
+    optional: true,
+  },
+  {
+    from: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+    to: FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
+    kind: "informational",
+    summary: "REVENUE_OS fulfillment may surface landing-page gaps for WEBSITE coordination — informational only.",
     optional: true,
   },
   {
