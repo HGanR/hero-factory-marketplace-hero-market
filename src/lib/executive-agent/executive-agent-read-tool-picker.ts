@@ -16,7 +16,9 @@ export type ExecutiveReadToolKey =
   | "getSiteBuilderProjectStatus"
   | "getPlatformAnalyticsSummary"
   | "getInboxEngagementSummary"
-  | "getKnowledgeBaseSummary";
+  | "getKnowledgeBaseSummary"
+  | "getClientFulfillmentOperations"
+  | "getExecutiveFulfillmentOperationsOverview";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -33,6 +35,8 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPlatformAnalyticsSummary: "getPlatformAnalyticsSummary",
   getInboxEngagementSummary: "getInboxEngagementSummary",
   getKnowledgeBaseSummary: "getKnowledgeBaseSummary",
+  getClientFulfillmentOperations: "getClientFulfillmentOperations",
+  getExecutiveFulfillmentOperationsOverview: "getExecutiveFulfillmentOperationsOverview",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -79,6 +83,16 @@ export function pickExecutiveReadTools(
   if (/site builder|website|web3 site/.test(p)) out.add("getSiteBuilderProjectStatus");
   if (/agent.*conversation|discussed|chat/.test(p)) out.add("getAgentConversationSummary");
   if (/inbox|engagement|dm/.test(p)) out.add("getInboxEngagementSummary");
+  if (/fulfillment|website order|trust order|trust packet|site builder draft|owner review|payment confirm/.test(p)) {
+    out.add("getClientFulfillmentOperations");
+  }
+  if (/cross-department|multi-department|operations overview|fulfillment queue|bottleneck|stalled client|sequencing/.test(p)) {
+    out.add("getExecutiveFulfillmentOperationsOverview");
+    out.add("getClientFulfillmentOperations");
+  }
+  if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
+    out.add("getClientFulfillmentOperations");
+  }
   if (/knowledge|kb|docs/.test(p)) out.add("getKnowledgeBaseSummary");
   if (/analytics|health|blocking|underperform/.test(p)) {
     out.add("getPlatformAnalyticsSummary");
@@ -105,6 +119,7 @@ export function pickExecutiveReadTools(
     out.add("getApprovedAccounts");
     out.add("getPendingAccounts");
     out.add("getPendingClientsQueue");
+    out.add("getClientFulfillmentOperations");
   }
   if (mode === "SITE_BUILDER") {
     out.add("getSiteBuilderProjectStatus");

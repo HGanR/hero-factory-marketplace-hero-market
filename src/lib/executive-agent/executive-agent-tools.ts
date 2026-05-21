@@ -332,3 +332,53 @@ export async function getKnowledgeBaseSummary(_ctx: ExecutiveToolContext) {
     message: "Knowledge base integration is not wired — placeholder summary only.",
   };
 }
+
+/** Cross-department fulfillment orchestration for selected client — recommendations only. */
+export async function getClientFulfillmentOperations(ctx: ExecutiveToolContext, clientId?: string | null) {
+  const cid = (clientId ?? ctx.selectedClientId ?? "").trim();
+  if (!cid) {
+    return {
+      error: "missing_client_id",
+      message: "Select a client to load fulfillment operations graph and recommendations.",
+    };
+  }
+  const { buildClientFulfillmentOperations } = await import(
+    "@/lib/fulfillment/fulfillment-operations-service"
+  );
+  const result = await buildClientFulfillmentOperations(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    clientId: cid,
+  });
+  if (!result.ok) return result;
+  return {
+    clientId: cid,
+    recommendationOnly: true,
+    skipperBrief: result.skipperBrief,
+    timelineSummary: result.timelineSummary,
+    health: result.health,
+    readiness: result.readiness,
+    dependencies: result.dependencies,
+    sequencing: result.sequencing,
+    recommendations: result.recommendations.slice(0, 12),
+    crossSellOpportunities: result.crossSellOpportunities,
+    graph: {
+      nodeCount: result.graph.nodes.length,
+      edgeCount: result.graph.edges.length,
+      multiOrderRelationships: result.graph.multiOrderRelationships,
+    },
+    orders: result.orders,
+    generatedAt: result.generatedAt,
+  };
+}
+
+/** Executive desk overview across WEBSITE + TRUST fulfillment — no autonomous actions. */
+export async function getExecutiveFulfillmentOperationsOverview(ctx: ExecutiveToolContext, limit = 30) {
+  const { buildExecutiveFulfillmentOperationsOverview } = await import(
+    "@/lib/fulfillment/fulfillment-operations-service"
+  );
+  const overview = await buildExecutiveFulfillmentOperationsOverview(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+  });
+  return overview;
+}

@@ -153,6 +153,12 @@ async function runReadTool(
       case "getKnowledgeBaseSummary":
         data = await Tools.getKnowledgeBaseSummary(ctx);
         break;
+      case "getClientFulfillmentOperations":
+        data = await Tools.getClientFulfillmentOperations(ctx);
+        break;
+      case "getExecutiveFulfillmentOperationsOverview":
+        data = await Tools.getExecutiveFulfillmentOperationsOverview(ctx);
+        break;
       default:
         return null;
     }

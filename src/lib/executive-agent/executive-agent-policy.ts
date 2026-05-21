@@ -87,6 +87,8 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getPlatformAnalyticsSummary: "read:analytics",
     getInboxEngagementSummary: "read:analytics",
     getKnowledgeBaseSummary: "read:analytics",
+    getClientFulfillmentOperations: "read:crm",
+    getExecutiveFulfillmentOperationsOverview: "read:crm",
   };
   const need = map[toolName];
   if (!need) return false;
