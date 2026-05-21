@@ -18,7 +18,8 @@ export type ExecutiveReadToolKey =
   | "getInboxEngagementSummary"
   | "getKnowledgeBaseSummary"
   | "getClientFulfillmentOperations"
-  | "getExecutiveFulfillmentOperationsOverview";
+  | "getExecutiveFulfillmentOperationsOverview"
+  | "getExecutiveFulfillmentOperationsBriefing";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -37,6 +38,7 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getKnowledgeBaseSummary: "getKnowledgeBaseSummary",
   getClientFulfillmentOperations: "getClientFulfillmentOperations",
   getExecutiveFulfillmentOperationsOverview: "getExecutiveFulfillmentOperationsOverview",
+  getExecutiveFulfillmentOperationsBriefing: "getExecutiveFulfillmentOperationsBriefing",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -89,6 +91,9 @@ export function pickExecutiveReadTools(
   if (/cross-department|multi-department|operations overview|fulfillment queue|bottleneck|stalled client|sequencing/.test(p)) {
     out.add("getExecutiveFulfillmentOperationsOverview");
     out.add("getClientFulfillmentOperations");
+  }
+  if (/briefing|needs my attention|urgent action|owner sequence|operations briefing/.test(p)) {
+    out.add("getExecutiveFulfillmentOperationsBriefing");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

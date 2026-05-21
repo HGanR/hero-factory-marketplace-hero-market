@@ -159,6 +159,9 @@ async function runReadTool(
       case "getExecutiveFulfillmentOperationsOverview":
         data = await Tools.getExecutiveFulfillmentOperationsOverview(ctx);
         break;
+      case "getExecutiveFulfillmentOperationsBriefing":
+        data = await Tools.getExecutiveFulfillmentOperationsBriefing(ctx);
+        break;
       default:
         return null;
     }

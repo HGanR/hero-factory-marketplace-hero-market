@@ -371,6 +371,32 @@ export async function getClientFulfillmentOperations(ctx: ExecutiveToolContext, 
   };
 }
 
+/** Executive fulfillment operations briefing — read-only desk priorities for Skipper. */
+export async function getExecutiveFulfillmentOperationsBriefing(ctx: ExecutiveToolContext, limit = 50) {
+  const { buildExecutiveFulfillmentOperationsBriefing } = await import(
+    "@/lib/fulfillment/fulfillment-operations-service"
+  );
+  const briefing = await buildExecutiveFulfillmentOperationsBriefing(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+  });
+  return {
+    recommendationOnly: true,
+    headline: briefing.headline,
+    needsMyAttention: briefing.needsMyAttention,
+    topUrgentActions: briefing.topUrgentActions,
+    suggestedOwnerSequence: briefing.suggestedOwnerSequence,
+    stalledOrders: briefing.stalledOrders.slice(0, 10),
+    ownerReviewPending: briefing.ownerReviewPending,
+    clientReviewPending: briefing.clientReviewPending,
+    approvalBacklog: briefing.approvalBacklog,
+    crossDepartmentOpportunities: briefing.crossDepartmentOpportunities.slice(0, 8),
+    riskAlerts: briefing.riskAlerts.slice(0, 10),
+    skipperSummary: briefing.skipperSummary,
+    meta: briefing.meta,
+    generatedAt: briefing.generatedAt,
+  };
+}
 /** Executive desk overview across WEBSITE + TRUST fulfillment — no autonomous actions. */
 export async function getExecutiveFulfillmentOperationsOverview(ctx: ExecutiveToolContext, limit = 30) {
   const { buildExecutiveFulfillmentOperationsOverview } = await import(

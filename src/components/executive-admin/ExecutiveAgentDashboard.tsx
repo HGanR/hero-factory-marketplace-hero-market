@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Mic } from "lucide-react";
 import { FulfillmentOrdersPanel } from "./FulfillmentOrdersPanel";
 import { TrustFulfillmentOrdersPanel } from "./TrustFulfillmentOrdersPanel";
+import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingPanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import { VoiceCommandDiagnosticsPanel, type ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
@@ -3307,6 +3308,14 @@ export function ExecutiveAgentDashboard() {
                 </div>
               ) : null}
             </div>
+            <ExecutiveOperationsBriefingPanel
+              onOpenApproval={(approvalId) => {
+                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                });
+              }}
+            />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
               onApprovalsRefresh={() => void loadApprovals()}
