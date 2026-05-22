@@ -7,8 +7,8 @@ import { ExecutiveThreadPanel } from "./ExecutiveThreadPanel";
 type Props = {
   orderId: string;
   clientId?: string;
-  department: "WEBSITE" | "TRUST" | "REVENUE_OS";
-  subjectId: "site_builder" | "trust_jarva";
+  department: "WEBSITE" | "TRUST" | "REVENUE_OS" | "SMART_TRUST";
+  subjectId: "site_builder" | "trust_jarva" | "revenue_os" | "smart_trust";
 };
 
 export function FulfillmentThreadView({ orderId, clientId, department, subjectId }: Props) {

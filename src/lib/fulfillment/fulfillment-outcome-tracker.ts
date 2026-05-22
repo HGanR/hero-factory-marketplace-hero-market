@@ -5,6 +5,7 @@ import type {
 } from "@/lib/fulfillment/fulfillment-operational-memory-types";
 import {
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -23,6 +24,12 @@ export function trackFulfillmentOutcomes(
     let summary = `${o.department} progressing in ${o.pipelineStage}`;
 
     if (
+      o.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST &&
+      o.approvalStatus === "pending"
+    ) {
+      outcome = "smart_trust_governance_blocked";
+      summary = "SMART_TRUST blocked on governance review or resolution record approval";
+    } else if (
       o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
       o.approvalStatus === "pending"
     ) {
@@ -52,6 +59,13 @@ export function trackFulfillmentOutcomes(
       outcome = "client_approved";
       summary = `${o.department} client approved deliverable`;
     } else if (
+      o.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST &&
+      o.daysInCurrentStage >= STALL_DAYS &&
+      o.pipelineStage !== "released"
+    ) {
+      outcome = "smart_trust_governance_stalled";
+      summary = `SMART_TRUST governance fulfillment stalled (${o.daysInCurrentStage}d in ${o.pipelineStage})`;
+    } else if (
       o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
       o.daysInCurrentStage >= STALL_DAYS &&
       o.pipelineStage !== "released"
@@ -64,6 +78,12 @@ export function trackFulfillmentOutcomes(
     ) {
       outcome = "revenue_os_kpi_watch";
       summary = "REVENUE_OS revision-heavy — review KPI and creative before launch checkpoint";
+    } else if (
+      o.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST &&
+      (revisionCount >= 2 || o.clientDeliveryStatus === "client_revision_requested")
+    ) {
+      outcome = "smart_trust_compliance_watch";
+      summary = "SMART_TRUST amendment/review heavy — refresh compliance reminders before next checkpoint";
     } else if (o.ownerReviewStatus === "pending" && o.daysInCurrentStage >= STALL_DAYS) {
       outcome = "owner_review_stalled";
       summary = `${o.department} owner review stalled (${o.daysInCurrentStage}d)`;

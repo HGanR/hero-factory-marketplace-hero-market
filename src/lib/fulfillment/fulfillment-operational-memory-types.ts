@@ -25,7 +25,10 @@ export type FulfillmentOutcomeKind =
   | "website_draft_low_revision"
   | "revenue_os_launch_blocked"
   | "revenue_os_campaign_stalled"
-  | "revenue_os_kpi_watch";
+  | "revenue_os_kpi_watch"
+  | "smart_trust_governance_blocked"
+  | "smart_trust_governance_stalled"
+  | "smart_trust_compliance_watch";
 
 export type FulfillmentOutcomeRecord = {
   orderId: string;

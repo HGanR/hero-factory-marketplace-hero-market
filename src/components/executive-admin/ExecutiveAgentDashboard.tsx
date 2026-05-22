@@ -7,6 +7,7 @@ import { Mic } from "lucide-react";
 import { FulfillmentOrdersPanel } from "./FulfillmentOrdersPanel";
 import { TrustFulfillmentOrdersPanel } from "./TrustFulfillmentOrdersPanel";
 import { RevenueOsFulfillmentPanel } from "./RevenueOsFulfillmentPanel";
+import { SmartTrustOperationsPanel } from "./SmartTrustOperationsPanel";
 import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingPanel";
 import { OperationalMemoryInsightsPanel } from "./OperationalMemoryInsightsPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
@@ -2691,14 +2692,18 @@ export function ExecutiveAgentDashboard() {
                     ? "TRUST"
                     : activeSubjectId === "revenue_os"
                       ? "REVENUE_OS"
-                      : "WEBSITE"
+                      : activeSubjectId === "smart_trust"
+                        ? "SMART_TRUST"
+                        : "WEBSITE"
                 }
                 subjectId={
                   activeSubjectId === "trust_jarva"
                     ? "trust_jarva"
                     : activeSubjectId === "revenue_os"
                       ? "revenue_os"
-                      : "site_builder"
+                      : activeSubjectId === "smart_trust"
+                        ? "smart_trust"
+                        : "site_builder"
                 }
               />
             ) : null}
@@ -3074,6 +3079,15 @@ export function ExecutiveAgentDashboard() {
                   <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-fuchsia-300/80">REVENUE OS</div>
                   <p className="mt-1 text-[10px] text-slate-500">
                     Campaign fulfillment desk — review packets and launch readiness checkpoints only.
+                  </p>
+                </li>
+              ) : null}
+              {activeSubjectId === "smart_trust" ? (
+                <li className="rounded-lg border border-dashed border-amber-500/30 bg-amber-950/20 px-2 py-2">
+                  <div className="font-medium text-slate-200">Skipper</div>
+                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-amber-300/80">SMART TRUST</div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Trust governance desk — review checkpoints and resolution records only.
                   </p>
                 </li>
               ) : null}
@@ -3604,6 +3618,16 @@ export function ExecutiveAgentDashboard() {
               }}
             />
             <RevenueOsFulfillmentPanel
+              defaultClientId={clientIdTrim}
+              onApprovalsRefresh={() => void loadApprovals()}
+              onOpenApproval={(approvalId) => {
+                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                });
+              }}
+            />
+            <SmartTrustOperationsPanel
               defaultClientId={clientIdTrim}
               onApprovalsRefresh={() => void loadApprovals()}
               onOpenApproval={(approvalId) => {

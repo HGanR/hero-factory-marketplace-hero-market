@@ -29,6 +29,7 @@ const ICONS: Record<ExecutiveSubjectId, typeof LayoutDashboard> = {
   tasks: ListTodo,
   trust_jarva: Shield,
   revenue_os: TrendingUp,
+  smart_trust: Shield,
   settings: Settings,
   new_command: Sparkles,
 };

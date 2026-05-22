@@ -22,9 +22,10 @@ export function buildFulfillmentCaseThreadTitle(input: FulfillmentThreadLinkInpu
 
 export function fulfillmentThreadSubjectId(
   department: FulfillmentOrchestrationDepartment
-): "site_builder" | "trust_jarva" | "revenue_os" {
+): "site_builder" | "trust_jarva" | "revenue_os" | "smart_trust" {
   if (department === "WEBSITE") return "site_builder";
   if (department === "REVENUE_OS") return "revenue_os";
+  if (department === "SMART_TRUST") return "smart_trust";
   return "trust_jarva";
 }
 

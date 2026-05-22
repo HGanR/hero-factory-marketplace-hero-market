@@ -1,5 +1,6 @@
 import type {
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -8,9 +9,15 @@ import type {
 export type FulfillmentDepartmentKey =
   | typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE
   | typeof FULFILLMENT_PRIMARY_SERVICE_TRUST
-  | typeof FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
+  | typeof FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS
+  | typeof FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST;
 
-export const FULFILLMENT_ORCHESTRATION_DEPARTMENTS = ["WEBSITE", "TRUST", "REVENUE_OS"] as const;
+export const FULFILLMENT_ORCHESTRATION_DEPARTMENTS = [
+  "WEBSITE",
+  "TRUST",
+  "REVENUE_OS",
+  "SMART_TRUST",
+] as const;
 
 export type FulfillmentOrchestrationDepartment = (typeof FULFILLMENT_ORCHESTRATION_DEPARTMENTS)[number];
 
@@ -193,6 +200,10 @@ export type ClientFulfillmentOrderSnapshot = {
   campaignId?: string | null;
   launchReadinessApproved?: boolean;
   revisionRound?: number;
+  /** SMART_TRUST handoff — trust workspace linkage for governance graph. */
+  trustId?: string | null;
+  governanceReviewApproved?: boolean;
+  governanceReviewRound?: number;
 };
 
 export type ClientFulfillmentOperationsDto = {
@@ -211,6 +222,7 @@ export type ClientFulfillmentOperationsDto = {
     trustDependsOnWebsite: boolean;
     revenueOsDependsOnWebsite: boolean;
     websiteBenefitsFromRevenueOs: boolean;
+    smartTrustDependsOnTrust: boolean;
     narrative: string;
   };
   orders: ClientFulfillmentOrderSnapshot[];
@@ -232,6 +244,7 @@ export type ExecutiveFulfillmentOperationsOverviewDto = {
     websiteOrders: number;
     trustOrders: number;
     revenueOsOrders: number;
+    smartTrustOrders: number;
   };
   bottlenecks: OperationalBottleneck[];
   clients: Array<{

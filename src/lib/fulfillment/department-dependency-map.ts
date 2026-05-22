@@ -4,6 +4,7 @@ import type {
 } from "@/lib/fulfillment/fulfillment-orchestration-types";
 import {
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -80,6 +81,30 @@ export const FULFILLMENT_DEPARTMENT_DEPENDENCIES: CrossDepartmentDependency[] = 
       "Campaign landing experiences benefit from a published or near-release WEBSITE — recommend WEBSITE progress before heavy paid spend.",
     optional: true,
   },
+  {
+    from: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+    to: FULFILLMENT_PRIMARY_SERVICE_TRUST,
+    kind: "parallel_safe",
+    summary:
+      "SMART_TRUST governance desk and TRUST legal-review fulfillment are isolated — no Jarva trust apply from governance checkpoints.",
+    optional: true,
+  },
+  {
+    from: FULFILLMENT_PRIMARY_SERVICE_TRUST,
+    to: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+    kind: "informational",
+    summary:
+      "TRUST packet progress may inform Smart Trust governance review — informational only; separate approval queues.",
+    optional: true,
+  },
+  {
+    from: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+    to: FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
+    kind: "informational",
+    summary:
+      "Trust governance may reference public-facing WEBSITE copy — coordinate during owner review only.",
+    optional: true,
+  },
 ];
 
 export function getDependenciesForDepartment(
@@ -98,11 +123,14 @@ export function resolveCrossDepartmentDependencyNarrative(input: {
   trustStage: string | null;
   revenueOsStage?: string | null;
   revenueOsLaunchReadinessApproved?: boolean;
+  smartTrustOrderActive?: boolean;
+  smartTrustGovernanceApproved?: boolean;
 }): {
   websiteDependsOnTrust: boolean;
   trustDependsOnWebsite: boolean;
   revenueOsDependsOnWebsite: boolean;
   websiteBenefitsFromRevenueOs: boolean;
+  smartTrustDependsOnTrust: boolean;
   narrative: string;
 } {
   const trustSubstantiallyComplete =
@@ -129,8 +157,13 @@ export function resolveCrossDepartmentDependencyNarrative(input: {
     websiteEarly &&
     !input.revenueOsLaunchReadinessApproved;
 
+  const smartTrustDependsOnTrust =
+    Boolean(input.smartTrustOrderActive) &&
+    input.trustOrderActive &&
+    !input.smartTrustGovernanceApproved;
+
   const parts: string[] = [
-    "WEBSITE, TRUST, and REVENUE_OS fulfillment are isolated spines with optional coordination — no autonomous launch or publish.",
+    "WEBSITE, TRUST, REVENUE_OS, and SMART_TRUST fulfillment are isolated spines — advisory coordination only; no autonomous launch, publish, trust execution, or legal automation.",
   ];
   if (websiteDependsOnTrust) {
     parts.push(
@@ -168,11 +201,28 @@ export function resolveCrossDepartmentDependencyNarrative(input: {
     }
   }
 
+  if (input.smartTrustOrderActive) {
+    if (smartTrustDependsOnTrust) {
+      parts.push(
+        "SMART_TRUST governance may benefit from TRUST legal-review progress — soft coordination only; no trust apply from governance desk."
+      );
+    } else if (input.smartTrustGovernanceApproved) {
+      parts.push(
+        "SMART_TRUST governance review checkpoint recorded — resolution/minutes and amendments still require separate owner approvals."
+      );
+    } else {
+      parts.push(
+        "SMART_TRUST governance active — complete governance review packet before resolution records or amendment recommendations."
+      );
+    }
+  }
+
   return {
     websiteDependsOnTrust,
     trustDependsOnWebsite,
     revenueOsDependsOnWebsite,
     websiteBenefitsFromRevenueOs,
+    smartTrustDependsOnTrust,
     narrative: parts.join(" "),
   };
 }

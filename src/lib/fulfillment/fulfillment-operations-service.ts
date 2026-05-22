@@ -38,10 +38,13 @@ import {
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
   FULFILLMENT_DEPARTMENT_TRUST_RECORDS,
   FULFILLMENT_DEPARTMENT_AI_REVENUE_OS,
+  FULFILLMENT_DEPARTMENT_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
+import { parseSmartTrustFulfillmentHandoff } from "@/lib/fulfillment/smart-trust-fulfillment-handoff";
 import {
   buildUnifiedClientTimeline,
   summarizeTimelineForSkipper,
@@ -69,6 +72,8 @@ const FULFILLMENT_ACTIONS = [
   "createTrustFulfillmentPacket",
   "createRevenueOsCampaignReviewPacket",
   "recordRevenueOsLaunchReadinessCheckpoint",
+  "createSmartTrustGovernanceReviewPacket",
+  "recordSmartTrustResolutionCheckpoint",
 ] as const;
 
 function toIso(d: Date | null | undefined): string | null {
@@ -97,6 +102,12 @@ function departmentFromOrder(row: {
     row.assignedDepartment === FULFILLMENT_DEPARTMENT_AI_REVENUE_OS
   ) {
     return FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
+  }
+  if (
+    row.primaryService === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST &&
+    row.assignedDepartment === FULFILLMENT_DEPARTMENT_SMART_TRUST
+  ) {
+    return FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST;
   }
   return null;
 }
@@ -169,9 +180,13 @@ function buildOrderSnapshots(
     const del = deliverables.get(row.id);
     const appr = approvals.get(row.id);
     const approvalStatus = (appr?.status ?? "none") as ClientFulfillmentOrderSnapshot["approvalStatus"];
-    const handoff =
+    const revenueHandoff =
       dept === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS
         ? parseRevenueOsFulfillmentHandoff(row.executiveHandoffJson)
+        : null;
+    const smartTrustHandoff =
+      dept === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST
+        ? parseSmartTrustFulfillmentHandoff(row.executiveHandoffJson)
         : null;
 
     out.push({
@@ -187,9 +202,12 @@ function buildOrderSnapshots(
       createdAt: toIso(row.createdAt) ?? new Date().toISOString(),
       updatedAt: toIso(row.updatedAt),
       daysInCurrentStage: computeDaysInStage(row.updatedAt, row.createdAt),
-      campaignId: handoff?.campaignId ?? null,
-      launchReadinessApproved: Boolean(handoff?.launchReadinessApprovedAt),
-      revisionRound: handoff?.revisionRound ?? 0,
+      campaignId: revenueHandoff?.campaignId ?? null,
+      launchReadinessApproved: Boolean(revenueHandoff?.launchReadinessApprovedAt),
+      revisionRound: revenueHandoff?.revisionRound ?? smartTrustHandoff?.governanceReviewRound ?? 0,
+      trustId: smartTrustHandoff?.trustId ?? null,
+      governanceReviewApproved: Boolean(smartTrustHandoff?.governanceReviewApprovedAt),
+      governanceReviewRound: smartTrustHandoff?.governanceReviewRound ?? 0,
     });
   }
   return out;
@@ -382,14 +400,17 @@ export async function buildClientFulfillmentOperations(
 
   const web = orders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE);
   const trust = orders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_TRUST);
+  const smartTrustOrder = orders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST);
   const dependencies = resolveCrossDepartmentDependencyNarrative({
     websiteOrderActive: Boolean(web),
     trustOrderActive: Boolean(trust),
     revenueOsOrderActive: Boolean(revenueOrder),
+    smartTrustOrderActive: Boolean(smartTrustOrder),
     websiteStage: web?.pipelineStage ?? null,
     trustStage: trust?.pipelineStage ?? null,
     revenueOsStage: revenueOrder?.pipelineStage ?? null,
     revenueOsLaunchReadinessApproved: revenueOrder?.launchReadinessApproved ?? false,
+    smartTrustGovernanceApproved: smartTrustOrder?.governanceReviewApproved ?? false,
   });
 
   const skipperBrief = summarizeWhatClientStillNeeds({ recommendations, readiness, health });
@@ -584,6 +605,7 @@ export async function buildExecutiveFulfillmentOperationsOverview(
       websiteOrders: snapshots.filter((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE).length,
       trustOrders: snapshots.filter((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_TRUST).length,
       revenueOsOrders: snapshots.filter((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS).length,
+      smartTrustOrders: snapshots.filter((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST).length,
     },
     bottlenecks,
     clients,
@@ -727,14 +749,17 @@ export async function buildExecutiveFulfillmentOperationsBriefing(
     const web = clientOrders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE);
     const trust = clientOrders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_TRUST);
     const revenue = clientOrders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
+    const smartTrust = clientOrders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST);
     const dependencies = resolveCrossDepartmentDependencyNarrative({
       websiteOrderActive: Boolean(web),
       trustOrderActive: Boolean(trust),
       revenueOsOrderActive: Boolean(revenue),
+      smartTrustOrderActive: Boolean(smartTrust),
       websiteStage: web?.pipelineStage ?? null,
       trustStage: trust?.pipelineStage ?? null,
       revenueOsStage: revenue?.pipelineStage ?? null,
       revenueOsLaunchReadinessApproved: revenue?.launchReadinessApproved ?? false,
+      smartTrustGovernanceApproved: smartTrust?.governanceReviewApproved ?? false,
     });
 
     const recommendations = buildFulfillmentRecommendations({

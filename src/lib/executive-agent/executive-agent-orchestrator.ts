@@ -180,6 +180,9 @@ async function runReadTool(
       case "getExecutiveRevenueOsFulfillment":
         data = await Tools.getExecutiveRevenueOsFulfillment(ctx);
         break;
+      case "getExecutiveSmartTrustFulfillment":
+        data = await Tools.getExecutiveSmartTrustFulfillment(ctx);
+        break;
       default:
         return null;
     }

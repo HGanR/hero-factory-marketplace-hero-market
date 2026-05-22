@@ -7,6 +7,7 @@ import type {
 } from "@/lib/fulfillment/fulfillment-orchestration-types";
 import {
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -30,6 +31,10 @@ function isRevenueOsOrder(o: ClientFulfillmentOrderSnapshot): boolean {
   return o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
 }
 
+function isSmartTrustOrder(o: ClientFulfillmentOrderSnapshot): boolean {
+  return o.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST;
+}
+
 function buildMultiOrderRelationships(
   orders: ClientFulfillmentOrderSnapshot[]
 ): MultiOrderRelationship[] {
@@ -46,6 +51,7 @@ function buildMultiOrderRelationships(
   const web = orders.find(isWebsiteOrder);
   const trust = orders.find(isTrustOrder);
   const revenue = orders.find(isRevenueOsOrder);
+  const smartTrust = orders.find(isSmartTrustOrder);
 
   if (web && trust) {
     rels.push({
@@ -106,6 +112,26 @@ function buildMultiOrderRelationships(
     });
   }
 
+  if (smartTrust && trust) {
+    rels.push({
+      kind: "parallel_safe",
+      orderIds: [smartTrust.orderId, trust.orderId],
+      departments: [FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST, FULFILLMENT_PRIMARY_SERVICE_TRUST],
+      summary:
+        "SMART_TRUST governance and TRUST legal-review are isolated — coordinate disclaimers only; no Jarva trust apply from governance desk.",
+    });
+  }
+
+  if (smartTrust && web) {
+    rels.push({
+      kind: "cross_department_coordination",
+      orderIds: [smartTrust.orderId, web.orderId],
+      departments: [FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST, FULFILLMENT_PRIMARY_SERVICE_WEBSITE],
+      summary:
+        "SMART_TRUST governance and WEBSITE coexist — align public copy references during owner review (advisory only).",
+    });
+  }
+
   return rels;
 }
 
@@ -136,6 +162,8 @@ export function buildClientOperationsGraph(input: BuildClientOperationsGraphInpu
         stalled: order.daysInCurrentStage >= 7,
         campaignId: order.campaignId ?? null,
         launchReadinessApproved: order.launchReadinessApproved ?? false,
+        trustId: order.trustId ?? null,
+        governanceReviewApproved: order.governanceReviewApproved ?? false,
       },
     });
     edges.push({
@@ -202,11 +230,26 @@ export function buildClientOperationsGraph(input: BuildClientOperationsGraphInpu
         label: "launch readiness checkpoint or approval pending",
       });
     }
+
+    if (
+      isSmartTrustOrder(order) &&
+      !order.governanceReviewApproved &&
+      (order.approvalStatus === "pending" || order.pipelineStage === "owner_review")
+    ) {
+      edges.push({
+        id: `edge:governance-blockers:${order.orderId}`,
+        from: orderNodeId,
+        to: `client:${input.clientId}`,
+        kind: "blocks_progress",
+        label: "governance review or resolution approval pending",
+      });
+    }
   }
 
   const web = input.orders.find(isWebsiteOrder);
   const trust = input.orders.find(isTrustOrder);
   const revenue = input.orders.find(isRevenueOsOrder);
+  const smartTrust = input.orders.find(isSmartTrustOrder);
 
   if (web && trust) {
     edges.push({
@@ -242,6 +285,33 @@ export function buildClientOperationsGraph(input: BuildClientOperationsGraphInpu
       to: `order:${trust.orderId}`,
       kind: "relates_to",
       label: "informational REVENUE_OS ↔ TRUST",
+    });
+  }
+
+  if (smartTrust && trust) {
+    edges.push({
+      id: `edge:relates:smart-trust-trust:${smartTrust.orderId}:${trust.orderId}`,
+      from: `order:${smartTrust.orderId}`,
+      to: `order:${trust.orderId}`,
+      kind: "relates_to",
+      label: "informational SMART_TRUST ↔ TRUST",
+    });
+  }
+
+  if (smartTrust?.trustId) {
+    nodes.push({
+      id: `governance:${input.clientId}:${smartTrust.orderId}`,
+      kind: "campaign_signal",
+      label: "Smart Trust governance workspace",
+      department: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+      meta: { linkedTrustId: smartTrust.trustId },
+    });
+    edges.push({
+      id: `edge:order-governance:${smartTrust.orderId}`,
+      from: `order:${smartTrust.orderId}`,
+      to: `governance:${input.clientId}:${smartTrust.orderId}`,
+      kind: "relates_to",
+      label: "governed trust governance order",
     });
   }
 

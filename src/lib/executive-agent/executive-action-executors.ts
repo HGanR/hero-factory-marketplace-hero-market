@@ -11,10 +11,12 @@ import {
   assertSafeExecutiveCampaignSyncInput,
   CreateSiteBuilderTaskPayloadSchema,
   CreateRevenueOsCampaignReviewPacketPayloadSchema,
+  CreateSmartTrustGovernanceReviewPacketPayloadSchema,
   CreateTrustFulfillmentPacketPayloadSchema,
   CreateSpecializedAgentPayloadSchema,
   CreateTodoPayloadSchema,
   RecordRevenueOsLaunchReadinessPayloadSchema,
+  RecordSmartTrustResolutionCheckpointPayloadSchema,
   TriggerBentleyAnalysisPayloadSchema,
   TriggerCampaignSyncPayloadSchema,
 } from "@/lib/executive-agent/executive-action-payloads";
@@ -26,6 +28,12 @@ import {
   linkRevenueOsCampaignReviewToFulfillmentDeliverable,
   recordRevenueOsLaunchReadinessOnOrder,
 } from "@/lib/fulfillment/revenue-os-fulfillment-deliverable";
+import {
+  linkSmartTrustGovernanceReviewToFulfillmentDeliverable,
+  recordSmartTrustGovernanceReviewOnOrder,
+  recordSmartTrustResolutionOnOrder,
+} from "@/lib/fulfillment/smart-trust-fulfillment-deliverable";
+import { SMART_TRUST_GOVERNANCE_DISCLAIMER } from "@/lib/fulfillment/smart-trust-governance-workflow";
 import {
   REVENUE_OS_CAMPAIGN_REVIEW_NOTE_MARKER,
   REVENUE_OS_FULFILLMENT_DISCLAIMER,
@@ -490,6 +498,134 @@ ${REVENUE_OS_FULFILLMENT_NOTE_FOOTER}`,
   };
 }
 
+export const SMART_TRUST_GOVERNANCE_REVIEW_NOTE_MARKER = "[Smart Trust — governance review packet]";
+export const SMART_TRUST_RESOLUTION_NOTE_MARKER = "[Smart Trust — resolution / minutes record]";
+
+const SMART_TRUST_FULFILLMENT_NOTE_FOOTER =
+  "---\nInternal executive note. Not client-facing. No trust execution, filing, or signatures.";
+
+async function runCreateSmartTrustGovernanceReviewPacket(
+  ctx: ExecCtx,
+  raw: unknown
+): Promise<ExecutiveActionExecutorResult> {
+  const parsed = CreateSmartTrustGovernanceReviewPacketPayloadSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: "failed",
+      message: "Invalid createSmartTrustGovernanceReviewPacket payload.",
+      data: { issues: parsed.error.flatten() },
+    };
+  }
+  if (parsed.data.primaryService !== "SMART_TRUST") {
+    return {
+      ok: false,
+      status: "failed",
+      message: "createSmartTrustGovernanceReviewPacket requires primaryService SMART_TRUST.",
+    };
+  }
+  const own = await assertClientOwnedByAdmin(ctx.db, parsed.data.clientId, ctx.adminUserId);
+  if (!own.ok) return { ok: false, status: "failed", message: own.message };
+
+  const clientNoteId = randomUUID();
+  await ctx.db.insert(clientNotes).values({
+    id: clientNoteId,
+    clientId: parsed.data.clientId,
+    createdByUserId: ctx.adminUserId,
+    visibility: "internal",
+    note: `${SMART_TRUST_GOVERNANCE_REVIEW_NOTE_MARKER}
+Title: ${parsed.data.title}
+Trust: ${parsed.data.trustId}
+Round: ${parsed.data.governanceReviewRound}
+
+${SMART_TRUST_GOVERNANCE_DISCLAIMER}
+
+${parsed.data.packetMarkdown}
+
+${SMART_TRUST_FULFILLMENT_NOTE_FOOTER}`,
+  });
+
+  await recordSmartTrustGovernanceReviewOnOrder(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    approvalId: ctx.approvalId,
+    payload: parsed.data,
+  });
+
+  return {
+    ok: true,
+    status: "executed",
+    message:
+      "Governance review packet captured as internal note. No trust execution or amendment application.",
+    data: {
+      clientId: parsed.data.clientId,
+      clientNoteId,
+      fulfillmentOrderId: parsed.data.fulfillmentOrderId,
+      trustId: parsed.data.trustId,
+    },
+  };
+}
+
+async function runRecordSmartTrustResolutionCheckpoint(
+  ctx: ExecCtx,
+  raw: unknown
+): Promise<ExecutiveActionExecutorResult> {
+  const parsed = RecordSmartTrustResolutionCheckpointPayloadSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: "failed",
+      message: "Invalid recordSmartTrustResolutionCheckpoint payload.",
+      data: { issues: parsed.error.flatten() },
+    };
+  }
+  if (parsed.data.primaryService !== "SMART_TRUST") {
+    return {
+      ok: false,
+      status: "failed",
+      message: "recordSmartTrustResolutionCheckpoint requires primaryService SMART_TRUST.",
+    };
+  }
+  const own = await assertClientOwnedByAdmin(ctx.db, parsed.data.clientId, ctx.adminUserId);
+  if (!own.ok) return { ok: false, status: "failed", message: own.message };
+
+  const clientNoteId = randomUUID();
+  await ctx.db.insert(clientNotes).values({
+    id: clientNoteId,
+    clientId: parsed.data.clientId,
+    createdByUserId: ctx.adminUserId,
+    visibility: "internal",
+    note: `${SMART_TRUST_RESOLUTION_NOTE_MARKER}
+Resolution: ${parsed.data.resolutionTitle}
+Trust: ${parsed.data.trustId}
+Order: ${parsed.data.fulfillmentOrderId}
+
+${SMART_TRUST_GOVERNANCE_DISCLAIMER}
+
+${parsed.data.recordMarkdown}
+
+${SMART_TRUST_FULFILLMENT_NOTE_FOOTER}`,
+  });
+
+  await recordSmartTrustResolutionOnOrder(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    approvalId: ctx.approvalId,
+    payload: parsed.data,
+  });
+
+  return {
+    ok: true,
+    status: "executed",
+    message:
+      "Resolution/minutes record captured. Does not file, sign, or apply trust amendments.",
+    data: {
+      clientId: parsed.data.clientId,
+      clientNoteId,
+      fulfillmentOrderId: parsed.data.fulfillmentOrderId,
+      resolutionId: parsed.data.resolutionId,
+    },
+  };
+}
+
 async function runCreateTrustFulfillmentPacket(
   ctx: ExecCtx,
   raw: unknown
@@ -593,6 +729,8 @@ export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, Execut
   createTrustFulfillmentPacket: runCreateTrustFulfillmentPacket,
   createRevenueOsCampaignReviewPacket: runCreateRevenueOsCampaignReviewPacket,
   recordRevenueOsLaunchReadinessCheckpoint: runRecordRevenueOsLaunchReadinessCheckpoint,
+  createSmartTrustGovernanceReviewPacket: runCreateSmartTrustGovernanceReviewPacket,
+  recordSmartTrustResolutionCheckpoint: runRecordSmartTrustResolutionCheckpoint,
   updateClientStatus: async () => ({
     ok: false,
     status: "failed",
@@ -702,6 +840,20 @@ export async function executeExecutiveApprovedAction(
     typeof result.data.clientNoteId === "string"
   ) {
     await linkRevenueOsCampaignReviewToFulfillmentDeliverable(db, {
+      adminUserId,
+      approvalId: approval.id,
+      clientNoteId: result.data.clientNoteId,
+      payload,
+    });
+  }
+
+  if (
+    action === "createSmartTrustGovernanceReviewPacket" &&
+    result.ok &&
+    result.data?.clientNoteId &&
+    typeof result.data.clientNoteId === "string"
+  ) {
+    await linkSmartTrustGovernanceReviewToFulfillmentDeliverable(db, {
       adminUserId,
       approvalId: approval.id,
       clientNoteId: result.data.clientNoteId,

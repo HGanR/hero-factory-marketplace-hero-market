@@ -98,6 +98,32 @@ export const RecordRevenueOsLaunchReadinessPayloadSchema = z.object({
   ownerAttestation: z.string().trim().min(1).max(2000),
 });
 
+/** SMART_TRUST governance review packet — internal note only (no trust execution). */
+export const CreateSmartTrustGovernanceReviewPacketPayloadSchema = z.object({
+  clientId: z.string().uuid(),
+  trustId: z.string().uuid(),
+  title: z.string().trim().min(1).max(500),
+  packetMarkdown: z.string().trim().min(1).max(100_000),
+  deliverableType: z.literal("governance_review_packet"),
+  priority: z.enum(["low", "normal", "high"]).optional().default("normal"),
+  fulfillmentOrderId: z.string().uuid(),
+  primaryService: z.literal("SMART_TRUST"),
+  governanceReviewRound: z.number().int().min(0).max(99),
+});
+
+/** SMART_TRUST resolution/minutes record — owner checkpoint only; no filing or signatures. */
+export const RecordSmartTrustResolutionCheckpointPayloadSchema = z.object({
+  clientId: z.string().uuid(),
+  trustId: z.string().uuid(),
+  fulfillmentOrderId: z.string().uuid(),
+  primaryService: z.literal("SMART_TRUST"),
+  resolutionId: z.string().uuid(),
+  resolutionTitle: z.string().trim().min(1).max(500),
+  minutesSummary: z.string().trim().min(1).max(20_000),
+  recordMarkdown: z.string().trim().min(1).max(100_000),
+  deliverableType: z.literal("trust_resolution_record"),
+});
+
 /** Invariants for executive-approved campaign sync: never schedule or platform-publish in this executor. */
 export function assertSafeExecutiveCampaignSyncInput(input: SyncBentleyLaunchInput): void {
   if (input.postCreationMode !== "draft_unscheduled") {

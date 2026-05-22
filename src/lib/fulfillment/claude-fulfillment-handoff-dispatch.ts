@@ -10,9 +10,11 @@ import { ClaudeFulfillmentHandoffBodySchema } from "@/lib/fulfillment/fulfillmen
 import {
   detectClaudeFulfillmentHandoffPrimary,
   revenueOsDeskOnlyHandoffResult,
+  smartTrustDeskOnlyHandoffResult,
 } from "@/lib/fulfillment/claude-fulfillment-handoff-routing";
 import {
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -36,6 +38,9 @@ export async function submitClaudeFulfillmentHandoff(
   if (primary === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS) {
     return revenueOsDeskOnlyHandoffResult();
   }
+  if (primary === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST) {
+    return smartTrustDeskOnlyHandoffResult();
+  }
   if (primary === FULFILLMENT_PRIMARY_SERVICE_TRUST) {
     return submitClaudeTrustFulfillmentHandoff(db, input);
   }
@@ -58,6 +63,7 @@ export async function submitClaudeFulfillmentHandoff(
     ok: false,
     httpStatus: 400,
     code: "invalid_payload",
-    message: "service.primary must be WEBSITE or TRUST (REVENUE_OS via executive desk only).",
+    message:
+      "service.primary must be WEBSITE or TRUST (REVENUE_OS and SMART_TRUST via executive desk only).",
   };
 }

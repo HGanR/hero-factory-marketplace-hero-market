@@ -15,6 +15,14 @@ export type SubjectRevenueOsWorkspaceSlice = {
   pendingApproval: boolean;
 } | null;
 
+export type SubjectSmartTrustWorkspaceSlice = {
+  trustId: string | null;
+  governanceReviewApproved: boolean;
+  governanceBlockerCount: number;
+  openResolutionCount: number;
+  pendingApproval: boolean;
+} | null;
+
 export type SubjectExecutiveWorkspaceDto = {
   ok: true;
   generatedAt: string;
@@ -28,6 +36,7 @@ export type SubjectExecutiveWorkspaceDto = {
   health: ClientHealthScore | null;
   memoryHighlights: SubjectMemoryHighlights | null;
   revenueOsSlice: SubjectRevenueOsWorkspaceSlice;
+  smartTrustSlice: SubjectSmartTrustWorkspaceSlice;
   skipperBrief: string | null;
   meta: {
     recommendationOnly: true;

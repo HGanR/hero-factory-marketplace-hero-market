@@ -25,7 +25,8 @@ export type ExecutiveReadToolKey =
   | "getExecutiveOperationalThreads"
   | "getExecutivePendingDecisions"
   | "getExecutiveOperationalTasks"
-  | "getExecutiveRevenueOsFulfillment";
+  | "getExecutiveRevenueOsFulfillment"
+  | "getExecutiveSmartTrustFulfillment";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -51,6 +52,7 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutivePendingDecisions: "getExecutivePendingDecisions",
   getExecutiveOperationalTasks: "getExecutiveOperationalTasks",
   getExecutiveRevenueOsFulfillment: "getExecutiveRevenueOsFulfillment",
+  getExecutiveSmartTrustFulfillment: "getExecutiveSmartTrustFulfillment",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -106,6 +108,14 @@ export function pickExecutiveReadTools(
   if (/site builder|website|web3 site/.test(p)) out.add("getSiteBuilderProjectStatus");
   if (/agent.*conversation|discussed|chat/.test(p)) out.add("getAgentConversationSummary");
   if (/inbox|engagement|dm/.test(p)) out.add("getInboxEngagementSummary");
+  if (
+    /smart trust|governance review|trust resolution|trust governance|trustee workflow|amendment review|compliance reminder|minutes record|smart_trust fulfillment/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveSmartTrustFulfillment");
+    out.add("getExecutiveSubjectWorkspace");
+  }
   if (/fulfillment|website order|trust order|trust packet|site builder draft|owner review|payment confirm/.test(p)) {
     out.add("getClientFulfillmentOperations");
   }

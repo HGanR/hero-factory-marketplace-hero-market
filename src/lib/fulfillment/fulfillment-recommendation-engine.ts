@@ -17,7 +17,12 @@ import {
   rankRevenueOsRecommendationPriority,
 } from "@/lib/fulfillment/revenue-os-orchestration-signals";
 import {
+  buildSmartTrustOrchestrationSignals,
+  rankSmartTrustRecommendationPriority,
+} from "@/lib/fulfillment/smart-trust-orchestration-signals";
+import {
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -149,6 +154,97 @@ function buildRevenueOsCampaignRecommendations(
       title: "Monitor REVENUE_OS KPI health",
       rationale:
         "Post/campaign KPI signals are at risk — triage failed posts and confirm no autonomous publish retry.",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  return recs;
+}
+
+function buildSmartTrustGovernanceRecommendations(
+  order: ClientFulfillmentOrderSnapshot
+): FulfillmentRecommendation[] {
+  const recs: FulfillmentRecommendation[] = [];
+  if (order.department !== FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST) return recs;
+
+  const signals = buildSmartTrustOrchestrationSignals(order, null);
+  if (!signals) return recs;
+
+  const priority = rankSmartTrustRecommendationPriority({
+    hasGovernanceBlockers: signals.governanceBlockers.length > 0,
+    pendingApproval: signals.pendingSmartTrustApproval,
+    complianceUrgent: signals.openResolutionCount > 0 && !signals.governanceReviewApproved,
+    stalled: signals.stalledGovernanceFulfillment,
+  });
+
+  if (!signals.trustId) {
+    recs.push({
+      id: randomUUID(),
+      kind: "resolve_bottleneck",
+      department: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+      priority: "high",
+      title: "Link trust workspace to SMART_TRUST order",
+      rationale: "Governance desk requires trustId on order handoff — no autonomous trust creation.",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if (
+    signals.trustId &&
+    !signals.governanceReviewApproved &&
+    order.approvalStatus === "none" &&
+    order.paymentConsumed
+  ) {
+    recs.push({
+      id: randomUUID(),
+      kind: "engage_department",
+      department: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+      priority,
+      title: "Propose Smart Trust governance review",
+      rationale:
+        "Queue createSmartTrustGovernanceReviewPacket — internal governance note only; no trust execution or amendment application.",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if (signals.governanceBlockers.length > 0) {
+    recs.push({
+      id: randomUUID(),
+      kind: "resolve_bottleneck",
+      department: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+      priority: "high",
+      title: "Resolve Smart Trust governance blockers",
+      rationale: signals.governanceBlockers.slice(0, 4).join("; "),
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if (signals.openResolutionCount > 0 || order.pipelineStage === "owner_review") {
+    recs.push({
+      id: randomUUID(),
+      kind: "engage_department",
+      department: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+      priority,
+      title: "Record resolution / minutes checkpoint",
+      rationale:
+        "Governed resolution record via recordSmartTrustResolutionCheckpoint — minutes tracking only; no filing or signatures.",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if ((order.governanceReviewRound ?? 0) >= 2) {
+    recs.push({
+      id: randomUUID(),
+      kind: "monitor_only",
+      department: FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
+      priority: "normal",
+      title: "Review amendment / governance revision history",
+      rationale: `Governance round ${order.governanceReviewRound ?? 0} — human counsel review before further checkpoints.`,
       requiresHumanAction: true,
       relatedOrderIds: [order.orderId],
     });
@@ -366,6 +462,11 @@ export function buildFulfillmentRecommendations(input: RecommendationEngineInput
       continue;
     }
 
+    if (order.department === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST) {
+      recs.push(...buildSmartTrustGovernanceRecommendations(order));
+      continue;
+    }
+
     if (
       order.pipelineStage === "executive_handoff_received" &&
       order.paymentConsumed &&
@@ -428,14 +529,17 @@ export function buildFulfillmentRecommendations(input: RecommendationEngineInput
   }
 
   const revenueOrder = findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
+  const smartTrustOrder = findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST);
   const dep = resolveCrossDepartmentDependencyNarrative({
     websiteOrderActive: Boolean(findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_WEBSITE)),
     trustOrderActive: Boolean(findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_TRUST)),
     revenueOsOrderActive: Boolean(revenueOrder),
+    smartTrustOrderActive: Boolean(smartTrustOrder),
     websiteStage: findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_WEBSITE)?.pipelineStage ?? null,
     trustStage: findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_TRUST)?.pipelineStage ?? null,
     revenueOsStage: revenueOrder?.pipelineStage ?? null,
     revenueOsLaunchReadinessApproved: revenueOrder?.launchReadinessApproved ?? false,
+    smartTrustGovernanceApproved: smartTrustOrder?.governanceReviewApproved ?? false,
   });
   if (dep.websiteDependsOnTrust) {
     recs.push({

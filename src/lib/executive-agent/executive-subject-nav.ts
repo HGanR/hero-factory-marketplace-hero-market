@@ -14,6 +14,7 @@ export type ExecutiveSubjectId =
   | "tasks"
   | "trust_jarva"
   | "revenue_os"
+  | "smart_trust"
   | "settings"
   | "new_command";
 
@@ -155,6 +156,21 @@ export const EXECUTIVE_SUBJECTS: ExecutiveSubjectConfig[] = [
     ],
   },
   {
+    id: "smart_trust",
+    navLabel: "Smart Trust",
+    shortLabel: "Trust Gov",
+    description:
+      "Smart Trust governance operations — review checkpoints, resolutions/minutes, compliance reminders (no autonomous trust execution).",
+    workspaceKind: "smart_trust",
+    departmentFocus: "SMART_TRUST",
+    dashboardMode: "CRM",
+    delegateAgents: withSkipperNexus(["executive_admin"]),
+    agentSlots: [
+      { routeKey: "skipper", displayName: "SKIPPER", domainLabel: "GOVERNANCE" },
+      { routeKey: "executive_admin", displayName: "Executive Admin", domainLabel: "TRUST OPS" },
+    ],
+  },
+  {
     id: "revenue_os",
     navLabel: "Revenue OS",
     shortLabel: "Revenue",
@@ -210,6 +226,7 @@ export function subjectIdFromBottomTab(tab: string): ExecutiveSubjectId {
     Settings: "settings",
     Jarva: "trust_jarva",
     "Revenue OS": "revenue_os",
+    "Smart Trust": "smart_trust",
   };
   return map[tab] ?? "command_center";
 }

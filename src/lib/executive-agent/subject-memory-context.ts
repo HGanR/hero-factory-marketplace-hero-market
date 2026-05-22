@@ -11,6 +11,8 @@ export type SubjectMemoryHighlights = {
   trustStalledPackets: number;
   revenueOsLaunchBlocked: number;
   revenueOsCampaignStalled: number;
+  smartTrustGovernanceBlocked: number;
+  smartTrustGovernanceStalled: number;
   clientsNeedingGuidance: number;
   topEffectiveRecommendation: string | null;
   recurringBottleneck: string | null;
@@ -89,6 +91,10 @@ export function extractSubjectMemoryHighlights(
     trustStalledPackets: outcomes.filter((o) => o.outcome === "trust_packet_stalled").length,
     revenueOsLaunchBlocked: outcomes.filter((o) => o.outcome === "revenue_os_launch_blocked").length,
     revenueOsCampaignStalled: outcomes.filter((o) => o.outcome === "revenue_os_campaign_stalled").length,
+    smartTrustGovernanceBlocked: outcomes.filter((o) => o.outcome === "smart_trust_governance_blocked")
+      .length,
+    smartTrustGovernanceStalled: outcomes.filter((o) => o.outcome === "smart_trust_governance_stalled")
+      .length,
     clientsNeedingGuidance: clientGuidance.length,
     topEffectiveRecommendation: insights.highlights.topEffectiveRecommendation,
     recurringBottleneck: bottlenecks[0]?.summary ?? insights.highlights.recurringBottleneck,
@@ -133,10 +139,13 @@ export function buildSubjectSkipperContext(input: {
     scope.department === "REVENUE_OS" && mem
       ? `REVENUE_OS launch blocked: ${mem.revenueOsLaunchBlocked}; campaign stalled: ${mem.revenueOsCampaignStalled}`
       : null,
+    scope.department === "SMART_TRUST" && mem
+      ? `SMART_TRUST governance blocked: ${mem.smartTrustGovernanceBlocked}; stalled: ${mem.smartTrustGovernanceStalled}`
+      : null,
     mem && mem.clientsNeedingGuidance > 0
       ? `Clients needing guidance: ${mem.clientsNeedingGuidance}`
       : null,
-    "Read-only — recommendations only; no autonomous execution, deploy, publish, launch, ad spend, or Content360 bypass.",
+    "Read-only — recommendations only; no autonomous execution, trust execution, legal automation, filing, signatures, deploy, publish, launch, ad spend, or Content360 bypass.",
   ].filter(Boolean);
 
   return lines.join(" ");

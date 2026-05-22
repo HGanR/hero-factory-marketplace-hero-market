@@ -489,6 +489,21 @@ export async function getExecutiveOperationalTasks(
   });
 }
 
+/** SMART_TRUST governed governance operations — read-only; no autonomous trust execution. */
+export async function getExecutiveSmartTrustFulfillment(
+  ctx: ExecutiveToolContext,
+  input?: { orderId?: string | null }
+) {
+  const { buildExecutiveSmartTrustFulfillmentForSkipper } = await import(
+    "@/lib/fulfillment/smart-trust-operations-service"
+  );
+  return buildExecutiveSmartTrustFulfillmentForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    orderId: input?.orderId ?? null,
+    clientId: ctx.selectedClientId ?? null,
+  });
+}
+
 /** REVENUE_OS governed campaign fulfillment — read-only; no autonomous launch or publish. */
 export async function getExecutiveRevenueOsFulfillment(
   ctx: ExecutiveToolContext,

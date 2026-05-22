@@ -10,6 +10,7 @@ export type SubjectWorkspaceKind =
   | "website"
   | "trust"
   | "revenue_os"
+  | "smart_trust"
   | "client"
   | "fulfillment_case";
 
@@ -81,6 +82,17 @@ export function resolveSubjectWorkspace(input: ResolveSubjectWorkspaceInput): Su
     };
   }
 
+  if (clientId && input.subjectId === "smart_trust") {
+    return {
+      subjectId: input.subjectId,
+      workspaceKind: "smart_trust",
+      department: "SMART_TRUST",
+      clientId,
+      orderId: null,
+      label: `SMART_TRUST client · ${clientId.slice(0, 8)}…`,
+    };
+  }
+
   if (clientId) {
     return {
       subjectId: input.subjectId,
@@ -125,6 +137,17 @@ export function resolveSubjectWorkspace(input: ResolveSubjectWorkspaceInput): Su
     };
   }
 
+  if (input.subjectId === "smart_trust") {
+    return {
+      subjectId: input.subjectId,
+      workspaceKind: "smart_trust",
+      department: "SMART_TRUST",
+      clientId: null,
+      orderId: null,
+      label: "Smart Trust governance workspace",
+    };
+  }
+
   if (input.subjectId === "crm_intelligence") {
     return {
       subjectId: input.subjectId,
@@ -152,6 +175,7 @@ function inferDepartmentFromSubject(
   if (subjectId === "site_builder") return "WEBSITE";
   if (subjectId === "trust_jarva") return "TRUST";
   if (subjectId === "revenue_os") return "REVENUE_OS";
+  if (subjectId === "smart_trust") return "SMART_TRUST";
   return null;
 }
 

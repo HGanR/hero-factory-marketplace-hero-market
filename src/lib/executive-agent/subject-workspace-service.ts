@@ -26,11 +26,14 @@ import {
 import {
   buildRevenueOsOrchestrationSignals,
 } from "@/lib/fulfillment/revenue-os-orchestration-signals";
+import { buildSmartTrustOrchestrationSignals } from "@/lib/fulfillment/smart-trust-orchestration-signals";
 import {
   FULFILLMENT_DEPARTMENT_AI_REVENUE_OS,
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
+  FULFILLMENT_DEPARTMENT_SMART_TRUST,
   FULFILLMENT_DEPARTMENT_TRUST_RECORDS,
   FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -59,6 +62,12 @@ function departmentFromOrder(row: {
     row.assignedDepartment === FULFILLMENT_DEPARTMENT_AI_REVENUE_OS
   ) {
     return FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
+  }
+  if (
+    row.primaryService === FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST &&
+    row.assignedDepartment === FULFILLMENT_DEPARTMENT_SMART_TRUST
+  ) {
+    return FULFILLMENT_PRIMARY_SERVICE_SMART_TRUST;
   }
   return null;
 }
@@ -96,6 +105,9 @@ function buildDeskWorkspaceHeadline(scope: ReturnType<typeof resolveSubjectWorks
   }
   if (scope.workspaceKind === "revenue_os") {
     return "REVENUE_OS campaign fulfillment — review packets and launch readiness checkpoints only; Bentley launch remains owner-approved.";
+  }
+  if (scope.workspaceKind === "smart_trust") {
+    return "SMART_TRUST governance — review checkpoints and resolution records only; no trust execution, filing, or signatures.";
   }
   if (scope.workspaceKind === "client") {
     return "Client executive review — cross-department fulfillment graph and recommendations.";
@@ -150,7 +162,8 @@ export async function buildSubjectExecutiveWorkspace(
       scope.workspaceKind === "fulfillment_case" ||
       scope.workspaceKind === "website" ||
       scope.workspaceKind === "trust" ||
-      scope.workspaceKind === "revenue_os")
+      scope.workspaceKind === "revenue_os" ||
+      scope.workspaceKind === "smart_trust")
   ) {
     const clientOps = await buildClientFulfillmentOperations(db, {
       adminUserId: input.adminUserId,
@@ -170,7 +183,8 @@ export async function buildSubjectExecutiveWorkspace(
   } else if (
     scope.workspaceKind === "website" ||
     scope.workspaceKind === "trust" ||
-    scope.workspaceKind === "revenue_os"
+    scope.workspaceKind === "revenue_os" ||
+    scope.workspaceKind === "smart_trust"
   ) {
     const overview = await buildExecutiveFulfillmentOperationsOverview(db, {
       adminUserId: input.adminUserId,
@@ -283,6 +297,17 @@ export async function buildSubjectExecutiveWorkspace(
       });
       skipperContext = `${skipperContext} ${revBundle.headline} Stalled: ${revBundle.queueSummary.stalledCount}; launch checkpoint pending: ${revBundle.queueSummary.pendingLaunchCheckpoint}.`;
     }
+    if (scope.workspaceKind === "smart_trust" || scope.department === "SMART_TRUST") {
+      const { buildExecutiveSmartTrustFulfillmentForSkipper } = await import(
+        "@/lib/fulfillment/smart-trust-operations-service"
+      );
+      const stBundle = await buildExecutiveSmartTrustFulfillmentForSkipper(db, {
+        adminUserId: input.adminUserId,
+        orderId: scope.orderId,
+        clientId: scope.clientId,
+      });
+      skipperContext = `${skipperContext} ${stBundle.headline} Stalled: ${stBundle.queueSummary.stalledCount}; governance checkpoint pending: ${stBundle.queueSummary.pendingGovernanceCheckpoint}.`;
+    }
   } catch {
     /* threads/decisions/tasks tables may be absent in some dev DBs */
   }
@@ -318,6 +343,7 @@ export async function buildSubjectExecutiveWorkspace(
     health,
     memoryHighlights,
     revenueOsSlice,
+    smartTrustSlice,
     skipperBrief,
     meta: {
       recommendationOnly: true,
