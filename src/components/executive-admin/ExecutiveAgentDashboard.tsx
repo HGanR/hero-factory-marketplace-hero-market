@@ -35,6 +35,10 @@ import { IncidentIntelligencePanel } from "./IncidentIntelligencePanel";
 import { LiveOperationalFeedPanel } from "./LiveOperationalFeedPanel";
 import { GovernanceAlertPanel } from "./GovernanceAlertPanel";
 import { CrisisCoordinationPanel } from "./CrisisCoordinationPanel";
+import { ExecutiveAutomationPanel } from "./ExecutiveAutomationPanel";
+import { ExecutionApprovalPanel } from "./ExecutionApprovalPanel";
+import { RollbackControlPanel } from "./RollbackControlPanel";
+import { AutomationHistoryPanel } from "./AutomationHistoryPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -3660,6 +3664,10 @@ export function ExecutiveAgentDashboard() {
             <LiveOperationalFeedPanel />
             <GovernanceAlertPanel />
             <CrisisCoordinationPanel />
+            <ExecutiveAutomationPanel />
+            <ExecutionApprovalPanel onExecuted={() => void loadApprovals()} />
+            <RollbackControlPanel onRolledBack={() => void loadApprovals()} />
+            <AutomationHistoryPanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
