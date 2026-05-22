@@ -35,7 +35,10 @@ import { IncidentIntelligencePanel } from "./IncidentIntelligencePanel";
 import { LiveOperationalFeedPanel } from "./LiveOperationalFeedPanel";
 import { GovernanceAlertPanel } from "./GovernanceAlertPanel";
 import { CrisisCoordinationPanel } from "./CrisisCoordinationPanel";
-import { ExecutiveAutomationPanel } from "./ExecutiveAutomationPanel";
+import { CrossAgentEscalationPanel } from "./CrossAgentEscalationPanel";
+import { ExecutiveAgentCoordinationPanel } from "./ExecutiveAgentCoordinationPanel";
+import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
+import { AgentRoutingPanel } from "./AgentRoutingPanel";
 import { ExecutionApprovalPanel } from "./ExecutionApprovalPanel";
 import { RollbackControlPanel } from "./RollbackControlPanel";
 import { AutomationHistoryPanel } from "./AutomationHistoryPanel";
@@ -3668,6 +3671,20 @@ export function ExecutiveAgentDashboard() {
             <ExecutionApprovalPanel onExecuted={() => void loadApprovals()} />
             <RollbackControlPanel onRolledBack={() => void loadApprovals()} />
             <AutomationHistoryPanel />
+            <ExecutiveAgentCoordinationPanel />
+            <AgentWorkspacePanel />
+            <AgentRoutingPanel
+              onRouted={(approvalId) => {
+                if (approvalId) {
+                  document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                  });
+                }
+                void loadApprovals();
+              }}
+            />
+            <CrossAgentEscalationPanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
