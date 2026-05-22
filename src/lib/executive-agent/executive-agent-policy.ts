@@ -105,6 +105,8 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getExecutiveOperationalTasks: "read:crm",
     getExecutiveRevenueOsFulfillment: "read:bentley",
     getExecutiveSmartTrustFulfillment: "read:crm",
+    getExecutiveKpiOverview: "read:crm",
+    getExecutiveKpiForecast: "read:crm",
   };
   const need = map[toolName];
   if (!need) return false;

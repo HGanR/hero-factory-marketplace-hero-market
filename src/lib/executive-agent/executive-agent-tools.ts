@@ -585,6 +585,30 @@ export async function getExecutiveOperationalThreads(
   };
 }
 
+/** Executive KPI overview — desk metrics, velocity, workload balance (forecasting advisory only). */
+export async function getExecutiveKpiOverview(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutiveKpiIntelligenceForSkipper } = await import(
+    "@/lib/fulfillment/executive-kpi-service"
+  );
+  return buildExecutiveKpiIntelligenceForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+    mode: "overview",
+  });
+}
+
+/** Fulfillment forecasting — delays, revision risk, approval bottlenecks, risk alerts. */
+export async function getExecutiveKpiForecast(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutiveKpiIntelligenceForSkipper } = await import(
+    "@/lib/fulfillment/executive-kpi-service"
+  );
+  return buildExecutiveKpiIntelligenceForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+    mode: "forecast",
+  });
+}
+
 /** Executive desk overview across WEBSITE + TRUST fulfillment — no autonomous actions. */
 export async function getExecutiveFulfillmentOperationsOverview(ctx: ExecutiveToolContext, limit = 30) {
   const { buildExecutiveFulfillmentOperationsOverview } = await import(

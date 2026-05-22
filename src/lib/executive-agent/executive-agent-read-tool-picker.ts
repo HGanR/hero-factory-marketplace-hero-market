@@ -26,7 +26,9 @@ export type ExecutiveReadToolKey =
   | "getExecutivePendingDecisions"
   | "getExecutiveOperationalTasks"
   | "getExecutiveRevenueOsFulfillment"
-  | "getExecutiveSmartTrustFulfillment";
+  | "getExecutiveSmartTrustFulfillment"
+  | "getExecutiveKpiOverview"
+  | "getExecutiveKpiForecast";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -53,6 +55,8 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveOperationalTasks: "getExecutiveOperationalTasks",
   getExecutiveRevenueOsFulfillment: "getExecutiveRevenueOsFulfillment",
   getExecutiveSmartTrustFulfillment: "getExecutiveSmartTrustFulfillment",
+  getExecutiveKpiOverview: "getExecutiveKpiOverview",
+  getExecutiveKpiForecast: "getExecutiveKpiForecast",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -167,9 +171,24 @@ export function pickExecutiveReadTools(
     out.add("getClientFulfillmentOperations");
   }
   if (/knowledge|kb|docs/.test(p)) out.add("getKnowledgeBaseSummary");
+  if (
+    /kpi|forecast|projected delay|operational health score|fulfillment velocity|workload balance|revision risk|approval delay forecast|risk alert|backlog forecast|bottleneck forecast|department overload/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveKpiOverview");
+    out.add("getExecutiveKpiForecast");
+  }
+  if (/forecast only|fulfillment forecast|projected stall/.test(p)) {
+    out.add("getExecutiveKpiForecast");
+  }
+  if (/desk health|velocity analytics|kpi overview/.test(p)) {
+    out.add("getExecutiveKpiOverview");
+  }
   if (/analytics|health|blocking|underperform/.test(p)) {
     out.add("getPlatformAnalyticsSummary");
     out.add("getInboxEngagementSummary");
+    out.add("getExecutiveKpiOverview");
   }
   if (/voice\s+follow-up.*analytics/i.test(p)) {
     out.add("getPlatformAnalyticsSummary");

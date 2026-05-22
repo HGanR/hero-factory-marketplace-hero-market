@@ -452,6 +452,75 @@ export async function buildClientFulfillmentOperations(
   };
 }
 
+/** Shared fulfillment order snapshots for KPI/forecasting and desk analytics. */
+export async function loadFulfillmentOrderSnapshotsForExecutive(
+  db: Db,
+  input: { adminUserId: number; rowLimit?: number }
+): Promise<ClientFulfillmentOrderSnapshot[]> {
+  const rowLimit = Math.min(Math.max(input.rowLimit ?? 200, 1), 400);
+  const orderRows = await db
+    .select({
+      id: clientServiceOrders.id,
+      clientId: clientServiceOrders.clientId,
+      primaryService: clientServiceOrders.primaryService,
+      assignedDepartment: clientServiceOrders.assignedDepartment,
+      pipelineStage: clientServiceOrders.pipelineStage,
+      paymentConfirmationId: clientServiceOrders.paymentConfirmationId,
+      createdAt: clientServiceOrders.createdAt,
+      updatedAt: clientServiceOrders.updatedAt,
+      executiveHandoffJson: clientServiceOrders.executiveHandoffJson,
+      salesSummaryText: clientServiceOrders.salesSummaryText,
+      requestedDeliverableJson: clientServiceOrders.requestedDeliverableJson,
+    })
+    .from(clientServiceOrders)
+    .where(eq(clientServiceOrders.ownerAdminUserId, input.adminUserId))
+    .orderBy(desc(clientServiceOrders.updatedAt))
+    .limit(rowLimit);
+
+  const fulfillmentRows = orderRows.filter((r) => departmentFromOrder(r) != null);
+  const orderIds = fulfillmentRows.map((r) => r.id);
+  const paymentIds = [...new Set(fulfillmentRows.map((r) => r.paymentConfirmationId))];
+
+  const [paymentRows, deliverableRows, approvalRows] = await Promise.all([
+    paymentIds.length
+      ? db
+          .select({
+            id: paymentConfirmations.id,
+            status: paymentConfirmations.status,
+            consumedAt: paymentConfirmations.consumedAt,
+            consumedByOrderId: paymentConfirmations.consumedByOrderId,
+          })
+          .from(paymentConfirmations)
+          .where(inArray(paymentConfirmations.id, paymentIds))
+      : Promise.resolve([]),
+    orderIds.length
+      ? db
+          .select({
+            orderId: fulfillmentDeliverables.orderId,
+            ownerReviewStatus: fulfillmentDeliverables.ownerReviewStatus,
+            clientDeliveryStatus: fulfillmentDeliverables.clientDeliveryStatus,
+          })
+          .from(fulfillmentDeliverables)
+          .where(inArray(fulfillmentDeliverables.orderId, orderIds))
+      : Promise.resolve([]),
+    loadLatestApprovalsByOrder(db, { adminUserId: input.adminUserId, orderIds }),
+  ]);
+
+  const paymentById = new Map(
+    paymentRows.map((p) => [
+      p.id,
+      {
+        status: p.status as "pending" | "confirmed" | "failed",
+        consumedAt: p.consumedAt,
+        consumedByOrderId: p.consumedByOrderId,
+      },
+    ])
+  );
+  const deliverableByOrder = new Map(deliverableRows.map((d) => [d.orderId, d]));
+
+  return buildOrderSnapshots(fulfillmentRows, paymentById, deliverableByOrder, approvalRows);
+}
+
 export async function buildExecutiveFulfillmentOperationsOverview(
   db: Db,
   input: { adminUserId: number; limit?: number }

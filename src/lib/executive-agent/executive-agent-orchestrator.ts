@@ -183,6 +183,12 @@ async function runReadTool(
       case "getExecutiveSmartTrustFulfillment":
         data = await Tools.getExecutiveSmartTrustFulfillment(ctx);
         break;
+      case "getExecutiveKpiOverview":
+        data = await Tools.getExecutiveKpiOverview(ctx);
+        break;
+      case "getExecutiveKpiForecast":
+        data = await Tools.getExecutiveKpiForecast(ctx);
+        break;
       default:
         return null;
     }

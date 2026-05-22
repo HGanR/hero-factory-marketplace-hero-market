@@ -10,6 +10,10 @@ import { RevenueOsFulfillmentPanel } from "./RevenueOsFulfillmentPanel";
 import { SmartTrustOperationsPanel } from "./SmartTrustOperationsPanel";
 import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingPanel";
 import { OperationalMemoryInsightsPanel } from "./OperationalMemoryInsightsPanel";
+import { ExecutiveKpiOverviewPanel } from "./ExecutiveKpiOverviewPanel";
+import { FulfillmentForecastPanel } from "./FulfillmentForecastPanel";
+import { OperationalHealthPanel } from "./OperationalHealthPanel";
+import { ForecastRiskPanel } from "./ForecastRiskPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -3596,6 +3600,10 @@ export function ExecutiveAgentDashboard() {
                 });
               }}
             />
+            <ExecutiveKpiOverviewPanel />
+            <OperationalHealthPanel />
+            <FulfillmentForecastPanel />
+            <ForecastRiskPanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
