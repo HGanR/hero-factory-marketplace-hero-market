@@ -187,7 +187,7 @@ describe("orchestration integration", () => {
   it("registers revenue os write actions", () => {
     assert.ok(isWriteAction("createRevenueOsCampaignReviewPacket"));
     assert.ok(isWriteAction("recordRevenueOsLaunchReadinessCheckpoint"));
-    assert.equal(WRITE_ACTION_NAMES.length, 10);
+    assert.equal(WRITE_ACTION_NAMES.length, 14);
   });
 
   it("picker selects getExecutiveRevenueOsFulfillment for launch blocker prompts", () => {

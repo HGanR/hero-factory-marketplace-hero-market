@@ -112,6 +112,21 @@ export const CreateSmartTrustGovernanceReviewPacketPayloadSchema = z.object({
 });
 
 /** SMART_TRUST resolution/minutes record — owner checkpoint only; no filing or signatures. */
+/** Operational task delegation — owner-approved; target must accept (no autonomous acceptance). */
+export const DelegateOperationalTaskPayloadSchema = z.object({
+  taskId: z.string().uuid(),
+  targetOperatorId: z.string().trim().min(1).max(64),
+  rationale: z.string().trim().min(1).max(2000),
+});
+
+/** Operational task escalation — owner-approved; no autonomous escalation execution. */
+export const EscalateOperationalTaskPayloadSchema = z.object({
+  taskId: z.string().uuid(),
+  targetOperatorId: z.string().trim().min(1).max(64),
+  rationale: z.string().trim().min(1).max(2000),
+  priority: z.enum(["normal", "high", "urgent"]).optional().default("high"),
+});
+
 export const RecordSmartTrustResolutionCheckpointPayloadSchema = z.object({
   clientId: z.string().uuid(),
   trustId: z.string().uuid(),

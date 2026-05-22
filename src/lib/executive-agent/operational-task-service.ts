@@ -25,6 +25,7 @@ import {
 } from "@/lib/executive-agent/task-dependency-graph";
 import { canStartTask } from "@/lib/executive-agent/blocked-task-analysis";
 import { buildTaskDependencyIndex } from "@/lib/executive-agent/task-dependency-graph";
+import { parseTaskCoordinationMetadata } from "@/lib/executive-agent/operator-task-metadata";
 
 type Db = MySql2Database<typeof schema>;
 
@@ -59,6 +60,7 @@ export function rowToTaskDto(row: typeof executiveOperationalTasks.$inferSelect)
     dependencyBlocked: false,
   };
   dto.isOverdue = isTaskOverdue(dto);
+  dto.coordination = parseTaskCoordinationMetadata(row.metadataJson);
   return dto;
 }
 

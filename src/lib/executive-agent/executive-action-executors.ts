@@ -17,6 +17,8 @@ import {
   CreateTodoPayloadSchema,
   RecordRevenueOsLaunchReadinessPayloadSchema,
   RecordSmartTrustResolutionCheckpointPayloadSchema,
+  DelegateOperationalTaskPayloadSchema,
+  EscalateOperationalTaskPayloadSchema,
   TriggerBentleyAnalysisPayloadSchema,
   TriggerCampaignSyncPayloadSchema,
 } from "@/lib/executive-agent/executive-action-payloads";
@@ -33,6 +35,11 @@ import {
   recordSmartTrustGovernanceReviewOnOrder,
   recordSmartTrustResolutionOnOrder,
 } from "@/lib/fulfillment/smart-trust-fulfillment-deliverable";
+import {
+  applyApprovedTaskDelegation,
+  applyApprovedTaskEscalation,
+} from "@/lib/executive-agent/delegated-task-coordination";
+import { isExecutiveOperatorId } from "@/lib/executive-agent/executive-operator-registry";
 import { SMART_TRUST_GOVERNANCE_DISCLAIMER } from "@/lib/fulfillment/smart-trust-governance-workflow";
 import {
   REVENUE_OS_CAMPAIGN_REVIEW_NOTE_MARKER,
@@ -714,6 +721,76 @@ async function runCreateSiteBuilderTask(ctx: ExecCtx, raw: unknown): Promise<Exe
   };
 }
 
+async function runDelegateOperationalTask(
+  ctx: ExecCtx,
+  payload: unknown
+): Promise<ExecutiveActionExecutorResult> {
+  const parsed = DelegateOperationalTaskPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: "failed",
+      message: "Invalid delegateOperationalTask payload.",
+      data: { issues: parsed.error.flatten() },
+    };
+  }
+  if (!isExecutiveOperatorId(parsed.data.targetOperatorId)) {
+    return { ok: false, status: "failed", message: "Invalid target operator id." };
+  }
+  await applyApprovedTaskDelegation(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    approvalId: ctx.approvalId,
+    taskId: parsed.data.taskId,
+    payload: {
+      taskId: parsed.data.taskId,
+      targetOperatorId: parsed.data.targetOperatorId,
+      rationale: parsed.data.rationale,
+    },
+  });
+  return {
+    ok: true,
+    status: "executed",
+    message:
+      "Delegation recorded — target operator must accept; no autonomous delegation acceptance or reassignment.",
+    data: { taskId: parsed.data.taskId, targetOperatorId: parsed.data.targetOperatorId },
+  };
+}
+
+async function runEscalateOperationalTask(
+  ctx: ExecCtx,
+  payload: unknown
+): Promise<ExecutiveActionExecutorResult> {
+  const parsed = EscalateOperationalTaskPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: "failed",
+      message: "Invalid escalateOperationalTask payload.",
+      data: { issues: parsed.error.flatten() },
+    };
+  }
+  if (!isExecutiveOperatorId(parsed.data.targetOperatorId)) {
+    return { ok: false, status: "failed", message: "Invalid escalation target operator id." };
+  }
+  await applyApprovedTaskEscalation(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    approvalId: ctx.approvalId,
+    taskId: parsed.data.taskId,
+    payload: {
+      taskId: parsed.data.taskId,
+      targetOperatorId: parsed.data.targetOperatorId,
+      rationale: parsed.data.rationale,
+      priority: parsed.data.priority,
+    },
+  });
+  return {
+    ok: true,
+    status: "executed",
+    message: "Escalation recorded on task — no autonomous escalation execution.",
+    data: { taskId: parsed.data.taskId, targetOperatorId: parsed.data.targetOperatorId },
+  };
+}
+
 export type ExecutiveActionExecutor = (
   ctx: ExecCtx,
   payload: unknown
@@ -731,6 +808,8 @@ export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, Execut
   recordRevenueOsLaunchReadinessCheckpoint: runRecordRevenueOsLaunchReadinessCheckpoint,
   createSmartTrustGovernanceReviewPacket: runCreateSmartTrustGovernanceReviewPacket,
   recordSmartTrustResolutionCheckpoint: runRecordSmartTrustResolutionCheckpoint,
+  delegateOperationalTask: runDelegateOperationalTask,
+  escalateOperationalTask: runEscalateOperationalTask,
   updateClientStatus: async () => ({
     ok: false,
     status: "failed",

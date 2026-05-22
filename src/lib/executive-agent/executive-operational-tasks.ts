@@ -34,6 +34,7 @@ export type ExecutiveOperationalTaskDto = {
   isOverdue: boolean;
   isBlocked: boolean;
   dependencyBlocked: boolean;
+  coordination?: import("@/lib/executive-agent/executive-operator-types").TaskCoordinationMetadata;
 };
 
 export type ExecutiveOperationalTasksQueueDto = {

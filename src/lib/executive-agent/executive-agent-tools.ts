@@ -597,6 +597,24 @@ export async function getExecutiveKpiOverview(ctx: ExecutiveToolContext, limit =
   });
 }
 
+/** Governed operator registry and approval delegation chain. */
+export async function getExecutiveOperatorRegistry(ctx: ExecutiveToolContext) {
+  const { buildExecutiveOperatorsRegistry } = await import(
+    "@/lib/executive-agent/operator-coordination-service"
+  );
+  return buildExecutiveOperatorsRegistry(ctx.db, { adminUserId: ctx.adminUserId });
+}
+
+/** Operator workload, delegation opportunities, escalation risks. */
+export async function getExecutiveOperatorWorkload(ctx: ExecutiveToolContext) {
+  const { buildExecutiveOperatorCoordinationForSkipper } = await import(
+    "@/lib/executive-agent/operator-coordination-service"
+  );
+  return buildExecutiveOperatorCoordinationForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+  });
+}
+
 /** Fulfillment forecasting — delays, revision risk, approval bottlenecks, risk alerts. */
 export async function getExecutiveKpiForecast(ctx: ExecutiveToolContext, limit = 60) {
   const { buildExecutiveKpiIntelligenceForSkipper } = await import(

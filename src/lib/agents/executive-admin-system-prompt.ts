@@ -29,6 +29,7 @@ export const EXECUTIVE_ADMIN_CAPABILITY_INJECTION = `EXECUTIVE CAPABILITY ENVELO
 - Smart Trust: governed governance review checkpoints, resolution/minutes records, and compliance reminders only — never autonomous trust execution, legal automation, amendment application, filing, or signatures.
 - Executive memory: saved desk memory items surfaced in executive context when present.
 - Executive KPI & forecasting: desk health scores, fulfillment velocity, department workload balance, projected delays, revision/approval risk forecasts, and confidence-scored risk alerts — advisory only; never autonomous reassignment, approvals, or launch/publish/spend.
+- Operator coordination: registry, workload analytics, delegation recommendations, escalation chains — all delegation/escalation requires owner approval; no autonomous delegation acceptance, reassignment, or escalation execution.
 - Routines: scheduled executive routines and automation suggestions when the system exposes them.
 - Approvals: proposed writes require human approval — never claim an approval executed without a record.
 - Follow-up intelligence: CRM / agent follow-up queues when tools return them.
@@ -63,7 +64,7 @@ Output: respond with a single JSON object only (no markdown outside JSON). Schem
 - proposedActions[].action must be one of: createTodo, assignFollowUp, createSpecializedAgent, updateClientStatus, triggerBentleyAnalysis, triggerCampaignSync, createSiteBuilderTask — only if the admin clearly wants that; otherwise use [].
 
 Allowed readTools (exact strings only):
-getPendingAccounts, getApprovedAccounts, getActiveAccounts, getClientSummary, getClientTodos, getAgentConversationSummary, getBentleyCampaignOutputs, getBentleyExecutiveBridgeSummary, getAiRevenueOsStatus, getSiteBuilderProjectStatus, getPlatformAnalyticsSummary, getInboxEngagementSummary, getKnowledgeBaseSummary, getClientFulfillmentOperations, getExecutiveFulfillmentOperationsOverview, getExecutiveFulfillmentOperationsBriefing, getExecutiveFulfillmentOperationsMemoryInsights, getExecutiveSubjectWorkspace, getExecutiveOperationalThreads, getExecutivePendingDecisions, getExecutiveOperationalTasks, getExecutiveRevenueOsFulfillment, getExecutiveSmartTrustFulfillment, getExecutiveKpiOverview, getExecutiveKpiForecast`;
+getPendingAccounts, getApprovedAccounts, getActiveAccounts, getClientSummary, getClientTodos, getAgentConversationSummary, getBentleyCampaignOutputs, getBentleyExecutiveBridgeSummary, getAiRevenueOsStatus, getSiteBuilderProjectStatus, getPlatformAnalyticsSummary, getInboxEngagementSummary, getKnowledgeBaseSummary, getClientFulfillmentOperations, getExecutiveFulfillmentOperationsOverview, getExecutiveFulfillmentOperationsBriefing, getExecutiveFulfillmentOperationsMemoryInsights, getExecutiveSubjectWorkspace, getExecutiveOperationalThreads, getExecutivePendingDecisions, getExecutiveOperationalTasks, getExecutiveRevenueOsFulfillment, getExecutiveSmartTrustFulfillment, getExecutiveKpiOverview, getExecutiveKpiForecast, getExecutiveOperatorRegistry, getExecutiveOperatorWorkload`;
 
 /**
  * Admin intent JSON planner — embeds the same executive identity as conversational SKIPPER, then JSON-only planner rules.

@@ -14,6 +14,10 @@ import { ExecutiveKpiOverviewPanel } from "./ExecutiveKpiOverviewPanel";
 import { FulfillmentForecastPanel } from "./FulfillmentForecastPanel";
 import { OperationalHealthPanel } from "./OperationalHealthPanel";
 import { ForecastRiskPanel } from "./ForecastRiskPanel";
+import { ExecutiveOperatorPanel } from "./ExecutiveOperatorPanel";
+import { OperatorWorkloadPanel } from "./OperatorWorkloadPanel";
+import { DelegationQueuePanel } from "./DelegationQueuePanel";
+import { EscalationPanel } from "./EscalationPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -3604,6 +3608,24 @@ export function ExecutiveAgentDashboard() {
             <OperationalHealthPanel />
             <FulfillmentForecastPanel />
             <ForecastRiskPanel />
+            <ExecutiveOperatorPanel />
+            <OperatorWorkloadPanel />
+            <DelegationQueuePanel
+              onOpenApproval={(approvalId) => {
+                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                });
+              }}
+            />
+            <EscalationPanel
+              onOpenApproval={(approvalId) => {
+                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                });
+              }}
+            />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}

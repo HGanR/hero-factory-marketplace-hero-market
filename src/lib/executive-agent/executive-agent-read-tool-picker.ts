@@ -28,7 +28,9 @@ export type ExecutiveReadToolKey =
   | "getExecutiveRevenueOsFulfillment"
   | "getExecutiveSmartTrustFulfillment"
   | "getExecutiveKpiOverview"
-  | "getExecutiveKpiForecast";
+  | "getExecutiveKpiForecast"
+  | "getExecutiveOperatorRegistry"
+  | "getExecutiveOperatorWorkload";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -57,6 +59,8 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveSmartTrustFulfillment: "getExecutiveSmartTrustFulfillment",
   getExecutiveKpiOverview: "getExecutiveKpiOverview",
   getExecutiveKpiForecast: "getExecutiveKpiForecast",
+  getExecutiveOperatorRegistry: "getExecutiveOperatorRegistry",
+  getExecutiveOperatorWorkload: "getExecutiveOperatorWorkload",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -166,6 +170,15 @@ export function pickExecutiveReadTools(
     out.add("getExecutiveOperationalTasks");
     out.add("getExecutivePendingDecisions");
     out.add("getClientFulfillmentOperations");
+    out.add("getExecutiveOperatorWorkload");
+  }
+  if (
+    /operator workload|delegation|escalat|overloaded operator|workforce|staffing|operator performance|delegation queue|escalation chain|operator registry/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveOperatorRegistry");
+    out.add("getExecutiveOperatorWorkload");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

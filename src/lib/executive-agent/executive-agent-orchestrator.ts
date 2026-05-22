@@ -189,6 +189,12 @@ async function runReadTool(
       case "getExecutiveKpiForecast":
         data = await Tools.getExecutiveKpiForecast(ctx);
         break;
+      case "getExecutiveOperatorRegistry":
+        data = await Tools.getExecutiveOperatorRegistry(ctx);
+        break;
+      case "getExecutiveOperatorWorkload":
+        data = await Tools.getExecutiveOperatorWorkload(ctx);
+        break;
       default:
         return null;
     }

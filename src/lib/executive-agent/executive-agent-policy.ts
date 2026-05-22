@@ -44,6 +44,8 @@ export const WRITE_ACTION_NAMES = [
   "recordRevenueOsLaunchReadinessCheckpoint",
   "createSmartTrustGovernanceReviewPacket",
   "recordSmartTrustResolutionCheckpoint",
+  "delegateOperationalTask",
+  "escalateOperationalTask",
 ] as const;
 
 export type ExecutiveWriteActionName = (typeof WRITE_ACTION_NAMES)[number];
@@ -58,6 +60,8 @@ export function scopeForWriteAction(action: string): ExecutiveAgentScope | null 
     case "recordRevenueOsLaunchReadinessCheckpoint":
     case "createSmartTrustGovernanceReviewPacket":
     case "recordSmartTrustResolutionCheckpoint":
+    case "delegateOperationalTask":
+    case "escalateOperationalTask":
       return "write:todos";
     case "createSpecializedAgent":
       return "write:agents";
@@ -107,6 +111,8 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getExecutiveSmartTrustFulfillment: "read:crm",
     getExecutiveKpiOverview: "read:crm",
     getExecutiveKpiForecast: "read:crm",
+    getExecutiveOperatorRegistry: "read:crm",
+    getExecutiveOperatorWorkload: "read:crm",
   };
   const need = map[toolName];
   if (!need) return false;
