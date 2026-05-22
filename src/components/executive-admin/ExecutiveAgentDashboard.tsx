@@ -36,6 +36,11 @@ import { LiveOperationalFeedPanel } from "./LiveOperationalFeedPanel";
 import { GovernanceAlertPanel } from "./GovernanceAlertPanel";
 import { CrisisCoordinationPanel } from "./CrisisCoordinationPanel";
 import { CrossAgentEscalationPanel } from "./CrossAgentEscalationPanel";
+import { ExecutiveWorkflowFabricPanel } from "./ExecutiveWorkflowFabricPanel";
+import { WorkflowLifecyclePanel } from "./WorkflowLifecyclePanel";
+import { WorkflowDependencyPanel } from "./WorkflowDependencyPanel";
+import { WorkflowRecoveryPanel } from "./WorkflowRecoveryPanel";
+import { WorkflowContinuityPanel } from "./WorkflowContinuityPanel";
 import { ExecutiveAgentCoordinationPanel } from "./ExecutiveAgentCoordinationPanel";
 import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
 import { AgentRoutingPanel } from "./AgentRoutingPanel";
@@ -3686,6 +3691,11 @@ export function ExecutiveAgentDashboard() {
               }}
             />
             <CrossAgentEscalationPanel />
+            <ExecutiveWorkflowFabricPanel />
+            <WorkflowLifecyclePanel />
+            <WorkflowDependencyPanel />
+            <WorkflowRecoveryPanel />
+            <WorkflowContinuityPanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
