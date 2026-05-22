@@ -35,7 +35,9 @@ export type ExecutiveReadToolKey =
   | "runExecutiveSimulation"
   | "getExecutiveKnowledgeOverview"
   | "getExecutiveKnowledgeClient"
-  | "getExecutiveKnowledgeOperator";
+  | "getExecutiveKnowledgeOperator"
+  | "getExecutivePlanningOverview"
+  | "generateExecutivePlan";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -71,6 +73,8 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveKnowledgeOverview: "getExecutiveKnowledgeOverview",
   getExecutiveKnowledgeClient: "getExecutiveKnowledgeClient",
   getExecutiveKnowledgeOperator: "getExecutiveKnowledgeOperator",
+  getExecutivePlanningOverview: "getExecutivePlanningOverview",
+  generateExecutivePlan: "generateExecutivePlan",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -215,6 +219,17 @@ export function pickExecutiveReadTools(
   }
   if (/operator specialization|operator history|operator evolution/.test(p)) {
     out.add("getExecutiveKnowledgeOperator");
+  }
+  if (
+    /executive plan|operational plan|recovery plan|staffing plan|initiative roadmap|workload balanc|bottleneck mitigat|campaign sequenc|governance schedul|escalation response plan|autonomous planning|generate plan/.test(
+      p
+    )
+  ) {
+    out.add("getExecutivePlanningOverview");
+    out.add("generateExecutivePlan");
+  }
+  if (/generate.*plan|build.*roadmap|recovery strateg/.test(p)) {
+    out.add("generateExecutivePlan");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

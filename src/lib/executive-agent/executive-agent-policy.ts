@@ -118,6 +118,8 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getExecutiveKnowledgeOverview: "read:crm",
     getExecutiveKnowledgeClient: "read:crm",
     getExecutiveKnowledgeOperator: "read:crm",
+    getExecutivePlanningOverview: "read:crm",
+    generateExecutivePlan: "read:crm",
   };
   const need = map[toolName];
   if (!need) return false;

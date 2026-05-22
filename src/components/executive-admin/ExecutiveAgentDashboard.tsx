@@ -26,6 +26,10 @@ import { ExecutiveKnowledgeGraphPanel } from "./ExecutiveKnowledgeGraphPanel";
 import { StrategicMemoryPanel } from "./StrategicMemoryPanel";
 import { OrganizationalIntelligencePanel } from "./OrganizationalIntelligencePanel";
 import { HistoricalContextPanel } from "./HistoricalContextPanel";
+import { ExecutivePlanningPanel } from "./ExecutivePlanningPanel";
+import { RecoveryPlanningPanel } from "./RecoveryPlanningPanel";
+import { StaffingPlanningPanel } from "./StaffingPlanningPanel";
+import { InitiativePlanningPanel } from "./InitiativePlanningPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -3642,6 +3646,10 @@ export function ExecutiveAgentDashboard() {
             <StrategicMemoryPanel />
             <OrganizationalIntelligencePanel />
             <HistoricalContextPanel />
+            <ExecutivePlanningPanel />
+            <RecoveryPlanningPanel />
+            <StaffingPlanningPanel />
+            <InitiativePlanningPanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}

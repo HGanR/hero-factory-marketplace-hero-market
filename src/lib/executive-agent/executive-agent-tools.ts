@@ -703,6 +703,47 @@ export async function getExecutiveKnowledgeOperator(
   };
 }
 
+/** Executive planning overview — advisory operational plans, no execution. */
+export async function getExecutivePlanningOverview(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutivePlanningForSkipper } = await import(
+    "@/lib/executive-agent/executive-planning-service"
+  );
+  return buildExecutivePlanningForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+  });
+}
+
+/** Generate advisory executive plan (in-memory only). */
+export async function generateExecutivePlan(
+  ctx: ExecutiveToolContext,
+  planId = "multi_department_ops",
+  horizonDays = 14,
+  limit = 60
+) {
+  const { buildExecutivePlanningForSkipper } = await import(
+    "@/lib/executive-agent/executive-planning-service"
+  );
+  const allowed = [
+    "multi_department_ops",
+    "operational_recovery",
+    "staffing_adjustment",
+    "bottleneck_mitigation",
+    "campaign_sequencing",
+    "governance_scheduling",
+    "escalation_response",
+    "workload_balance",
+    "executive_initiative",
+  ];
+  const safeId = allowed.includes(planId) ? planId : "multi_department_ops";
+  return buildExecutivePlanningForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    planId: safeId as import("@/lib/executive-agent/executive-planning-types").PlanningPlanId,
+    horizonDays,
+    limit,
+  });
+}
+
 /** Governed operator registry and approval delegation chain. */
 export async function getExecutiveOperatorRegistry(ctx: ExecutiveToolContext) {
   const { buildExecutiveOperatorsRegistry } = await import(

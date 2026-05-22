@@ -210,6 +210,12 @@ async function runReadTool(
       case "getExecutiveKnowledgeOperator":
         data = await Tools.getExecutiveKnowledgeOperator(ctx);
         break;
+      case "getExecutivePlanningOverview":
+        data = await Tools.getExecutivePlanningOverview(ctx);
+        break;
+      case "generateExecutivePlan":
+        data = await Tools.generateExecutivePlan(ctx);
+        break;
       default:
         return null;
     }
