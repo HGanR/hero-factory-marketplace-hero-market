@@ -7,21 +7,22 @@ import { submitClaudeFulfillmentHandoff as submitWebsiteHandoff } from "@/lib/fu
 import { submitClaudeTrustFulfillmentHandoff } from "@/lib/fulfillment/claude-handoff-trust-service";
 import { ClaudeTrustFulfillmentHandoffBodySchema } from "@/lib/fulfillment/fulfillment-payload-schemas-trust";
 import { ClaudeFulfillmentHandoffBodySchema } from "@/lib/fulfillment/fulfillment-payload-schemas";
-import { FULFILLMENT_PRIMARY_SERVICE_TRUST, FULFILLMENT_PRIMARY_SERVICE_WEBSITE } from "@/lib/fulfillment/fulfillment-types";
+import {
+  detectClaudeFulfillmentHandoffPrimary,
+  revenueOsDeskOnlyHandoffResult,
+} from "@/lib/fulfillment/claude-fulfillment-handoff-routing";
+import {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_TRUST,
+  FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
+} from "@/lib/fulfillment/fulfillment-types";
 import type { ClaudeWorkerAuthContext } from "@/lib/workers/claude-worker-auth";
 
 type Db = MySql2Database<typeof schema>;
 
-function detectPrimaryService(body: unknown): typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE | typeof FULFILLMENT_PRIMARY_SERVICE_TRUST | null {
-  if (!body || typeof body !== "object") return null;
-  const primary = (body as { service?: { primary?: string } }).service?.primary;
-  if (primary === FULFILLMENT_PRIMARY_SERVICE_WEBSITE) return FULFILLMENT_PRIMARY_SERVICE_WEBSITE;
-  if (primary === FULFILLMENT_PRIMARY_SERVICE_TRUST) return FULFILLMENT_PRIMARY_SERVICE_TRUST;
-  return null;
-}
-
 /**
- * Routes Claude fulfillment handoffs by service.primary — WEBSITE and TRUST are isolated.
+ * Routes Claude fulfillment handoffs by service.primary — WEBSITE, TRUST, and REVENUE_OS are isolated.
+ * REVENUE_OS campaign fulfillment is executive-desk intake only in v1 (no worker auto-routing).
  */
 export async function submitClaudeFulfillmentHandoff(
   db: Db,
@@ -31,7 +32,10 @@ export async function submitClaudeFulfillmentHandoff(
     idempotencyKey?: string | null;
   }
 ): Promise<ClaudeHandoffResult> {
-  const primary = detectPrimaryService(input.body);
+  const primary = detectClaudeFulfillmentHandoffPrimary(input.body);
+  if (primary === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS) {
+    return revenueOsDeskOnlyHandoffResult();
+  }
   if (primary === FULFILLMENT_PRIMARY_SERVICE_TRUST) {
     return submitClaudeTrustFulfillmentHandoff(db, input);
   }
@@ -54,6 +58,6 @@ export async function submitClaudeFulfillmentHandoff(
     ok: false,
     httpStatus: 400,
     code: "invalid_payload",
-    message: "service.primary must be WEBSITE or TRUST.",
+    message: "service.primary must be WEBSITE or TRUST (REVENUE_OS via executive desk only).",
   };
 }

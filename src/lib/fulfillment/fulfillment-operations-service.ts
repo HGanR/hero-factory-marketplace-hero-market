@@ -49,6 +49,7 @@ import {
 import { buildExecutiveFulfillmentOperationsBriefingFromDesk } from "@/lib/fulfillment/fulfillment-executive-operations-briefing-builder";
 import { buildExecutiveFulfillmentOperationalMemoryInsights } from "@/lib/fulfillment/fulfillment-operational-memory-insights-builder";
 import { buildOperationalMemoryStore } from "@/lib/fulfillment/operational-memory-store";
+import { parseRevenueOsFulfillmentHandoff } from "@/lib/fulfillment/revenue-os-fulfillment-handoff";
 import type {
   ExecutiveFulfillmentOperationalMemoryInsightsDto,
   OperationalMemoryOrderRecord,
@@ -63,7 +64,12 @@ import type {
 
 type Db = MySql2Database<typeof schema>;
 
-const FULFILLMENT_ACTIONS = ["createSiteBuilderTask", "createTrustFulfillmentPacket"] as const;
+const FULFILLMENT_ACTIONS = [
+  "createSiteBuilderTask",
+  "createTrustFulfillmentPacket",
+  "createRevenueOsCampaignReviewPacket",
+  "recordRevenueOsLaunchReadinessCheckpoint",
+] as const;
 
 function toIso(d: Date | null | undefined): string | null {
   if (d == null) return null;
@@ -163,6 +169,10 @@ function buildOrderSnapshots(
     const del = deliverables.get(row.id);
     const appr = approvals.get(row.id);
     const approvalStatus = (appr?.status ?? "none") as ClientFulfillmentOrderSnapshot["approvalStatus"];
+    const handoff =
+      dept === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS
+        ? parseRevenueOsFulfillmentHandoff(row.executiveHandoffJson)
+        : null;
 
     out.push({
       orderId: row.id,
@@ -177,6 +187,9 @@ function buildOrderSnapshots(
       createdAt: toIso(row.createdAt) ?? new Date().toISOString(),
       updatedAt: toIso(row.updatedAt),
       daysInCurrentStage: computeDaysInStage(row.updatedAt, row.createdAt),
+      campaignId: handoff?.campaignId ?? null,
+      launchReadinessApproved: Boolean(handoff?.launchReadinessApprovedAt),
+      revisionRound: handoff?.revisionRound ?? 0,
     });
   }
   return out;
@@ -301,6 +314,7 @@ export async function buildClientFulfillmentOperations(
       executiveHandoffJson: r.executiveHandoffJson,
       salesSummaryText: r.salesSummaryText,
       requestedDeliverableJson: r.requestedDeliverableJson,
+      pipelineStage: r.pipelineStage,
     })),
   });
 
@@ -343,6 +357,11 @@ export async function buildClientFulfillmentOperations(
       (o.pipelineStage === "approved_for_release" || o.pipelineStage === "released")
   );
 
+  const revenueOrder = orders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
+  const revenueOsKpiAtRisk =
+    Boolean(revenueOrder && campaignCountRow.length > 0 && !revenueOrder.launchReadinessApproved) ||
+    Boolean(revenueOrder?.approvalStatus === "pending");
+
   const memoryWeights = await loadFulfillmentRecommendationMemoryWeights(db, input.adminUserId);
 
   const engineInput = {
@@ -353,6 +372,7 @@ export async function buildClientFulfillmentOperations(
     health,
     campaignCount: campaignCountRow.length,
     websiteApprovedForRelease: websiteApproved,
+    revenueOsKpiAtRisk,
     memoryWeights,
   };
 
@@ -365,8 +385,11 @@ export async function buildClientFulfillmentOperations(
   const dependencies = resolveCrossDepartmentDependencyNarrative({
     websiteOrderActive: Boolean(web),
     trustOrderActive: Boolean(trust),
+    revenueOsOrderActive: Boolean(revenueOrder),
     websiteStage: web?.pipelineStage ?? null,
     trustStage: trust?.pipelineStage ?? null,
+    revenueOsStage: revenueOrder?.pipelineStage ?? null,
+    revenueOsLaunchReadinessApproved: revenueOrder?.launchReadinessApproved ?? false,
   });
 
   const skipperBrief = summarizeWhatClientStillNeeds({ recommendations, readiness, health });
@@ -502,6 +525,7 @@ export async function buildExecutiveFulfillmentOperationsOverview(
           executiveHandoffJson: r.executiveHandoffJson,
           salesSummaryText: r.salesSummaryText,
           requestedDeliverableJson: r.requestedDeliverableJson,
+          pipelineStage: r.pipelineStage,
         })),
     });
     const health = computeClientHealthScore({ clientId, orders: clientOrders, readiness });
@@ -559,6 +583,7 @@ export async function buildExecutiveFulfillmentOperationsOverview(
       pendingApprovals,
       websiteOrders: snapshots.filter((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE).length,
       trustOrders: snapshots.filter((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_TRUST).length,
+      revenueOsOrders: snapshots.filter((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS).length,
     },
     bottlenecks,
     clients,
@@ -701,11 +726,15 @@ export async function buildExecutiveFulfillmentOperationsBriefing(
 
     const web = clientOrders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE);
     const trust = clientOrders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_TRUST);
+    const revenue = clientOrders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
     const dependencies = resolveCrossDepartmentDependencyNarrative({
       websiteOrderActive: Boolean(web),
       trustOrderActive: Boolean(trust),
+      revenueOsOrderActive: Boolean(revenue),
       websiteStage: web?.pipelineStage ?? null,
       trustStage: trust?.pipelineStage ?? null,
+      revenueOsStage: revenue?.pipelineStage ?? null,
+      revenueOsLaunchReadinessApproved: revenue?.launchReadinessApproved ?? false,
     });
 
     const recommendations = buildFulfillmentRecommendations({
@@ -715,6 +744,7 @@ export async function buildExecutiveFulfillmentOperationsBriefing(
       readiness,
       health,
       campaignCount: 0,
+      revenueOsKpiAtRisk: Boolean(revenue && revenue.approvalStatus === "pending"),
       websiteApprovedForRelease: clientOrders.some(
         (o) =>
           o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE &&
@@ -804,7 +834,7 @@ function toOperationalMemoryOrderRecords(
       approvalStatus: s.approvalStatus,
       ownerReviewStatus: del?.ownerReviewStatus ?? "pending",
       clientDeliveryStatus: del?.clientDeliveryStatus ?? "not_sent",
-      draftVersion: del?.draftVersion ?? 1,
+      draftVersion: del?.draftVersion ?? s.revisionRound ?? 1,
       daysInCurrentStage: s.daysInCurrentStage,
       paymentConsumed: s.paymentConsumed,
       updatedAt: s.updatedAt,

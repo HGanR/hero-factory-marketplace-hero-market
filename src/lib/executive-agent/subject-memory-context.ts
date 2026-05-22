@@ -9,6 +9,8 @@ import type { SubjectWorkspaceScope } from "@/lib/executive-agent/subject-worksp
 export type SubjectMemoryHighlights = {
   websiteLowRevisionDrafts: number;
   trustStalledPackets: number;
+  revenueOsLaunchBlocked: number;
+  revenueOsCampaignStalled: number;
   clientsNeedingGuidance: number;
   topEffectiveRecommendation: string | null;
   recurringBottleneck: string | null;
@@ -85,6 +87,8 @@ export function extractSubjectMemoryHighlights(
   return {
     websiteLowRevisionDrafts: outcomes.filter((o) => o.outcome === "website_draft_low_revision").length,
     trustStalledPackets: outcomes.filter((o) => o.outcome === "trust_packet_stalled").length,
+    revenueOsLaunchBlocked: outcomes.filter((o) => o.outcome === "revenue_os_launch_blocked").length,
+    revenueOsCampaignStalled: outcomes.filter((o) => o.outcome === "revenue_os_campaign_stalled").length,
     clientsNeedingGuidance: clientGuidance.length,
     topEffectiveRecommendation: insights.highlights.topEffectiveRecommendation,
     recurringBottleneck: bottlenecks[0]?.summary ?? insights.highlights.recurringBottleneck,
@@ -126,10 +130,13 @@ export function buildSubjectSkipperContext(input: {
       ? `WEBSITE low-revision signals: ${mem.websiteLowRevisionDrafts}`
       : null,
     scope.department === "TRUST" && mem ? `TRUST stall signals: ${mem.trustStalledPackets}` : null,
+    scope.department === "REVENUE_OS" && mem
+      ? `REVENUE_OS launch blocked: ${mem.revenueOsLaunchBlocked}; campaign stalled: ${mem.revenueOsCampaignStalled}`
+      : null,
     mem && mem.clientsNeedingGuidance > 0
       ? `Clients needing guidance: ${mem.clientsNeedingGuidance}`
       : null,
-    "Read-only — recommendations only, no autonomous execution, deploy, publish, or release.",
+    "Read-only — recommendations only; no autonomous execution, deploy, publish, launch, ad spend, or Content360 bypass.",
   ].filter(Boolean);
 
   return lines.join(" ");

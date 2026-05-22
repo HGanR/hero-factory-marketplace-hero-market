@@ -6,6 +6,7 @@ import type {
   MultiOrderRelationship,
 } from "@/lib/fulfillment/fulfillment-orchestration-types";
 import {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -25,6 +26,10 @@ function isTrustOrder(o: ClientFulfillmentOrderSnapshot): boolean {
   return o.department === FULFILLMENT_PRIMARY_SERVICE_TRUST;
 }
 
+function isRevenueOsOrder(o: ClientFulfillmentOrderSnapshot): boolean {
+  return o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
+}
+
 function buildMultiOrderRelationships(
   orders: ClientFulfillmentOrderSnapshot[]
 ): MultiOrderRelationship[] {
@@ -40,6 +45,8 @@ function buildMultiOrderRelationships(
 
   const web = orders.find(isWebsiteOrder);
   const trust = orders.find(isTrustOrder);
+  const revenue = orders.find(isRevenueOsOrder);
+
   if (web && trust) {
     rels.push({
       kind: "cross_department_coordination",
@@ -66,6 +73,37 @@ function buildMultiOrderRelationships(
           "TRUST legal-review progress is ahead of WEBSITE drafting — consider aligning WEBSITE copy after TRUST owner review (recommendation only).",
       });
     }
+  }
+
+  if (revenue && web) {
+    rels.push({
+      kind: "cross_department_coordination",
+      orderIds: [revenue.orderId, web.orderId],
+      departments: [FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS, FULFILLMENT_PRIMARY_SERVICE_WEBSITE],
+      summary:
+        "REVENUE_OS campaign fulfillment and WEBSITE coexist — align landing experience before launch readiness checkpoint (no autonomous launch).",
+    });
+    const webNotReleased =
+      web.pipelineStage !== "approved_for_release" && web.pipelineStage !== "released";
+    if (webNotReleased) {
+      rels.push({
+        kind: "sequencing_hint",
+        orderIds: [web.orderId, revenue.orderId],
+        departments: [FULFILLMENT_PRIMARY_SERVICE_WEBSITE, FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS],
+        summary:
+          "WEBSITE not released — recommend WEBSITE progress before heavy campaign launch (soft prerequisite only).",
+      });
+    }
+  }
+
+  if (revenue && trust) {
+    rels.push({
+      kind: "parallel_safe",
+      orderIds: [revenue.orderId, trust.orderId],
+      departments: [FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS, FULFILLMENT_PRIMARY_SERVICE_TRUST],
+      summary:
+        "REVENUE_OS and TRUST proceed independently — do not conflate campaign review packets with trust apply or legal execution.",
+    });
   }
 
   return rels;
@@ -96,6 +134,8 @@ export function buildClientOperationsGraph(input: BuildClientOperationsGraphInpu
         pipelineStage: order.pipelineStage,
         approvalStatus: order.approvalStatus,
         stalled: order.daysInCurrentStage >= 7,
+        campaignId: order.campaignId ?? null,
+        launchReadinessApproved: order.launchReadinessApproved ?? false,
       },
     });
     edges.push({
@@ -148,10 +188,26 @@ export function buildClientOperationsGraph(input: BuildClientOperationsGraphInpu
         label: "owner review queue",
       });
     }
+
+    if (
+      isRevenueOsOrder(order) &&
+      !order.launchReadinessApproved &&
+      (order.approvalStatus === "pending" || order.pipelineStage === "owner_review")
+    ) {
+      edges.push({
+        id: `edge:launch-blockers:${order.orderId}`,
+        from: orderNodeId,
+        to: `client:${input.clientId}`,
+        kind: "blocks_progress",
+        label: "launch readiness checkpoint or approval pending",
+      });
+    }
   }
 
   const web = input.orders.find(isWebsiteOrder);
   const trust = input.orders.find(isTrustOrder);
+  const revenue = input.orders.find(isRevenueOsOrder);
+
   if (web && trust) {
     edges.push({
       id: `edge:depends:web-trust:${web.orderId}:${trust.orderId}`,
@@ -169,13 +225,40 @@ export function buildClientOperationsGraph(input: BuildClientOperationsGraphInpu
     });
   }
 
-  if ((input.campaignCount ?? 0) > 0) {
+  if (revenue && web) {
+    edges.push({
+      id: `edge:depends:revenue-web:${revenue.orderId}:${web.orderId}`,
+      from: `order:${revenue.orderId}`,
+      to: `order:${web.orderId}`,
+      kind: "depends_on",
+      label: "REVENUE_OS launch benefits from WEBSITE release (soft)",
+    });
+  }
+
+  if (revenue && trust) {
+    edges.push({
+      id: `edge:relates:revenue-trust:${revenue.orderId}:${trust.orderId}`,
+      from: `order:${revenue.orderId}`,
+      to: `order:${trust.orderId}`,
+      kind: "relates_to",
+      label: "informational REVENUE_OS ↔ TRUST",
+    });
+  }
+
+  const campaignSignalDept = revenue
+    ? FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS
+    : ("AI_REVENUE_OS" as const);
+
+  if ((input.campaignCount ?? 0) > 0 || revenue?.campaignId) {
     nodes.push({
       id: `campaign:${input.clientId}`,
       kind: "campaign_signal",
-      label: "AI Revenue OS campaigns",
-      department: "AI_REVENUE_OS",
-      meta: { count: input.campaignCount ?? 0 },
+      label: revenue ? "REVENUE_OS campaign fulfillment" : "AI Revenue OS campaigns",
+      department: campaignSignalDept,
+      meta: {
+        count: input.campaignCount ?? 0,
+        linkedCampaignId: revenue?.campaignId ?? null,
+      },
     });
     edges.push({
       id: `edge:client-campaign:${input.clientId}`,
@@ -184,6 +267,15 @@ export function buildClientOperationsGraph(input: BuildClientOperationsGraphInpu
       kind: "relates_to",
       label: "Revenue OS activity signal",
     });
+    if (revenue) {
+      edges.push({
+        id: `edge:order-campaign:${revenue.orderId}`,
+        from: `order:${revenue.orderId}`,
+        to: `campaign:${input.clientId}`,
+        kind: "relates_to",
+        label: "governed campaign fulfillment order",
+      });
+    }
   }
 
   return {

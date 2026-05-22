@@ -16,13 +16,17 @@ export function buildExecutiveFulfillmentOperationalMemoryInsights(
   const topRevisionThemes = buildRevisionThemeHints({
     websiteRevisionRate: revisionStats.websiteRevisionRequestedRate,
     trustStallRate: revisionStats.trustOwnerReviewPendingRate,
+    revenueOsRevisionRate: revisionStats.revenueOsAvgRevisionRound > 0 ? revisionStats.revenueOsAvgRevisionRound / 4 : 0,
+    revenueOsLaunchBlockedRate: revisionStats.revenueOsLaunchBlockedRate,
     memoryItemTitles: input.memoryItemTitles,
   });
 
   const headline =
-    highlights.trustStalledPackets > 0 || highlights.clientsNeedingGuidance > 0
-      ? `Operational memory: ${highlights.clientsNeedingGuidance} client(s) need extra guidance; ${highlights.trustStalledPackets} TRUST stall signal(s).`
-      : `Operational memory: ${memory.ordersAnalyzed} fulfillment order(s) analyzed — recommendations weighted from desk patterns.`;
+    highlights.trustStalledPackets > 0 ||
+    highlights.revenueOsLaunchBlocked > 0 ||
+    highlights.clientsNeedingGuidance > 0
+      ? `Operational memory: ${highlights.clientsNeedingGuidance} client(s) need guidance; TRUST stalls ${highlights.trustStalledPackets}; REVENUE_OS launch blocked ${highlights.revenueOsLaunchBlocked}.`
+      : `Operational memory: ${memory.ordersAnalyzed} fulfillment order(s) analyzed — WEBSITE/TRUST/REVENUE_OS weights applied.`;
 
   const lines = [
     headline,
@@ -38,7 +42,8 @@ export function buildExecutiveFulfillmentOperationalMemoryInsights(
     highlights.recurringBottleneck
       ? `Recurring bottleneck: ${highlights.recurringBottleneck}.`
       : null,
-    `WEBSITE avg draft v${revisionStats.websiteAvgDraftVersion}; revision-request rate ${Math.round(revisionStats.websiteRevisionRequestedRate * 100)}%.`,
+    `WEBSITE avg draft v${revisionStats.websiteAvgDraftVersion}; revision-request ${Math.round(revisionStats.websiteRevisionRequestedRate * 100)}%.`,
+    `REVENUE_OS avg revision round ${revisionStats.revenueOsAvgRevisionRound}; launch-approval pending rate ${Math.round(revisionStats.revenueOsLaunchBlockedRate * 100)}%.`,
     "Read-only learning — no autonomous execution, workflow mutation, or client-facing adaptation.",
   ].filter(Boolean);
 

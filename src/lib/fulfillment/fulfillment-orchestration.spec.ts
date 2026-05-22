@@ -19,6 +19,7 @@ import {
 import type { ClientFulfillmentOrderSnapshot } from "@/lib/fulfillment/fulfillment-orchestration-types";
 import { buildUnifiedClientTimeline } from "@/lib/fulfillment/unified-client-timeline";
 import {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -28,7 +29,12 @@ const CLIENT_ID = "00000000-0000-4000-8000-000000000001";
 function order(partial: Partial<ClientFulfillmentOrderSnapshot> & Pick<ClientFulfillmentOrderSnapshot, "orderId" | "department">): ClientFulfillmentOrderSnapshot {
   return {
     clientId: CLIENT_ID,
-    assignedDepartment: partial.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE ? "site_builder" : "trust_records",
+    assignedDepartment:
+      partial.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE
+        ? "site_builder"
+        : partial.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS
+          ? "ai_revenue_os"
+          : "trust_records",
     pipelineStage: "executive_handoff_received",
     approvalStatus: "none",
     ownerReviewStatus: null,
@@ -79,6 +85,22 @@ describe("client operations graph", () => {
     assert.ok(graph.multiOrderRelationships.some((r) => r.kind === "cross_department_coordination"));
     assert.ok(graph.edges.some((e) => e.kind === "depends_on"));
   });
+
+  it("links REVENUE_OS fulfillment order to campaign signal", () => {
+    const rev = order({
+      orderId: "r1",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      campaignId: "camp-1",
+      launchReadinessApproved: false,
+    });
+    const graph = buildClientOperationsGraph({
+      clientId: CLIENT_ID,
+      orders: [rev],
+      campaignCount: 1,
+    });
+    assert.ok(graph.nodes.some((n) => n.department === "REVENUE_OS" && n.kind === "campaign_signal"));
+    assert.ok(graph.edges.some((e) => e.label.includes("governed campaign fulfillment")));
+  });
 });
 
 describe("fulfillment recommendation engine", () => {
@@ -115,7 +137,7 @@ describe("fulfillment recommendation engine", () => {
     assert.ok(recs.every((r) => r.requiresHumanAction === true));
   });
 
-  it("detects AI Revenue OS cross-sell advisory when WEBSITE approved and no campaigns", () => {
+  it("detects REVENUE_OS cross-sell advisory when WEBSITE approved and no campaigns", () => {
     const web = order({
       orderId: "w1",
       department: FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
@@ -132,7 +154,9 @@ describe("fulfillment recommendation engine", () => {
       campaignCount: 0,
       websiteApprovedForRelease: true,
     });
-    assert.ok(ops.some((o) => o.target === "AI_REVENUE_OS" && o.advisoryOnly));
+    assert.ok(
+      ops.some((o) => o.target === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS && o.advisoryOnly)
+    );
   });
 
   it("sequences TRUST before WEBSITE when trust review is ahead", () => {

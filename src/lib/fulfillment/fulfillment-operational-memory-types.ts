@@ -22,7 +22,10 @@ export type FulfillmentOutcomeKind =
   | "owner_review_stalled"
   | "approval_blocked"
   | "trust_packet_stalled"
-  | "website_draft_low_revision";
+  | "website_draft_low_revision"
+  | "revenue_os_launch_blocked"
+  | "revenue_os_campaign_stalled"
+  | "revenue_os_kpi_watch";
 
 export type FulfillmentOutcomeRecord = {
   orderId: string;
@@ -111,6 +114,8 @@ export type ExecutiveFulfillmentOperationalMemoryInsightsDto = {
   highlights: {
     websiteLowRevisionDrafts: number;
     trustStalledPackets: number;
+    revenueOsLaunchBlocked: number;
+    revenueOsCampaignStalled: number;
     clientsNeedingGuidance: number;
     fastestApprovalFlow: string | null;
     topEffectiveRecommendation: string | null;

@@ -3,7 +3,11 @@ import type {
   FulfillmentOutcomeRecord,
   OperationalMemoryOrderRecord,
 } from "@/lib/fulfillment/fulfillment-operational-memory-types";
-import { FULFILLMENT_PRIMARY_SERVICE_TRUST, FULFILLMENT_PRIMARY_SERVICE_WEBSITE } from "@/lib/fulfillment/fulfillment-types";
+import {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+  FULFILLMENT_PRIMARY_SERVICE_TRUST,
+  FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
+} from "@/lib/fulfillment/fulfillment-types";
 
 const STALL_DAYS = 7;
 
@@ -18,7 +22,13 @@ export function trackFulfillmentOutcomes(
     let outcome: FulfillmentOutcomeKind = "progressing";
     let summary = `${o.department} progressing in ${o.pipelineStage}`;
 
-    if (o.approvalStatus === "pending") {
+    if (
+      o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
+      o.approvalStatus === "pending"
+    ) {
+      outcome = "revenue_os_launch_blocked";
+      summary = "REVENUE_OS blocked on campaign review or launch readiness approval";
+    } else if (o.approvalStatus === "pending") {
       outcome = "approval_blocked";
       summary = `${o.department} blocked on executive approval`;
     } else if (
@@ -41,6 +51,19 @@ export function trackFulfillmentOutcomes(
     } else if (o.clientDeliveryStatus === "client_approved") {
       outcome = "client_approved";
       summary = `${o.department} client approved deliverable`;
+    } else if (
+      o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
+      o.daysInCurrentStage >= STALL_DAYS &&
+      o.pipelineStage !== "released"
+    ) {
+      outcome = "revenue_os_campaign_stalled";
+      summary = `REVENUE_OS campaign fulfillment stalled (${o.daysInCurrentStage}d in ${o.pipelineStage})`;
+    } else if (
+      o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
+      (revisionCount >= 2 || o.clientDeliveryStatus === "client_revision_requested")
+    ) {
+      outcome = "revenue_os_kpi_watch";
+      summary = "REVENUE_OS revision-heavy — review KPI and creative before launch checkpoint";
     } else if (o.ownerReviewStatus === "pending" && o.daysInCurrentStage >= STALL_DAYS) {
       outcome = "owner_review_stalled";
       summary = `${o.department} owner review stalled (${o.daysInCurrentStage}d)`;

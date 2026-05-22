@@ -58,6 +58,21 @@ export const FULFILLMENT_DEPARTMENT_DEPENDENCIES: CrossDepartmentDependency[] = 
     optional: true,
   },
   {
+    from: FULFILLMENT_PRIMARY_SERVICE_TRUST,
+    to: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+    kind: "parallel_safe",
+    summary:
+      "TRUST and REVENUE_OS governed fulfillment are isolated — coordinate disclaimers only; no trust apply from campaign desk.",
+    optional: true,
+  },
+  {
+    from: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+    to: FULFILLMENT_PRIMARY_SERVICE_TRUST,
+    kind: "informational",
+    summary: "Campaign creative may reference entity structure reviewed in TRUST packets — informational only.",
+    optional: true,
+  },
+  {
     from: "AI_REVENUE_OS",
     to: FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
     kind: "soft_prerequisite",
@@ -78,11 +93,16 @@ export function getDependenciesForDepartment(
 export function resolveCrossDepartmentDependencyNarrative(input: {
   websiteOrderActive: boolean;
   trustOrderActive: boolean;
+  revenueOsOrderActive?: boolean;
   websiteStage: string | null;
   trustStage: string | null;
+  revenueOsStage?: string | null;
+  revenueOsLaunchReadinessApproved?: boolean;
 }): {
   websiteDependsOnTrust: boolean;
   trustDependsOnWebsite: boolean;
+  revenueOsDependsOnWebsite: boolean;
+  websiteBenefitsFromRevenueOs: boolean;
   narrative: string;
 } {
   const trustSubstantiallyComplete =
@@ -97,8 +117,20 @@ export function resolveCrossDepartmentDependencyNarrative(input: {
   const websiteDependsOnTrust = websiteEarly && input.trustOrderActive && !trustSubstantiallyComplete;
   const trustDependsOnWebsite = false;
 
+  const websiteReleased =
+    input.websiteStage === "approved_for_release" || input.websiteStage === "released";
+  const revenueOsDependsOnWebsite =
+    Boolean(input.revenueOsOrderActive) &&
+    input.websiteOrderActive &&
+    !websiteReleased;
+  const websiteBenefitsFromRevenueOs =
+    Boolean(input.revenueOsOrderActive) &&
+    input.websiteOrderActive &&
+    websiteEarly &&
+    !input.revenueOsLaunchReadinessApproved;
+
   const parts: string[] = [
-    "WEBSITE and TRUST fulfillment are isolated spines with optional coordination.",
+    "WEBSITE, TRUST, and REVENUE_OS fulfillment are isolated spines with optional coordination — no autonomous launch or publish.",
   ];
   if (websiteDependsOnTrust) {
     parts.push(
@@ -120,9 +152,27 @@ export function resolveCrossDepartmentDependencyNarrative(input: {
 
   parts.push("TRUST does not depend on WEBSITE for legal-review packet fulfillment in Slice 1.");
 
+  if (input.revenueOsOrderActive) {
+    if (revenueOsDependsOnWebsite) {
+      parts.push(
+        "REVENUE_OS launch readiness benefits from WEBSITE release — soft prerequisite only; Bentley sync-launch remains owner-approved separately."
+      );
+    } else if (input.revenueOsLaunchReadinessApproved) {
+      parts.push(
+        "REVENUE_OS launch readiness checkpoint is recorded — campaign sync/publish still requires Bentley approval queue (no Content360 bypass)."
+      );
+    } else {
+      parts.push(
+        "REVENUE_OS campaign fulfillment active — complete campaign review packet and launch readiness checkpoint before any paid launch."
+      );
+    }
+  }
+
   return {
     websiteDependsOnTrust,
     trustDependsOnWebsite,
+    revenueOsDependsOnWebsite,
+    websiteBenefitsFromRevenueOs,
     narrative: parts.join(" "),
   };
 }

@@ -7,10 +7,13 @@ import type {
 } from "@/lib/fulfillment/fulfillment-orchestration-types";
 import { loadTrustIntakeFromOrder } from "@/lib/fulfillment/trust-intake-summary";
 import { loadWebsiteIntakeFromOrder } from "@/lib/fulfillment/website-intake-summary";
+import { loadRevenueOsIntakeFromOrder } from "@/lib/fulfillment/revenue-os-intake-readiness";
 import {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
+import type { FulfillmentOrchestrationDepartment } from "@/lib/fulfillment/fulfillment-orchestration-types";
 
 const STALL_DAYS_THRESHOLD = 7;
 
@@ -35,6 +38,16 @@ export function detectClientStallReasons(orders: ClientFulfillmentOrderSnapshot[
     if (o.pipelineStage === "owner_review" && o.ownerReviewStatus === "pending") {
       reasons.push(`${o.department}: owner review pending on deliverable`);
     }
+    if (
+      o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
+      !o.launchReadinessApproved &&
+      o.pipelineStage === "approved_for_release"
+    ) {
+      reasons.push(`${o.department}: launch readiness checkpoint not recorded — Bentley launch still gated`);
+    }
+    if (o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS && !o.campaignId) {
+      reasons.push(`${o.department}: campaign not linked on fulfillment handoff`);
+    }
     if (!o.paymentConsumed && o.paymentStatus !== "confirmed" && o.pipelineStage === "executive_handoff_received") {
       reasons.push(`${o.department}: payment not confirmed — handoff blocked`);
     }
@@ -49,6 +62,7 @@ export function buildSharedClientReadinessSummary(input: {
     executiveHandoffJson: string | null;
     salesSummaryText: string | null;
     requestedDeliverableJson: string | null;
+    pipelineStage?: string;
   }>;
 }): SharedClientReadinessSummary {
   const departments: DepartmentReadinessSnapshot[] = [];
@@ -70,6 +84,7 @@ export function buildSharedClientReadinessSummary(input: {
   }
 
   const trustOrder = input.orders.find((o) => o.primaryService === FULFILLMENT_PRIMARY_SERVICE_TRUST);
+  const revenueOrder = input.orders.find((o) => o.primaryService === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
   if (trustOrder) {
     const pkg = loadTrustIntakeFromOrder({
       executiveHandoffJson: trustOrder.executiveHandoffJson,
@@ -85,11 +100,25 @@ export function buildSharedClientReadinessSummary(input: {
     });
   }
 
+  if (revenueOrder) {
+    const pkg = loadRevenueOsIntakeFromOrder({
+      executiveHandoffJson: revenueOrder.executiveHandoffJson,
+      salesSummaryText: revenueOrder.salesSummaryText,
+      pipelineStage: revenueOrder.pipelineStage ?? "executive_handoff_received",
+    });
+    departments.push({
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      tier: pkg.readiness.tier === "ready" ? "ready" : pkg.readiness.tier === "blocked" ? "blocked" : "partial",
+      score: pkg.readiness.score,
+      fulfillmentReady: pkg.readiness.fulfillmentReady,
+      summaryExcerpt: pkg.skipperSummary.slice(0, 400),
+    });
+  }
+
   const overallFulfillmentReady =
     departments.length > 0 && departments.every((d) => d.fulfillmentReady);
 
-  let weakest: typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE | typeof FULFILLMENT_PRIMARY_SERVICE_TRUST | null =
-    null;
+  let weakest: FulfillmentOrchestrationDepartment | null = null;
   if (departments.length) {
     const sorted = [...departments].sort((a, b) => a.score - b.score);
     weakest = sorted[0]!.department;

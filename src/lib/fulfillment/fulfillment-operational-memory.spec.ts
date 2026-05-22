@@ -12,6 +12,7 @@ import { learnOperatorPriorityPatterns } from "@/lib/fulfillment/operator-patter
 import { buildOperationalMemoryStore } from "@/lib/fulfillment/operational-memory-store";
 import type { OperationalMemoryOrderRecord } from "@/lib/fulfillment/fulfillment-operational-memory-types";
 import type { FulfillmentRecommendation } from "@/lib/fulfillment/fulfillment-orchestration-types";
+import { FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS } from "@/lib/fulfillment/fulfillment-types";
 
 const websiteOrder = (overrides: Partial<OperationalMemoryOrderRecord> = {}): OperationalMemoryOrderRecord => ({
   orderId: "web-1",
@@ -53,6 +54,22 @@ describe("operational memory analytics", () => {
     );
     assert.ok(outcomes.some((o) => o.outcome === "website_draft_low_revision"));
     assert.ok(outcomes.some((o) => o.outcome === "trust_packet_stalled"));
+  });
+
+  it("tracks REVENUE_OS launch blocked outcomes", () => {
+    const outcomes = trackFulfillmentOutcomes(
+      [
+        {
+          ...websiteOrder(),
+          orderId: "rev-1",
+          department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+          approvalStatus: "pending",
+          pipelineStage: "owner_review",
+        },
+      ],
+      new Map()
+    );
+    assert.ok(outcomes.some((o) => o.outcome === "revenue_os_launch_blocked"));
   });
 
   it("ranks approval_review recommendations higher when approval blocked", () => {

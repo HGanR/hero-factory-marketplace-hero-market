@@ -7,6 +7,14 @@ import type {
   UnifiedTimelineEntry,
 } from "@/lib/fulfillment/fulfillment-orchestration-types";
 
+/** Optional REVENUE_OS signals surfaced in subject workspace for Skipper. */
+export type SubjectRevenueOsWorkspaceSlice = {
+  campaignId: string | null;
+  launchReadinessApproved: boolean;
+  launchBlockerCount: number;
+  pendingApproval: boolean;
+} | null;
+
 export type SubjectExecutiveWorkspaceDto = {
   ok: true;
   generatedAt: string;
@@ -19,6 +27,7 @@ export type SubjectExecutiveWorkspaceDto = {
   orders: ClientFulfillmentOrderSnapshot[];
   health: ClientHealthScore | null;
   memoryHighlights: SubjectMemoryHighlights | null;
+  revenueOsSlice: SubjectRevenueOsWorkspaceSlice;
   skipperBrief: string | null;
   meta: {
     recommendationOnly: true;

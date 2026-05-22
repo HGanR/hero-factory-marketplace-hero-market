@@ -13,9 +13,15 @@ import type {
   SharedClientReadinessSummary,
 } from "@/lib/fulfillment/fulfillment-orchestration-types";
 import {
+  buildRevenueOsOrchestrationSignals,
+  rankRevenueOsRecommendationPriority,
+} from "@/lib/fulfillment/revenue-os-orchestration-signals";
+import {
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
+import type { FulfillmentOrchestrationDepartment } from "@/lib/fulfillment/fulfillment-orchestration-types";
 
 export type RecommendationEngineInput = {
   clientId: string;
@@ -25,12 +31,130 @@ export type RecommendationEngineInput = {
   health: ClientHealthScore;
   campaignCount: number;
   websiteApprovedForRelease: boolean;
+  /** When true, campaign KPI signals suggest watch/at_risk (read-only). */
+  revenueOsKpiAtRisk?: boolean;
   /** Read-only operational memory weights — reorders recommendations only. */
   memoryWeights?: RecommendationMemoryWeights;
 };
 
-function findOrder(orders: ClientFulfillmentOrderSnapshot[], dept: "WEBSITE" | "TRUST") {
+function findOrder(
+  orders: ClientFulfillmentOrderSnapshot[],
+  dept: FulfillmentOrchestrationDepartment
+) {
   return orders.find((o) => o.department === dept) ?? null;
+}
+
+function buildRevenueOsCampaignRecommendations(
+  order: ClientFulfillmentOrderSnapshot,
+  input: RecommendationEngineInput
+): FulfillmentRecommendation[] {
+  const recs: FulfillmentRecommendation[] = [];
+  if (order.department !== FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS) return recs;
+
+  const signals = buildRevenueOsOrchestrationSignals(order, null, {
+    websiteOrderReleased: input.websiteApprovedForRelease,
+  });
+  if (!signals) return recs;
+
+  const priority = rankRevenueOsRecommendationPriority({
+    hasLaunchBlockers: signals.launchBlockers.length > 0,
+    pendingApproval: signals.pendingRevenueOsApproval,
+    kpiAtRisk: Boolean(input.revenueOsKpiAtRisk),
+    stalled: signals.stalledCampaignFulfillment,
+  });
+
+  if (!signals.campaignId) {
+    recs.push({
+      id: randomUUID(),
+      kind: "resolve_bottleneck",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      priority: "high",
+      title: "Link campaign to REVENUE_OS fulfillment order",
+      rationale:
+        "Campaign fulfillment intake requires campaignId on order handoff — no autonomous campaign creation.",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if (
+    order.pipelineStage === "executive_handoff_received" &&
+    order.paymentConsumed &&
+    order.approvalStatus === "none" &&
+    signals.campaignId
+  ) {
+    recs.push({
+      id: randomUUID(),
+      kind: "engage_department",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      priority,
+      title: "Propose REVENUE_OS campaign review packet",
+      rationale:
+        "Campaign linked — queue createRevenueOsCampaignReviewPacket approval (internal note only; no publish or Content360 execution).",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if (
+    signals.campaignId &&
+    !signals.launchReadinessApproved &&
+    (order.ownerReviewStatus === "approved" || order.pipelineStage === "service_drafting")
+  ) {
+    recs.push({
+      id: randomUUID(),
+      kind: "engage_department",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      priority,
+      title: "Propose REVENUE_OS launch readiness checkpoint",
+      rationale:
+        "After campaign review — owner must approve launch readiness checkpoint. Does not run sync-launch or ad spend.",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if (signals.launchBlockers.length > 0) {
+    recs.push({
+      id: randomUUID(),
+      kind: "resolve_bottleneck",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      priority: "high",
+      title: "Resolve REVENUE_OS launch blockers",
+      rationale: signals.launchBlockers.slice(0, 4).join("; "),
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if ((order.revisionRound ?? 0) >= 2) {
+    recs.push({
+      id: randomUUID(),
+      kind: "monitor_only",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      priority: "normal",
+      title: "Review recurring REVENUE_OS campaign revisions",
+      rationale: `Revision round ${order.revisionRound ?? 0} — align creative before launch checkpoint; no autonomous relaunch.`,
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  if (input.revenueOsKpiAtRisk) {
+    recs.push({
+      id: randomUUID(),
+      kind: "monitor_only",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      priority: "normal",
+      title: "Monitor REVENUE_OS KPI health",
+      rationale:
+        "Post/campaign KPI signals are at risk — triage failed posts and confirm no autonomous publish retry.",
+      requiresHumanAction: true,
+      relatedOrderIds: [order.orderId],
+    });
+  }
+
+  return recs;
 }
 
 export function buildFulfillmentSequencingRecommendation(
@@ -38,8 +162,8 @@ export function buildFulfillmentSequencingRecommendation(
 ): FulfillmentSequencingRecommendation {
   const web = findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_WEBSITE);
   const trust = findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_TRUST);
-  const blockedBy: Array<typeof FULFILLMENT_PRIMARY_SERVICE_WEBSITE | typeof FULFILLMENT_PRIMARY_SERVICE_TRUST> =
-    [];
+  const revenue = findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
+  const blockedBy: FulfillmentOrchestrationDepartment[] = [];
 
   if (!orders.length) {
     return {
@@ -58,7 +182,16 @@ export function buildFulfillmentSequencingRecommendation(
     };
   }
 
-  if (web && !trust) {
+  if (revenue && !web && !trust) {
+    return {
+      recommendedOrder: [FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS],
+      rationale:
+        "REVENUE_OS-only — complete campaign review packet and launch readiness checkpoint before any Bentley launch approval.",
+      blockedBy: [],
+    };
+  }
+
+  if (web && !trust && !revenue) {
     return {
       recommendedOrder: [FULFILLMENT_PRIMARY_SERVICE_WEBSITE],
       rationale: "WEBSITE-only client — proceed with Site Builder drafting and owner review.",
@@ -92,11 +225,20 @@ export function buildFulfillmentSequencingRecommendation(
   if (web && trust && trust.approvalStatus === "pending") {
     blockedBy.push(FULFILLMENT_PRIMARY_SERVICE_TRUST);
   }
+  if (revenue && revenue.approvalStatus === "pending") {
+    blockedBy.push(FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
+  }
+
+  const recommendedOrder: FulfillmentOrchestrationDepartment[] = [
+    FULFILLMENT_PRIMARY_SERVICE_TRUST,
+    FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
+  ];
+  if (revenue) recommendedOrder.push(FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
 
   return {
-    recommendedOrder: [FULFILLMENT_PRIMARY_SERVICE_TRUST, FULFILLMENT_PRIMARY_SERVICE_WEBSITE],
+    recommendedOrder,
     rationale:
-      "Parallel desk work allowed — default sequencing favors TRUST legal-review clarity before WEBSITE publish-sensitive copy, but neither blocks the other.",
+      "Parallel desk work allowed — TRUST → WEBSITE → REVENUE_OS is a common owner sequence; launch still requires separate Bentley approvals (no autonomous spend).",
     blockedBy,
   };
 }
@@ -105,6 +247,7 @@ export function detectCrossSellOpportunities(input: RecommendationEngineInput): 
   const ops: CrossSellOpportunity[] = [];
   const web = findOrder(input.orders, FULFILLMENT_PRIMARY_SERVICE_WEBSITE);
   const trust = findOrder(input.orders, FULFILLMENT_PRIMARY_SERVICE_TRUST);
+  const revenue = findOrder(input.orders, FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
 
   if (web && !trust) {
     ops.push({
@@ -130,14 +273,26 @@ export function detectCrossSellOpportunities(input: RecommendationEngineInput): 
     });
   }
 
-  if (input.websiteApprovedForRelease && input.campaignCount === 0) {
+  if (input.websiteApprovedForRelease && input.campaignCount === 0 && !revenue) {
     ops.push({
       id: randomUUID(),
-      target: "AI_REVENUE_OS",
-      title: "AI Revenue OS onboarding (advisory)",
+      target: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      title: "Consider REVENUE_OS campaign fulfillment intake",
       rationale:
-        "WEBSITE draft approved for internal release and no campaigns on file — human desk may evaluate AI Revenue OS onboarding; no automatic campaign sync or publish.",
+        "WEBSITE approved for release and no governed REVENUE_OS order — executive desk may open campaign fulfillment (no worker handoff).",
       confidence: "medium",
+      advisoryOnly: true,
+    });
+  }
+
+  if (revenue && !web) {
+    ops.push({
+      id: randomUUID(),
+      target: FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
+      title: "Consider WEBSITE for campaign landing",
+      rationale:
+        "REVENUE_OS active without WEBSITE — landing pages may need Site Builder release before launch readiness (advisory only).",
+      confidence: "high",
       advisoryOnly: true,
     });
   }
@@ -198,10 +353,17 @@ export function buildFulfillmentRecommendations(input: RecommendationEngineInput
         rationale:
           order.department === FULFILLMENT_PRIMARY_SERVICE_TRUST
             ? "Review trust legal-review packet internally — no trust apply or client delivery."
-            : "Review Site Builder draft internally — no deploy or client send from this recommendation.",
+            : order.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS
+              ? "Review campaign review packet — launch requires separate readiness checkpoint and Bentley approval."
+              : "Review Site Builder draft internally — no deploy or client send from this recommendation.",
         requiresHumanAction: true,
         relatedOrderIds: [order.orderId],
       });
+    }
+
+    if (order.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS) {
+      recs.push(...buildRevenueOsCampaignRecommendations(order, input));
+      continue;
     }
 
     if (
@@ -265,11 +427,15 @@ export function buildFulfillmentRecommendations(input: RecommendationEngineInput
     });
   }
 
+  const revenueOrder = findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
   const dep = resolveCrossDepartmentDependencyNarrative({
     websiteOrderActive: Boolean(findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_WEBSITE)),
     trustOrderActive: Boolean(findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_TRUST)),
+    revenueOsOrderActive: Boolean(revenueOrder),
     websiteStage: findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_WEBSITE)?.pipelineStage ?? null,
     trustStage: findOrder(orders, FULFILLMENT_PRIMARY_SERVICE_TRUST)?.pipelineStage ?? null,
+    revenueOsStage: revenueOrder?.pipelineStage ?? null,
+    revenueOsLaunchReadinessApproved: revenueOrder?.launchReadinessApproved ?? false,
   });
   if (dep.websiteDependsOnTrust) {
     recs.push({
@@ -278,6 +444,18 @@ export function buildFulfillmentRecommendations(input: RecommendationEngineInput
       department: FULFILLMENT_PRIMARY_SERVICE_TRUST,
       priority: "low",
       title: "Coordinate TRUST before WEBSITE publish-sensitive copy",
+      rationale: dep.narrative,
+      requiresHumanAction: true,
+      relatedOrderIds: orders.map((o) => o.orderId),
+    });
+  }
+  if (dep.revenueOsDependsOnWebsite) {
+    recs.push({
+      id: randomUUID(),
+      kind: "monitor_only",
+      department: FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
+      priority: "normal",
+      title: "Align WEBSITE before REVENUE_OS launch readiness",
       rationale: dep.narrative,
       requiresHumanAction: true,
       relatedOrderIds: orders.map((o) => o.orderId),

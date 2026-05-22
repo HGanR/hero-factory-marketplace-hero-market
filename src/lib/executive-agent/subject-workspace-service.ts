@@ -24,8 +24,13 @@ import {
   buildExecutiveFulfillmentOperationsOverview,
 } from "@/lib/fulfillment/fulfillment-operations-service";
 import {
+  buildRevenueOsOrchestrationSignals,
+} from "@/lib/fulfillment/revenue-os-orchestration-signals";
+import {
+  FULFILLMENT_DEPARTMENT_AI_REVENUE_OS,
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
   FULFILLMENT_DEPARTMENT_TRUST_RECORDS,
+  FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS,
   FULFILLMENT_PRIMARY_SERVICE_TRUST,
   FULFILLMENT_PRIMARY_SERVICE_WEBSITE,
 } from "@/lib/fulfillment/fulfillment-types";
@@ -48,6 +53,12 @@ function departmentFromOrder(row: {
     row.assignedDepartment === FULFILLMENT_DEPARTMENT_TRUST_RECORDS
   ) {
     return FULFILLMENT_PRIMARY_SERVICE_TRUST;
+  }
+  if (
+    row.primaryService === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS &&
+    row.assignedDepartment === FULFILLMENT_DEPARTMENT_AI_REVENUE_OS
+  ) {
+    return FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS;
   }
   return null;
 }
@@ -82,6 +93,9 @@ function buildDeskWorkspaceHeadline(scope: ReturnType<typeof resolveSubjectWorks
   }
   if (scope.workspaceKind === "trust") {
     return "TRUST legal-review desk — Jarva packets only; no trust apply or client-facing adaptation.";
+  }
+  if (scope.workspaceKind === "revenue_os") {
+    return "REVENUE_OS campaign fulfillment — review packets and launch readiness checkpoints only; Bentley launch remains owner-approved.";
   }
   if (scope.workspaceKind === "client") {
     return "Client executive review — cross-department fulfillment graph and recommendations.";
@@ -135,7 +149,8 @@ export async function buildSubjectExecutiveWorkspace(
     (scope.workspaceKind === "client" ||
       scope.workspaceKind === "fulfillment_case" ||
       scope.workspaceKind === "website" ||
-      scope.workspaceKind === "trust")
+      scope.workspaceKind === "trust" ||
+      scope.workspaceKind === "revenue_os")
   ) {
     const clientOps = await buildClientFulfillmentOperations(db, {
       adminUserId: input.adminUserId,
@@ -152,7 +167,11 @@ export async function buildSubjectExecutiveWorkspace(
         scope.clientId = clientOps.clientId;
       }
     }
-  } else if (scope.workspaceKind === "website" || scope.workspaceKind === "trust") {
+  } else if (
+    scope.workspaceKind === "website" ||
+    scope.workspaceKind === "trust" ||
+    scope.workspaceKind === "revenue_os"
+  ) {
     const overview = await buildExecutiveFulfillmentOperationsOverview(db, {
       adminUserId: input.adminUserId,
       limit: 40,
@@ -187,6 +206,25 @@ export async function buildSubjectExecutiveWorkspace(
 
   const headline = buildDeskWorkspaceHeadline(scope);
   const activeOrderIds = orders.map((o) => o.orderId);
+  const revenueOrder = orders.find((o) => o.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS);
+  const revenueSignals = revenueOrder
+    ? buildRevenueOsOrchestrationSignals(revenueOrder, null, {
+        websiteOrderReleased: orders.some(
+          (o) =>
+            o.department === FULFILLMENT_PRIMARY_SERVICE_WEBSITE &&
+            (o.pipelineStage === "approved_for_release" || o.pipelineStage === "released")
+        ),
+      })
+    : null;
+  const revenueOsSlice = revenueSignals
+    ? {
+        campaignId: revenueSignals.campaignId,
+        launchReadinessApproved: revenueSignals.launchReadinessApproved,
+        launchBlockerCount: revenueSignals.launchBlockers.length,
+        pendingApproval: revenueSignals.pendingRevenueOsApproval,
+      }
+    : null;
+
   let skipperContext = buildSubjectSkipperContext({
     scope,
     headline,
@@ -234,6 +272,17 @@ export async function buildSubjectExecutiveWorkspace(
     if (tasksCtx.skipperTaskContext) {
       skipperContext = `${skipperContext} ${tasksCtx.skipperTaskContext}`;
     }
+    if (scope.workspaceKind === "revenue_os" || scope.department === "REVENUE_OS") {
+      const { buildExecutiveRevenueOsFulfillmentForSkipper } = await import(
+        "@/lib/fulfillment/revenue-os-fulfillment-service"
+      );
+      const revBundle = await buildExecutiveRevenueOsFulfillmentForSkipper(db, {
+        adminUserId: input.adminUserId,
+        orderId: scope.orderId,
+        clientId: scope.clientId,
+      });
+      skipperContext = `${skipperContext} ${revBundle.headline} Stalled: ${revBundle.queueSummary.stalledCount}; launch checkpoint pending: ${revBundle.queueSummary.pendingLaunchCheckpoint}.`;
+    }
   } catch {
     /* threads/decisions/tasks tables may be absent in some dev DBs */
   }
@@ -268,6 +317,7 @@ export async function buildSubjectExecutiveWorkspace(
     orders,
     health,
     memoryHighlights,
+    revenueOsSlice,
     skipperBrief,
     meta: {
       recommendationOnly: true,

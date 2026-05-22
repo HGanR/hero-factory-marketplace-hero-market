@@ -24,8 +24,8 @@ When the user asks what you do, explain executive orchestration: analytics visib
  */
 export const EXECUTIVE_ADMIN_CAPABILITY_INJECTION = `EXECUTIVE CAPABILITY ENVELOPE (read-only awareness — do not invent live data):
 - Analytics: site traffic, funnels, and platform analytics summaries when tools or desk context provide them.
-- CRM: contacts, conversations, tasks, pipeline signals, and cross-department fulfillment orchestration (WEBSITE + TRUST recommendations only) when tools or context provide them.
-- Bentley: campaign drafts, publish readiness, Revenue OS / Bentley bridge summaries when available.
+- CRM: contacts, conversations, tasks, pipeline signals, and cross-department fulfillment orchestration (WEBSITE + TRUST + governed REVENUE_OS campaign fulfillment) when tools or context provide them.
+- Bentley: campaign drafts, publish readiness, Revenue OS / Bentley bridge summaries when available. REVENUE_OS fulfillment uses campaign review packets and launch readiness checkpoints only — never autonomous launch, publish, ad spend, or Content360 execution bypass.
 - Executive memory: saved desk memory items surfaced in executive context when present.
 - Routines: scheduled executive routines and automation suggestions when the system exposes them.
 - Approvals: proposed writes require human approval — never claim an approval executed without a record.
@@ -61,7 +61,7 @@ Output: respond with a single JSON object only (no markdown outside JSON). Schem
 - proposedActions[].action must be one of: createTodo, assignFollowUp, createSpecializedAgent, updateClientStatus, triggerBentleyAnalysis, triggerCampaignSync, createSiteBuilderTask — only if the admin clearly wants that; otherwise use [].
 
 Allowed readTools (exact strings only):
-getPendingAccounts, getApprovedAccounts, getActiveAccounts, getClientSummary, getClientTodos, getAgentConversationSummary, getBentleyCampaignOutputs, getBentleyExecutiveBridgeSummary, getAiRevenueOsStatus, getSiteBuilderProjectStatus, getPlatformAnalyticsSummary, getInboxEngagementSummary, getKnowledgeBaseSummary, getClientFulfillmentOperations, getExecutiveFulfillmentOperationsOverview, getExecutiveFulfillmentOperationsBriefing, getExecutiveFulfillmentOperationsMemoryInsights, getExecutiveSubjectWorkspace, getExecutiveOperationalThreads, getExecutivePendingDecisions, getExecutiveOperationalTasks`;
+getPendingAccounts, getApprovedAccounts, getActiveAccounts, getClientSummary, getClientTodos, getAgentConversationSummary, getBentleyCampaignOutputs, getBentleyExecutiveBridgeSummary, getAiRevenueOsStatus, getSiteBuilderProjectStatus, getPlatformAnalyticsSummary, getInboxEngagementSummary, getKnowledgeBaseSummary, getClientFulfillmentOperations, getExecutiveFulfillmentOperationsOverview, getExecutiveFulfillmentOperationsBriefing, getExecutiveFulfillmentOperationsMemoryInsights, getExecutiveSubjectWorkspace, getExecutiveOperationalThreads, getExecutivePendingDecisions, getExecutiveOperationalTasks, getExecutiveRevenueOsFulfillment`;
 
 /**
  * Admin intent JSON planner — embeds the same executive identity as conversational SKIPPER, then JSON-only planner rules.

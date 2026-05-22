@@ -189,6 +189,10 @@ export type ClientFulfillmentOrderSnapshot = {
   createdAt: string;
   updatedAt: string | null;
   daysInCurrentStage: number;
+  /** REVENUE_OS handoff — campaign linkage for orchestration graph. */
+  campaignId?: string | null;
+  launchReadinessApproved?: boolean;
+  revisionRound?: number;
 };
 
 export type ClientFulfillmentOperationsDto = {
@@ -205,6 +209,8 @@ export type ClientFulfillmentOperationsDto = {
   dependencies: {
     websiteDependsOnTrust: boolean;
     trustDependsOnWebsite: boolean;
+    revenueOsDependsOnWebsite: boolean;
+    websiteBenefitsFromRevenueOs: boolean;
     narrative: string;
   };
   orders: ClientFulfillmentOrderSnapshot[];
@@ -225,6 +231,7 @@ export type ExecutiveFulfillmentOperationsOverviewDto = {
     pendingApprovals: number;
     websiteOrders: number;
     trustOrders: number;
+    revenueOsOrders: number;
   };
   bottlenecks: OperationalBottleneck[];
   clients: Array<{

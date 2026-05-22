@@ -26,18 +26,24 @@ function outcomeBoostForKind(
   const total = outcomes.length || 1;
   const approvalBlocked = outcomes.filter((o) => o.outcome === "approval_blocked").length / total;
   const stalled = outcomes.filter(
-    (o) => o.outcome === "trust_packet_stalled" || o.outcome === "owner_review_stalled"
+    (o) =>
+      o.outcome === "trust_packet_stalled" ||
+      o.outcome === "owner_review_stalled" ||
+      o.outcome === "revenue_os_campaign_stalled"
   ).length / total;
+  const revenueLaunchBlocked =
+    outcomes.filter((o) => o.outcome === "revenue_os_launch_blocked").length / total;
+  const revenueKpiWatch = outcomes.filter((o) => o.outcome === "revenue_os_kpi_watch").length / total;
   const lowRevision = outcomes.filter((o) => o.outcome === "website_draft_low_revision").length / total;
   const revisionHeavy = outcomes.filter((o) => o.outcome === "revision_heavy").length / total;
 
   switch (kind) {
     case "approval_review":
       return {
-        score: 0.5 + approvalBlocked * 0.45,
+        score: 0.5 + approvalBlocked * 0.45 + revenueLaunchBlocked * 0.25,
         insight:
-          approvalBlocked > 0.15
-            ? "Approval review recommendations correlate with blocked orders — prioritize when backlog exists."
+          approvalBlocked > 0.15 || revenueLaunchBlocked > 0.1
+            ? "Approval review recommendations correlate with blocked orders — prioritize REVENUE_OS launch checkpoints when pending."
             : "Approval queue is light — use when new proposals land.",
       };
     case "stall_recovery":
@@ -66,7 +72,10 @@ function outcomeBoostForKind(
     case "sequence_next":
       return { score: 0.45, insight: "Sequencing is advisory — effective when TRUST and WEBSITE both active." };
     case "monitor_only":
-      return { score: 0.35, insight: "Monitor-only — deprioritize when urgent approvals exist." };
+      return {
+        score: 0.35 + revenueKpiWatch * 0.25,
+        insight: "Monitor-only — elevate when REVENUE_OS KPI watch signals appear.",
+      };
     case "cross_sell_advisory":
       return { score: 0.3, insight: "Cross-sell advisories — human-only; never auto-order." };
     default:
