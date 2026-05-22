@@ -597,6 +597,41 @@ export async function getExecutiveKpiOverview(ctx: ExecutiveToolContext, limit =
   });
 }
 
+/** Simulation scenarios overview — advisory, non-destructive. */
+export async function getExecutiveSimulationOverview(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutiveSimulationOverview } = await import(
+    "@/lib/executive-agent/executive-simulation-service"
+  );
+  return buildExecutiveSimulationOverview(ctx.db, { adminUserId: ctx.adminUserId, limit });
+}
+
+/** Run advisory operational simulation (in-memory only). */
+export async function runExecutiveSimulation(
+  ctx: ExecutiveToolContext,
+  scenarioId = "baseline",
+  limit = 60
+) {
+  const { buildExecutiveSimulationForSkipper } = await import(
+    "@/lib/executive-agent/executive-simulation-service"
+  );
+  const id = String(scenarioId).trim() as import("@/lib/executive-agent/executive-simulation-types").SimulationScenarioId;
+  const allowed = [
+    "baseline",
+    "approval_delay_stress",
+    "operator_redistribution",
+    "escalation_pressure",
+    "department_rebalance",
+    "launch_readiness_watch",
+    "governance_stagnation_watch",
+  ];
+  const safeId = allowed.includes(id) ? id : "baseline";
+  return buildExecutiveSimulationForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    scenarioId: safeId,
+    limit,
+  });
+}
+
 /** Governed operator registry and approval delegation chain. */
 export async function getExecutiveOperatorRegistry(ctx: ExecutiveToolContext) {
   const { buildExecutiveOperatorsRegistry } = await import(

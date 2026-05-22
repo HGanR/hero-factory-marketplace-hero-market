@@ -30,7 +30,9 @@ export type ExecutiveReadToolKey =
   | "getExecutiveKpiOverview"
   | "getExecutiveKpiForecast"
   | "getExecutiveOperatorRegistry"
-  | "getExecutiveOperatorWorkload";
+  | "getExecutiveOperatorWorkload"
+  | "getExecutiveSimulationOverview"
+  | "runExecutiveSimulation";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -61,6 +63,8 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveKpiForecast: "getExecutiveKpiForecast",
   getExecutiveOperatorRegistry: "getExecutiveOperatorRegistry",
   getExecutiveOperatorWorkload: "getExecutiveOperatorWorkload",
+  getExecutiveSimulationOverview: "getExecutiveSimulationOverview",
+  runExecutiveSimulation: "runExecutiveSimulation",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -179,6 +183,17 @@ export function pickExecutiveReadTools(
   ) {
     out.add("getExecutiveOperatorRegistry");
     out.add("getExecutiveOperatorWorkload");
+  }
+  if (
+    /simulation|what if|scenario compare|timeline simulation|bottleneck cascade|launch probability|governance stagnation|redistribution outcome|approval delay impact|simulate desk/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveSimulationOverview");
+    out.add("runExecutiveSimulation");
+  }
+  if (/run simulation|simulate scenario|approval_delay|operator_redistribution/.test(p)) {
+    out.add("runExecutiveSimulation");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

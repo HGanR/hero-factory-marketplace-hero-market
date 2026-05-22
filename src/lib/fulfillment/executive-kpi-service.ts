@@ -41,7 +41,7 @@ const FULFILLMENT_ACTIONS = [
   "recordSmartTrustResolutionCheckpoint",
 ] as const;
 
-async function buildKpiEngineInput(
+export async function buildKpiEngineInput(
   db: Db,
   input: { adminUserId: number; limit?: number }
 ): Promise<ExecutiveKpiEngineInput> {

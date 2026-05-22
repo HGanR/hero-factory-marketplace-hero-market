@@ -18,6 +18,10 @@ import { ExecutiveOperatorPanel } from "./ExecutiveOperatorPanel";
 import { OperatorWorkloadPanel } from "./OperatorWorkloadPanel";
 import { DelegationQueuePanel } from "./DelegationQueuePanel";
 import { EscalationPanel } from "./EscalationPanel";
+import { ExecutiveSimulationPanel } from "./ExecutiveSimulationPanel";
+import { SimulationForecastPanel } from "./SimulationForecastPanel";
+import { ScenarioComparisonPanel } from "./ScenarioComparisonPanel";
+import { BottleneckCascadePanel } from "./BottleneckCascadePanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -3626,6 +3630,10 @@ export function ExecutiveAgentDashboard() {
                 });
               }}
             />
+            <ExecutiveSimulationPanel />
+            <SimulationForecastPanel />
+            <ScenarioComparisonPanel />
+            <BottleneckCascadePanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}

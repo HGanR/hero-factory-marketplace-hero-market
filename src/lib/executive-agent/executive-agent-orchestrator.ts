@@ -195,6 +195,12 @@ async function runReadTool(
       case "getExecutiveOperatorWorkload":
         data = await Tools.getExecutiveOperatorWorkload(ctx);
         break;
+      case "getExecutiveSimulationOverview":
+        data = await Tools.getExecutiveSimulationOverview(ctx);
+        break;
+      case "runExecutiveSimulation":
+        data = await Tools.runExecutiveSimulation(ctx);
+        break;
       default:
         return null;
     }
