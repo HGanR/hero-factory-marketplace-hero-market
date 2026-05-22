@@ -39,6 +39,7 @@ import { CrossAgentEscalationPanel } from "./CrossAgentEscalationPanel";
 import { ExecutiveAgentCoordinationPanel } from "./ExecutiveAgentCoordinationPanel";
 import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
 import { AgentRoutingPanel } from "./AgentRoutingPanel";
+import { ExecutiveAutomationPanel } from "./ExecutiveAutomationPanel";
 import { ExecutionApprovalPanel } from "./ExecutionApprovalPanel";
 import { RollbackControlPanel } from "./RollbackControlPanel";
 import { AutomationHistoryPanel } from "./AutomationHistoryPanel";
