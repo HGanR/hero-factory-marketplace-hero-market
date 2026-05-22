@@ -37,7 +37,10 @@ export type ExecutiveReadToolKey =
   | "getExecutiveKnowledgeClient"
   | "getExecutiveKnowledgeOperator"
   | "getExecutivePlanningOverview"
-  | "generateExecutivePlan";
+  | "generateExecutivePlan"
+  | "getExecutiveCommandOverview"
+  | "getExecutiveCommandIncidents"
+  | "getExecutiveCommandAlerts";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -75,6 +78,9 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveKnowledgeOperator: "getExecutiveKnowledgeOperator",
   getExecutivePlanningOverview: "getExecutivePlanningOverview",
   generateExecutivePlan: "generateExecutivePlan",
+  getExecutiveCommandOverview: "getExecutiveCommandOverview",
+  getExecutiveCommandIncidents: "getExecutiveCommandIncidents",
+  getExecutiveCommandAlerts: "getExecutiveCommandAlerts",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -230,6 +236,21 @@ export function pickExecutiveReadTools(
   }
   if (/generate.*plan|build.*roadmap|recovery strateg/.test(p)) {
     out.add("generateExecutivePlan");
+  }
+  if (
+    /command center|live operational|incident intelligence|executive alert|kpi drift|escalation surge|governance anomal|campaign degrad|crisis coordin|operational crisis|command routing|approval surge|stalled fulfillment/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveCommandOverview");
+    out.add("getExecutiveCommandIncidents");
+    out.add("getExecutiveCommandAlerts");
+  }
+  if (/priority incident|incident triage/.test(p)) {
+    out.add("getExecutiveCommandIncidents");
+  }
+  if (/executive alert|severity.?rank|alert priorit/.test(p)) {
+    out.add("getExecutiveCommandAlerts");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

@@ -30,6 +30,11 @@ import { ExecutivePlanningPanel } from "./ExecutivePlanningPanel";
 import { RecoveryPlanningPanel } from "./RecoveryPlanningPanel";
 import { StaffingPlanningPanel } from "./StaffingPlanningPanel";
 import { InitiativePlanningPanel } from "./InitiativePlanningPanel";
+import { ExecutiveCommandCenterPanel } from "./ExecutiveCommandCenterPanel";
+import { IncidentIntelligencePanel } from "./IncidentIntelligencePanel";
+import { LiveOperationalFeedPanel } from "./LiveOperationalFeedPanel";
+import { GovernanceAlertPanel } from "./GovernanceAlertPanel";
+import { CrisisCoordinationPanel } from "./CrisisCoordinationPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -3650,6 +3655,11 @@ export function ExecutiveAgentDashboard() {
             <RecoveryPlanningPanel />
             <StaffingPlanningPanel />
             <InitiativePlanningPanel />
+            <ExecutiveCommandCenterPanel />
+            <IncidentIntelligencePanel />
+            <LiveOperationalFeedPanel />
+            <GovernanceAlertPanel />
+            <CrisisCoordinationPanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}

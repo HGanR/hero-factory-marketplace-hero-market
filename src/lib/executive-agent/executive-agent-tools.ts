@@ -744,6 +744,49 @@ export async function generateExecutivePlan(
   });
 }
 
+/** Live executive command center — monitoring only, no autonomous execution. */
+export async function getExecutiveCommandOverview(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutiveCommandForSkipper } = await import(
+    "@/lib/executive-agent/executive-command-service"
+  );
+  return buildExecutiveCommandForSkipper(ctx.db, { adminUserId: ctx.adminUserId, limit });
+}
+
+/** Priority incident intelligence — advisory triage. */
+export async function getExecutiveCommandIncidents(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutiveCommandIncidentsForAdmin } = await import(
+    "@/lib/executive-agent/executive-command-service"
+  );
+  const result = await buildExecutiveCommandIncidentsForAdmin(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+  });
+  return {
+    monitoringOnly: true,
+    advisoryOnly: true,
+    incidents: result.incidents.slice(0, 10),
+    topIncident: result.topIncident,
+    generatedAt: result.generatedAt,
+  };
+}
+
+/** Severity-ranked executive alerts — advisory routing only. */
+export async function getExecutiveCommandAlerts(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutiveCommandAlertsForAdmin } = await import(
+    "@/lib/executive-agent/executive-command-service"
+  );
+  const result = await buildExecutiveCommandAlertsForAdmin(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    limit,
+  });
+  return {
+    monitoringOnly: true,
+    advisoryOnly: true,
+    alerts: result.alerts.slice(0, 12),
+    generatedAt: result.generatedAt,
+  };
+}
+
 /** Governed operator registry and approval delegation chain. */
 export async function getExecutiveOperatorRegistry(ctx: ExecutiveToolContext) {
   const { buildExecutiveOperatorsRegistry } = await import(

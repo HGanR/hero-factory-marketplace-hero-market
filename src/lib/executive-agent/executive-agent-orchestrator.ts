@@ -216,6 +216,15 @@ async function runReadTool(
       case "generateExecutivePlan":
         data = await Tools.generateExecutivePlan(ctx);
         break;
+      case "getExecutiveCommandOverview":
+        data = await Tools.getExecutiveCommandOverview(ctx);
+        break;
+      case "getExecutiveCommandIncidents":
+        data = await Tools.getExecutiveCommandIncidents(ctx);
+        break;
+      case "getExecutiveCommandAlerts":
+        data = await Tools.getExecutiveCommandAlerts(ctx);
+        break;
       default:
         return null;
     }
