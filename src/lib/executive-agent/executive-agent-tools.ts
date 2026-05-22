@@ -632,6 +632,77 @@ export async function runExecutiveSimulation(
   });
 }
 
+/** Executive knowledge graph and strategic memory — read-only, long-horizon. */
+export async function getExecutiveKnowledgeOverview(ctx: ExecutiveToolContext, limit = 60) {
+  const { buildExecutiveKnowledgeForSkipper } = await import(
+    "@/lib/executive-agent/executive-knowledge-service"
+  );
+  return buildExecutiveKnowledgeForSkipper(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    clientId: ctx.selectedClientId ?? null,
+    limit,
+  });
+}
+
+/** Client-scoped executive knowledge — trajectories, relationships, history. */
+export async function getExecutiveKnowledgeClient(
+  ctx: ExecutiveToolContext,
+  clientId?: string | null,
+  limit = 60
+) {
+  const id = (clientId ?? ctx.selectedClientId ?? "").trim();
+  if (!id) {
+    return { error: "client_id_required", message: "Select a client for knowledge graph context." };
+  }
+  const { buildExecutiveKnowledgeClientForAdmin } = await import(
+    "@/lib/executive-agent/executive-knowledge-service"
+  );
+  const result = await buildExecutiveKnowledgeClientForAdmin(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    clientId: id,
+    limit,
+  });
+  if (!result.ok) return result;
+  return {
+    readOnlyIntelligence: true,
+    advisoryOnly: true,
+    clientId: result.clientId,
+    skipperSummary: result.skipperSummary,
+    lifecycle: result.lifecycle.trajectories.slice(0, 5),
+    relationships: result.relationships.relationshipInsights,
+    strategicPriorities: result.strategicPriorities.priorities.slice(0, 6),
+    historicalContext: result.historicalContext.historicalSummary,
+    graph: { nodeCount: result.graph.nodeCount, edgeCount: result.graph.edgeCount },
+    generatedAt: result.generatedAt,
+  };
+}
+
+/** Operator specialization history and institutional patterns. */
+export async function getExecutiveKnowledgeOperator(
+  ctx: ExecutiveToolContext,
+  operatorId?: string | null
+) {
+  const id = (operatorId ?? "fulfillment_coordinator").trim();
+  const { buildExecutiveKnowledgeOperatorForAdmin } = await import(
+    "@/lib/executive-agent/executive-knowledge-service"
+  );
+  const result = await buildExecutiveKnowledgeOperatorForAdmin(ctx.db, {
+    adminUserId: ctx.adminUserId,
+    operatorId: id,
+  });
+  if (!result.ok) return result;
+  return {
+    readOnlyIntelligence: true,
+    advisoryOnly: true,
+    operatorId: result.operatorId,
+    skipperSummary: result.skipperSummary,
+    specializationHistory: result.specializationHistory,
+    workloadInsight: result.workloadInsight,
+    institutionalWeaknesses: result.organizationalPatterns.institutionalWeaknesses.slice(0, 6),
+    generatedAt: result.generatedAt,
+  };
+}
+
 /** Governed operator registry and approval delegation chain. */
 export async function getExecutiveOperatorRegistry(ctx: ExecutiveToolContext) {
   const { buildExecutiveOperatorsRegistry } = await import(

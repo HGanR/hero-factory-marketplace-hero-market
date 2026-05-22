@@ -32,7 +32,10 @@ export type ExecutiveReadToolKey =
   | "getExecutiveOperatorRegistry"
   | "getExecutiveOperatorWorkload"
   | "getExecutiveSimulationOverview"
-  | "runExecutiveSimulation";
+  | "runExecutiveSimulation"
+  | "getExecutiveKnowledgeOverview"
+  | "getExecutiveKnowledgeClient"
+  | "getExecutiveKnowledgeOperator";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -65,6 +68,9 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveOperatorWorkload: "getExecutiveOperatorWorkload",
   getExecutiveSimulationOverview: "getExecutiveSimulationOverview",
   runExecutiveSimulation: "runExecutiveSimulation",
+  getExecutiveKnowledgeOverview: "getExecutiveKnowledgeOverview",
+  getExecutiveKnowledgeClient: "getExecutiveKnowledgeClient",
+  getExecutiveKnowledgeOperator: "getExecutiveKnowledgeOperator",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -194,6 +200,21 @@ export function pickExecutiveReadTools(
   }
   if (/run simulation|simulate scenario|approval_delay|operator_redistribution/.test(p)) {
     out.add("runExecutiveSimulation");
+  }
+  if (
+    /knowledge graph|strategic memory|long.?horizon|organizational pattern|institutional bottleneck|operator specialization|client trajectory|department evolution|historical context|executive knowledge|persistent memory|recurring pattern/.test(
+      p
+    )
+  ) {
+    out.add("getExecutiveKnowledgeOverview");
+    out.add("getExecutiveKnowledgeClient");
+    out.add("getExecutiveKnowledgeOperator");
+  }
+  if (/client trajectory|client lifecycle intelligence|long.?term client/.test(p)) {
+    out.add("getExecutiveKnowledgeClient");
+  }
+  if (/operator specialization|operator history|operator evolution/.test(p)) {
+    out.add("getExecutiveKnowledgeOperator");
   }
   if (/what.*client still need|what department|fulfillment-ready|depends on trust|depends on website|ai revenue os onboarding|operational bottleneck/.test(p)) {
     out.add("getClientFulfillmentOperations");

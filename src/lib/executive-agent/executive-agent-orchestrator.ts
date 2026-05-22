@@ -201,6 +201,15 @@ async function runReadTool(
       case "runExecutiveSimulation":
         data = await Tools.runExecutiveSimulation(ctx);
         break;
+      case "getExecutiveKnowledgeOverview":
+        data = await Tools.getExecutiveKnowledgeOverview(ctx);
+        break;
+      case "getExecutiveKnowledgeClient":
+        data = await Tools.getExecutiveKnowledgeClient(ctx);
+        break;
+      case "getExecutiveKnowledgeOperator":
+        data = await Tools.getExecutiveKnowledgeOperator(ctx);
+        break;
       default:
         return null;
     }

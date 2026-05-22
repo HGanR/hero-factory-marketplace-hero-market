@@ -22,6 +22,10 @@ import { ExecutiveSimulationPanel } from "./ExecutiveSimulationPanel";
 import { SimulationForecastPanel } from "./SimulationForecastPanel";
 import { ScenarioComparisonPanel } from "./ScenarioComparisonPanel";
 import { BottleneckCascadePanel } from "./BottleneckCascadePanel";
+import { ExecutiveKnowledgeGraphPanel } from "./ExecutiveKnowledgeGraphPanel";
+import { StrategicMemoryPanel } from "./StrategicMemoryPanel";
+import { OrganizationalIntelligencePanel } from "./OrganizationalIntelligencePanel";
+import { HistoricalContextPanel } from "./HistoricalContextPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -3634,6 +3638,10 @@ export function ExecutiveAgentDashboard() {
             <SimulationForecastPanel />
             <ScenarioComparisonPanel />
             <BottleneckCascadePanel />
+            <ExecutiveKnowledgeGraphPanel />
+            <StrategicMemoryPanel />
+            <OrganizationalIntelligencePanel />
+            <HistoricalContextPanel />
             <OperationalMemoryInsightsPanel />
             <FulfillmentOrdersPanel
               defaultClientId={clientIdTrim}
