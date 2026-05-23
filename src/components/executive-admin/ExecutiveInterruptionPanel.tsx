@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import type { AmbientExecutiveSignal } from "@/lib/executive-agent/executive-ambient-signal-types";
+import { interruptionChoreographyLevel } from "@/lib/executive-agent/executive-presence-choreography";
 
 type OverviewResponse = {
   ok?: boolean;
@@ -57,6 +59,14 @@ export function ExecutiveInterruptionPanel({
   const visible = items.filter((i) => !dismissedIds?.has(i.id));
   if (!loading && visible.length === 0) return null;
 
+  const SEVERITY_SHELL: Record<AmbientExecutiveSignal["severity"], string> = {
+    critical: "border-rose-500/55 bg-rose-950/30 shadow-[0_0_28px_rgba(244,63,94,0.25)]",
+    high: "border-orange-400/45 bg-orange-950/20 shadow-[0_0_20px_rgba(251,146,60,0.18)]",
+    medium: "border-amber-400/35 bg-amber-950/15",
+    low: "border-slate-500/30 bg-slate-950/20",
+    watch: "border-slate-600/25 bg-slate-950/15",
+  };
+
   return (
     <div className="space-y-2">
       <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-300/90">
@@ -65,31 +75,50 @@ export function ExecutiveInterruptionPanel({
       {loading && !visible.length ? (
         <p className="text-xs text-slate-500">Evaluating interruption thresholds…</p>
       ) : null}
-      {visible.slice(0, 5).map((item) => (
-        <div
-          key={item.id}
-          className="rounded-xl border border-amber-400/30 bg-amber-950/15 p-3"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-amber-200/80">
-                {item.severity} · advisory
-              </p>
-              <p className="mt-1 text-xs text-white">{item.summary}</p>
-              <p className="mt-1 text-[10px] text-slate-400">{item.narration}</p>
-            </div>
-            {onDismiss ? (
-              <button
-                type="button"
-                onClick={() => onDismiss(item.id)}
-                className="shrink-0 text-[9px] uppercase text-slate-500 hover:text-white"
-              >
-                Dismiss
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ))}
+      <AnimatePresence initial={false}>
+        {visible.slice(0, 5).map((item) => {
+          const level = interruptionChoreographyLevel(item.severity);
+          return (
+            <motion.div
+              key={item.id}
+              layout
+              initial={{ opacity: 0, x: -12, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 8, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 420, damping: 32 }}
+              className={`relative overflow-hidden rounded-xl border p-3 ${SEVERITY_SHELL[item.severity] ?? SEVERITY_SHELL.watch}`}
+            >
+              {level === "crisis_overlay" ? (
+                <div aria-hidden className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-r from-rose-500/10 via-transparent to-rose-500/10" />
+              ) : null}
+              {level === "rail_flash" || level === "hud_banner" ? (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-amber-300/80 to-transparent"
+                />
+              ) : null}
+              <div className="relative flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-amber-200/80">
+                    {item.severity} · advisory
+                  </p>
+                  <p className="mt-1 text-xs text-white">{item.summary}</p>
+                  <p className="mt-1 text-[10px] text-slate-400">{item.narration}</p>
+                </div>
+                {onDismiss ? (
+                  <button
+                    type="button"
+                    onClick={() => onDismiss(item.id)}
+                    className="shrink-0 text-[9px] uppercase text-slate-500 hover:text-white"
+                  >
+                    Dismiss
+                  </button>
+                ) : null}
+              </div>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

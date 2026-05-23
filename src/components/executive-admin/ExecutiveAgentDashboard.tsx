@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ExecutiveCollapsibleTile } from "./ExecutiveCollapsibleTile";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { operationalOrbBadgeLabel } from "./ExecutivePresencePanel";
@@ -60,6 +60,12 @@ import {
   type ExecutiveCommandPromptId,
 } from "@/lib/executive-agent/executive-command-prompts";
 import { executiveInboxUploadErrorMessage } from "@/lib/executive-inbox/executive-inbox-upload-errors";
+import { useExecutiveCinematicPresence } from "@/lib/executive-agent/executive-cinematic-presence";
+import {
+  getExecutiveAudioPresence,
+  isExecutiveAudioPresenceEnabled,
+  setExecutiveAudioPresenceEnabled,
+} from "@/lib/executive-agent/executive-audio-presence";
 import { resolveVoiceOperationalQuery } from "@/lib/executive-agent/executive-voice-operational-phrases";
 
 type ExecutiveOrbMode = ExecutiveOrbCanvasProps["mode"];
@@ -2445,6 +2451,43 @@ export function ExecutiveAgentDashboard() {
     return "Standby";
   }, [busy, voiceApprovalFlash, voiceSttBusy, simSpeaking, voiceMode, voice.listening, executivePresence?.orbState]);
 
+  const cinematic = useExecutiveCinematicPresence({
+    presenceMode: ambientOverview?.presenceMode,
+    ambientOverview,
+    ambientOrbState,
+    interruptions: ambientInterruptions,
+    baseOrbIntensity: orbIntensity,
+    orbMode,
+    voiceRms: voice.rms,
+    voiceSpeaking: voice.speaking,
+    voiceListening: voiceMode && voice.listening,
+    simSpeaking,
+    voiceApprovalFlash,
+    processing: busy === "chat" || busy === "voice_turn",
+    activePromptId: activeCommandPromptId,
+  });
+
+  const [cinematicAudioEnabled, setCinematicAudioEnabled] = useState(false);
+  useEffect(() => {
+    setCinematicAudioEnabled(isExecutiveAudioPresenceEnabled());
+  }, []);
+
+  const prevPromptRef = useRef<ExecutiveCommandPromptId | null>(null);
+  useEffect(() => {
+    if (activeCommandPromptId && activeCommandPromptId !== prevPromptRef.current) {
+      getExecutiveAudioPresence().play("command_accepted");
+      prevPromptRef.current = activeCommandPromptId;
+    }
+    if (!activeCommandPromptId) prevPromptRef.current = null;
+  }, [activeCommandPromptId]);
+
+  useEffect(() => {
+    const top = ambientInterruptions[0]?.severity;
+    if (top === "critical" || top === "high") {
+      getExecutiveAudioPresence().play(top === "critical" ? "operational_alert" : "interruption");
+    }
+  }, [ambientInterruptions[0]?.id, ambientInterruptions[0]?.severity]);
+
   const applySubject = useCallback((subject: ExecutiveSubjectConfig) => {
     setActiveSubjectId(subject.id);
     const tabLabel = (BOTTOM_TABS as readonly string[]).includes(subject.navLabel)
@@ -3047,27 +3090,55 @@ export function ExecutiveAgentDashboard() {
           </div>
         ) : null}
 
-        <div className="mx-auto max-w-4xl space-y-4">
-          <OperationalPresenceStatusBar
-            overview={ambientOverview}
-            orbState={ambientOrbState}
-            loading={ambientLoading}
-          />
+        <div
+          className="mx-auto max-w-4xl space-y-4"
+          style={cinematic.commandFocusCssVars as CSSProperties}
+        >
+          <div
+            className="space-y-4 transition-opacity duration-500"
+            style={{ opacity: cinematic.commandFocus.active ? "var(--cmd-focus-rail-opacity, 0.72)" : 1 }}
+          >
+            <OperationalPresenceStatusBar
+              overview={ambientOverview}
+              orbState={ambientOrbState}
+              loading={ambientLoading}
+            />
 
-          <ExecutiveInterruptionPanel
-            interruptions={ambientInterruptions}
-            loading={ambientLoading}
-            dismissedIds={dismissedInterruptions}
-            onDismiss={(id) => setDismissedInterruptions((prev) => new Set([...prev, id]))}
-          />
+            <ExecutiveInterruptionPanel
+              interruptions={ambientInterruptions}
+              loading={ambientLoading}
+              dismissedIds={dismissedInterruptions}
+              onDismiss={(id) => setDismissedInterruptions((prev) => new Set([...prev, id]))}
+            />
 
-          <ExecutiveCommandPromptSelector
-            value={activeCommandPromptId}
-            onChange={(id) => {
-              setActiveCommandPromptId(id);
-              setHudSummary(null);
-            }}
-          />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <ExecutiveCommandPromptSelector
+                value={activeCommandPromptId}
+                onChange={(id) => {
+                  setActiveCommandPromptId(id);
+                  setHudSummary(null);
+                }}
+              />
+              <label className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-500">
+                <input
+                  type="checkbox"
+                  checked={cinematicAudioEnabled}
+                  onChange={(e) => {
+                    setCinematicAudioEnabled(e.target.checked);
+                    setExecutiveAudioPresenceEnabled(e.target.checked);
+                  }}
+                />
+                Cinematic audio
+              </label>
+            </div>
+          </div>
+
+          {cinematic.topInterruptionLevel === "crisis_overlay" ? (
+            <div
+              aria-hidden
+              className="pointer-events-none fixed inset-0 z-[5] bg-[radial-gradient(ellipse_at_center,rgba(244,63,94,0.08),transparent_65%)]"
+            />
+          ) : null}
 
           <ExecutiveSkipperCommandStage
             activePromptId={activeCommandPromptId}
@@ -3079,6 +3150,7 @@ export function ExecutiveAgentDashboard() {
             operationalState={executivePresence?.orbState}
             orbStandbyLabel={orbStandbyLabel}
             ambientPulse={ambientOrbState?.pulseActive}
+            cinematic={cinematic}
             voicePendingAnalytics={Boolean(voicePendingAnalytics)}
             voicePendingOperational={voicePendingOperational}
             selfHostedFallbackBanner={
