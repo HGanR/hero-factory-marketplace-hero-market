@@ -28,6 +28,7 @@ import {
   isVoiceInterruptDuringBriefing,
 } from "@/lib/executive-agent/executive-presence-voice";
 import { tryExecutiveVoiceOperationalHandler } from "@/lib/executive-agent/executive-voice-operational-handler";
+import { enrichVoiceAnswerWithAmbientAwareness } from "@/lib/executive-agent/executive-voice-ambient-awareness";
 
 export const dynamic = "force-dynamic";
 
@@ -173,6 +174,30 @@ export async function POST(req: NextRequest) {
             source: "voice",
           });
         }
+      }
+    }
+
+    const shortCircuit = result.plannerMeta.voiceShortCircuit;
+    if (
+      shortCircuit !== "fresh_greeting" &&
+      shortCircuit !== "presence_greeting" &&
+      shortCircuit !== "analytics_clarification" &&
+      shortCircuit !== "voice_acknowledgement" &&
+      !String(shortCircuit ?? "").startsWith("operational_")
+    ) {
+      const ambient = await enrichVoiceAnswerWithAmbientAwareness(db, adminUserId, result.answer, {
+        audit: false,
+      });
+      if (ambient.ambientAppended) {
+        result = {
+          ...result,
+          answer: ambient.answer,
+          plannerMeta: {
+            ...result.plannerMeta,
+            ambientVoiceBriefing: true,
+            ambientPresenceMode: ambient.presenceMode,
+          },
+        };
       }
     }
 

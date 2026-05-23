@@ -24,7 +24,9 @@ import { RecoveryPlanningPanel } from "./RecoveryPlanningPanel";
 import { StaffingPlanningPanel } from "./StaffingPlanningPanel";
 import { InitiativePlanningPanel } from "./InitiativePlanningPanel";
 import { IncidentIntelligencePanel } from "./IncidentIntelligencePanel";
-import { LiveOperationalFeedPanel } from "./LiveOperationalFeedPanel";
+import { ExecutiveOperationalFeedPanel } from "./ExecutiveOperationalFeedPanel";
+import { LiveAgentActivityPanel } from "./LiveAgentActivityPanel";
+import { AmbientSignalPanel } from "./AmbientSignalPanel";
 import { GovernanceAlertPanel } from "./GovernanceAlertPanel";
 import { CrisisCoordinationPanel } from "./CrisisCoordinationPanel";
 import { ExecutiveAutomationPanel } from "./ExecutiveAutomationPanel";
@@ -226,7 +228,7 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
             {approvals.map((a) => (
               <li key={a.id} id={`executive-approval-${a.id}`} className="rounded-lg border border-slate-700/50 p-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] uppercase text-[#00e5ff]/90">
+                  <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] uppercase text-[#00A3FF]/90">
                     {a.proposedAction}
                   </span>
                   <span className="text-[10px] text-slate-600">{a.id.slice(0, 8)}…</span>
@@ -319,7 +321,9 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
       <ExecutiveCollapsibleTile title="Incidents & governance" subtitle="Live feed, alerts, crisis coordination">
         <ExecutiveEmbeddedStack>
           <IncidentIntelligencePanel />
-          <LiveOperationalFeedPanel />
+          <AmbientSignalPanel />
+          <ExecutiveOperationalFeedPanel />
+          <LiveAgentActivityPanel />
           <GovernanceAlertPanel />
           <CrisisCoordinationPanel />
         </ExecutiveEmbeddedStack>
@@ -391,7 +395,7 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
       <ExecutiveCollapsibleTile title="Conversations & signals" subtitle="Recent threads, follow-ups, Bentley">
         <div className="space-y-3">
           <div>
-            <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00e5ff]/70">
+            <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00A3FF]/70">
               Recent conversations
             </h4>
             {recentConversationsError ? (
@@ -430,7 +434,7 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
                       type="button"
                       disabled={followUpQueueBusyId === rec.id}
                       onClick={() => void onQueueFollowUp(rec)}
-                      className="mt-2 rounded bg-[#00e5ff]/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white disabled:opacity-40"
+                      className="mt-2 rounded bg-[#00A3FF]/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white disabled:opacity-40"
                     >
                       {followUpQueueBusyId === rec.id ? "Queueing…" : "Queue approval"}
                     </button>
@@ -469,7 +473,7 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
 
       <ExecutiveCollapsibleTile title="System & voice" subtitle="Health checks and voice diagnostics">
         <div className="space-y-3">
-          <div className="rounded-lg border border-[#00e5ff]/12 bg-[#02070d]/70 p-2 text-xs">
+          <div className="rounded-lg border border-[#00A3FF]/12 bg-[#00050A]/70 p-2 text-xs">
             <h4 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00b7ff]/70">System health</h4>
             <ul className="mt-2 space-y-1">
               <li className="flex justify-between">
@@ -521,7 +525,7 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
           {summaryError ? <p className="text-xs text-amber-200">{summaryError}</p> : null}
           {chatCharts && chatCharts.length > 0 ? (
             <div className="space-y-2">
-              <h4 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/70">Charts</h4>
+              <h4 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/70">Charts</h4>
               {chatCharts.map((c) => (
                 <div key={c.title} className="rounded-lg border border-slate-700/50 p-2 text-[11px]">
                   <div className="font-medium text-slate-200">{c.title}</div>

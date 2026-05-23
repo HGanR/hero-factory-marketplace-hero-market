@@ -23,7 +23,7 @@ import { buildOperatorWorkloadAnalytics } from "@/lib/executive-agent/operator-w
 
 type Db = MySql2Database<typeof schema>;
 
-async function buildCommandEngineInput(
+export async function buildExecutiveCommandEngineInputForAdmin(
   db: Db,
   input: { adminUserId: number; limit?: number }
 ): Promise<ExecutiveCommandEngineInput> {
@@ -68,7 +68,7 @@ export async function buildExecutiveCommandOverviewForAdmin(
   db: Db,
   input: { adminUserId: number; limit?: number }
 ): Promise<ExecutiveCommandOverviewDto> {
-  const engineInput = await buildCommandEngineInput(db, input);
+  const engineInput = await buildExecutiveCommandEngineInputForAdmin(db, input);
   const overview = buildExecutiveCommandOverview(engineInput);
 
   await insertExecutiveAgentAuditLog(db, {
@@ -94,7 +94,7 @@ export async function buildExecutiveCommandIncidentsForAdmin(
   db: Db,
   input: { adminUserId: number; limit?: number }
 ): Promise<ExecutiveCommandIncidentsDto> {
-  const engineInput = await buildCommandEngineInput(db, input);
+  const engineInput = await buildExecutiveCommandEngineInputForAdmin(db, input);
   const overview = buildExecutiveCommandOverview(engineInput);
 
   await insertExecutiveAgentAuditLog(db, {
@@ -123,7 +123,7 @@ export async function buildExecutiveCommandAlertsForAdmin(
   db: Db,
   input: { adminUserId: number; limit?: number }
 ): Promise<ExecutiveCommandAlertsDto> {
-  const engineInput = await buildCommandEngineInput(db, input);
+  const engineInput = await buildExecutiveCommandEngineInputForAdmin(db, input);
   const overview = buildExecutiveCommandOverview(engineInput);
 
   await insertExecutiveAgentAuditLog(db, {

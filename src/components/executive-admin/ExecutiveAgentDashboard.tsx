@@ -20,6 +20,9 @@ import { ExecutiveTaskQueuePanel } from "./ExecutiveTaskQueuePanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import { ExecutivePresencePanel, operationalOrbBadgeLabel } from "./ExecutivePresencePanel";
 import { ExecutiveVoiceOperationsPanel } from "./ExecutiveVoiceOperationsPanel";
+import { OperationalPresenceStatusBar } from "./OperationalPresenceStatusBar";
+import { ExecutiveInterruptionPanel } from "./ExecutiveInterruptionPanel";
+import { AmbientSignalPanel } from "./AmbientSignalPanel";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import type { ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
 import {
@@ -47,6 +50,11 @@ import {
 } from "@/lib/executive-agent/agent-intelligence-bus";
 import type { LiveMetricsResponse } from "@/lib/executive-agent/executive-live-metrics";
 import type { ExecutivePresenceSnapshot } from "@/lib/executive-agent/executive-presence-types";
+import type {
+  AmbientExecutiveSignal,
+  AmbientOrbState,
+  ExecutiveAmbientSignalOverview,
+} from "@/lib/executive-agent/executive-ambient-signal-types";
 import type { ExecutiveDashboardMode } from "@/lib/executive-agent/executive-agent-chat-request";
 import { EXECUTIVE_DASHBOARD_MODES } from "@/lib/executive-agent/executive-agent-chat-request";
 import {
@@ -361,6 +369,10 @@ export function ExecutiveAgentDashboard() {
   const [presenceError, setPresenceError] = useState<string | null>(null);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [dismissedInterruptions, setDismissedInterruptions] = useState<Set<string>>(() => new Set());
+  const [ambientOverview, setAmbientOverview] = useState<ExecutiveAmbientSignalOverview | null>(null);
+  const [ambientOrbState, setAmbientOrbState] = useState<AmbientOrbState | null>(null);
+  const [ambientInterruptions, setAmbientInterruptions] = useState<AmbientExecutiveSignal[]>([]);
+  const [ambientLoading, setAmbientLoading] = useState(false);
   const [agentIntel, setAgentIntel] = useState<AgentIntelligenceRecord[]>([]);
   const [agentIntelError, setAgentIntelError] = useState<string | null>(null);
   const [chatResult, setChatResult] = useState<ChatResult | null>(null);
@@ -1441,6 +1453,37 @@ export function ExecutiveAgentDashboard() {
     }
   }, []);
 
+  const loadAmbientSignals = useCallback(async () => {
+    setAmbientLoading(true);
+    try {
+      const r = await fetch("/api/admin/executive-agent/signals/overview?audit=0", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        overview?: ExecutiveAmbientSignalOverview;
+        orbState?: AmbientOrbState;
+        interruptions?: AmbientExecutiveSignal[];
+        error?: string;
+      };
+      if (r.ok && j.overview) {
+        setAmbientOverview(j.overview);
+        setAmbientOrbState(j.orbState ?? null);
+        setAmbientInterruptions(j.interruptions ?? []);
+      } else {
+        setAmbientOverview(null);
+        setAmbientOrbState(null);
+        setAmbientInterruptions([]);
+      }
+    } catch {
+      setAmbientOverview(null);
+      setAmbientOrbState(null);
+    } finally {
+      setAmbientLoading(false);
+    }
+  }, []);
+
   const loadAgentIntel = useCallback(async () => {
     setBusy("intel");
     setAgentIntelError(null);
@@ -1548,6 +1591,7 @@ export function ExecutiveAgentDashboard() {
     void loadApprovals();
     void loadLiveMetrics();
     void loadExecutivePresence();
+    void loadAmbientSignals();
     void loadRecentConversations();
     void loadFollowUpRecommendations();
     void loadBriefingToday();
@@ -1556,10 +1600,16 @@ export function ExecutiveAgentDashboard() {
     loadApprovals,
     loadLiveMetrics,
     loadExecutivePresence,
+    loadAmbientSignals,
     loadRecentConversations,
     loadFollowUpRecommendations,
     loadBriefingToday,
   ]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => void loadAmbientSignals(), 45_000);
+    return () => window.clearInterval(id);
+  }, [loadAmbientSignals]);
 
   useEffect(() => {
     void loadLearningPendingPreview();
@@ -2352,7 +2402,9 @@ export function ExecutiveAgentDashboard() {
     setVoiceMode((v) => !v);
   };
 
-  const orbIntensity = voice.listening ? Math.min(1, voice.rms * 2.2) : idlePulse;
+  const orbIntensity = voice.listening
+    ? Math.min(1, voice.rms * 2.2)
+    : Math.max(idlePulse, 0.04 + (ambientOrbState?.blendedIntensity ?? 0) * 0.38);
   const orbMode: ExecutiveOrbMode = useMemo(() => {
     if (voice.error) return "alert";
     if (voiceApprovalFlash) return "approval_waiting";
@@ -2447,12 +2499,12 @@ export function ExecutiveAgentDashboard() {
                     : "Ready";
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#02070d] text-slate-100">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,229,255,0.07),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(0,183,255,0.05),transparent_48%)]" />
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(0,229,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(0,229,255,0.035)_1px,transparent_1px)] bg-[size:28px_28px] opacity-50" />
+    <div className="relative min-h-screen overflow-x-hidden bg-[#00050A] text-slate-100">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,163,255,0.07),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(0,183,255,0.05),transparent_48%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(0,163,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(0,163,255,0.035)_1px,transparent_1px)] bg-[size:28px_28px] opacity-50" />
 
       <div className="relative z-10 mx-auto max-w-[1920px] px-3 pb-36 pt-3 sm:px-5">
-        <header className="mb-3 space-y-3 border-b border-[#00e5ff]/18 pb-3">
+        <header className="mb-3 space-y-3 border-b border-[#00A3FF]/18 pb-3">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h1 className="text-lg font-bold uppercase tracking-[0.26em] text-white sm:text-xl">
@@ -2471,7 +2523,7 @@ export function ExecutiveAgentDashboard() {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-[#00e5ff]/22 bg-[#050b13]/90 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.14em] text-slate-400 shadow-[inset_0_0_22px_rgba(0,229,255,0.04)]">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-[#00A3FF]/22 bg-[#000814]/90 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.14em] text-slate-400 shadow-[inset_0_0_22px_rgba(0,163,255,0.04)]">
             <div className="flex min-w-[8rem] flex-col gap-0.5">
               <span className="text-[#00b7ff]/55">Data source</span>
               <select
@@ -2481,7 +2533,7 @@ export function ExecutiveAgentDashboard() {
                   setDataPreset(v);
                   if (v !== "CUSTOM") setCustomAgents(new Set(EXECUTIVE_AGENT_KEYS));
                 }}
-                className="max-w-[11rem] rounded border border-[#00e5ff]/25 bg-[#02070d] px-1.5 py-1 text-[9px] font-medium normal-case tracking-normal text-[#00e5ff] outline-none focus:border-[#00e5ff]/55"
+                className="max-w-[11rem] rounded border border-[#00A3FF]/25 bg-[#00050A] px-1.5 py-1 text-[9px] font-medium normal-case tracking-normal text-[#00A3FF] outline-none focus:border-[#00A3FF]/55"
               >
                 {DATA_PRESETS.map((p) => (
                   <option key={p} value={p}>
@@ -2494,13 +2546,13 @@ export function ExecutiveAgentDashboard() {
                 ))}
               </select>
             </div>
-            <div className="hidden h-8 w-px bg-[#00e5ff]/15 sm:block" aria-hidden />
+            <div className="hidden h-8 w-px bg-[#00A3FF]/15 sm:block" aria-hidden />
             <div className="flex min-w-[5rem] flex-col gap-0.5">
               <span className="text-[#00b7ff]/55">Mode</span>
               <select
                 value={dashboardMode}
                 onChange={(e) => setDashboardMode(e.target.value as ExecutiveDashboardMode)}
-                className="max-w-[10rem] rounded border border-[#00e5ff]/25 bg-[#02070d] px-1.5 py-1 text-[9px] font-medium normal-case tracking-normal text-[#00e5ff] outline-none focus:border-[#00e5ff]/55"
+                className="max-w-[10rem] rounded border border-[#00A3FF]/25 bg-[#00050A] px-1.5 py-1 text-[9px] font-medium normal-case tracking-normal text-[#00A3FF] outline-none focus:border-[#00A3FF]/55"
               >
                 {MODE_OPTIONS.map((m) => (
                   <option key={m} value={m}>
@@ -2509,13 +2561,13 @@ export function ExecutiveAgentDashboard() {
                 ))}
               </select>
             </div>
-            <div className="hidden h-8 w-px bg-[#00e5ff]/15 sm:block" aria-hidden />
+            <div className="hidden h-8 w-px bg-[#00A3FF]/15 sm:block" aria-hidden />
             <div className="flex min-w-[5rem] flex-col gap-0.5">
               <span className="text-[#00b7ff]/55">Time</span>
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value as (typeof TIME_OPTIONS)[number])}
-                className="rounded border border-[#00e5ff]/25 bg-[#02070d] px-1.5 py-1 text-[9px] font-medium normal-case tracking-normal text-[#00e5ff] outline-none focus:border-[#00e5ff]/55"
+                className="rounded border border-[#00A3FF]/25 bg-[#00050A] px-1.5 py-1 text-[9px] font-medium normal-case tracking-normal text-[#00A3FF] outline-none focus:border-[#00A3FF]/55"
               >
                 {TIME_OPTIONS.map((t) => (
                   <option key={t} value={t}>
@@ -2524,21 +2576,21 @@ export function ExecutiveAgentDashboard() {
                 ))}
               </select>
             </div>
-            <div className="hidden h-8 w-px bg-[#00e5ff]/15 md:block" aria-hidden />
+            <div className="hidden h-8 w-px bg-[#00A3FF]/15 md:block" aria-hidden />
             <div className="flex min-w-[7rem] flex-col gap-0.5">
               <span className="text-[#00b7ff]/55">Voice input</span>
               <span className="text-[9px] font-semibold normal-case tracking-normal text-slate-200">
                 {voiceSttInputMode.replace(/_/g, " ")}
               </span>
             </div>
-            <div className="hidden h-8 w-px bg-[#00e5ff]/15 lg:block" aria-hidden />
+            <div className="hidden h-8 w-px bg-[#00A3FF]/15 lg:block" aria-hidden />
             <div className="flex min-w-[6rem] flex-1 flex-col gap-0.5 lg:items-end">
               <span className="text-[#00b7ff]/55">Clock</span>
-              <span className="text-[9px] font-semibold tabular-nums normal-case tracking-normal text-[#00e5ff]/90">
+              <span className="text-[9px] font-semibold tabular-nums normal-case tracking-normal text-[#00A3FF]/90">
                 {hudClock.toLocaleTimeString()}
               </span>
             </div>
-            <div className="hidden h-8 w-px bg-[#00e5ff]/15 lg:block" aria-hidden />
+            <div className="hidden h-8 w-px bg-[#00A3FF]/15 lg:block" aria-hidden />
             <div className="flex min-w-[6rem] flex-col gap-0.5 lg:items-end">
               <span className="text-[#00b7ff]/55">Runtime</span>
               <span
@@ -2549,14 +2601,14 @@ export function ExecutiveAgentDashboard() {
                 {runtimeHudLabel}
               </span>
             </div>
-            <div className="hidden h-8 w-px bg-[#00e5ff]/15 xl:block" aria-hidden />
+            <div className="hidden h-8 w-px bg-[#00A3FF]/15 xl:block" aria-hidden />
             <div className="hidden min-w-[10rem] flex-col gap-0.5 xl:flex">
               <span className="text-[#00b7ff]/55">Workspace client</span>
               <input
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder="Client UUID"
-                className="w-full rounded border border-[#00e5ff]/25 bg-[#02070d] px-1.5 py-1 text-[9px] font-mono normal-case tracking-normal text-[#00e5ff] outline-none"
+                className="w-full rounded border border-[#00A3FF]/25 bg-[#00050A] px-1.5 py-1 text-[9px] font-mono normal-case tracking-normal text-[#00A3FF] outline-none"
               />
             </div>
             <div className="hidden min-w-[10rem] flex-col gap-0.5 xl:flex">
@@ -2565,17 +2617,17 @@ export function ExecutiveAgentDashboard() {
                 value={workspaceOrderId}
                 onChange={(e) => setWorkspaceOrderId(e.target.value)}
                 placeholder="Order UUID"
-                className="w-full rounded border border-[#00e5ff]/25 bg-[#02070d] px-1.5 py-1 text-[9px] font-mono normal-case tracking-normal text-[#00e5ff] outline-none"
+                className="w-full rounded border border-[#00A3FF]/25 bg-[#00050A] px-1.5 py-1 text-[9px] font-mono normal-case tracking-normal text-[#00A3FF] outline-none"
               />
             </div>
           </div>
         </header>
 
         {activeSubjectId === "inbox" ? (
-          <section className="mb-4 rounded-2xl border border-[#00e5ff]/28 bg-slate-950/70 p-4 shadow-[0_0_28px_rgba(0,229,255,0.08)] backdrop-blur-md">
+          <section className="mb-4 rounded-2xl border border-[#00A3FF]/28 bg-slate-950/70 p-4 shadow-[0_0_28px_rgba(0,163,255,0.08)] backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00e5ff]/90">
+                <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00A3FF]/90">
                   Admin Executive inbox
                 </h2>
                 <p className="mt-0.5 text-[10px] text-slate-500">
@@ -2585,7 +2637,7 @@ export function ExecutiveAgentDashboard() {
               <button
                 type="button"
                 onClick={() => void loadExecutiveInboxAdmin()}
-                className="rounded-full border border-[#00e5ff]/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/40"
+                className="rounded-full border border-[#00A3FF]/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00A3FF] hover:bg-[#000814]/40"
               >
                 Refresh
               </button>
@@ -2693,7 +2745,7 @@ export function ExecutiveAgentDashboard() {
             <button
               type="button"
               onClick={() => void sendExecutiveInbox()}
-              className="rounded-lg bg-[#00e5ff] px-4 py-2 text-sm font-semibold text-slate-950"
+              className="rounded-lg bg-[#00A3FF] px-4 py-2 text-sm font-semibold text-slate-950"
             >
               Send
             </button>
@@ -2725,16 +2777,16 @@ export function ExecutiveAgentDashboard() {
         ) : null}
 
         {bottomTab === "Settings" ? (
-          <section className="mb-4 rounded-2xl border border-[#00e5ff]/20 bg-slate-950/70 p-4 backdrop-blur-md">
+          <section className="mb-4 rounded-2xl border border-[#00A3FF]/20 bg-slate-950/70 p-4 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00e5ff]/90">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00A3FF]/90">
                 Settings — Scheduled routines
               </h2>
               <button
                 type="button"
                 disabled={executiveRoutinesBusy}
                 onClick={() => void loadExecutiveRoutines()}
-                className="rounded-full border border-[#00e5ff]/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/40 disabled:opacity-40"
+                className="rounded-full border border-[#00A3FF]/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00A3FF] hover:bg-[#000814]/40 disabled:opacity-40"
               >
                 Refresh
               </button>
@@ -2760,7 +2812,7 @@ export function ExecutiveAgentDashboard() {
                       className="rounded-xl border border-slate-700/60 bg-slate-900/40 px-3 py-2 text-slate-300"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-mono text-[11px] text-[#00e5ff]">{rt.routineType}</span>
+                        <span className="font-mono text-[11px] text-[#00A3FF]">{rt.routineType}</span>
                         <span className="text-[10px] uppercase tracking-wide text-slate-500">{rt.cadence}</span>
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-3 text-[10px] text-slate-500">
@@ -2804,8 +2856,8 @@ export function ExecutiveAgentDashboard() {
             {!executiveRoutinesBusy && executiveRoutines.length === 0 ? (
               <p className="text-xs text-slate-500">No routines yet — daily briefing seed runs when you open this tab.</p>
             ) : null}
-            <div className="mt-8 border-t border-[#00e5ff]/15 pt-4">
-              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00e5ff]/90">Knowledge base</h2>
+            <div className="mt-8 border-t border-[#00A3FF]/15 pt-4">
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00A3FF]/90">Knowledge base</h2>
               {knowledgeError ? <p className="mb-2 text-xs text-amber-200">{knowledgeError}</p> : null}
               <div className="mb-3 grid gap-2 md:grid-cols-2">
                 <input
@@ -2818,7 +2870,7 @@ export function ExecutiveAgentDashboard() {
                   type="button"
                   disabled={knowledgeBusy}
                   onClick={() => void postKnowledgeNote()}
-                  className="rounded-lg bg-[#00e5ff] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                  className="rounded-lg bg-[#00A3FF] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
                 >
                   Save note
                 </button>
@@ -2847,7 +2899,7 @@ export function ExecutiveAgentDashboard() {
               </div>
               <ul className="max-h-40 space-y-2 overflow-y-auto text-xs text-slate-300">
                 {knowledgeDocs.map((d) => (
-                  <li key={d.id} className="flex items-start justify-between gap-2 rounded border border-slate-800/80 bg-[#050b13]/75 px-2 py-1">
+                  <li key={d.id} className="flex items-start justify-between gap-2 rounded border border-slate-800/80 bg-[#000814]/75 px-2 py-1">
                     <span className="truncate">
                       <span className="font-mono text-[10px] text-slate-500">{d.sourceType}</span> · {d.title}
                     </span>
@@ -2858,8 +2910,8 @@ export function ExecutiveAgentDashboard() {
                 ))}
               </ul>
             </div>
-            <div className="mt-8 border-t border-[#00e5ff]/15 pt-4">
-              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00e5ff]/90">Question history</h2>
+            <div className="mt-8 border-t border-[#00A3FF]/15 pt-4">
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00A3FF]/90">Question history</h2>
               <ul className="max-h-52 space-y-2 overflow-y-auto text-[11px] text-slate-400">
                 {questionHistory.map((q) => (
                   <li key={q.id} className="rounded border border-slate-800/80 bg-slate-950/40 px-2 py-1">
@@ -2945,7 +2997,7 @@ export function ExecutiveAgentDashboard() {
                 />
               </div>
               <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">
                   Active visitors / page views
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -2955,7 +3007,7 @@ export function ExecutiveAgentDashboard() {
                 </p>
               </div>
               <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">
                   Traffic sources
                 </h3>
                 {trafficUnavailable ? (
@@ -2968,8 +3020,8 @@ export function ExecutiveAgentDashboard() {
                         <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={48} />
                         <YAxis tick={{ fill: "#94a3b8", fontSize: 9 }} allowDecimals={false} width={32} />
                         <Tooltip
-                          cursor={{ fill: "rgba(0,229,255,0.08)" }}
-                          contentStyle={{ background: "#050b13", border: "1px solid rgba(0,229,255,0.3)", fontSize: 11 }}
+                          cursor={{ fill: "rgba(0,163,255,0.08)" }}
+                          contentStyle={{ background: "#000814", border: "1px solid rgba(0,163,255,0.3)", fontSize: 11 }}
                         />
                         <Bar dataKey="visitors" fill="#22d3ee" radius={[4, 4, 0, 0]} />
                       </BarChart>
@@ -2986,7 +3038,7 @@ export function ExecutiveAgentDashboard() {
                 </p>
                 <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">
                   PayPal intent rate:{" "}
-                  <span className="font-mono text-[#00e5ff]">
+                  <span className="font-mono text-[#00A3FF]">
                     {ta?.paypalIntentRate != null ? `${(ta.paypalIntentRate * 100).toFixed(1)}%` : "—"}
                   </span>
                 </p>
@@ -3001,7 +3053,7 @@ export function ExecutiveAgentDashboard() {
                 </p>
               </div>
               <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">
                   Landing link performance
                 </h3>
                 {landingCtasUnavailable || landingCtas.length === 0 ? (
@@ -3013,15 +3065,15 @@ export function ExecutiveAgentDashboard() {
                     {landingCtas.map((cta) => (
                       <li
                         key={`${cta.eventName}:${cta.label}:${cta.targetHref ?? ""}`}
-                        className="flex items-start justify-between gap-2 border-b border-[#00e5ff]/10 py-1"
+                        className="flex items-start justify-between gap-2 border-b border-[#00A3FF]/10 py-1"
                       >
                         <div className="min-w-0">
                           <span className="block truncate font-medium text-slate-200">{cta.label || cta.eventName}</span>
                           {cta.targetHref ? (
-                            <span className="block truncate font-mono text-[10px] text-[#00e5ff]/60">{cta.targetHref}</span>
+                            <span className="block truncate font-mono text-[10px] text-[#00A3FF]/60">{cta.targetHref}</span>
                           ) : null}
                         </div>
-                        <span className="shrink-0 font-mono text-[#00e5ff]/80">{cta.clicks}</span>
+                        <span className="shrink-0 font-mono text-[#00A3FF]/80">{cta.clicks}</span>
                       </li>
                     ))}
                   </ul>
@@ -3082,13 +3134,13 @@ export function ExecutiveAgentDashboard() {
                 )}
               </div>
               <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">Top pages</h3>
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">Top pages</h3>
                 {liveMetrics?.topPages.unavailable || topPages.length === 0 ? (
                   <p className="text-xs text-slate-500">No page-level rollups configured.</p>
                 ) : (
                   <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
                     {topPages.map((pg) => (
-                      <li key={pg.path} className="flex justify-between gap-2 border-b border-[#00e5ff]/10 py-1 font-mono text-[#00e5ff]/80">
+                      <li key={pg.path} className="flex justify-between gap-2 border-b border-[#00A3FF]/10 py-1 font-mono text-[#00A3FF]/80">
                         <span className="truncate">{pg.path}</span>
                         <span>{pg.visitors ?? "—"}</span>
                       </li>
@@ -3199,7 +3251,7 @@ export function ExecutiveAgentDashboard() {
               <h3 className="mt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/60">Activity</h3>
               <ul className="max-h-48 space-y-2 overflow-y-auto text-[11px] text-slate-400">
                 {activityFeed.map((line, i) => (
-                  <li key={`${i}-${line.slice(0, 24)}`} className="border-l border-[#00e5ff]/20 pl-2">
+                  <li key={`${i}-${line.slice(0, 24)}`} className="border-l border-[#00A3FF]/20 pl-2">
                     {line}
                   </li>
                 ))}
@@ -3408,12 +3460,12 @@ export function ExecutiveAgentDashboard() {
                   <p className="font-medium text-amber-50/95">{dailyBriefing.headline}</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00e5ff]/70">
+                      <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00A3FF]/70">
                         Top priorities
                       </h3>
                       <ul className="space-y-1.5 text-[11px] text-slate-300">
                         {(dailyBriefing.priorities ?? []).slice(0, 3).map((p, i) => (
-                          <li key={`p-${i}`} className="rounded border border-[#00e5ff]/10 bg-slate-900/40 px-2 py-1.5">
+                          <li key={`p-${i}`} className="rounded border border-[#00A3FF]/10 bg-slate-900/40 px-2 py-1.5">
                             <div className="font-medium text-slate-100">{p.title}</div>
                             <div className="mt-0.5 text-slate-500">{p.detail}</div>
                           </li>
@@ -3469,6 +3521,23 @@ export function ExecutiveAgentDashboard() {
               ) : null}
             </ExecutiveCollapsibleTile>
 
+            <OperationalPresenceStatusBar
+              overview={ambientOverview}
+              orbState={ambientOrbState}
+              loading={ambientLoading}
+            />
+
+            <AmbientSignalPanel overview={ambientOverview} loading={ambientLoading} />
+
+            <ExecutiveInterruptionPanel
+              interruptions={ambientInterruptions}
+              loading={ambientLoading}
+              dismissedIds={dismissedInterruptions}
+              onDismiss={(id) =>
+                setDismissedInterruptions((prev) => new Set([...prev, id]))
+              }
+            />
+
             <ExecutivePresencePanel
               presence={executivePresence}
               loading={presenceLoading}
@@ -3479,7 +3548,7 @@ export function ExecutiveAgentDashboard() {
               }
             />
 
-            <div className="relative aspect-[5/4] max-h-[min(62vh,640px)] w-full max-w-xl mx-auto overflow-hidden rounded-3xl border border-[#00e5ff]/30 bg-[#02070d]/80 shadow-[0_0_48px_rgba(0,229,255,0.14),inset_0_0_40px_rgba(0,183,255,0.06)]">
+            <div className="relative aspect-[5/4] max-h-[min(62vh,640px)] w-full max-w-xl mx-auto overflow-hidden rounded-3xl border border-[#00A3FF]/30 bg-[#00050A]/80 shadow-[0_0_48px_rgba(0,163,255,0.14),inset_0_0_40px_rgba(0,183,255,0.06)]">
               {executiveOutputVoice?.voiceProvider === "self_hosted_tts" &&
               selfHostedHealth &&
               !executiveSelfHostedVoiceReady(selfHostedHealth) ? (
@@ -3496,11 +3565,11 @@ export function ExecutiveAgentDashboard() {
                 focusMode={dashboardMode.replace(/_/g, " ")}
                 operationalState={executivePresence?.orbState}
               />
-              <div className="pointer-events-none absolute right-3 top-3 rounded-full border border-[#00e5ff]/35 bg-[#02070d]/85 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]">
-                {orbStandbyLabel}
+              <div className="pointer-events-none absolute right-3 top-3 rounded-full border border-[#00A3FF]/35 bg-[#00050A]/85 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]">
+                {ambientOrbState?.pulseActive ? "Signal pulse" : orbStandbyLabel}
               </div>
               {voicePendingAnalytics ? (
-                <p className="pointer-events-none absolute left-3 top-14 z-[5] max-w-[15rem] rounded-lg border border-[#00e5ff]/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-[#00e5ff]/90 shadow-md">
+                <p className="pointer-events-none absolute left-3 top-14 z-[5] max-w-[15rem] rounded-lg border border-[#00A3FF]/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-[#00A3FF]/90 shadow-md">
                   Say <span className="font-semibold text-white">site visits</span>,{" "}
                   <span className="font-semibold text-white">active users</span>,{" "}
                   <span className="font-semibold text-white">traffic sources</span>, or{" "}
@@ -3508,25 +3577,25 @@ export function ExecutiveAgentDashboard() {
                 </p>
               ) : null}
               {voicePendingOperational?.intent === "inbox_audio_confirm" ? (
-                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-emerald-400/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-emerald-100/90 shadow-md">
+                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-emerald-400/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-emerald-100/90 shadow-md">
                   Say <span className="font-semibold text-white">yes</span> to play the inbox audio, or{" "}
                   <span className="font-semibold text-white">no</span> to skip.
                 </p>
               ) : null}
               {voicePendingOperational?.intent === "registration_phone_offer" ? (
-                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
+                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
                   Say <span className="font-semibold text-white">yes</span> for onboarding phone numbers.
                 </p>
               ) : null}
               {voicePendingOperational?.intent === "registration_phone_queue" ? (
-                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
+                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
                   Phone queue active — say <span className="font-semibold text-white">next</span>,{" "}
                   <span className="font-semibold text-white">repeat</span>, <span className="font-semibold text-white">skip</span>, or{" "}
                   <span className="font-semibold text-white">stop</span>.
                 </p>
               ) : null}
             </div>
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 p-3 backdrop-blur-md sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 p-3 backdrop-blur-md sm:grid-cols-4">
               {[
                 { k: "Threads (7d)", v: summary?.inbox?.threadsLast7d ?? liveMetrics?.engagement.value },
                 { k: "CRM clients", v: summary?.platform?.crmClients },
@@ -3539,7 +3608,7 @@ export function ExecutiveAgentDashboard() {
                 </div>
               ))}
             </div>
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 px-4 py-3 backdrop-blur-md">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 px-4 py-3 backdrop-blur-md">
               <button
                 type="button"
                 title="Speak to Skipper (voice turn)"
@@ -3547,10 +3616,10 @@ export function ExecutiveAgentDashboard() {
                 aria-pressed={voiceSttBusy || (voiceMode && voice.listening)}
                 disabled={busy !== null || voiceSttBusy}
                 onClick={() => runMicNearInput()}
-                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 shadow-[0_0_24px_rgba(0,229,255,0.18)] transition hover:scale-[1.03] disabled:opacity-40 ${
+                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 shadow-[0_0_24px_rgba(0,163,255,0.18)] transition hover:scale-[1.03] disabled:opacity-40 ${
                   voiceSttBusy || (voiceMode && voice.listening)
-                    ? "border-[#00e5ff] bg-[#00e5ff]/20 text-[#00e5ff] animate-pulse"
-                    : "border-[#00e5ff]/50 bg-slate-900/80 text-[#00e5ff] hover:bg-[#050b13]/50"
+                    ? "border-[#00A3FF] bg-[#00A3FF]/20 text-[#00A3FF] animate-pulse"
+                    : "border-[#00A3FF]/50 bg-slate-900/80 text-[#00A3FF] hover:bg-[#000814]/50"
                 }`}
               >
                 <Mic className="h-6 w-6" />
@@ -3563,16 +3632,16 @@ export function ExecutiveAgentDashboard() {
                     : "Tap to speak to Skipper"}
               </p>
             </div>
-            <div className="rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 p-3 backdrop-blur-md">
+            <div className="rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 p-3 backdrop-blur-md">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/70">Voice command</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/70">Voice command</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                     Voice input
                     <select
                       value={voiceSttInputMode}
                       onChange={(e) => setVoiceSttInputMode(e.target.value as ExecutiveSttInputMode)}
-                      className="rounded border border-slate-600 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-mono normal-case tracking-normal text-[#00e5ff]"
+                      className="rounded border border-slate-600 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-mono normal-case tracking-normal text-[#00A3FF]"
                     >
                       <option value="auto">Auto</option>
                       <option value="browser_stt">Browser STT</option>
@@ -3585,7 +3654,7 @@ export function ExecutiveAgentDashboard() {
                     type="button"
                     disabled={busy !== null}
                     onClick={() => void startVoiceCommandSession()}
-                    className="rounded-full border border-[#00e5ff]/40 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/40 disabled:opacity-40"
+                    className="rounded-full border border-[#00A3FF]/40 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00A3FF] hover:bg-[#000814]/40 disabled:opacity-40"
                   >
                     Start session
                   </button>
@@ -3608,7 +3677,7 @@ export function ExecutiveAgentDashboard() {
                   </div>
                 </div>
               </div>
-              <div className="flex h-12 items-end justify-center gap-0.5 rounded-lg border border-[#00e5ff]/10 bg-slate-900/60 px-1 py-1">
+              <div className="flex h-12 items-end justify-center gap-0.5 rounded-lg border border-[#00A3FF]/10 bg-slate-900/60 px-1 py-1">
                 {(voice.bands.length ? voice.bands : Array.from({ length: 32 }, () => orbIntensity)).map((h, i) => (
                   <motion.span
                     key={i}
@@ -3625,11 +3694,11 @@ export function ExecutiveAgentDashboard() {
               {voice.error ? <p className="mt-1 text-xs text-red-300">{voice.error}</p> : null}
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 <div className="rounded border border-slate-700/60 bg-slate-900/40 p-2 text-xs text-slate-300">
-                  <span className="font-semibold text-[#00e5ff]/80">Live log</span>
+                  <span className="font-semibold text-[#00A3FF]/80">Live log</span>
                   <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-slate-400">{transcript || "—"}</p>
                 </div>
                 <div className="rounded border border-slate-700/60 bg-slate-900/40 p-2 text-xs text-slate-300">
-                  <span className="font-semibold text-[#00e5ff]/80">Turn rail</span>
+                  <span className="font-semibold text-[#00A3FF]/80">Turn rail</span>
                   <ul className="mt-1 max-h-32 space-y-2 overflow-y-auto text-[11px] text-slate-400">
                     {voiceRailTurns.length === 0 ? (
                       <li className="text-slate-600">No turns yet.</li>
@@ -3654,9 +3723,9 @@ export function ExecutiveAgentDashboard() {
                 </div>
               </div>
             </div>
-            <div className="space-y-3 rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 p-4 backdrop-blur-md">
+            <div className="space-y-3 rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 p-4 backdrop-blur-md">
               <textarea
-                className="min-h-[100px] w-full rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-[#00e5ff]/50"
+                className="min-h-[100px] w-full rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-[#00A3FF]/50"
                 placeholder="Ask about accounts, campaigns, Site Builder, or CRM…"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
@@ -3686,7 +3755,7 @@ export function ExecutiveAgentDashboard() {
                   type="button"
                   disabled={busy !== null}
                   onClick={() => void sendChat()}
-                  className="rounded-xl bg-[#00e5ff] px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-[#33b4ff] disabled:opacity-40"
+                  className="rounded-xl bg-[#00A3FF] px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-[#33b4ff] disabled:opacity-40"
                 >
                   {busy === "chat" ? "Running…" : "Run orchestration"}
                 </button>
@@ -3720,7 +3789,7 @@ export function ExecutiveAgentDashboard() {
                   </span>
                   <span>
                     Confidence{" "}
-                    <span className="font-mono text-[#00e5ff]/90">
+                    <span className="font-mono text-[#00A3FF]/90">
                       {(Math.min(1, Math.max(0, chatResult.plannerMeta.confidence)) * 100).toFixed(0)}%
                     </span>
                   </span>
@@ -3743,7 +3812,7 @@ export function ExecutiveAgentDashboard() {
                       {visible.map((s) => {
                         const k = memorySuggestionKey(s);
                         return (
-                          <li key={k} className="rounded-md border border-violet-500/15 bg-[#050b13]/75 p-2 text-[11px] text-slate-300">
+                          <li key={k} className="rounded-md border border-violet-500/15 bg-[#000814]/75 p-2 text-[11px] text-slate-300">
                             <div className="font-medium text-violet-100">
                               [{s.memoryType}] {s.title}
                             </div>
@@ -3805,7 +3874,7 @@ export function ExecutiveAgentDashboard() {
                     type="button"
                     disabled={busy !== null || learningFeedbackBusy !== null}
                     onClick={() => void onChatFeedbackSuggestImprovement()}
-                    className="rounded-full border border-[#00e5ff]/30 bg-[#050b13]/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#00e5ff]/90 hover:bg-[#0a1522]/50 disabled:opacity-40"
+                    className="rounded-full border border-[#00A3FF]/30 bg-[#000814]/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#00A3FF]/90 hover:bg-[#0a1522]/50 disabled:opacity-40"
                   >
                     {learningFeedbackBusy === "suggest_improvement" ? "…" : "Suggest improvement"}
                   </button>
@@ -3815,7 +3884,7 @@ export function ExecutiveAgentDashboard() {
                 <ul className="max-h-40 space-y-2 overflow-y-auto text-xs text-slate-400">
                   {chatResult.insights.map((i) => (
                     <li key={i.title} className="border-b border-slate-800/60 pb-2">
-                      <span className="font-semibold text-[#00e5ff]/90">{i.title}</span>
+                      <span className="font-semibold text-[#00A3FF]/90">{i.title}</span>
                       <div className="mt-0.5">{i.detail}</div>
                     </li>
                   ))}
@@ -3874,7 +3943,7 @@ function MetricTile({
 }) {
   const show = error ? "—" : value ?? (unavailable ? "—" : "—");
   return (
-    <div className="rounded-xl border border-[#00e5ff]/15 bg-[#02070d]/80 p-2 shadow-[inset_0_0_16px_rgba(0,229,255,0.03)]">
+    <div className="rounded-xl border border-[#00A3FF]/15 bg-[#00050A]/80 p-2 shadow-[inset_0_0_16px_rgba(0,163,255,0.03)]">
       <div className="text-[9px] font-semibold uppercase tracking-wide text-[#00b7ff]/60">{label}</div>
       <div className="mt-1 font-mono text-lg text-white">{show}</div>
       {unavailable && value == null ? <div className="text-[9px] text-slate-600">Unavailable</div> : null}
