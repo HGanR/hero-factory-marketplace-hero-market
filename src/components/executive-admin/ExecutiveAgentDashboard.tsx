@@ -1,30 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Mic } from "lucide-react";
-import { ExecutiveOperationsSidebar } from "./ExecutiveOperationsSidebar";
-import { ExecutiveCommandCenterPanel } from "./ExecutiveCommandCenterPanel";
-import { TrooTownEvanaPanel } from "./TrooTownEvanaPanel";
-import { StephonSiteBuilderPanel } from "./StephonSiteBuilderPanel";
 import { ExecutiveCollapsibleTile } from "./ExecutiveCollapsibleTile";
-import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
-import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
-import { SubjectThreadSidebar } from "./SubjectThreadSidebar";
-import { ExecutiveThreadPanel } from "./ExecutiveThreadPanel";
-import { FulfillmentThreadView } from "./FulfillmentThreadView";
-import { ExecutiveDecisionQueuePanel } from "./ExecutiveDecisionQueuePanel";
-import { ExecutiveTaskQueuePanel } from "./ExecutiveTaskQueuePanel";
-import { ExecutiveOrb } from "./ExecutiveOrb";
-import { ExecutivePresencePanel, operationalOrbBadgeLabel } from "./ExecutivePresencePanel";
-import { ExecutiveVoiceOperationsPanel } from "./ExecutiveVoiceOperationsPanel";
+import { operationalOrbBadgeLabel } from "./ExecutivePresencePanel";
 import { OperationalPresenceStatusBar } from "./OperationalPresenceStatusBar";
-import { ExecutiveRevenueValueTile } from "./ExecutiveRevenueValueTile";
-import { ExecutiveLiveSiteOverviewTile } from "./ExecutiveLiveSiteOverviewTile";
 import { ExecutiveInterruptionPanel } from "./ExecutiveInterruptionPanel";
-import { AmbientSignalPanel } from "./AmbientSignalPanel";
+import { ExecutiveCommandPromptSelector } from "./ExecutiveCommandPromptSelector";
+import { ExecutiveSkipperCommandStage } from "./ExecutiveSkipperCommandStage";
+import { ExecutiveCommandHudContent } from "./ExecutiveCommandHudContent";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import type { ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
 import {
@@ -70,6 +54,13 @@ import {
   formatExecutiveInboxTimestamp,
   parseInboxAttachmentsJson,
 } from "@/components/executive-inbox/ExecutiveInboxAttachmentsBlock";
+import {
+  executiveCommandPromptForOperationalKind,
+  resolveExecutiveCommandPromptFromVoice,
+  type ExecutiveCommandPromptId,
+} from "@/lib/executive-agent/executive-command-prompts";
+import { executiveInboxUploadErrorMessage } from "@/lib/executive-inbox/executive-inbox-upload-errors";
+import { resolveVoiceOperationalQuery } from "@/lib/executive-agent/executive-voice-operational-phrases";
 
 type ExecutiveOrbMode = ExecutiveOrbCanvasProps["mode"];
 
@@ -425,6 +416,8 @@ export function ExecutiveAgentDashboard() {
   const [bottomTab, setBottomTab] = useState<(typeof BOTTOM_TABS)[number]>("Command Center");
   const [activeSubjectId, setActiveSubjectId] = useState<ExecutiveSubjectId>("command_center");
   const [analyticsFocusSeq, setAnalyticsFocusSeq] = useState(0);
+  const [activeCommandPromptId, setActiveCommandPromptId] = useState<ExecutiveCommandPromptId | null>(null);
+  const [hudSummary, setHudSummary] = useState<string | null>(null);
   const [workspaceOrderId, setWorkspaceOrderId] = useState("");
   const [subjectSkipperContext, setSubjectSkipperContext] = useState<string | null>(null);
   const [selectedOpsThreadId, setSelectedOpsThreadId] = useState<string | null>(null);
@@ -558,15 +551,18 @@ export function ExecutiveAgentDashboard() {
   const [inboxDirectory, setInboxDirectory] = useState<Record<number, { username: string; email: string }>>({});
   type InboxPendingAttachment = {
     id: string;
-    kind: "file" | "audio";
+    kind: "file" | "audio" | "site_project";
     filename: string;
     mimeType: string;
     sizeBytes: number;
     url: string;
+    projectType?: "vercel_nextjs";
   };
   const [inboxPendingAttachments, setInboxPendingAttachments] = useState<InboxPendingAttachment[]>([]);
+  const [inboxUploadError, setInboxUploadError] = useState<string | null>(null);
   const [inboxRecording, setInboxRecording] = useState(false);
   const inboxFileInputRef = useRef<HTMLInputElement | null>(null);
+  const inboxZipInputRef = useRef<HTMLInputElement | null>(null);
   const inboxMrRef = useRef<MediaRecorder | null>(null);
   const inboxMrChunksRef = useRef<BlobPart[]>([]);
   const inboxMrStreamRef = useRef<MediaStream | null>(null);
@@ -1316,6 +1312,7 @@ export function ExecutiveAgentDashboard() {
 
   const uploadInboxFileFromInput = useCallback(
     async (file: File) => {
+      setInboxUploadError(null);
       const form = new FormData();
       form.append("file", file);
       const r = await fetch("/api/admin/executive-agent/inbox/upload", {
@@ -1323,8 +1320,12 @@ export function ExecutiveAgentDashboard() {
         body: form,
         credentials: "include",
       });
-      const j = (await r.json().catch(() => ({}))) as { attachment?: InboxPendingAttachment };
-      if (r.ok && j.attachment) appendInboxUploaded(j.attachment);
+      const j = (await r.json().catch(() => ({}))) as { attachment?: InboxPendingAttachment; error?: string };
+      if (r.ok && j.attachment) {
+        appendInboxUploaded(j.attachment);
+        return;
+      }
+      setInboxUploadError(executiveInboxUploadErrorMessage(j.error));
     },
     [appendInboxUploaded],
   );
@@ -1820,6 +1821,12 @@ export function ExecutiveAgentDashboard() {
         };
         if (!r.ok) throw new Error(j.error ?? "Voice turn failed");
         const answer = typeof j.answer === "string" ? j.answer : "";
+        const promptFromVoice = resolveExecutiveCommandPromptFromVoice(transcriptText);
+        const opKind = resolveVoiceOperationalQuery(transcriptText);
+        const promptFromOp = opKind ? executiveCommandPromptForOperationalKind(opKind) : null;
+        const nextPrompt = promptFromVoice ?? promptFromOp;
+        if (nextPrompt) setActiveCommandPromptId(nextPrompt);
+        if (answer.trim()) setHudSummary(answer.trim());
         if (typeof j.sessionId === "string" && j.sessionId.trim()) {
           setVoiceSession((prev) => ({
             sessionId: j.sessionId,
@@ -2450,10 +2457,8 @@ export function ExecutiveAgentDashboard() {
       void loadExecutiveInboxAdmin();
     } else if (subject.id === "analytics") {
       setDataPreset("ALL");
+      setActiveCommandPromptId("analytics");
       setAnalyticsFocusSeq((n) => n + 1);
-      requestAnimationFrame(() => {
-        document.getElementById("executive-analytics-tile")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      });
     } else if (subject.id === "ai_agents") setDataPreset("ALL");
     else if (subject.id === "crm_intelligence" || subject.id === "trust_jarva") setDataPreset("EXECUTIVE_ADMIN");
     else if (subject.id === "troo_town") setDataPreset("ALL");
@@ -2480,6 +2485,67 @@ export function ExecutiveAgentDashboard() {
   const ta = liveMetrics?.trafficAttribution;
   const bentleyBrief = summary?.bentleyBridge?.platform;
   const bentleyClientSlice = summary?.bentleyBridge?.clientScoped;
+
+  const operationsSidebarProps = useMemo(
+    () => ({
+      approvals,
+      onApprove: (row: (typeof approvals)[number]) => void approve(row),
+      onReject: (id: string) => void reject(id),
+      lastApprovalExec,
+      clientIdTrim,
+      onLoadApprovals: () => void loadApprovals(),
+      recentConversations,
+      recentConversationsError,
+      followUpRecommendations,
+      followUpError,
+      followUpQueueBusyId,
+      onQueueFollowUp: (rec: FollowUpRecommendationRow) => void queueFollowUpRecommendation(rec),
+      bentleyBrief,
+      bentleyClientSlice,
+      liveMetricsSystemHealth: liveMetrics?.systemHealth,
+      voicePreflight,
+      voiceDiagnostics,
+      voiceSttInputMode,
+      voiceSessionId: voiceSession?.sessionId ?? null,
+      voicePendingAnalytics,
+      onTestSttHealth: () => void refreshExecutiveVoiceSttDiagnostics(),
+      onTestSelfHostedStt: () => void runSelfHostedSttTestClip(),
+      sttTestBusy,
+      sttTestTranscript,
+      learningPendingPreview,
+      summaryError,
+      chatCharts: chatResult?.charts ?? null,
+    }),
+    [
+      approvals,
+      approve,
+      reject,
+      lastApprovalExec,
+      clientIdTrim,
+      loadApprovals,
+      recentConversations,
+      recentConversationsError,
+      followUpRecommendations,
+      followUpError,
+      followUpQueueBusyId,
+      queueFollowUpRecommendation,
+      bentleyBrief,
+      bentleyClientSlice,
+      liveMetrics?.systemHealth,
+      voicePreflight,
+      voiceDiagnostics,
+      voiceSttInputMode,
+      voiceSession?.sessionId,
+      voicePendingAnalytics,
+      refreshExecutiveVoiceSttDiagnostics,
+      runSelfHostedSttTestClip,
+      sttTestBusy,
+      sttTestTranscript,
+      learningPendingPreview,
+      summaryError,
+      chatResult?.charts,
+    ],
+  );
 
   const runtimeHudLabel =
     busy === "chat"
@@ -2693,7 +2759,7 @@ export function ExecutiveAgentDashboard() {
             ) : null}
             <textarea
               className="mb-2 min-h-[96px] w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm"
-              placeholder="Message body (optional if you attach files or a voice note)…"
+              placeholder="Message body (optional if you attach files, a website project ZIP, or a voice note)…"
               value={inboxBody}
               onChange={(e) => setInboxBody(e.target.value)}
             />
@@ -2708,7 +2774,26 @@ export function ExecutiveAgentDashboard() {
                 e.target.value = "";
               }}
             />
+            <input
+              ref={inboxZipInputRef}
+              type="file"
+              className="hidden"
+              accept=".zip,application/zip,application/x-zip-compressed"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadInboxFileFromInput(f);
+                e.target.value = "";
+              }}
+            />
             <div className="mb-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => inboxZipInputRef.current?.click()}
+                disabled={inboxPendingAttachments.length >= 5}
+                className="rounded-lg border border-cyan-500/45 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-900/50 disabled:opacity-40"
+              >
+                Upload website project (.zip)
+              </button>
               <button
                 type="button"
                 onClick={() => inboxFileInputRef.current?.click()}
@@ -2729,8 +2814,11 @@ export function ExecutiveAgentDashboard() {
               >
                 {inboxRecording ? "Stop recording" : "Record voice"}
               </button>
-              <span className="text-[10px] text-slate-500">Up to 5 attachments · 12 MB each · images, PDF, audio</span>
+              <span className="text-[10px] text-slate-500">
+                Up to 5 attachments · 12 MB files · 50 MB website ZIP · Vercel/Next.js exports
+              </span>
             </div>
+            {inboxUploadError ? <p className="mb-2 text-xs text-amber-300">{inboxUploadError}</p> : null}
             {inboxPendingAttachments.length ? (
               <div className="mb-3 rounded-lg border border-slate-700/60 bg-slate-900/40 px-2 py-2">
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pending attachments</div>
@@ -2959,1017 +3047,155 @@ export function ExecutiveAgentDashboard() {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          {/* Left: collapsible operational stack */}
-          <motion.aside
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-2 xl:col-span-4 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto xl:pr-1"
-          >
-            <ExecutiveCollapsibleTile
-              id="executive-analytics-tile"
-              title="Analytics"
-              subtitle="Traffic, accounts, conversions"
-              expandOnSignal={analyticsFocusSeq}
-            >
-              <div className="grid grid-cols-2 gap-2">
-                <MetricTile
-                  label="Pending"
-                  value={liveMetrics?.pendingAccounts.value ?? summary?.pendingAccounts?.pendingAllTime}
-                  unavailable={Boolean(liveMetrics?.pendingAccounts.unavailable && liveMetrics?.pendingAccounts.value == null)}
-                  error={liveMetricsError}
-                />
-                <MetricTile
-                  label="Approved active"
-                  value={liveMetrics?.approvedAccounts.value ?? summary?.approvedAccounts?.approvedActive}
-                  unavailable={Boolean(liveMetrics?.approvedAccounts.unavailable)}
-                  error={liveMetricsError}
-                />
-                <MetricTile
-                  label="Active accounts"
-                  value={liveMetrics?.activeAccounts.value}
-                  unavailable={Boolean(liveMetrics?.activeAccounts.unavailable)}
-                  error={liveMetricsError}
-                />
-                <MetricTile
-                  label="Campaigns"
-                  value={liveMetrics?.campaignCounts.value ?? summary?.platform?.socialCampaigns}
-                  unavailable={Boolean(liveMetrics?.campaignCounts.unavailable)}
-                  error={liveMetricsError}
-                />
-              </div>
-              <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">
-                  Active visitors / page views
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {liveMetrics?.activeVisitors.unavailable
-                    ? "Not configured — connect analytics to populate."
-                    : liveMetrics?.activeVisitors.value ?? "—"}
-                </p>
-              </div>
-              <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">
-                  Traffic sources
-                </h3>
-                {trafficUnavailable ? (
-                  <p className="text-xs text-slate-500">Breakdown unavailable — no analytics events yet for this window.</p>
-                ) : (
-                  <div className="h-44">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={trafficRows} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                        <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={48} />
-                        <YAxis tick={{ fill: "#94a3b8", fontSize: 9 }} allowDecimals={false} width={32} />
-                        <Tooltip
-                          cursor={{ fill: "rgba(0,163,255,0.08)" }}
-                          contentStyle={{ background: "#000814", border: "1px solid rgba(0,163,255,0.3)", fontSize: 11 }}
-                        />
-                        <Bar dataKey="visitors" fill="#22d3ee" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-              <div className="mt-3 rounded-xl border border-emerald-400/20 bg-slate-900/45 p-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200/80">
-                  Join community conversion
-                </h3>
-                <p className="font-mono text-lg text-white">
-                  {ta?.joinCommunityConversionRate != null ? `${(ta.joinCommunityConversionRate * 100).toFixed(1)}%` : "—"}
-                </p>
-                <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">
-                  PayPal intent rate:{" "}
-                  <span className="font-mono text-[#00A3FF]">
-                    {ta?.paypalIntentRate != null ? `${(ta.paypalIntentRate * 100).toFixed(1)}%` : "—"}
-                  </span>
-                </p>
-                <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">
-                  PayPal potential revenue (est.):{" "}
-                  <span className="font-mono text-emerald-200">
-                    {ta?.potentialRevenueTotal != null ? `$${ta.potentialRevenueTotal.toFixed(0)}` : "—"}
-                  </span>
-                  {ta?.communityPrice != null ? (
-                    <span className="text-slate-600">{` · $${ta.communityPrice}/join`}</span>
-                  ) : null}
-                </p>
-              </div>
-              <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">
-                  Landing link performance
-                </h3>
-                {landingCtasUnavailable || landingCtas.length === 0 ? (
-                  <p className="text-xs text-slate-500">
-                    No landing CTA clicks recorded for this window — track landing buttons/links to populate.
-                  </p>
-                ) : (
-                  <ul className="max-h-44 space-y-1 overflow-y-auto text-xs">
-                    {landingCtas.map((cta) => (
-                      <li
-                        key={`${cta.eventName}:${cta.label}:${cta.targetHref ?? ""}`}
-                        className="flex items-start justify-between gap-2 border-b border-[#00A3FF]/10 py-1"
-                      >
-                        <div className="min-w-0">
-                          <span className="block truncate font-medium text-slate-200">{cta.label || cta.eventName}</span>
-                          {cta.targetHref ? (
-                            <span className="block truncate font-mono text-[10px] text-[#00A3FF]/60">{cta.targetHref}</span>
-                          ) : null}
-                        </div>
-                        <span className="shrink-0 font-mono text-[#00A3FF]/80">{cta.clicks}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="mt-3 rounded-xl border border-violet-400/20 bg-slate-900/45 p-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/80">
-                  Approved account activity
-                </h3>
-                {approvedActivity?.unavailable ? (
-                  <p className="text-xs text-slate-500">
-                    {approvedActivity.reason === "approved_user_activity_not_loaded"
-                      ? "Approved-user activity not loaded — refresh live metrics."
-                      : "Approved-user activity unavailable for this window."}
-                  </p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-[9px] uppercase tracking-wide text-slate-500">Active approved</p>
-                        <p className="font-mono text-sm text-white">{approvedActivity?.approvedActiveTotal ?? "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] uppercase tracking-wide text-slate-500">Logins (7d)</p>
-                        <p className="font-mono text-sm text-white">{approvedActivity?.loginsInWindow ?? "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] uppercase tracking-wide text-slate-500">With events</p>
-                        <p className="font-mono text-sm text-white">{approvedActivity?.usersWithTrackedEvents ?? "—"}</p>
-                      </div>
-                    </div>
-                    {(approvedActivity?.recentlyActive?.length ?? 0) > 0 ? (
-                      <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-xs">
-                        {approvedActivity!.recentlyActive.map((u) => (
-                          <li
-                            key={u.userId}
-                            className="flex items-start justify-between gap-2 border-b border-violet-400/10 py-1"
-                          >
-                            <div className="min-w-0">
-                              <span className="block font-medium text-slate-200">{u.userLabel}</span>
-                              <span className="block truncate font-mono text-[10px] text-violet-200/70">
-                                {u.lastEventPath ?? (u.lastLogin ? "login only" : "—")}
-                              </span>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <span className="block font-mono text-violet-200/90">{u.eventsInWindow}</span>
-                              <span className="block text-[9px] text-slate-500">
-                                {u.isActive ? "active" : "inactive"}
-                              </span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-2 text-xs text-slate-500">No approved users with logins or tracked session events in this window.</p>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="mt-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/60">Top pages</h3>
-                {liveMetrics?.topPages.unavailable || topPages.length === 0 ? (
-                  <p className="text-xs text-slate-500">No page-level rollups configured.</p>
-                ) : (
-                  <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
-                    {topPages.map((pg) => (
-                      <li key={pg.path} className="flex justify-between gap-2 border-b border-[#00A3FF]/10 py-1 font-mono text-[#00A3FF]/80">
-                        <span className="truncate">{pg.path}</span>
-                        <span>{pg.visitors ?? "—"}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </ExecutiveCollapsibleTile>
+        <div className="mx-auto max-w-4xl space-y-4">
+          <OperationalPresenceStatusBar
+            overview={ambientOverview}
+            orbState={ambientOrbState}
+            loading={ambientLoading}
+          />
 
-            <ExecutiveVoiceOperationsPanel
-              refreshSignal={voiceOpsRefreshSeq}
-              phoneQueueRevealed={voicePhoneQueueRevealed}
-              pendingInboxAudio={voicePendingInboxAudio}
-              onPlayInboxAudio={(action) => {
-                if (execAudioRef.current) {
-                  execAudioRef.current.pause();
-                  execAudioRef.current = null;
-                }
-                const audio = new Audio(action.url);
-                execAudioRef.current = audio;
-                void audio.play().catch(() => undefined);
-              }}
-            />
+          <ExecutiveInterruptionPanel
+            interruptions={ambientInterruptions}
+            loading={ambientLoading}
+            dismissedIds={dismissedInterruptions}
+            onDismiss={(id) => setDismissedInterruptions((prev) => new Set([...prev, id]))}
+          />
 
-            <ExecutiveCollapsibleTile title="Agent network" subtitle="Live agent status and activity">
-              {agentIntelError ? <p className="mb-2 text-xs text-amber-200/90">{agentIntelError}</p> : null}
-              <ul className="space-y-2 text-xs">
-                {displayAgents.map((a) => (
-                  <li
-                    key={a.agentKey}
-                    className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-2 py-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <span className="font-medium text-slate-200">{a.displayName}</span>
-                        <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">
-                          {AGENT_DOMAIN_LABEL[a.agentKey]}
-                        </div>
-                      </div>
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${
-                          a.status === "online" ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-slate-600"
-                        }`}
-                      />
-                    </div>
-                    <div className="mt-1 space-y-0.5 text-[10px] text-slate-500">
-                      <div>
-                        Active: {a.activeConversations ?? "—"} · Total: {a.totalConversations ?? "—"}
-                      </div>
-                      <div className="font-mono uppercase tracking-wide text-slate-600">src: {a.source}</div>
-                      {a.lastActivityAt ? (
-                        <div className="text-slate-600">Last: {new Date(a.lastActivityAt).toLocaleString()}</div>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-                {activeSubjectId === "ai_agents" ? (
-                  <li className="rounded-lg border border-dashed border-violet-500/30 bg-violet-950/20 px-2 py-2">
-                    <div className="font-medium text-slate-200">Maania</div>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">PROPERTY</div>
-                    <p className="mt-1 text-[10px] text-slate-500">Routed via Skipper — full Maania API wiring later.</p>
-                  </li>
-                ) : null}
-                {activeSubjectId === "trust_jarva" ? (
-                  <li className="rounded-lg border border-dashed border-cyan-500/30 bg-cyan-950/20 px-2 py-2">
-                    <div className="font-medium text-slate-200">Jarva</div>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/80">TRUST</div>
-                    <p className="mt-1 text-[10px] text-slate-500">TRUST legal-review desk — use chat + TRUST fulfillment panel.</p>
-                  </li>
-                ) : null}
-                {activeSubjectId === "revenue_os" ? (
-                  <li className="rounded-lg border border-dashed border-fuchsia-500/30 bg-fuchsia-950/20 px-2 py-2">
-                    <div className="font-medium text-slate-200">Bentley</div>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-fuchsia-300/80">REVENUE OS</div>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      Campaign fulfillment desk — review packets and launch readiness checkpoints only.
-                    </p>
-                  </li>
-                ) : null}
-                {activeSubjectId === "smart_trust" ? (
-                  <li className="rounded-lg border border-dashed border-amber-500/30 bg-amber-950/20 px-2 py-2">
-                    <div className="font-medium text-slate-200">Skipper</div>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-amber-300/80">SMART TRUST</div>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      Trust governance desk — review checkpoints and resolution records only.
-                    </p>
-                  </li>
-                ) : null}
-                {activeSubjectId === "troo_town" ? (
-                  <li className="rounded-lg border border-dashed border-cyan-500/30 bg-cyan-950/20 px-2 py-2">
-                    <div className="font-medium text-slate-200">Evaana</div>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/80">TROO WORLD</div>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      TROOTHHERTZ LLC reception — visitor voice/chat feeds this desk; Skipper proposes governed follow-ups.
-                    </p>
-                  </li>
-                ) : null}
-                {activeSubjectId === "site_builder" ? (
-                  <li className="rounded-lg border border-dashed border-indigo-500/30 bg-indigo-950/20 px-2 py-2">
-                    <div className="font-medium text-slate-200">Stephon</div>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-indigo-300/80">SITE BUILDER</div>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      Builder AI guide — operator chats sync here for usability intelligence and engine feedback.
-                    </p>
-                  </li>
-                ) : null}
-              </ul>
-              <h3 className="mt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/60">Activity</h3>
-              <ul className="max-h-48 space-y-2 overflow-y-auto text-[11px] text-slate-400">
-                {activityFeed.map((line, i) => (
-                  <li key={`${i}-${line.slice(0, 24)}`} className="border-l border-[#00A3FF]/20 pl-2">
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            </ExecutiveCollapsibleTile>
+          <ExecutiveCommandPromptSelector
+            value={activeCommandPromptId}
+            onChange={(id) => {
+              setActiveCommandPromptId(id);
+              setHudSummary(null);
+            }}
+          />
 
-            {activeSubjectId !== "inbox" ? (
-              <>
-                <ExecutiveCollapsibleTile
-                  title="Subject workspace"
-                  subtitle="Scope, orders, memory — read-only context"
-                >
-                  <ExecutiveSubjectWorkspacePanel
-                    embedded
-                    subjectId={activeSubjectId}
-                    clientId={clientId}
-                    orderId={workspaceOrderId}
-                    onSkipperContext={setSubjectSkipperContext}
-                  />
-                </ExecutiveCollapsibleTile>
-
-                <ExecutiveCollapsibleTile
-                  title="Decision queue"
-                  subtitle="Human-only owner decisions"
-                >
-                  <ExecutiveDecisionQueuePanel
-                    embedded
-                    subjectId={activeSubjectId}
-                    clientId={clientId}
-                    orderId={workspaceOrderId}
-                    threadId={selectedOpsThreadId}
-                    onSelectThread={(id) => setSelectedOpsThreadId(id)}
-                    onDecisionRecorded={onOperationalCoordinationChange}
-                  />
-                </ExecutiveCollapsibleTile>
-
-                <ExecutiveCollapsibleTile title="Task queue" subtitle="Human-coordinated operational tasks">
-                  <ExecutiveTaskQueuePanel
-                    embedded
-                    subjectId={activeSubjectId}
-                    clientId={clientId}
-                    orderId={workspaceOrderId}
-                    threadId={selectedOpsThreadId}
-                    onTasksChanged={onOperationalCoordinationChange}
-                  />
-                </ExecutiveCollapsibleTile>
-
-                <ExecutiveCollapsibleTile
-                  title="GPS"
-                  subtitle="Fulfillment case scope and positioning"
-                >
-                  {workspaceOrderId.trim() ? (
-                    <FulfillmentThreadView
-                      embedded
-                      orderId={workspaceOrderId.trim()}
-                      clientId={clientId.trim() || undefined}
-                      department={
-                        activeSubjectId === "trust_jarva"
-                          ? "TRUST"
-                          : activeSubjectId === "revenue_os"
-                            ? "REVENUE_OS"
-                            : activeSubjectId === "smart_trust"
-                              ? "SMART_TRUST"
-                              : "WEBSITE"
-                      }
-                      subjectId={
-                        activeSubjectId === "trust_jarva"
-                          ? "trust_jarva"
-                          : activeSubjectId === "revenue_os"
-                            ? "revenue_os"
-                            : activeSubjectId === "smart_trust"
-                              ? "smart_trust"
-                              : "site_builder"
-                      }
-                    />
-                  ) : (
-                    <p className="text-xs text-slate-500">
-                      Set a fulfillment order UUID in the header HUD to open GPS case scope.
-                    </p>
-                  )}
-                </ExecutiveCollapsibleTile>
-
-                <ExecutiveCollapsibleTile title="Threads" subtitle="Internal ops thread list">
-                  <SubjectThreadSidebar
-                    embedded
-                    key={threadSidebarKey}
-                    subjectId={activeSubjectId}
-                    clientId={clientId}
-                    orderId={workspaceOrderId}
-                    selectedThreadId={selectedOpsThreadId}
-                    onSelectThread={setSelectedOpsThreadId}
-                  />
-                </ExecutiveCollapsibleTile>
-
-                <ExecutiveCollapsibleTile title="Operational thread" subtitle="Selected thread discussion">
-                  <ExecutiveThreadPanel
-                    embedded
-                    threadId={selectedOpsThreadId}
-                    onSkipperContext={setThreadSkipperContext}
-                    onDecisionRecorded={onOperationalCoordinationChange}
-                    onCreateThread={async () => {
-                      const title = window.prompt("Thread title");
-                      if (!title?.trim()) return;
-                      const r = await fetch("/api/admin/executive-agent/threads", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          title: title.trim(),
-                          threadKind: "subject",
-                          subjectId: activeSubjectId,
-                          clientId: clientId.trim() || null,
-                          orderId: workspaceOrderId.trim() || null,
-                        }),
-                      });
-                      const j = (await r.json().catch(() => ({}))) as { thread?: { id: string } };
-                      if (j.thread?.id) setSelectedOpsThreadId(j.thread.id);
-                    }}
-                  />
-                </ExecutiveCollapsibleTile>
-
-                <ExecutiveCollapsibleTile
-                  title="Command center"
-                  subtitle="Live monitoring — no autonomous execution"
-                >
-                  <ExecutiveCommandCenterPanel embedded />
-                </ExecutiveCollapsibleTile>
-
-                {activeSubjectId === "troo_town" ? (
-                  <ExecutiveCollapsibleTile
-                    title="Evaana visitors"
-                    subtitle="TROOTHHERTZ LLC — Skipper follow-up intelligence"
-                  >
-                    <TrooTownEvanaPanel embedded />
-                  </ExecutiveCollapsibleTile>
-                ) : null}
-
-                {activeSubjectId === "site_builder" ? (
-                  <ExecutiveCollapsibleTile
-                    title="Stephon builder sessions"
-                    subtitle="Site Builder conversations — usability intelligence"
-                  >
-                    <StephonSiteBuilderPanel embedded />
-                  </ExecutiveCollapsibleTile>
-                ) : null}
-
-                <ExecutiveCollapsibleTile
-                  title={`${activeSubject.shortLabel} agent chat`}
-                  subtitle="Subject-scoped Skipper dialogue"
-                >
-                  <ExecutiveSubjectAgentChatPanel
-                    subject={activeSubject}
-                    clientId={clientId}
-                    campaignId={campaignId}
-                    dryRun={dryRun}
-                    timeRange={timeRange}
-                    busy={busy !== null}
-                    skipperWorkspaceContext={combinedSkipperWorkspaceContext}
-                    onClose={() => {}}
-                  />
-                </ExecutiveCollapsibleTile>
-              </>
-            ) : null}
-          </motion.aside>
-
-          {/* Center */}
-          <motion.main
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
-            className="space-y-4 xl:col-span-4"
-          >
-            <div className="grid grid-cols-1 gap-3">
-              <ExecutiveRevenueValueTile
-                pendingAccounts={liveMetrics?.pendingAccounts.value ?? summary?.pendingAccounts?.pendingAllTime}
-                approvedAccounts={liveMetrics?.approvedAccounts.value ?? summary?.approvedAccounts?.approvedActive}
-                unavailable={Boolean(
-                  liveMetrics?.pendingAccounts.unavailable &&
-                    liveMetrics?.pendingAccounts.value == null &&
-                    liveMetrics?.approvedAccounts.unavailable &&
-                    liveMetrics?.approvedAccounts.value == null &&
-                    summary?.pendingAccounts?.pendingAllTime == null &&
-                    summary?.approvedAccounts?.approvedActive == null,
-                )}
-                loading={busy === "live" && liveMetrics == null && summary == null}
-              />
-              <ExecutiveLiveSiteOverviewTile
-                metrics={liveMetrics}
-                loading={busy === "live" && liveMetrics == null}
-                error={liveMetricsError}
-              />
-            </div>
-
-            <ExecutiveCollapsibleTile
-              title="Today's Executive Briefing"
-              subtitle={
-                dailyBriefing?.headline?.slice(0, 72) ||
-                (briefingBusy ? "Loading…" : "Daily priorities, risks, and approvals")
-              }
-              defaultCollapsed
-              className="border-amber-400/25 bg-slate-950/70"
-              badge={
-                <div className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    disabled={briefingBusy || busy !== null}
-                    onClick={() => void loadBriefingToday()}
-                    className="rounded-full border border-amber-400/35 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-amber-100 hover:bg-amber-950/40 disabled:opacity-40"
-                  >
-                    Refresh
-                  </button>
-                  <button
-                    type="button"
-                    disabled={briefingBusy || busy !== null}
-                    onClick={() => void generateBriefing()}
-                    className="rounded-full border border-amber-300/50 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-amber-50 hover:bg-amber-900/30 disabled:opacity-40"
-                  >
-                    Generate
-                  </button>
-                </div>
-              }
-            >
-              {dailyBriefingError ? <p className="mb-2 text-xs text-amber-200/90">{dailyBriefingError}</p> : null}
-              {briefingBusy && !dailyBriefing ? <p className="text-xs text-slate-500">Loading briefing…</p> : null}
-              {dailyBriefing ? (
-                <div className="space-y-3 text-xs text-slate-200">
-                  <p className="font-medium text-amber-50/95">{dailyBriefing.headline}</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00A3FF]/70">
-                        Top priorities
-                      </h3>
-                      <ul className="space-y-1.5 text-[11px] text-slate-300">
-                        {(dailyBriefing.priorities ?? []).slice(0, 3).map((p, i) => (
-                          <li key={`p-${i}`} className="rounded border border-[#00A3FF]/10 bg-slate-900/40 px-2 py-1.5">
-                            <div className="font-medium text-slate-100">{p.title}</div>
-                            <div className="mt-0.5 text-slate-500">{p.detail}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-300/70">Risks</h3>
-                      <ul className="max-h-28 space-y-1 overflow-y-auto text-[11px] text-slate-400">
-                        {(dailyBriefing.risks ?? []).slice(0, 6).map((p, i) => (
-                          <li key={`r-${i}`}>· {p.title}</li>
-                        ))}
-                      </ul>
-                      <h3 className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/70">
-                        Opportunities
-                      </h3>
-                      <ul className="max-h-24 space-y-1 overflow-y-auto text-[11px] text-slate-400">
-                        {(dailyBriefing.opportunities ?? []).slice(0, 5).map((p, i) => (
-                          <li key={`o-${i}`}>· {p.title}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300/70">
-                      Approvals waiting
-                    </h3>
-                    <ul className="max-h-24 space-y-1 overflow-y-auto font-mono text-[10px] text-violet-100/90">
-                      {(dailyBriefing.approvalsNeeded ?? []).slice(0, 8).map((a) => (
-                        <li key={a.id}>
-                          {a.proposedAction}: {a.title}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Suggested first actions
-                    </h3>
-                    <ul className="space-y-1 text-[11px] text-slate-400">
-                      {(dailyBriefing.suggestedFirstActions ?? []).slice(0, 6).map((p, i) => (
-                        <li key={`a-${i}`}>
-                          <span className="text-slate-200">{p.title}</span> — {p.detail}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : !briefingBusy ? (
-                <p className="text-xs text-slate-500">
-                  No cached briefing for today — use Generate to build one from live signals and memory.
-                </p>
-              ) : null}
-            </ExecutiveCollapsibleTile>
-
-            <OperationalPresenceStatusBar
-              overview={ambientOverview}
-              orbState={ambientOrbState}
-              loading={ambientLoading}
-            />
-
-            <AmbientSignalPanel overview={ambientOverview} loading={ambientLoading} />
-
-            <ExecutiveInterruptionPanel
-              interruptions={ambientInterruptions}
-              loading={ambientLoading}
-              dismissedIds={dismissedInterruptions}
-              onDismiss={(id) =>
-                setDismissedInterruptions((prev) => new Set([...prev, id]))
-              }
-            />
-
-            <ExecutivePresencePanel
-              presence={executivePresence}
-              loading={presenceLoading}
-              error={presenceError}
-              dismissedIds={dismissedInterruptions}
-              onDismissInterruption={(id) =>
-                setDismissedInterruptions((prev) => new Set([...prev, id]))
-              }
-            />
-
-            <div className="relative aspect-[5/4] max-h-[min(62vh,640px)] w-full max-w-xl mx-auto overflow-hidden rounded-3xl border border-[#00A3FF]/30 bg-[#00050A]/80 shadow-[0_0_48px_rgba(0,163,255,0.14),inset_0_0_40px_rgba(0,183,255,0.06)]">
-              {executiveOutputVoice?.voiceProvider === "self_hosted_tts" &&
+          <ExecutiveSkipperCommandStage
+            activePromptId={activeCommandPromptId}
+            hudSummary={hudSummary ?? chatResult?.answer ?? null}
+            orbIntensity={orbIntensity}
+            orbMode={orbMode}
+            activeAgentCount={selectedAgents.length}
+            dashboardModeLabel={dashboardMode.replace(/_/g, " ")}
+            operationalState={executivePresence?.orbState}
+            orbStandbyLabel={orbStandbyLabel}
+            ambientPulse={ambientOrbState?.pulseActive}
+            voicePendingAnalytics={Boolean(voicePendingAnalytics)}
+            voicePendingOperational={voicePendingOperational}
+            selfHostedFallbackBanner={
+              executiveOutputVoice?.voiceProvider === "self_hosted_tts" &&
               selfHostedHealth &&
               !executiveSelfHostedVoiceReady(selfHostedHealth) ? (
-                <div className="pointer-events-none absolute inset-x-0 -top-1 z-10 flex justify-center px-2">
-                  <p className="max-w-md rounded-lg border border-amber-400/45 bg-amber-950/85 px-3 py-2 text-center text-[11px] leading-snug text-amber-50/95 shadow-lg">
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-2 pt-2">
+                  <p className="max-w-md rounded-lg border border-amber-400/45 bg-amber-950/85 px-3 py-2 text-center text-[11px] text-amber-50/95">
                     Self-hosted voice engine unavailable. Falling back to browser voice.
                   </p>
                 </div>
-              ) : null}
-              <ExecutiveOrb
-                intensity={orbIntensity}
-                mode={orbMode}
-                activeAgentCount={selectedAgents.length}
-                focusMode={dashboardMode.replace(/_/g, " ")}
-                operationalState={executivePresence?.orbState}
-              />
-              <div className="pointer-events-none absolute right-3 top-3 rounded-full border border-[#00A3FF]/35 bg-[#00050A]/85 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]">
-                {ambientOrbState?.pulseActive ? "Signal pulse" : orbStandbyLabel}
+              ) : null
+            }
+            voiceSttBusy={voiceSttBusy}
+            voiceListening={Boolean(voiceMode && voice.listening)}
+            voiceBusy={busy !== null || voiceSttBusy}
+            onMicClick={() => runMicNearInput()}
+            hudContent={
+              activeCommandPromptId ? (
+                <ExecutiveCommandHudContent
+                  activePromptId={activeCommandPromptId}
+                  liveMetrics={liveMetrics}
+                  liveMetricsError={liveMetricsError}
+                  summary={summary}
+                  trafficRows={trafficRows}
+                  trafficUnavailable={trafficUnavailable}
+                  landingCtas={landingCtas}
+                  landingCtasUnavailable={landingCtasUnavailable}
+                  approvedActivity={approvedActivity}
+                  topPages={topPages}
+                  ta={ta}
+                  busyLive={busy === "live"}
+                  dailyBriefing={dailyBriefing}
+                  briefingBusy={briefingBusy}
+                  dailyBriefingError={dailyBriefingError}
+                  onLoadBriefingToday={() => void loadBriefingToday()}
+                  onGenerateBriefing={() => void generateBriefing()}
+                  briefingBusyFlag={briefingBusy || busy !== null}
+                  executivePresence={executivePresence}
+                  presenceLoading={presenceLoading}
+                  presenceError={presenceError}
+                  voiceOpsRefreshSeq={voiceOpsRefreshSeq}
+                  voicePhoneQueueRevealed={voicePhoneQueueRevealed}
+                  voicePendingInboxAudio={voicePendingInboxAudio}
+                  onPlayInboxAudio={(action) => {
+                    if (execAudioRef.current) {
+                      execAudioRef.current.pause();
+                      execAudioRef.current = null;
+                    }
+                    const audio = new Audio(action.url);
+                    execAudioRef.current = audio;
+                    void audio.play().catch(() => undefined);
+                  }}
+                  displayAgents={displayAgents}
+                  agentIntelError={agentIntelError}
+                  activityFeed={activityFeed}
+                  activeSubjectId={activeSubjectId}
+                  activeSubject={activeSubject}
+                  clientId={clientId}
+                  campaignId={campaignId}
+                  workspaceOrderId={workspaceOrderId}
+                  selectedOpsThreadId={selectedOpsThreadId}
+                  setSelectedOpsThreadId={setSelectedOpsThreadId}
+                  threadSidebarKey={threadSidebarKey}
+                  onOperationalCoordinationChange={onOperationalCoordinationChange}
+                  setSubjectSkipperContext={setSubjectSkipperContext}
+                  setThreadSkipperContext={setThreadSkipperContext}
+                  dryRun={dryRun}
+                  timeRange={timeRange}
+                  busy={busy !== null}
+                  combinedSkipperWorkspaceContext={combinedSkipperWorkspaceContext}
+                  operationsProps={operationsSidebarProps}
+                  AGENT_DOMAIN_LABEL={AGENT_DOMAIN_LABEL}
+                />
+              ) : null
+            }
+          />
+
+          <ExecutiveCollapsibleTile title="Voice & orchestration" subtitle="Session controls and Skipper dialogue" defaultCollapsed>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2 text-[10px]">
+                <button type="button" disabled={busy !== null} onClick={() => void startVoiceCommandSession()} className="rounded-full border border-[#00A3FF]/40 px-2 py-1 uppercase text-[#00A3FF]">
+                  Start session
+                </button>
+                <button type="button" disabled={busy !== null || !voiceSession?.sessionId} onClick={() => void endVoiceCommandSession()} className="rounded-full border border-slate-600 px-2 py-1 uppercase text-slate-300">
+                  End session
+                </button>
+                <button type="button" disabled={busy !== null} onClick={() => void loadSummary()} className="rounded-full border border-slate-600 px-2 py-1 uppercase text-slate-300">
+                  Refresh summary
+                </button>
+                <button type="button" disabled={busy !== null} onClick={() => void loadLiveMetrics()} className="rounded-full border border-slate-600 px-2 py-1 uppercase text-slate-300">
+                  Live metrics
+                </button>
               </div>
-              {voicePendingAnalytics ? (
-                <p className="pointer-events-none absolute left-3 top-14 z-[5] max-w-[15rem] rounded-lg border border-[#00A3FF]/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-[#00A3FF]/90 shadow-md">
-                  Say <span className="font-semibold text-white">site visits</span>,{" "}
-                  <span className="font-semibold text-white">active users</span>,{" "}
-                  <span className="font-semibold text-white">traffic sources</span>, or{" "}
-                  <span className="font-semibold text-white">conversions</span> to load today&apos;s analytics.
-                </p>
-              ) : null}
-              {voicePendingOperational?.intent === "inbox_audio_confirm" ? (
-                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-emerald-400/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-emerald-100/90 shadow-md">
-                  Say <span className="font-semibold text-white">yes</span> to play the inbox audio, or{" "}
-                  <span className="font-semibold text-white">no</span> to skip.
-                </p>
-              ) : null}
-              {voicePendingOperational?.intent === "registration_phone_offer" ? (
-                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
-                  Say <span className="font-semibold text-white">yes</span> for onboarding phone numbers.
-                </p>
-              ) : null}
-              {voicePendingOperational?.intent === "registration_phone_queue" ? (
-                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#00050A]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
-                  Phone queue active — say <span className="font-semibold text-white">next</span>,{" "}
-                  <span className="font-semibold text-white">repeat</span>, <span className="font-semibold text-white">skip</span>, or{" "}
-                  <span className="font-semibold text-white">stop</span>.
-                </p>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 p-3 backdrop-blur-md sm:grid-cols-4">
-              {[
-                { k: "Threads (7d)", v: summary?.inbox?.threadsLast7d ?? liveMetrics?.engagement.value },
-                { k: "CRM clients", v: summary?.platform?.crmClients },
-                { k: "Marketplace users", v: summary?.platform?.marketplaceUsers },
-                { k: "Social campaigns", v: summary?.platform?.socialCampaigns },
-              ].map((x) => (
-                <div key={x.k} className="rounded-lg border border-slate-800/80 bg-slate-900/30 px-2 py-2">
-                  <div className="text-[9px] uppercase tracking-wide text-slate-500">{x.k}</div>
-                  <div className="mt-1 font-mono text-sm text-white">{x.v ?? "—"}</div>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 px-4 py-3 backdrop-blur-md">
-              <button
-                type="button"
-                title="Speak to Skipper (voice turn)"
-                aria-label="Microphone — speak to Skipper"
-                aria-pressed={voiceSttBusy || (voiceMode && voice.listening)}
-                disabled={busy !== null || voiceSttBusy}
-                onClick={() => runMicNearInput()}
-                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 shadow-[0_0_24px_rgba(0,163,255,0.18)] transition hover:scale-[1.03] disabled:opacity-40 ${
-                  voiceSttBusy || (voiceMode && voice.listening)
-                    ? "border-[#00A3FF] bg-[#00A3FF]/20 text-[#00A3FF] animate-pulse"
-                    : "border-[#00A3FF]/50 bg-slate-900/80 text-[#00A3FF] hover:bg-[#000814]/50"
-                }`}
-              >
-                <Mic className="h-6 w-6" />
-              </button>
-              <p className="text-center text-[10px] text-slate-500">
-                {voiceSttBusy
-                  ? "Listening…"
-                  : voiceMode && voice.listening
-                    ? "Live mic active — speak to Skipper"
-                    : "Tap to speak to Skipper"}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 p-3 backdrop-blur-md">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00A3FF]/70">Voice command</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-                    Voice input
-                    <select
-                      value={voiceSttInputMode}
-                      onChange={(e) => setVoiceSttInputMode(e.target.value as ExecutiveSttInputMode)}
-                      className="rounded border border-slate-600 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-mono normal-case tracking-normal text-[#00A3FF]"
-                    >
-                      <option value="auto">Auto</option>
-                      <option value="browser_stt">Browser STT</option>
-                      <option value="self_hosted_stt">Self-hosted STT</option>
-                      <option value="openai_stt">OpenAI STT</option>
-                    </select>
-                  </label>
-                  <div className="flex flex-wrap gap-1">
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() => void startVoiceCommandSession()}
-                    className="rounded-full border border-[#00A3FF]/40 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#00A3FF] hover:bg-[#000814]/40 disabled:opacity-40"
-                  >
-                    Start session
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy !== null || !voiceSession?.sessionId}
-                    onClick={() => void endVoiceCommandSession()}
-                    className="rounded-full border border-slate-600 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-slate-300 hover:bg-slate-800 disabled:opacity-40"
-                  >
-                    End session
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy !== null || voiceSttBusy}
-                    onClick={() => runOneShotDictation()}
-                    className="rounded-full border border-violet-400/40 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-violet-100 hover:bg-violet-950/30 disabled:opacity-40"
-                  >
-                    Dictate
-                  </button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex h-12 items-end justify-center gap-0.5 rounded-lg border border-[#00A3FF]/10 bg-slate-900/60 px-1 py-1">
-                {(voice.bands.length ? voice.bands : Array.from({ length: 32 }, () => orbIntensity)).map((h, i) => (
-                  <motion.span
-                    key={i}
-                    className="w-1 rounded-t bg-gradient-to-t from-[#00A3FF]/30 to-[#00A3FF]"
-                    animate={{ height: Math.max(4, 4 + h * 44) }}
-                    transition={{ type: "spring", stiffness: 380, damping: 26 }}
-                  />
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] text-slate-500">
-                Session: {voiceSession?.sessionId ?? "—"} · Provider: {voiceSession?.provider ?? "—"} · In:{" "}
-                {voiceSession?.inputMode ?? "—"} · Out: {voiceSession?.outputMode ?? "—"}
-              </p>
-              {voice.error ? <p className="mt-1 text-xs text-red-300">{voice.error}</p> : null}
-              <div className="mt-2 grid gap-2 md:grid-cols-2">
-                <div className="rounded border border-slate-700/60 bg-slate-900/40 p-2 text-xs text-slate-300">
-                  <span className="font-semibold text-[#00A3FF]/80">Live log</span>
-                  <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-slate-400">{transcript || "—"}</p>
-                </div>
-                <div className="rounded border border-slate-700/60 bg-slate-900/40 p-2 text-xs text-slate-300">
-                  <span className="font-semibold text-[#00A3FF]/80">Turn rail</span>
-                  <ul className="mt-1 max-h-32 space-y-2 overflow-y-auto text-[11px] text-slate-400">
-                    {voiceRailTurns.length === 0 ? (
-                      <li className="text-slate-600">No turns yet.</li>
-                    ) : (
-                      voiceRailTurns.map((t) => (
-                        <li key={t.id} className="border-b border-slate-800/80 pb-2 last:border-0">
-                          <div className="font-mono text-[10px] text-slate-500">
-                            +{t.proposedApprovalsCount} approvals · {t.createdAt ?? ""}
-                          </div>
-                          <div className="text-slate-300">
-                            You:{" "}
-                            {t.transcriptText.length > 160 ? `${t.transcriptText.slice(0, 160)}…` : t.transcriptText}
-                          </div>
-                          <div className="text-slate-500">
-                            Exec:{" "}
-                            {t.responseText.length > 200 ? `${t.responseText.slice(0, 200)}…` : t.responseText}
-                          </div>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3 rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/75 p-4 backdrop-blur-md">
               <textarea
-                className="min-h-[100px] w-full rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-[#00A3FF]/50"
+                className="min-h-[88px] w-full rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-[#00A3FF]/50"
                 placeholder="Ask about accounts, campaigns, Site Builder, or CRM…"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
-              <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
-                  Dry run (no approval queue writes)
-                </label>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  className="rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm"
-                  placeholder="Client UUID (optional — enables Bentley client slice + follow-up approvals)"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                />
-                <input
-                  className="rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm"
-                  placeholder="Campaign UUID (optional)"
-                  value={campaignId}
-                  onChange={(e) => setCampaignId(e.target.value)}
-                />
-              </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void sendChat()}
-                  className="rounded-xl bg-[#00A3FF] px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-[#33b4ff] disabled:opacity-40"
-                >
+                <button type="button" disabled={busy !== null} onClick={() => void sendChat()} className="rounded-xl bg-[#00A3FF] px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40">
                   {busy === "chat" ? "Running…" : "Run orchestration"}
                 </button>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void loadSummary()}
-                  className="rounded-xl border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-40"
-                >
-                  Refresh summary
-                </button>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void loadLiveMetrics()}
-                  className="rounded-xl border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-40"
-                >
-                  Live metrics
-                </button>
+                <label className="inline-flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+                  Dry run
+                </label>
               </div>
               {chatError ? <p className="text-xs text-amber-200">{chatError}</p> : null}
-              {chatResult?.plannerMeta ? (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2 text-[11px] text-slate-400">
-                  <span className="font-semibold uppercase tracking-wide text-slate-500">Intent</span>
-                  <span className="rounded-md bg-slate-800/90 px-2 py-0.5 font-medium text-slate-200">
-                    {chatResult.plannerMeta.reasoningMode === "deterministic"
-                      ? "Deterministic mode"
-                      : chatResult.plannerMeta.reasoningMode === "llm"
-                        ? "LLM mode"
-                        : "Fallback mode"}
-                  </span>
-                  <span>
-                    Confidence{" "}
-                    <span className="font-mono text-[#00A3FF]/90">
-                      {(Math.min(1, Math.max(0, chatResult.plannerMeta.confidence)) * 100).toFixed(0)}%
-                    </span>
-                  </span>
-                  <span>
-                    Proposed approvals{" "}
-                    <span className="font-mono text-amber-200/90">{chatResult.plannerMeta.proposedApprovalsCount}</span>
-                  </span>
-                </div>
-              ) : null}
-              {(() => {
-                const items = chatResult?.suggestedMemoryItems ?? [];
-                const visible = items.filter((s) => !dismissedMemorySuggestions[memorySuggestionKey(s)]);
-                if (!visible.length) return null;
-                return (
-                  <div className="mt-3 rounded-lg border border-violet-400/25 bg-violet-950/20 p-3">
-                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
-                      Memory suggestions (not saved until you confirm)
-                    </div>
-                    <ul className="space-y-2">
-                      {visible.map((s) => {
-                        const k = memorySuggestionKey(s);
-                        return (
-                          <li key={k} className="rounded-md border border-violet-500/15 bg-[#000814]/75 p-2 text-[11px] text-slate-300">
-                            <div className="font-medium text-violet-100">
-                              [{s.memoryType}] {s.title}
-                            </div>
-                            <div className="mt-1 line-clamp-3 text-slate-500">{s.summary}</div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                disabled={memorySaveBusyKey === k || busy !== null}
-                                onClick={() => void saveMemorySuggestion(s)}
-                                className="rounded-full border border-emerald-400/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100 hover:bg-emerald-950/40 disabled:opacity-40"
-                              >
-                                {memorySaveBusyKey === k ? "Saving…" : "Save"}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={busy !== null}
-                                onClick={() => dismissMemorySuggestion(s)}
-                                className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-800 disabled:opacity-40"
-                              >
-                                Dismiss
-                              </button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })()}
-              {chatResult?.answer ? <p className="text-sm leading-relaxed text-slate-200">{chatResult.answer}</p> : null}
-              {chatResult?.answer && lastChatTurn ? (
-                <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-800/80 pt-2">
-                  <span className="w-full text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Feedback</span>
-                  <button
-                    type="button"
-                    disabled={busy !== null || learningFeedbackBusy !== null}
-                    onClick={() => void onChatFeedbackHelpful()}
-                    className="rounded-full border border-emerald-500/30 bg-emerald-950/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100/90 hover:bg-emerald-900/40 disabled:opacity-40"
-                  >
-                    {learningFeedbackBusy === "helpful" ? "…" : "Helpful"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy !== null || learningFeedbackBusy !== null}
-                    onClick={() => void onChatFeedbackNotHelpful()}
-                    className="rounded-full border border-amber-500/30 bg-amber-950/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100/90 hover:bg-amber-900/40 disabled:opacity-40"
-                  >
-                    {learningFeedbackBusy === "not_helpful" ? "…" : "Not helpful"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy !== null || learningFeedbackBusy !== null}
-                    onClick={() => void onChatFeedbackSaveMemory()}
-                    className="rounded-full border border-violet-500/30 bg-violet-950/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-violet-100/90 hover:bg-violet-900/40 disabled:opacity-40"
-                  >
-                    {learningFeedbackBusy === "save_memory" ? "…" : "Save as memory"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy !== null || learningFeedbackBusy !== null}
-                    onClick={() => void onChatFeedbackSuggestImprovement()}
-                    className="rounded-full border border-[#00A3FF]/30 bg-[#000814]/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#00A3FF]/90 hover:bg-[#0a1522]/50 disabled:opacity-40"
-                  >
-                    {learningFeedbackBusy === "suggest_improvement" ? "…" : "Suggest improvement"}
-                  </button>
-                </div>
-              ) : null}
-              {chatResult?.insights?.length ? (
-                <ul className="max-h-40 space-y-2 overflow-y-auto text-xs text-slate-400">
-                  {chatResult.insights.map((i) => (
-                    <li key={i.title} className="border-b border-slate-800/60 pb-2">
-                      <span className="font-semibold text-[#00A3FF]/90">{i.title}</span>
-                      <div className="mt-0.5">{i.detail}</div>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              {chatResult?.answer && !hudSummary ? <p className="text-sm text-slate-200">{chatResult.answer}</p> : null}
             </div>
-          </motion.main>
-
-          <ExecutiveOperationsSidebar
-            approvals={approvals}
-            onApprove={(row) => void approve(row)}
-            onReject={(id) => void reject(id)}
-            lastApprovalExec={lastApprovalExec}
-            clientIdTrim={clientIdTrim}
-            onLoadApprovals={() => void loadApprovals()}
-            recentConversations={recentConversations}
-            recentConversationsError={recentConversationsError}
-            followUpRecommendations={followUpRecommendations}
-            followUpError={followUpError}
-            followUpQueueBusyId={followUpQueueBusyId}
-            onQueueFollowUp={(rec) => void queueFollowUpRecommendation(rec)}
-            bentleyBrief={bentleyBrief}
-            bentleyClientSlice={bentleyClientSlice}
-            liveMetricsSystemHealth={liveMetrics?.systemHealth}
-            voicePreflight={voicePreflight}
-            voiceDiagnostics={voiceDiagnostics}
-            voiceSttInputMode={voiceSttInputMode}
-            voiceSessionId={voiceSession?.sessionId ?? null}
-            voicePendingAnalytics={voicePendingAnalytics}
-            onTestSttHealth={() => void refreshExecutiveVoiceSttDiagnostics()}
-            onTestSelfHostedStt={() => void runSelfHostedSttTestClip()}
-            sttTestBusy={sttTestBusy}
-            sttTestTranscript={sttTestTranscript}
-            learningPendingPreview={learningPendingPreview}
-            summaryError={summaryError}
-            chatCharts={chatResult?.charts ?? null}
-          />
+          </ExecutiveCollapsibleTile>
         </div>
       </div>
 
       <ExecutiveSubjectNavBar activeSubjectId={activeSubjectId} onSelectSubject={applySubject} />
-    </div>
-  );
-}
-
-function MetricTile({
-  label,
-  value,
-  unavailable,
-  error,
-}: {
-  label: string;
-  value?: number | null;
-  unavailable?: boolean;
-  error: string | null;
-}) {
-  const show = error ? "—" : value ?? (unavailable ? "—" : "—");
-  return (
-    <div className="rounded-xl border border-[#00A3FF]/15 bg-[#00050A]/80 p-2 shadow-[inset_0_0_16px_rgba(0,163,255,0.03)]">
-      <div className="text-[9px] font-semibold uppercase tracking-wide text-[#00b7ff]/60">{label}</div>
-      <div className="mt-1 font-mono text-lg text-white">{show}</div>
-      {unavailable && value == null ? <div className="text-[9px] text-slate-600">Unavailable</div> : null}
     </div>
   );
 }

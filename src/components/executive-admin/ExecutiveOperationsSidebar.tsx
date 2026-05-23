@@ -1,6 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { motion } from "framer-motion";
+import type { ExecutiveCommandPromptId } from "@/lib/executive-agent/executive-command-prompts";
 import type { ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
 import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingPanel";
 import { ExecutiveKpiOverviewPanel } from "./ExecutiveKpiOverviewPanel";
@@ -168,7 +170,30 @@ function scrollToApproval(approvalId: string) {
   });
 }
 
-export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProps) {
+type SidebarShellProps = {
+  embedded?: boolean;
+  children: ReactNode;
+};
+
+function OperationsSidebarShell({ embedded, children }: SidebarShellProps) {
+  if (embedded) {
+    return <div className="space-y-2">{children}</div>;
+  }
+  return (
+    <motion.aside
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+      className="space-y-2 xl:col-span-4 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto xl:pr-1"
+    >
+      {children}
+    </motion.aside>
+  );
+}
+
+export function ExecutiveOperationsSidebar(
+  props: ExecutiveOperationsSidebarProps & { embedded?: boolean },
+) {
   const {
     approvals,
     onApprove,
@@ -197,15 +222,11 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
     learningPendingPreview,
     summaryError,
     chatCharts,
+    embedded,
   } = props;
 
   return (
-    <motion.aside
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-      className="space-y-2 xl:col-span-4 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto xl:pr-1"
-    >
+    <OperationsSidebarShell embedded={embedded}>
       <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#00b7ff]/85">
         Operations
       </p>
@@ -535,6 +556,295 @@ export function ExecutiveOperationsSidebar(props: ExecutiveOperationsSidebarProp
           ) : null}
         </div>
       </ExecutiveCollapsibleTile>
-    </motion.aside>
+    </OperationsSidebarShell>
   );
+}
+
+/** Renders a single operations module for the dynamic HUD (no collapsible chrome). */
+export function ExecutiveOperationsHudModule({
+  moduleId,
+  ...props
+}: { moduleId: ExecutiveCommandPromptId } & ExecutiveOperationsSidebarProps) {
+  const {
+    approvals,
+    onApprove,
+    onReject,
+    lastApprovalExec,
+    clientIdTrim,
+    onLoadApprovals,
+    recentConversations,
+    recentConversationsError,
+    followUpRecommendations,
+    followUpError,
+    followUpQueueBusyId,
+    onQueueFollowUp,
+    bentleyBrief,
+    bentleyClientSlice,
+    liveMetricsSystemHealth,
+    voicePreflight,
+    voiceDiagnostics,
+    voiceSttInputMode,
+    voiceSessionId,
+    voicePendingAnalytics,
+    onTestSttHealth,
+    onTestSelfHostedStt,
+    sttTestBusy,
+    sttTestTranscript,
+    learningPendingPreview,
+    summaryError,
+    chatCharts,
+  } = props;
+
+  switch (moduleId) {
+    case "pending_approvals":
+      return (
+        <div className="space-y-2 text-[11px]">
+          {approvals.length === 0 ? (
+            <p className="text-slate-500">No pending proposals.</p>
+          ) : (
+            <ul className="max-h-80 space-y-2 overflow-y-auto">
+              {approvals.map((a) => (
+                <li key={a.id} className="rounded-lg border border-slate-700/50 p-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] uppercase text-[#00A3FF]/90">
+                      {a.proposedAction}
+                    </span>
+                  </div>
+                  <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded border border-slate-800/80 bg-slate-950/80 p-2 font-mono text-[9px] text-slate-400">
+                    {formatApprovalPayloadPreview(a.payloadJson)}
+                  </pre>
+                  <div className="mt-2 flex gap-1">
+                    <button type="button" className="rounded bg-emerald-600/90 px-2 py-1 text-[10px] text-white" onClick={() => void onApprove(a)}>
+                      Approve
+                    </button>
+                    <button type="button" className="rounded bg-slate-700 px-2 py-1 text-[10px] text-slate-200" onClick={() => void onReject(a.id)}>
+                      Reject
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {lastApprovalExec ? (
+            <div className={`rounded-lg border p-2 text-[11px] ${lastApprovalExec.ok ? "border-emerald-500/30 text-emerald-100/90" : "border-amber-500/30 text-amber-100/90"}`}>
+              {lastApprovalExec.message}
+            </div>
+          ) : null}
+        </div>
+      );
+    case "operations_briefing":
+      return <ExecutiveOperationsBriefingPanel onOpenApproval={scrollToApproval} />;
+    case "kpi_forecasting":
+      return (
+        <ExecutiveEmbeddedStack>
+          <ExecutiveKpiOverviewPanel />
+          <OperationalHealthPanel />
+          <FulfillmentForecastPanel />
+          <ForecastRiskPanel />
+        </ExecutiveEmbeddedStack>
+      );
+    case "operators_delegation":
+      return (
+        <ExecutiveEmbeddedStack>
+          <ExecutiveOperatorPanel />
+          <OperatorWorkloadPanel />
+          <DelegationQueuePanel onOpenApproval={scrollToApproval} />
+          <EscalationPanel onOpenApproval={scrollToApproval} />
+        </ExecutiveEmbeddedStack>
+      );
+    case "simulation_intelligence":
+      return (
+        <ExecutiveEmbeddedStack>
+          <ExecutiveSimulationPanel />
+          <SimulationForecastPanel />
+          <ScenarioComparisonPanel />
+          <BottleneckCascadePanel />
+          <ExecutiveKnowledgeGraphPanel />
+          <StrategicMemoryPanel />
+          <OrganizationalIntelligencePanel />
+          <HistoricalContextPanel />
+        </ExecutiveEmbeddedStack>
+      );
+    case "planning":
+      return (
+        <ExecutiveEmbeddedStack>
+          <ExecutivePlanningPanel />
+          <RecoveryPlanningPanel />
+          <StaffingPlanningPanel />
+          <InitiativePlanningPanel />
+        </ExecutiveEmbeddedStack>
+      );
+    case "incidents_governance":
+      return (
+        <ExecutiveEmbeddedStack>
+          <IncidentIntelligencePanel />
+          <AmbientSignalPanel />
+          <ExecutiveOperationalFeedPanel />
+          <LiveAgentActivityPanel />
+          <GovernanceAlertPanel />
+          <CrisisCoordinationPanel />
+        </ExecutiveEmbeddedStack>
+      );
+    case "automation":
+      return (
+        <ExecutiveEmbeddedStack>
+          <ExecutiveAutomationPanel />
+          <ExecutionApprovalPanel onExecuted={onLoadApprovals} />
+          <RollbackControlPanel onRolledBack={onLoadApprovals} />
+          <AutomationHistoryPanel />
+        </ExecutiveEmbeddedStack>
+      );
+    case "multi_agent_workflows":
+      return (
+        <ExecutiveEmbeddedStack>
+          <ExecutiveAgentCoordinationPanel />
+          <AgentWorkspacePanel />
+          <AgentRoutingPanel
+            onRouted={(approvalId) => {
+              if (approvalId) scrollToApproval(approvalId);
+              onLoadApprovals();
+            }}
+          />
+          <CrossAgentEscalationPanel />
+          <ExecutiveWorkflowFabricPanel />
+          <WorkflowLifecyclePanel />
+          <WorkflowDependencyPanel />
+          <WorkflowRecoveryPanel />
+          <WorkflowContinuityPanel />
+        </ExecutiveEmbeddedStack>
+      );
+    case "operational_memory":
+      return <OperationalMemoryInsightsPanel />;
+    case "website_fulfillment":
+      return (
+        <FulfillmentOrdersPanel
+          defaultClientId={clientIdTrim}
+          onApprovalsRefresh={onLoadApprovals}
+          onOpenApproval={scrollToApproval}
+        />
+      );
+    case "trust_fulfillment":
+      return (
+        <TrustFulfillmentOrdersPanel
+          defaultClientId={clientIdTrim}
+          onApprovalsRefresh={onLoadApprovals}
+          onOpenApproval={scrollToApproval}
+        />
+      );
+    case "revenue_os_smart_trust":
+      return (
+        <ExecutiveEmbeddedStack>
+          <RevenueOsFulfillmentPanel
+            defaultClientId={clientIdTrim}
+            onApprovalsRefresh={onLoadApprovals}
+            onOpenApproval={scrollToApproval}
+          />
+          <SmartTrustOperationsPanel
+            defaultClientId={clientIdTrim}
+            onApprovalsRefresh={onLoadApprovals}
+            onOpenApproval={scrollToApproval}
+          />
+        </ExecutiveEmbeddedStack>
+      );
+    case "conversations_signals":
+      return (
+        <div className="space-y-3 text-[11px]">
+          <div>
+            <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00A3FF]/70">Recent conversations</h4>
+            {recentConversationsError ? (
+              <p className="text-xs text-amber-200/90">{recentConversationsError}</p>
+            ) : recentConversations.length === 0 ? (
+              <p className="text-xs text-slate-500">No recent threads returned.</p>
+            ) : (
+              <ul className="max-h-40 space-y-2 overflow-y-auto">
+                {recentConversations.map((c) => (
+                  <li key={c.id} className="rounded-lg border border-slate-700/50 p-2">
+                    <div className="font-medium text-slate-200">{c.displayName}</div>
+                    <p className="mt-1 line-clamp-2 text-slate-400">{c.snippet || "—"}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">Follow-up signals</h4>
+            {followUpError ? (
+              <p className="text-xs text-amber-200/90">{followUpError}</p>
+            ) : followUpRecommendations.length === 0 ? (
+              <p className="text-xs text-slate-500">No actionable recommendations right now.</p>
+            ) : (
+              <ul className="max-h-36 space-y-2 overflow-y-auto">
+                {followUpRecommendations.map((rec) => (
+                  <li key={rec.id} className="rounded-lg border border-slate-700/50 p-2">
+                    <div className="font-medium text-slate-200">{rec.title}</div>
+                    <p className="mt-1 text-slate-400">{rec.detail}</p>
+                    <button
+                      type="button"
+                      disabled={followUpQueueBusyId === rec.id}
+                      onClick={() => void onQueueFollowUp(rec)}
+                      className="mt-2 rounded bg-[#00A3FF]/80 px-2 py-1 text-[10px] font-semibold uppercase text-white disabled:opacity-40"
+                    >
+                      {followUpQueueBusyId === rec.id ? "Queueing…" : "Queue approval"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {bentleyBrief ? (
+            <p className="text-slate-400">
+              Campaigns w/ payload: {bentleyBrief.campaignsWithBentleyPayloadApprox ?? "—"} · Scheduled:{" "}
+              {bentleyBrief.postsScheduledApprox ?? "—"}
+            </p>
+          ) : null}
+        </div>
+      );
+    case "system_voice":
+      return (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-[#00A3FF]/12 bg-[#00050A]/70 p-2 text-xs">
+            <h4 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00b7ff]/70">System health</h4>
+            <ul className="mt-2 space-y-1">
+              <li className="flex justify-between">
+                <span>Database</span>
+                <span className="text-emerald-300">{liveMetricsSystemHealth?.database ?? "ok"}</span>
+              </li>
+              <li className="flex justify-between">
+                <span>API services</span>
+                <span className="text-emerald-300">{liveMetricsSystemHealth?.apiServices ?? "ok"}</span>
+              </li>
+            </ul>
+          </div>
+          <VoiceCommandDiagnosticsPanel
+            data={voiceDiagnostics}
+            defaultCollapsed={false}
+            voiceSttInputMode={voiceSttInputMode}
+            voiceSessionId={voiceSessionId}
+            voicePendingAnalytics={voicePendingAnalytics}
+            onTestSttHealth={onTestSttHealth}
+            onTestSelfHostedStt={onTestSelfHostedStt}
+            sttTestBusy={sttTestBusy}
+            sttTestTranscript={sttTestTranscript}
+          />
+          {learningPendingPreview ? (
+            <p className="text-[11px] text-slate-400">
+              Learning inbox: {learningPendingPreview.improvements} improvements · {learningPendingPreview.capabilities}{" "}
+              capabilities
+            </p>
+          ) : null}
+          {summaryError ? <p className="text-xs text-amber-200">{summaryError}</p> : null}
+          {chatCharts?.length ? (
+            <div className="space-y-2">
+              {chatCharts.map((c) => (
+                <div key={c.title} className="rounded-lg border border-slate-700/50 p-2 text-[11px]">
+                  {c.title}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      );
+    default:
+      return null;
+  }
 }
