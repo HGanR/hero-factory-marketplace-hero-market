@@ -19,7 +19,7 @@ import {
   pendingClientsQueueToolAuditOutput,
   type PendingClientsClaudeHandoffPublic,
 } from "@/lib/executive-agent/pending-clients-handoff";
-import { buildTimeAwareSkipperGreeting, isSkipperGreeting } from "@/lib/executive-agent/executive-voice-phrases";
+import { buildTimeAwareSkipperGreeting, isSimpleExecutiveGreeting } from "@/lib/executive-agent/executive-voice-phrases";
 
 export type ExecutiveOrchestratorMode = "read" | "plan" | "write_request";
 
@@ -332,7 +332,7 @@ export async function runExecutiveOrchestrator(
     approvalStatus: "not_required",
   });
 
-  if (isSkipperGreeting(input.prompt)) {
+  if (isSimpleExecutiveGreeting(input.prompt)) {
     return {
       answer: buildTimeAwareSkipperGreeting(input.prompt),
       insights: [],

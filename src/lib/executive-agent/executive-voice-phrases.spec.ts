@@ -8,10 +8,14 @@ import {
   buildSkipperGreetingResponse,
   buildTimeAwareSkipperGreeting,
   buildVoiceAnalyticsFollowUpPrompt,
+  classifyExecutiveVoiceTranscript,
   hasSpecificAnalyticsMetric,
+  isSimpleExecutiveGreeting,
   isSkipperGreeting,
   isTodayAnalyticsQuestion,
+  normalizeExecutiveVoiceTranscript,
   resolveAnalyticsFollowUpCategory,
+  stripSkipperWakePhrase,
 } from "@/lib/executive-agent/executive-voice-phrases";
 import {
   handleSkipperVoiceGreeting,
@@ -27,7 +31,39 @@ const AFTERNOON = new Date("2026-05-18T14:30:00");
 const EVENING = new Date("2026-05-18T19:30:00");
 
 describe("executive-voice-phrases", () => {
-  it("detects Skipper greetings", () => {
+  it("detects simple voice greetings (greeting_only)", () => {
+    assert.equal(isSimpleExecutiveGreeting("hello"), true);
+    assert.equal(isSimpleExecutiveGreeting("hey"), true);
+    assert.equal(isSimpleExecutiveGreeting("hello skipper"), true);
+    assert.equal(isSimpleExecutiveGreeting("hey skipper"), true);
+    assert.equal(isSimpleExecutiveGreeting("good morning"), true);
+    assert.equal(isSimpleExecutiveGreeting("good morning skipper"), true);
+    assert.equal(classifyExecutiveVoiceTranscript("hello").classification, "greeting_only");
+    assert.equal(classifyExecutiveVoiceTranscript("hey").classification, "greeting_only");
+    assert.equal(classifyExecutiveVoiceTranscript("hello skipper").classification, "greeting_only");
+    assert.equal(classifyExecutiveVoiceTranscript("hey skipper").classification, "greeting_only");
+    assert.equal(classifyExecutiveVoiceTranscript("good morning").classification, "greeting_only");
+    assert.equal(classifyExecutiveVoiceTranscript("good morning skipper").classification, "greeting_only");
+  });
+
+  it("does not classify greeting + operational query as greeting_only", () => {
+    assert.equal(isSimpleExecutiveGreeting("hey skipper has Jarva had activity today"), false);
+    assert.equal(isSimpleExecutiveGreeting("hello skipper check my inbox"), false);
+    assert.equal(
+      classifyExecutiveVoiceTranscript("hey skipper has Jarva had activity today").classification,
+      "operational_query",
+    );
+    assert.equal(classifyExecutiveVoiceTranscript("hello skipper check my inbox").classification, "operational_query");
+  });
+
+  it("normalizes and strips Skipper wake phrases", () => {
+    assert.equal(normalizeExecutiveVoiceTranscript("  Hey, Skipper!  "), "hey skipper");
+    assert.equal(stripSkipperWakePhrase("hey skipper"), "");
+    assert.equal(stripSkipperWakePhrase("good morning skipper"), "");
+    assert.equal(stripSkipperWakePhrase("hello"), "");
+  });
+
+  it("detects Skipper greetings via legacy alias", () => {
     assert.equal(isSkipperGreeting("Hello Skipper"), true);
     assert.equal(isSkipperGreeting("hey skipper"), true);
     assert.equal(isSkipperGreeting("Hey Skipper"), true);
@@ -37,6 +73,8 @@ describe("executive-voice-phrases", () => {
     assert.equal(isSkipperGreeting("Good afternoon skipper."), true);
     assert.equal(isSkipperGreeting("Good evening Skipper?"), true);
     assert.equal(isSkipperGreeting("skipper"), true);
+    assert.equal(isSkipperGreeting("Hello"), true);
+    assert.equal(isSkipperGreeting("hey"), true);
     assert.equal(isSkipperGreeting("Hello Skipper what are today's analytics"), false);
     assert.equal(isSkipperGreeting("Hey Skipper, has Jarva had any conversations today?"), false);
   });
@@ -105,6 +143,9 @@ describe("Skipper fresh voice greeting", () => {
     assert.ok(!lower.includes("tool registry"));
     assert.ok(!lower.includes("read-only tool"));
     assert.ok(!lower.includes("retrieve summaries"));
+    assert.ok(!lower.includes("will check"));
+    assert.ok(!lower.includes("command overview"));
+    assert.equal(result.answer, "Good morning Boss, what can I do for you?");
   });
 
   it("greeting handler marks fresh_greeting short-circuit for ambient skip", () => {
@@ -132,16 +173,26 @@ describe("Skipper fresh voice greeting", () => {
 });
 
 describe("executive voice turn route (static)", () => {
-  it("routes greetings through fresh handler without presence snapshot or orchestrator", () => {
+  it("routes greeting_only before orchestrator and skips ambient briefing", () => {
     const p = join(__dirname, "../../app/api/admin/executive-agent/voice/turn/route.ts");
     const s = readFileSync(p, "utf8");
     assert.ok(!s.includes("executeExecutiveApprovedAction"));
-    assert.ok(s.includes("isSkipperGreeting"));
+    assert.ok(s.includes("classifyExecutiveVoiceTranscript"));
+    assert.ok(s.includes('classification === "greeting_only"'));
     assert.ok(s.includes("handleSkipperVoiceGreeting"));
     assert.ok(!s.includes("buildExecutivePresenceSnapshot"));
     assert.ok(!s.includes("presence.voiceGuidance.greetingBriefing"));
     assert.ok(s.includes("fresh_greeting"));
-    assert.ok(s.includes("getLatestExecutiveVoiceTurnForSession"));
-    assert.ok(s.includes('requestedTool: "getPlatformAnalyticsSummary"'));
+    assert.ok(s.includes("[executive-voice:turn:classification]"));
+
+    const greetingIdx = s.indexOf('classification === "greeting_only"');
+    const orchestratorIdx = s.indexOf("await runExecutiveOrchestrator");
+    assert.ok(greetingIdx >= 0 && orchestratorIdx >= 0);
+    assert.ok(greetingIdx < orchestratorIdx);
+
+    const ambientIdx = s.indexOf("await enrichVoiceAnswerWithAmbientAwareness");
+    const freshGreetingGuard = s.indexOf('shortCircuit !== "fresh_greeting"');
+    assert.ok(ambientIdx >= 0 && freshGreetingGuard >= 0);
+    assert.ok(freshGreetingGuard < ambientIdx);
   });
 });

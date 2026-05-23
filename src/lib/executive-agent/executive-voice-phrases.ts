@@ -20,6 +20,68 @@ function norm(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/** Normalize STT transcript before voice routing (lowercase, collapse space, strip punctuation). */
+export function normalizeExecutiveVoiceTranscript(transcript: string): string {
+  return transcript
+    .trim()
+    .toLowerCase()
+    .replace(/[.,!?;:"()[\]-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Remove Skipper wake/hail prefix; returns remainder for greeting vs query detection. */
+export function stripSkipperWakePhrase(normalizedTranscript: string): string {
+  let t = normalizedTranscript.trim();
+  if (!t) return t;
+
+  t = t.replace(/^good\s+(morning|afternoon|evening)(?:\s+skipper)?\b\s*,?\s*/, "");
+  t = t.replace(/^(?:hello|hi|hey|yo)(?:\s+skipper)?\b\s*,?\s*/, "");
+  t = t.replace(/^skipper\b\s*,?\s*/, "");
+  return t.trim();
+}
+
+const GREETING_TAIL_ONLY =
+  /^(?:boss|chief|there|how\s+are\s+you|what'?s\s+up|what\s+can\s+you\s+do(?:\s+for\s+me)?|how\s+can\s+you\s+help(?:\s+me)?|anything\s+new|status\s+update|report\s+in)$/;
+
+const SIMPLE_GREETING_BODY =
+  /^(?:hello|hi|hey|yo|good\s+(?:morning|afternoon|evening)|skipper)(?:\s+(?:boss|chief|there|skipper|how\s+are\s+you|what'?s\s+up|what\s+can\s+you\s+do(?:\s+for\s+me)?|how\s+can\s+you\s+help(?:\s+me)?|anything\s+new|status\s+update|report\s+in))*$/;
+
+export type ExecutiveVoiceTurnClassification = "greeting_only" | "operational_query" | "orchestrator";
+
+export function classifyExecutiveVoiceTranscript(transcript: string): {
+  transcript: string;
+  normalizedTranscript: string;
+  strippedContent: string;
+  classification: ExecutiveVoiceTurnClassification;
+} {
+  const trimmed = transcript.trim();
+  const normalizedTranscript = normalizeExecutiveVoiceTranscript(trimmed);
+  const strippedContent = stripSkipperWakePhrase(normalizedTranscript);
+
+  if (isSimpleExecutiveGreeting(trimmed)) {
+    return { transcript: trimmed, normalizedTranscript, strippedContent, classification: "greeting_only" };
+  }
+  if (resolveVoiceOperationalQuery(trimmed) != null) {
+    return { transcript: trimmed, normalizedTranscript, strippedContent, classification: "operational_query" };
+  }
+  return { transcript: trimmed, normalizedTranscript, strippedContent, classification: "orchestrator" };
+}
+
+/** True when the utterance is only a hail/greeting with no operational follow-up. */
+export function isSimpleExecutiveGreeting(transcript: string): boolean {
+  const normalized = normalizeExecutiveVoiceTranscript(transcript);
+  if (!normalized) return false;
+
+  if (resolveVoiceOperationalQuery(transcript) != null) return false;
+  if (isTodayAnalyticsQuestion(transcript) || hasSpecificAnalyticsMetric(transcript)) return false;
+
+  const stripped = stripSkipperWakePhrase(normalized);
+  if (!stripped) return true;
+  if (GREETING_TAIL_ONLY.test(stripped)) return true;
+  return SIMPLE_GREETING_BODY.test(stripped);
+}
+
 /** If any of these appear, skip vague “today’s analytics” clarification and run full orchestration. */
 export function hasSpecificAnalyticsMetric(input: string): boolean {
   const p = norm(input);
@@ -43,25 +105,9 @@ export function hasSpecificAnalyticsMetric(input: string): boolean {
   return needles.some((n) => p.includes(n));
 }
 
-const SKIPPER_GREETING_TAIL =
-  /^(?:boss|chief|there|how are you|what'?s up|what can you do(?: for me)?|how can you help(?: me)?|anything new|status update|report in)[!.?]*$/;
-
+/** @deprecated Prefer isSimpleExecutiveGreeting — kept for existing imports. */
 export function isSkipperGreeting(input: string): boolean {
-  const t = norm(input);
-  if (!t) return false;
-  if (t === "skipper") return true;
-
-  const hailMatch = t.match(/^(?:(?:good\s+(?:morning|afternoon|evening))\s+|(?:hello|hi|hey)\s+)skipper\b/);
-  if (!hailMatch) return false;
-
-  const rest = t.slice(hailMatch[0].length).replace(/^[\s,!.?-]+/, "").trim();
-  if (!rest) return true;
-  if (SKIPPER_GREETING_TAIL.test(rest)) return true;
-
-  if (resolveVoiceOperationalQuery(input) != null) return false;
-  if (isTodayAnalyticsQuestion(input) || hasSpecificAnalyticsMetric(input)) return false;
-
-  return false;
+  return isSimpleExecutiveGreeting(input);
 }
 
 export function isTodayAnalyticsQuestion(input: string): boolean {

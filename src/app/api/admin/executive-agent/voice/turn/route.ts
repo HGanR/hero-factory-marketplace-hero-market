@@ -17,7 +17,7 @@ import { startExecutiveVoiceSessionPayload } from "@/lib/executive-agent/executi
 import {
   buildAnalyticsClarificationResponse,
   buildVoiceAnalyticsFollowUpPrompt,
-  isSkipperGreeting,
+  classifyExecutiveVoiceTranscript,
   isTodayAnalyticsQuestion,
   resolveAnalyticsFollowUpCategory,
 } from "@/lib/executive-agent/executive-voice-phrases";
@@ -33,6 +33,19 @@ import { enrichVoiceAnswerWithAmbientAwareness } from "@/lib/executive-agent/exe
 export const dynamic = "force-dynamic";
 
 const VOICE_ANALYTICS_PENDING_MS = 30 * 60 * 1000;
+
+function logVoiceTurnClassification(meta: {
+  transcript: string;
+  normalizedTranscript: string;
+  classification: string;
+}): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.info("[executive-voice:turn:classification]", {
+    transcript: meta.transcript.slice(0, 500),
+    normalizedTranscript: meta.normalizedTranscript.slice(0, 500),
+    classification: meta.classification,
+  });
+}
 
 function buildVoiceShortCircuitResult(
   answer: string,
@@ -96,10 +109,16 @@ export async function POST(req: NextRequest) {
     }
 
     const transcript = body.transcript.trim();
+    const voiceClass = classifyExecutiveVoiceTranscript(transcript);
+    logVoiceTurnClassification({
+      transcript: voiceClass.transcript,
+      normalizedTranscript: voiceClass.normalizedTranscript,
+      classification: voiceClass.classification,
+    });
 
     let result: ExecutiveOrchestratorResult;
 
-    if (isSkipperGreeting(transcript)) {
+    if (voiceClass.classification === "greeting_only") {
       const latestTurn = await getLatestExecutiveVoiceTurnForSession(db, sessionId, adminUserId);
       const greeting = handleSkipperVoiceGreeting(transcript, { isFreshSession: latestTurn == null });
       result = buildVoiceShortCircuitResult(greeting.answer, {
@@ -109,6 +128,7 @@ export async function POST(req: NextRequest) {
         voiceShortCircuit: greeting.voiceShortCircuit,
         greetingOnly: greeting.greetingOnly,
         freshSession: greeting.freshSession,
+        voiceClassification: voiceClass.classification,
       });
     } else if (isVoiceInterruptDuringBriefing(transcript) || isVoiceAcknowledgementRequest(transcript)) {
       result = buildVoiceShortCircuitResult(buildVoiceInterruptAcknowledgement(), {
