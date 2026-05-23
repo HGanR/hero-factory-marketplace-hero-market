@@ -10,8 +10,10 @@ import {
   fetchNewRegistrationsToday,
   fetchRealityActivityToday,
   fetchRegistrationPhoneQueue,
+  fetchSiteAnalyticsVoiceSnapshot,
   fetchVisitorsToday,
 } from "@/lib/executive-agent/executive-voice-operational-data";
+import { buildSiteAnalyticsVoiceAnswer } from "@/lib/executive-agent/executive-site-analytics-voice";
 import {
   isAffirmativeVoice,
   isNegativeVoice,
@@ -173,6 +175,19 @@ async function handleOperationalQuery(
       };
     }
     return buildShortCircuit(answer, meta);
+  }
+
+  if (kind === "site_analytics") {
+    const snap = await fetchSiteAnalyticsVoiceSnapshot(db);
+    const answer = buildSiteAnalyticsVoiceAnswer(snap);
+    return buildShortCircuit(answer, {
+      reasoningMode: "deterministic",
+      confidence: 1,
+      proposedApprovalsCount: 0,
+      voiceShortCircuit: "operational_query",
+      operationalTool: "getPlatformAnalyticsSummary",
+      voiceOperationalData: { siteAnalytics: snap },
+    });
   }
 
   return buildShortCircuit("I'm not sure I caught that one, Boss — try Jarva, your inbox, or new sign-ups.", {

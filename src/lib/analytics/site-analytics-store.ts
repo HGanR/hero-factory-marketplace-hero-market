@@ -44,6 +44,13 @@ export type LandingCtaRow = {
   clicks: number;
 };
 
+export type SiteAnalyticsDailyPoint = {
+  date: string;
+  visitors: number;
+  pageViews: number;
+  conversions: number;
+};
+
 export type SiteAnalyticsRollup = {
   windowStart: string;
   windowEnd: string;
@@ -64,6 +71,10 @@ export type SiteAnalyticsRollup = {
   topPaths: Array<{ path: string; visitors: number }>;
   /** Landing home CTA / link clicks grouped by stable eventName metadata. */
   landingCtas: LandingCtaRow[];
+  /** Daily buckets for executive trend sparklines (UTC dates). */
+  dailyTrend: SiteAnalyticsDailyPoint[];
+  /** Share of sessions with only one page view — bounce proxy when session data exists. */
+  singlePageVisitRate: number | null;
 };
 
 function communityPriceForRevenue(): number | null {
@@ -201,6 +212,47 @@ export async function rollupSiteAnalyticsForExecutive(
       }),
     );
 
+    const dailyRows = await db.execute<{ day: string; visitors: number; pageViews: number; conversions: number }>(sql`
+      SELECT DATE(createdAt) AS day,
+        COUNT(DISTINCT CASE WHEN eventType = 'page_view' THEN visitorId END) AS visitors,
+        SUM(CASE WHEN eventType = 'page_view' THEN 1 ELSE 0 END) AS pageViews,
+        SUM(CASE WHEN eventType IN ('button_click','conversion_intent')
+              AND (JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.button')) IN ('join_community','join community')
+                   OR JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.action')) IN ('join_community','join_community_click'))
+            THEN 1 ELSE 0 END) AS conversions
+      FROM site_analytics_events
+      WHERE createdAt >= ${since} AND createdAt <= ${until}
+      GROUP BY DATE(createdAt)
+      ORDER BY day ASC
+      LIMIT 14
+    `);
+    const dailyTrend = (dailyRows as unknown as { day: string; visitors: number; pageViews: number; conversions: number }[]).map(
+      (r) => ({
+        date: String(r.day),
+        visitors: Number(r.visitors ?? 0),
+        pageViews: Number(r.pageViews ?? 0),
+        conversions: Number(r.conversions ?? 0),
+      }),
+    );
+
+    const bounceRows = await db.execute<{ singlePage: number; total: number }>(sql`
+      SELECT
+        SUM(CASE WHEN pv_count = 1 THEN 1 ELSE 0 END) AS singlePage,
+        COUNT(*) AS total
+      FROM (
+        SELECT sessionId, COUNT(*) AS pv_count
+        FROM site_analytics_events
+        WHERE eventType = 'page_view'
+          AND createdAt >= ${since}
+          AND createdAt <= ${until}
+        GROUP BY sessionId
+      ) AS session_counts
+    `);
+    const singlePage = Number((bounceRows as unknown as { singlePage: number; total: number }[])[0]?.singlePage ?? 0);
+    const sessionTotal = Number((bounceRows as unknown as { singlePage: number; total: number }[])[0]?.total ?? 0);
+    const singlePageVisitRate =
+      sessionTotal > 0 ? Math.min(1, Math.max(0, singlePage / sessionTotal)) : null;
+
     return {
       windowStart: since.toISOString(),
       windowEnd: until.toISOString(),
@@ -212,6 +264,8 @@ export async function rollupSiteAnalyticsForExecutive(
       trafficBySource,
       topPaths,
       landingCtas,
+      dailyTrend,
+      singlePageVisitRate,
     };
   } catch {
     return null;

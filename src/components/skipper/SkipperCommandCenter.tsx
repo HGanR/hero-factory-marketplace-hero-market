@@ -15,6 +15,10 @@ import {
 import { ExecutiveOrb, type OrbMode } from "./ExecutiveOrb";
 import { OrbTelemetryOverlay } from "./OrbTelemetryOverlay";
 import { VoiceFrequencyAnalyzer } from "@/lib/skipper/VoiceFrequencyAnalyzer";
+import {
+  computeExecutiveRevenueValue,
+  formatExecutiveCurrency,
+} from "@/lib/executive-agent/executive-revenue-value";
 import { MOCK_AGENT_BUS, type AgentIntelligenceSnapshot } from "@/lib/skipper/agent-intelligence-bus";
 
 type PendingMarketplaceUserPreview = {
@@ -230,6 +234,43 @@ export function SkipperCommandCenter() {
   const approvedN = summary?.approvedAccounts?.approvedActive ?? 0;
   const platformUsers = summary?.platform?.marketplaceUsers ?? 0;
 
+  const revenueSnap = useMemo(
+    () =>
+      computeExecutiveRevenueValue({
+        pendingAccounts: summary?.pendingAccounts?.pendingAllTime,
+        approvedAccounts: summary?.approvedAccounts?.approvedActive,
+        unavailable: summary == null,
+      }),
+    [summary],
+  );
+
+  const revenueTiles = useMemo(() => {
+    if (revenueSnap.unavailable) {
+      return [
+        { k: "Potential earnings", v: "Unavailable", d: "Pending accounts" },
+        { k: "Approved value", v: "Unavailable", d: "Approved active" },
+        { k: "Monthly recurring", v: "Unavailable", d: "Approved × $20 MRR" },
+      ];
+    }
+    return [
+      {
+        k: "Potential earnings",
+        v: formatExecutiveCurrency(revenueSnap.potentialEarnings),
+        d: `${revenueSnap.pendingAccounts} pending account${revenueSnap.pendingAccounts === 1 ? "" : "s"}`,
+      },
+      {
+        k: "Approved value",
+        v: formatExecutiveCurrency(revenueSnap.approvedAccountValue),
+        d: `${revenueSnap.approvedAccounts} approved active`,
+      },
+      {
+        k: "Monthly recurring",
+        v: formatExecutiveCurrency(revenueSnap.monthlyRecurringRevenue),
+        d: "Approved × $20 MRR",
+      },
+    ];
+  }, [revenueSnap]);
+
   return (
     <div className="min-h-screen bg-[#00050A] text-slate-100">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#00A3FF]/15 px-6 py-4">
@@ -308,6 +349,7 @@ export function SkipperCommandCenter() {
           setCommand={setCommand}
           runCommand={runCommand}
           micOn={micOn}
+          revenueTiles={revenueTiles}
         />
         <RightColumn
           pendingN={pendingN}
@@ -460,6 +502,7 @@ function CenterColumn({
   setCommand,
   runCommand,
   micOn,
+  revenueTiles,
 }: {
   visibleAgents: AgentIntelligenceSnapshot[];
   dataSource: string;
@@ -476,6 +519,7 @@ function CenterColumn({
   setCommand: (v: string) => void;
   runCommand: () => void;
   micOn: boolean;
+  revenueTiles: Array<{ k: string; v: string; d: string }>;
 }) {
   return (
     <motion.section
@@ -542,17 +586,12 @@ function CenterColumn({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        {[
-          { k: "Revenue MTD", v: "$47,892", d: "+12.4%" },
-          { k: "New leads", v: "1,892", d: "+8.1%" },
-          { k: "Clients onboarded", v: "23", d: "+4" },
-          { k: "Opportunities", v: "87", d: "+15.2%" },
-        ].map((x) => (
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {revenueTiles.map((x) => (
           <div key={x.k} className="rounded-lg border border-[#00A3FF]/10 bg-[#00050A]/80 px-2 py-2">
             <p className="text-[9px] uppercase tracking-[0.18em] text-[#00A3FF]/50">{x.k}</p>
             <p className="mt-1 font-mono text-sm text-white">{x.v}</p>
-            <p className="text-[11px] text-[#00FF85]">{x.d}</p>
+            <p className="text-[11px] text-slate-500">{x.d}</p>
           </div>
         ))}
       </div>

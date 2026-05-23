@@ -16,6 +16,11 @@ import {
 } from "@/lib/db/schema";
 import { rollupSiteAnalyticsForExecutive } from "@/lib/analytics/site-analytics-store";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
+import { buildLiveMetricsResponse } from "@/lib/executive-agent/executive-live-metrics";
+import {
+  siteAnalyticsVoiceSnapshotFromLiveMetrics,
+  type SiteAnalyticsVoiceSnapshot,
+} from "@/lib/executive-agent/executive-site-analytics-voice";
 import {
   collectExecutiveInboxUserIds,
   fetchMarketplaceUserDirectory,
@@ -367,6 +372,47 @@ export async function fetchVisitorsToday(db: Db): Promise<number | null> {
     return rollup?.landingPageVisitors ?? null;
   } catch {
     return null;
+  }
+}
+
+const SITE_ANALYTICS_VOICE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function fetchSiteAnalyticsVoiceSnapshot(db: Db): Promise<SiteAnalyticsVoiceSnapshot> {
+  try {
+    const until = new Date();
+    const since = new Date(until.getTime() - SITE_ANALYTICS_VOICE_WINDOW_MS);
+    const rollup = await rollupSiteAnalyticsForExecutive(db, { since, until });
+    if (!rollup) {
+      return {
+        activeVisitors: null,
+        pageViews: null,
+        conversions: null,
+        bounceRate: null,
+        unavailable: true,
+      };
+    }
+    const metrics = buildLiveMetricsResponse({
+      pendingAllTime: null,
+      pendingApprox30d: null,
+      approvedActive: null,
+      approvedInactive: null,
+      activeUsers: null,
+      marketplaceUsers: null,
+      crmClients: null,
+      socialCampaigns: null,
+      threadsLast7d: null,
+      inboxUnavailable: true,
+      siteTraffic: rollup,
+    });
+    return siteAnalyticsVoiceSnapshotFromLiveMetrics(metrics);
+  } catch {
+    return {
+      activeVisitors: null,
+      pageViews: null,
+      conversions: null,
+      bounceRate: null,
+      unavailable: true,
+    };
   }
 }
 

@@ -294,6 +294,9 @@ export function pickExecutiveReadTools(
   if (/desk health|velocity analytics|kpi overview/.test(p)) {
     out.add("getExecutiveKpiOverview");
   }
+  if (/site analytics|site traffic|how many visitors|active visitors|page views/.test(p)) {
+    out.add("getPlatformAnalyticsSummary");
+  }
   if (/analytics|health|blocking|underperform/.test(p)) {
     out.add("getPlatformAnalyticsSummary");
     out.add("getInboxEngagementSummary");

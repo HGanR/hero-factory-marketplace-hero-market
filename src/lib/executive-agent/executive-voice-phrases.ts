@@ -65,6 +65,7 @@ export function isSkipperGreeting(input: string): boolean {
 }
 
 export function isTodayAnalyticsQuestion(input: string): boolean {
+  if (resolveVoiceOperationalQuery(input) === "site_analytics") return false;
   if (hasSpecificAnalyticsMetric(input)) return false;
   const t = norm(input);
   if (!t) return false;

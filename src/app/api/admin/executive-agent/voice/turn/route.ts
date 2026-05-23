@@ -141,15 +141,6 @@ export async function POST(req: NextRequest) {
           dashboardMode: body.dashboardMode ?? null,
           source: "voice",
         });
-      } else if (isTodayAnalyticsQuestion(transcript)) {
-        const createdAt = new Date().toISOString();
-        result = buildVoiceShortCircuitResult(buildAnalyticsClarificationResponse(), {
-          reasoningMode: "deterministic",
-          confidence: 1,
-          proposedApprovalsCount: 0,
-          voiceShortCircuit: "analytics_clarification",
-          pendingVoiceIntent: { intent: "analytics_clarification", createdAt },
-        });
       } else {
         const operational = await tryExecutiveVoiceOperationalHandler(
           db,
@@ -159,6 +150,15 @@ export async function POST(req: NextRequest) {
         );
         if (operational) {
           result = operational;
+        } else if (isTodayAnalyticsQuestion(transcript)) {
+          const createdAt = new Date().toISOString();
+          result = buildVoiceShortCircuitResult(buildAnalyticsClarificationResponse(), {
+            reasoningMode: "deterministic",
+            confidence: 1,
+            proposedApprovalsCount: 0,
+            voiceShortCircuit: "analytics_clarification",
+            pendingVoiceIntent: { intent: "analytics_clarification", createdAt },
+          });
         } else {
           result = await runExecutiveOrchestrator(db, {
             adminUserId,

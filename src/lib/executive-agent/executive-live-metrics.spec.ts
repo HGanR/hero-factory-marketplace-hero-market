@@ -65,6 +65,11 @@ describe("executive-live-metrics", () => {
           { eventName: "landing_cta_click", label: "Join community", targetHref: "/join", clicks: 10 },
           { eventName: "landing_cta_click", label: "PayPal", targetHref: "https://paypal.me/example", clicks: 4 },
         ],
+        dailyTrend: [
+          { date: "2026-01-01", visitors: 40, pageViews: 80, conversions: 4 },
+          { date: "2026-01-02", visitors: 60, pageViews: 120, conversions: 6 },
+        ],
+        singlePageVisitRate: 0.35,
       },
       approvedUserActivity: {
         windowStart: "a",
@@ -98,6 +103,10 @@ describe("executive-live-metrics", () => {
     assert.equal(m.approvedUserActivity.unavailable, false);
     assert.equal(m.approvedUserActivity.loginsInWindow, 5);
     assert.equal(m.approvedUserActivity.recentlyActive.length, 1);
+    assert.equal(m.bounceRate.unavailable, false);
+    assert.equal(m.bounceRate.value, 0.35);
+    assert.equal(m.siteTrend.unavailable, false);
+    assert.equal(m.siteTrend.items.length, 2);
   });
 
   it("marks engagement unavailable when inbox snapshot says so", () => {

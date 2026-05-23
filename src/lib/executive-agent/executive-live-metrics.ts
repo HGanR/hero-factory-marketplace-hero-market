@@ -4,7 +4,7 @@
  */
 
 import type { ApprovedUserActivityRollup } from "@/lib/analytics/approved-user-activity";
-import type { LandingCtaRow, SiteAnalyticsRollup } from "@/lib/analytics/site-analytics-store";
+import type { LandingCtaRow, SiteAnalyticsDailyPoint, SiteAnalyticsRollup } from "@/lib/analytics/site-analytics-store";
 
 export type MetricValue<T> = {
   value: T | null;
@@ -44,11 +44,15 @@ export type LiveLandingCtaRow = LandingCtaRow;
 
 export type LiveApprovedUserActivity = ApprovedUserActivityRollup;
 
+export type LiveSiteTrendPoint = SiteAnalyticsDailyPoint;
+
 export type LiveMetricsResponse = {
   generatedAt: string;
   activeVisitors: MetricValue<number>;
   pageViews: MetricValue<number>;
   conversions: MetricValue<number>;
+  bounceRate: MetricValue<number>;
+  siteTrend: { items: LiveSiteTrendPoint[]; unavailable: boolean; reason?: string };
   topPages: { items: LiveTopPage[]; unavailable: boolean; reason?: string };
   trafficAttribution: LiveTrafficAttribution;
   landingCtaPerformance: { items: LiveLandingCtaRow[]; unavailable: boolean; reason?: string };
@@ -153,6 +157,7 @@ export function buildLiveMetricsResponse(snap: LiveMetricsDbSnapshot, generatedA
       : [];
 
   const landingCtaItems = hasTraffic && st!.landingCtas.length > 0 ? st!.landingCtas : [];
+  const dailyTrend = hasTraffic && st!.dailyTrend?.length ? st!.dailyTrend : [];
 
   const approvedActivity: ApprovedUserActivityRollup = snap.approvedUserActivity ?? {
     windowStart: st?.windowStart ?? generatedAt,
@@ -203,6 +208,24 @@ export function buildLiveMetricsResponse(snap: LiveMetricsDbSnapshot, generatedA
           reason: "analytics_not_configured",
           source: "not_configured",
         },
+    bounceRate: hasTraffic
+      ? {
+          value: st!.singlePageVisitRate,
+          unavailable: st!.singlePageVisitRate == null,
+          reason: st!.singlePageVisitRate == null ? "bounce_proxy_unavailable" : undefined,
+          source: "db",
+        }
+      : {
+          value: null,
+          unavailable: true,
+          reason: "analytics_not_configured",
+          source: "not_configured",
+        },
+    siteTrend: {
+      items: dailyTrend,
+      unavailable: !hasTraffic || dailyTrend.length === 0,
+      reason: !hasTraffic || dailyTrend.length === 0 ? "site_trend_empty" : undefined,
+    },
     topPages: {
       items: topPagesFromEvents,
       unavailable: !hasTraffic || topPagesFromEvents.length === 0,

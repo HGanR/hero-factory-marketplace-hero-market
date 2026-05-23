@@ -8,7 +8,8 @@ export type VoiceOperationalQueryKind =
   | "reality_activity"
   | "executive_inbox"
   | "new_registrations"
-  | "registration_phone_request";
+  | "registration_phone_request"
+  | "site_analytics";
 
 export type PhoneQueueVoiceCommand = "next" | "repeat" | "skip" | "stop";
 
@@ -64,6 +65,19 @@ export function resolveVoiceOperationalQuery(input: string): VoiceOperationalQue
   if (isRegistrationPhoneRequest(t)) return "registration_phone_request";
 
   if (
+    /\bwhat are (today'?s )?site analytics\b/.test(t) ||
+    /\bhow is (the )?site traffic\b/.test(t) ||
+    /\bhow many visitors\b/.test(t) ||
+    /\bsite traffic today\b/.test(t) ||
+    /\btoday'?s site analytics\b/.test(t)
+  ) {
+    return "site_analytics";
+  }
+  if (/\bsite analytics\b/.test(t) || /\bpage views?\b/.test(t) && /\btoday\b/.test(t)) {
+    return "site_analytics";
+  }
+
+  if (
     /\b(jarva|trust records|smart trust)\b/.test(t) &&
     /\b(activity|conversation|spoke|spoken|chat|talked|discussed|any.*today)\b/.test(t)
   ) {
@@ -103,6 +117,8 @@ export function voiceOperationalToolForQuery(kind: VoiceOperationalQueryKind): s
     case "new_registrations":
     case "registration_phone_request":
       return kind === "registration_phone_request" ? "getNewRegistrationPhoneQueue" : "getNewRegistrationsToday";
+    case "site_analytics":
+      return "getPlatformAnalyticsSummary";
     default:
       return "getJarvaActivityToday";
   }

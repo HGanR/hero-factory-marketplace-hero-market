@@ -21,6 +21,8 @@ import { ExecutiveOrb } from "./ExecutiveOrb";
 import { ExecutivePresencePanel, operationalOrbBadgeLabel } from "./ExecutivePresencePanel";
 import { ExecutiveVoiceOperationsPanel } from "./ExecutiveVoiceOperationsPanel";
 import { OperationalPresenceStatusBar } from "./OperationalPresenceStatusBar";
+import { ExecutiveRevenueValueTile } from "./ExecutiveRevenueValueTile";
+import { ExecutiveLiveSiteOverviewTile } from "./ExecutiveLiveSiteOverviewTile";
 import { ExecutiveInterruptionPanel } from "./ExecutiveInterruptionPanel";
 import { AmbientSignalPanel } from "./AmbientSignalPanel";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
@@ -3424,6 +3426,27 @@ export function ExecutiveAgentDashboard() {
             transition={{ delay: 0.08 }}
             className="space-y-4 xl:col-span-4"
           >
+            <div className="grid grid-cols-1 gap-3">
+              <ExecutiveRevenueValueTile
+                pendingAccounts={liveMetrics?.pendingAccounts.value ?? summary?.pendingAccounts?.pendingAllTime}
+                approvedAccounts={liveMetrics?.approvedAccounts.value ?? summary?.approvedAccounts?.approvedActive}
+                unavailable={Boolean(
+                  liveMetrics?.pendingAccounts.unavailable &&
+                    liveMetrics?.pendingAccounts.value == null &&
+                    liveMetrics?.approvedAccounts.unavailable &&
+                    liveMetrics?.approvedAccounts.value == null &&
+                    summary?.pendingAccounts?.pendingAllTime == null &&
+                    summary?.approvedAccounts?.approvedActive == null,
+                )}
+                loading={busy === "live" && liveMetrics == null && summary == null}
+              />
+              <ExecutiveLiveSiteOverviewTile
+                metrics={liveMetrics}
+                loading={busy === "live" && liveMetrics == null}
+                error={liveMetricsError}
+              />
+            </div>
+
             <ExecutiveCollapsibleTile
               title="Today's Executive Briefing"
               subtitle={

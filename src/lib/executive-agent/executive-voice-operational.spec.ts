@@ -11,6 +11,10 @@ import {
   buildJarvaActivityVoiceAnswer,
   buildNewRegistrationsVoiceAnswer,
 } from "@/lib/executive-agent/executive-voice-operational-voice";
+import {
+  buildSiteAnalyticsVoiceAnswer,
+  siteAnalyticsVoiceSnapshotFromLiveMetrics,
+} from "@/lib/executive-agent/executive-site-analytics-voice";
 import { pickExecutiveReadTools } from "@/lib/executive-agent/executive-agent-read-tool-picker";
 
 describe("executive-voice-operational-phrases", () => {
@@ -51,6 +55,13 @@ describe("executive-voice-operational-phrases", () => {
   it("recognizes affirmative voice", () => {
     assert.ok(isAffirmativeVoice("yes"));
     assert.ok(isAffirmativeVoice("yes boss"));
+  });
+
+  it("detects site analytics and traffic questions", () => {
+    assert.equal(resolveVoiceOperationalQuery("What are the site analytics?"), "site_analytics");
+    assert.equal(resolveVoiceOperationalQuery("What are today's site analytics?"), "site_analytics");
+    assert.equal(resolveVoiceOperationalQuery("How is site traffic?"), "site_analytics");
+    assert.equal(resolveVoiceOperationalQuery("How many visitors do we have?"), "site_analytics");
   });
 });
 
@@ -119,6 +130,32 @@ describe("executive-voice-operational-voice copy", () => {
     assert.equal(offerPhone, true);
     assert.doesNotMatch(answer, /\d{3}-\d{3}-\d{4}/);
   });
+
+  it("builds chief-of-staff site analytics summary without tool language", () => {
+    const snap = siteAnalyticsVoiceSnapshotFromLiveMetrics({
+      activeVisitors: { value: 12, unavailable: false },
+      pageViews: { value: 48, unavailable: false },
+      conversions: { value: 3, unavailable: false },
+      bounceRate: { value: 0.42, unavailable: false },
+    });
+    const answer = buildSiteAnalyticsVoiceAnswer(snap);
+    assert.match(answer, /12 active visitors/);
+    assert.match(answer, /48 page views/);
+    assert.match(answer, /3 conversions/);
+    assert.match(answer, /42\.0%/);
+    assert.doesNotMatch(answer, /tool/i);
+  });
+
+  it("reports unavailable site analytics honestly", () => {
+    const answer = buildSiteAnalyticsVoiceAnswer({
+      activeVisitors: null,
+      pageViews: null,
+      conversions: null,
+      bounceRate: null,
+      unavailable: true,
+    });
+    assert.match(answer, /aren't available yet/i);
+  });
 });
 
 describe("read-tool-picker operational tools", () => {
@@ -127,5 +164,10 @@ describe("read-tool-picker operational tools", () => {
     assert.ok(jarva.includes("getJarvaActivityToday"));
     const reg = pickExecutiveReadTools("any new registrations today", null);
     assert.ok(reg.includes("getNewRegistrationsToday"));
+  });
+
+  it("routes site traffic prompts to platform analytics", () => {
+    const tools = pickExecutiveReadTools("how is site traffic today", null);
+    assert.ok(tools.includes("getPlatformAnalyticsSummary"));
   });
 });

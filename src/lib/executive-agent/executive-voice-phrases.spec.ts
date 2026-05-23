@@ -59,6 +59,9 @@ describe("executive-voice-phrases", () => {
   it("does not clarify when a specific metric is already named", () => {
     assert.equal(isTodayAnalyticsQuestion("What are today's site visits?"), false);
     assert.equal(isTodayAnalyticsQuestion("today's analytics for conversions"), false);
+    assert.equal(isTodayAnalyticsQuestion("What are today's site analytics?"), false);
+    assert.equal(isTodayAnalyticsQuestion("How is site traffic?"), false);
+    assert.equal(resolveVoiceOperationalQuery("What are the site analytics?"), "site_analytics");
     assert.equal(hasSpecificAnalyticsMetric("show me revenue today"), true);
     assert.equal(hasSpecificAnalyticsMetric("paypal status"), true);
     assert.equal(hasSpecificAnalyticsMetric("join community count"), true);
