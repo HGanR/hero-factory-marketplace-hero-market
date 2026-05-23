@@ -19,6 +19,7 @@ import { ExecutiveDecisionQueuePanel } from "./ExecutiveDecisionQueuePanel";
 import { ExecutiveTaskQueuePanel } from "./ExecutiveTaskQueuePanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import { ExecutivePresencePanel, operationalOrbBadgeLabel } from "./ExecutivePresencePanel";
+import { ExecutiveVoiceOperationsPanel } from "./ExecutiveVoiceOperationsPanel";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import type { ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
 import {
@@ -148,8 +149,17 @@ type ChatResult = {
     reasoningMode: "deterministic" | "llm" | "llm_fallback";
     confidence: number;
     proposedApprovalsCount: number;
-    voiceShortCircuit?: "greeting" | "analytics_clarification";
-    pendingVoiceIntent?: { intent: "analytics_clarification"; createdAt: string };
+    voiceShortCircuit?: "greeting" | "analytics_clarification" | "operational_query" | "operational_followup";
+    pendingVoiceIntent?: { intent: string; createdAt: string };
+    voiceUiAction?: {
+      type: "play_inbox_audio";
+      messageId: string;
+      attachmentId: string;
+      url: string;
+      filename: string;
+      mimeType: string;
+    };
+    voiceOperationalData?: { phoneQueueRevealed?: boolean };
   };
   pendingVoiceIntent?: { intent: string; createdAt: string } | null;
 };
@@ -477,6 +487,18 @@ export function ExecutiveAgentDashboard() {
   const [voiceApprovalFlash, setVoiceApprovalFlash] = useState(false);
   /** Server echoed pending analytics clarification (voice session). */
   const [voicePendingAnalytics, setVoicePendingAnalytics] = useState<{ intent: string; createdAt: string } | null>(
+    null,
+  );
+  const [voiceOpsRefreshSeq, setVoiceOpsRefreshSeq] = useState(0);
+  const [voicePhoneQueueRevealed, setVoicePhoneQueueRevealed] = useState(false);
+  const [voicePendingInboxAudio, setVoicePendingInboxAudio] = useState<{
+    messageId: string;
+    attachmentId: string;
+    url: string;
+    filename: string;
+    mimeType: string;
+  } | null>(null);
+  const [voicePendingOperational, setVoicePendingOperational] = useState<{ intent: string; createdAt: string } | null>(
     null,
   );
   const [voiceDiagBase, setVoiceDiagBase] = useState<VoiceDiagFields>(() => ({ ...INITIAL_VOICE_DIAG_FIELDS }));
@@ -1742,6 +1764,7 @@ export function ExecutiveAgentDashboard() {
           turnId?: string;
           sessionId?: string;
           pendingVoiceIntent?: { intent: string; createdAt: string } | null;
+          plannerMeta?: ChatResult["plannerMeta"] & Record<string, unknown>;
         };
         if (!r.ok) throw new Error(j.error ?? "Voice turn failed");
         const answer = typeof j.answer === "string" ? j.answer : "";
@@ -1767,6 +1790,30 @@ export function ExecutiveAgentDashboard() {
         setVoicePendingAnalytics(
           j.pendingVoiceIntent?.intent === "analytics_clarification" ? j.pendingVoiceIntent : null,
         );
+        const opIntent = j.pendingVoiceIntent?.intent;
+        if (
+          opIntent === "inbox_audio_confirm" ||
+          opIntent === "registration_phone_offer" ||
+          opIntent === "registration_phone_queue"
+        ) {
+          setVoicePendingOperational(j.pendingVoiceIntent ?? null);
+        } else {
+          setVoicePendingOperational(null);
+        }
+        const uiAction = j.plannerMeta?.voiceUiAction;
+        if (uiAction?.type === "play_inbox_audio" && uiAction.url) {
+          setVoicePendingInboxAudio({
+            messageId: uiAction.messageId,
+            attachmentId: uiAction.attachmentId,
+            url: uiAction.url,
+            filename: uiAction.filename,
+            mimeType: uiAction.mimeType,
+          });
+        }
+        if (j.plannerMeta?.voiceOperationalData?.phoneQueueRevealed) {
+          setVoicePhoneQueueRevealed(true);
+        }
+        setVoiceOpsRefreshSeq((n) => n + 1);
         const approvalN = j.requiresApproval?.length ?? j.plannerMeta?.proposedApprovalsCount ?? 0;
         if (approvalN > 0) setVoiceApprovalFlash(true);
         setTranscript(
@@ -3051,6 +3098,21 @@ export function ExecutiveAgentDashboard() {
               </div>
             </ExecutiveCollapsibleTile>
 
+            <ExecutiveVoiceOperationsPanel
+              refreshSignal={voiceOpsRefreshSeq}
+              phoneQueueRevealed={voicePhoneQueueRevealed}
+              pendingInboxAudio={voicePendingInboxAudio}
+              onPlayInboxAudio={(action) => {
+                if (execAudioRef.current) {
+                  execAudioRef.current.pause();
+                  execAudioRef.current = null;
+                }
+                const audio = new Audio(action.url);
+                execAudioRef.current = audio;
+                void audio.play().catch(() => undefined);
+              }}
+            />
+
             <ExecutiveCollapsibleTile title="Agent network" subtitle="Live agent status and activity">
               {agentIntelError ? <p className="mb-2 text-xs text-amber-200/90">{agentIntelError}</p> : null}
               <ul className="space-y-2 text-xs">
@@ -3310,17 +3372,21 @@ export function ExecutiveAgentDashboard() {
             transition={{ delay: 0.08 }}
             className="space-y-4 xl:col-span-4"
           >
-            <section className="rounded-2xl border border-amber-400/25 bg-slate-950/70 p-4 backdrop-blur-md">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-200/90">
-                  Today{"'"}s Executive Briefing
-                </h2>
-                <div className="flex flex-wrap gap-1">
+            <ExecutiveCollapsibleTile
+              title="Today's Executive Briefing"
+              subtitle={
+                dailyBriefing?.headline?.slice(0, 72) ||
+                (briefingBusy ? "Loading…" : "Daily priorities, risks, and approvals")
+              }
+              defaultCollapsed
+              className="border-amber-400/25 bg-slate-950/70"
+              badge={
+                <div className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     disabled={briefingBusy || busy !== null}
                     onClick={() => void loadBriefingToday()}
-                    className="rounded-full border border-amber-400/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-amber-100 hover:bg-amber-950/40 disabled:opacity-40"
+                    className="rounded-full border border-amber-400/35 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-amber-100 hover:bg-amber-950/40 disabled:opacity-40"
                   >
                     Refresh
                   </button>
@@ -3328,12 +3394,13 @@ export function ExecutiveAgentDashboard() {
                     type="button"
                     disabled={briefingBusy || busy !== null}
                     onClick={() => void generateBriefing()}
-                    className="rounded-full border border-amber-300/50 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-amber-50 hover:bg-amber-900/30 disabled:opacity-40"
+                    className="rounded-full border border-amber-300/50 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-amber-50 hover:bg-amber-900/30 disabled:opacity-40"
                   >
-                    Generate today
+                    Generate
                   </button>
                 </div>
-              </div>
+              }
+            >
               {dailyBriefingError ? <p className="mb-2 text-xs text-amber-200/90">{dailyBriefingError}</p> : null}
               {briefingBusy && !dailyBriefing ? <p className="text-xs text-slate-500">Loading briefing…</p> : null}
               {dailyBriefing ? (
@@ -3400,7 +3467,7 @@ export function ExecutiveAgentDashboard() {
                   No cached briefing for today — use Generate to build one from live signals and memory.
                 </p>
               ) : null}
-            </section>
+            </ExecutiveCollapsibleTile>
 
             <ExecutivePresencePanel
               presence={executivePresence}
@@ -3440,6 +3507,24 @@ export function ExecutiveAgentDashboard() {
                   <span className="font-semibold text-white">conversions</span> to load today&apos;s analytics.
                 </p>
               ) : null}
+              {voicePendingOperational?.intent === "inbox_audio_confirm" ? (
+                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-emerald-400/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-emerald-100/90 shadow-md">
+                  Say <span className="font-semibold text-white">yes</span> to play the inbox audio, or{" "}
+                  <span className="font-semibold text-white">no</span> to skip.
+                </p>
+              ) : null}
+              {voicePendingOperational?.intent === "registration_phone_offer" ? (
+                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
+                  Say <span className="font-semibold text-white">yes</span> for onboarding phone numbers.
+                </p>
+              ) : null}
+              {voicePendingOperational?.intent === "registration_phone_queue" ? (
+                <p className="pointer-events-none absolute left-3 top-28 z-[5] max-w-[15rem] rounded-lg border border-amber-400/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-amber-100/90 shadow-md">
+                  Phone queue active — say <span className="font-semibold text-white">next</span>,{" "}
+                  <span className="font-semibold text-white">repeat</span>, <span className="font-semibold text-white">skip</span>, or{" "}
+                  <span className="font-semibold text-white">stop</span>.
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 p-3 backdrop-blur-md sm:grid-cols-4">
               {[
@@ -3453,6 +3538,30 @@ export function ExecutiveAgentDashboard() {
                   <div className="mt-1 font-mono text-sm text-white">{x.v ?? "—"}</div>
                 </div>
               ))}
+            </div>
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 px-4 py-3 backdrop-blur-md">
+              <button
+                type="button"
+                title="Speak to Skipper (voice turn)"
+                aria-label="Microphone — speak to Skipper"
+                aria-pressed={voiceSttBusy || (voiceMode && voice.listening)}
+                disabled={busy !== null || voiceSttBusy}
+                onClick={() => runMicNearInput()}
+                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 shadow-[0_0_24px_rgba(0,229,255,0.18)] transition hover:scale-[1.03] disabled:opacity-40 ${
+                  voiceSttBusy || (voiceMode && voice.listening)
+                    ? "border-[#00e5ff] bg-[#00e5ff]/20 text-[#00e5ff] animate-pulse"
+                    : "border-[#00e5ff]/50 bg-slate-900/80 text-[#00e5ff] hover:bg-[#050b13]/50"
+                }`}
+              >
+                <Mic className="h-6 w-6" />
+              </button>
+              <p className="text-center text-[10px] text-slate-500">
+                {voiceSttBusy
+                  ? "Listening…"
+                  : voiceMode && voice.listening
+                    ? "Live mic active — speak to Skipper"
+                    : "Tap to speak to Skipper"}
+              </p>
             </div>
             <div className="rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 p-3 backdrop-blur-md">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -3546,24 +3655,12 @@ export function ExecutiveAgentDashboard() {
               </div>
             </div>
             <div className="space-y-3 rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/75 p-4 backdrop-blur-md">
-              <div className="flex gap-2">
-                <textarea
-                  className="min-h-[100px] min-w-0 flex-1 rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-[#00e5ff]/50"
-                  placeholder="Ask about accounts, campaigns, Site Builder, or CRM…"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                />
-                <button
-                  type="button"
-                  title="Speak to text (browser STT or self-hosted STT)"
-                  aria-label="Microphone — speak to text"
-                  disabled={busy !== null || voiceSttBusy}
-                  onClick={() => runMicNearInput()}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#00e5ff]/40 bg-slate-900/80 text-[#00e5ff] hover:bg-[#050b13]/50 disabled:opacity-40"
-                >
-                  <Mic className="h-5 w-5" />
-                </button>
-              </div>
+              <textarea
+                className="min-h-[100px] w-full rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-[#00e5ff]/50"
+                placeholder="Ask about accounts, campaigns, Site Builder, or CRM…"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
               <div className="flex flex-wrap gap-3 text-xs text-slate-400">
                 <label className="inline-flex items-center gap-2">
                   <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />

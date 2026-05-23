@@ -123,6 +123,12 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getExecutiveCommandOverview: "read:crm",
     getExecutiveCommandIncidents: "read:crm",
     getExecutiveCommandAlerts: "read:crm",
+    getJarvaActivityToday: "read:agents",
+    getRealityActivityToday: "read:agents",
+    getExecutiveInboxNewMessages: "read:crm",
+    playExecutiveInboxAudioAttachment: "read:crm",
+    getNewRegistrationsToday: "read:crm",
+    getNewRegistrationPhoneQueue: "read:crm",
   };
   const need = map[toolName];
   if (!need) return false;

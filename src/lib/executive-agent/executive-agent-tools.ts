@@ -833,3 +833,98 @@ export async function getExecutiveFulfillmentOperationsOverview(ctx: ExecutiveTo
   });
   return overview;
 }
+
+/** Jarva / Smart Trust / Trust Records conversations today — read-only transcripts summary. */
+export async function getJarvaActivityToday(ctx: ExecutiveToolContext) {
+  const { fetchJarvaActivityToday } = await import("@/lib/executive-agent/executive-voice-operational-data");
+  const conversations = await fetchJarvaActivityToday(ctx.db);
+  return {
+    source: "oasis_npc_sessions",
+    window: "today_utc",
+    count: conversations.length,
+    conversations,
+  };
+}
+
+/** Reality widget chatbot activity today — read-only. */
+export async function getRealityActivityToday(ctx: ExecutiveToolContext) {
+  const { fetchRealityActivityToday } = await import("@/lib/executive-agent/executive-voice-operational-data");
+  const conversations = await fetchRealityActivityToday(ctx.db);
+  return {
+    source: "widget_conversations",
+    window: "today_utc",
+    count: conversations.length,
+    conversations,
+  };
+}
+
+/** Executive department inbox messages received today — PII-safe summary. */
+export async function getExecutiveInboxNewMessages(ctx: ExecutiveToolContext) {
+  const { fetchExecutiveInboxNewMessagesToday } = await import("@/lib/executive-agent/executive-voice-operational-data");
+  const messages = await fetchExecutiveInboxNewMessagesToday(ctx.db);
+  return {
+    source: "executive_department_messages",
+    window: "today_utc",
+    count: messages.length,
+    messages,
+    note: "Phone numbers and full emails are not included. Audio playback requires explicit owner confirmation.",
+  };
+}
+
+/** Resolve inbox audio attachment for browser playback after explicit yes — no auto-play. */
+export async function playExecutiveInboxAudioAttachment(
+  ctx: ExecutiveToolContext,
+  opts: { messageId: string; attachmentId: string },
+) {
+  const { resolveInboxAudioPlayPayload, auditSensitiveOperationalRead } = await import(
+    "@/lib/executive-agent/executive-voice-operational-data"
+  );
+  const payload = await resolveInboxAudioPlayPayload(ctx.db, opts.messageId.trim(), opts.attachmentId.trim());
+  if (!payload) {
+    return { ok: false, error: "attachment_not_found", messageId: opts.messageId };
+  }
+  await auditSensitiveOperationalRead(ctx.db, ctx.adminUserId, null, "playExecutiveInboxAudioAttachment", opts, {
+    messageId: payload.messageId,
+    attachmentId: payload.attachmentId,
+    filename: payload.filename,
+  });
+  return { ok: true, play: payload, note: "Client UI must play audio — no auto-play without owner confirmation." };
+}
+
+/** New registrations / pending accounts today — masked email, phone availability only. */
+export async function getNewRegistrationsToday(ctx: ExecutiveToolContext) {
+  const { fetchNewRegistrationsToday, fetchVisitorsToday } = await import(
+    "@/lib/executive-agent/executive-voice-operational-data"
+  );
+  const [registrations, visitorsToday] = await Promise.all([
+    fetchNewRegistrationsToday(ctx.db),
+    fetchVisitorsToday(ctx.db),
+  ]);
+  return {
+    source: "marketplace_users",
+    window: "today_utc",
+    count: registrations.length,
+    visitorsToday,
+    registrations,
+    note: "Phone numbers are not included — use getNewRegistrationPhoneQueue after explicit owner request.",
+  };
+}
+
+/** Phone numbers for today's pending registrations — oldest first; audited sensitive read. */
+export async function getNewRegistrationPhoneQueue(ctx: ExecutiveToolContext) {
+  const { fetchRegistrationPhoneQueue, auditSensitiveOperationalRead } = await import(
+    "@/lib/executive-agent/executive-voice-operational-data"
+  );
+  const queue = await fetchRegistrationPhoneQueue(ctx.db);
+  await auditSensitiveOperationalRead(ctx.db, ctx.adminUserId, null, "getNewRegistrationPhoneQueue", {}, {
+    count: queue.length,
+    userIds: queue.map((q) => q.userId),
+  });
+  return {
+    source: "marketplace_users",
+    window: "today_utc",
+    count: queue.length,
+    queue,
+    note: "Read one contact at a time via voice: next number, repeat number, skip, stop.",
+  };
+}

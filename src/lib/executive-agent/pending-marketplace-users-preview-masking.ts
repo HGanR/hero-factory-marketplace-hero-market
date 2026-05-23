@@ -43,6 +43,24 @@ export function maskMarketplaceUsername(username: string): string {
   return `${trimmed.slice(0, 2)}***${trimmed.slice(-1)}`;
 }
 
+/** Mask phone for summaries — last four digits only when long enough. */
+export function maskMarketplacePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 4) return "[redacted]";
+  return `***-***-${digits.slice(-4)}`;
+}
+
+export function formatPhoneForVoice(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}, ${digits.slice(3, 6)}, ${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `${digits.slice(1, 4)}, ${digits.slice(4, 7)}, ${digits.slice(7)}`;
+  }
+  return phone.trim();
+}
+
 function formatCreatedAt(value: Date | string | null): string {
   if (value instanceof Date) return value.toISOString();
   return String(value ?? "");

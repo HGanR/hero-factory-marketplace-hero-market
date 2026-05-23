@@ -40,7 +40,13 @@ export type ExecutiveReadToolKey =
   | "generateExecutivePlan"
   | "getExecutiveCommandOverview"
   | "getExecutiveCommandIncidents"
-  | "getExecutiveCommandAlerts";
+  | "getExecutiveCommandAlerts"
+  | "getJarvaActivityToday"
+  | "getRealityActivityToday"
+  | "getExecutiveInboxNewMessages"
+  | "playExecutiveInboxAudioAttachment"
+  | "getNewRegistrationsToday"
+  | "getNewRegistrationPhoneQueue";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -81,6 +87,12 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getExecutiveCommandOverview: "getExecutiveCommandOverview",
   getExecutiveCommandIncidents: "getExecutiveCommandIncidents",
   getExecutiveCommandAlerts: "getExecutiveCommandAlerts",
+  getJarvaActivityToday: "getJarvaActivityToday",
+  getRealityActivityToday: "getRealityActivityToday",
+  getExecutiveInboxNewMessages: "getExecutiveInboxNewMessages",
+  playExecutiveInboxAudioAttachment: "playExecutiveInboxAudioAttachment",
+  getNewRegistrationsToday: "getNewRegistrationsToday",
+  getNewRegistrationPhoneQueue: "getNewRegistrationPhoneQueue",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -135,7 +147,19 @@ export function pickExecutiveReadTools(
   }
   if (/site builder|website|web3 site/.test(p)) out.add("getSiteBuilderProjectStatus");
   if (/agent.*conversation|discussed|chat/.test(p)) out.add("getAgentConversationSummary");
-  if (/inbox|engagement|dm/.test(p)) out.add("getInboxEngagementSummary");
+  if (/inbox|engagement|dm/.test(p)) {
+    out.add("getInboxEngagementSummary");
+    if (/executive inbox|new message|inbox signal/.test(p)) out.add("getExecutiveInboxNewMessages");
+  }
+  if (/\b(jarva|smart trust|trust records)\b.*\b(activity|conversation|today|spoke)\b/.test(p)) {
+    out.add("getJarvaActivityToday");
+  }
+  if (/\bsmart trust\b.*\bactivity\b/.test(p)) out.add("getJarvaActivityToday");
+  if (/\breality\b.*\b(activity|conversation|today)\b/.test(p)) out.add("getRealityActivityToday");
+  if (/\b(new registrations?|new visitors?|sign.?ups?|registered today|pending accounts?)\b/.test(p)) {
+    out.add("getNewRegistrationsToday");
+  }
+  if (/phone number.*(new account|registration|onboard)/.test(p)) out.add("getNewRegistrationPhoneQueue");
   if (
     /smart trust|governance review|trust resolution|trust governance|trustee workflow|amendment review|compliance reminder|minutes record|smart_trust fulfillment/.test(
       p
@@ -325,6 +349,10 @@ export function pickExecutiveReadTools(
   }
   if (agents.some((a) => a === "reality" || a === "eleanor")) {
     out.add("getAgentConversationSummary");
+    if (agents.includes("reality")) out.add("getRealityActivityToday");
+  }
+  if (agents.some((a) => a.includes("jarva") || a.includes("trust"))) {
+    out.add("getJarvaActivityToday");
   }
 
   if (out.size === 0) {

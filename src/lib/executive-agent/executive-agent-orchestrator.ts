@@ -60,8 +60,24 @@ export type ExecutiveOrchestratorResult = {
     confidence: number;
     proposedApprovalsCount: number;
     /** Voice-only short paths (Executive Administration); never used for write execution. */
-    voiceShortCircuit?: "greeting" | "analytics_clarification";
-    pendingVoiceIntent?: { intent: "analytics_clarification"; createdAt: string };
+    voiceShortCircuit?:
+      | "greeting"
+      | "analytics_clarification"
+      | "presence_greeting"
+      | "voice_acknowledgement"
+      | "operational_query"
+      | "operational_followup";
+    pendingVoiceIntent?: { intent: string; createdAt: string; [key: string]: unknown };
+    voiceUiAction?: {
+      type: "play_inbox_audio";
+      messageId: string;
+      attachmentId: string;
+      url: string;
+      filename: string;
+      mimeType: string;
+    };
+    voiceOperationalData?: Record<string, unknown>;
+    operationalTool?: string;
   };
   /** Suggested operational memory — never persisted by the orchestrator. */
   suggestedMemoryItems: ExecutiveMemorySuggestion[];
@@ -224,6 +240,27 @@ async function runReadTool(
         break;
       case "getExecutiveCommandAlerts":
         data = await Tools.getExecutiveCommandAlerts(ctx);
+        break;
+      case "getJarvaActivityToday":
+        data = await Tools.getJarvaActivityToday(ctx);
+        break;
+      case "getRealityActivityToday":
+        data = await Tools.getRealityActivityToday(ctx);
+        break;
+      case "getExecutiveInboxNewMessages":
+        data = await Tools.getExecutiveInboxNewMessages(ctx);
+        break;
+      case "playExecutiveInboxAudioAttachment":
+        data = await Tools.playExecutiveInboxAudioAttachment(ctx, {
+          messageId: "",
+          attachmentId: "",
+        });
+        break;
+      case "getNewRegistrationsToday":
+        data = await Tools.getNewRegistrationsToday(ctx);
+        break;
+      case "getNewRegistrationPhoneQueue":
+        data = await Tools.getNewRegistrationPhoneQueue(ctx);
         break;
       default:
         return null;

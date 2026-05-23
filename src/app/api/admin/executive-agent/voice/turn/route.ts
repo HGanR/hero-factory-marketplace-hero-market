@@ -28,6 +28,7 @@ import {
   isVoiceAcknowledgementRequest,
   isVoiceInterruptDuringBriefing,
 } from "@/lib/executive-agent/executive-presence-voice";
+import { tryExecutiveVoiceOperationalHandler } from "@/lib/executive-agent/executive-voice-operational-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -161,19 +162,29 @@ export async function POST(req: NextRequest) {
           pendingVoiceIntent: { intent: "analytics_clarification", createdAt },
         });
       } else {
-        result = await runExecutiveOrchestrator(db, {
+        const operational = await tryExecutiveVoiceOperationalHandler(
+          db,
           adminUserId,
-          prompt: transcript,
-          mode: body.mode,
-          selectedClientId: body.selectedClientId ?? null,
-          selectedCampaignId: body.selectedCampaignId ?? null,
-          requestedTool: null,
-          dryRun: body.dryRun,
-          selectedAgents: body.selectedAgents ?? null,
-          selectedTimeRange: body.selectedTimeRange ?? null,
-          dashboardMode: body.dashboardMode ?? null,
-          source: "voice",
-        });
+          transcript,
+          latestTurn?.plannerMetaJson ?? null,
+        );
+        if (operational) {
+          result = operational;
+        } else {
+          result = await runExecutiveOrchestrator(db, {
+            adminUserId,
+            prompt: transcript,
+            mode: body.mode,
+            selectedClientId: body.selectedClientId ?? null,
+            selectedCampaignId: body.selectedCampaignId ?? null,
+            requestedTool: null,
+            dryRun: body.dryRun,
+            selectedAgents: body.selectedAgents ?? null,
+            selectedTimeRange: body.selectedTimeRange ?? null,
+            dashboardMode: body.dashboardMode ?? null,
+            source: "voice",
+          });
+        }
       }
     }
 
