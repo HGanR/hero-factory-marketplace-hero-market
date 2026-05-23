@@ -9,7 +9,31 @@ import { VoiceReactiveLayer } from "./orb/VoiceReactiveLayer";
 import { AgentPulseSignals } from "./orb/AgentPulseSignals";
 import { TelemetryField } from "./orb/TelemetryField";
 
-export type OrbMode = "idle" | "listening" | "speaking" | "processing" | "alert";
+export type OrbMode =
+  | "idle"
+  | "listening"
+  | "speaking"
+  | "processing"
+  | "alert"
+  | "monitoring"
+  | "incident"
+  | "approval_waiting"
+  | "escalation"
+  | "crisis_coordination"
+  | "strategic_analysis"
+  | "workflow_recovery";
+
+export type OperationalIntelligenceState = Extract<
+  OrbMode,
+  | "idle"
+  | "monitoring"
+  | "incident"
+  | "approval_waiting"
+  | "escalation"
+  | "crisis_coordination"
+  | "strategic_analysis"
+  | "workflow_recovery"
+>;
 
 /** Values consumed by the neural orb stack and HUD overlay. */
 export type ExecutiveOrbTelemetry = {
@@ -23,9 +47,15 @@ export type ExecutiveOrbTelemetry = {
 type SceneProps = ExecutiveOrbTelemetry;
 
 function OrbScene({ intensity, mode, activeAgentCount, dataThroughput }: SceneProps) {
-  const alert = mode === "alert";
+  const alert =
+    mode === "alert" ||
+    mode === "incident" ||
+    mode === "approval_waiting" ||
+    mode === "escalation" ||
+    mode === "crisis_coordination";
+  const processing = mode === "processing" || mode === "strategic_analysis" || mode === "workflow_recovery";
   const modeFactor =
-    mode === "processing" ? 1 : mode === "listening" ? 0.65 : mode === "speaking" ? 0.95 : 0.22;
+    processing ? 1 : mode === "listening" ? 0.65 : mode === "speaking" ? 0.95 : mode === "monitoring" ? 0.4 : 0.22;
   const energy = intensity + (mode === "speaking" ? 0.22 : mode === "listening" ? 0.08 : 0);
 
   return (

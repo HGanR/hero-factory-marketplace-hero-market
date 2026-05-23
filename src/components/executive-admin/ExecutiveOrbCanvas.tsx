@@ -6,7 +6,19 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { MeshDistortMaterial, Sparkles } from "@react-three/drei";
 import { AgentPulseRing } from "./AgentPulseRing";
 
-export type ExecutiveOrbMode = "idle" | "listening" | "speaking" | "processing" | "alert";
+export type ExecutiveOrbMode =
+  | "idle"
+  | "listening"
+  | "speaking"
+  | "processing"
+  | "alert"
+  | "monitoring"
+  | "incident"
+  | "approval_waiting"
+  | "escalation"
+  | "crisis_coordination"
+  | "strategic_analysis"
+  | "workflow_recovery";
 
 export type ExecutiveOrbCanvasProps = {
   intensity: number;

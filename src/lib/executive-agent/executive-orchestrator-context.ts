@@ -8,6 +8,8 @@ import { listExecutiveQuestionHistory } from "@/lib/executive-agent/executive-qu
 import { searchExecutiveKnowledgeForPrompt } from "@/lib/executive-agent/executive-knowledge-store";
 import { rollupSiteAnalyticsForExecutive } from "@/lib/analytics/site-analytics-store";
 import { rollupApprovedUserActivity } from "@/lib/analytics/approved-user-activity";
+import { formatExecutivePresenceContext } from "@/lib/executive-agent/executive-presence-service";
+import { EXECUTIVE_CHIEF_OF_STAFF_VOICE } from "@/lib/executive-agent/executive-presence-engine";
 import { listDepartmentMessagesForExecutiveAdmin } from "@/lib/executive-agent/executive-department-inbox-store";
 
 type Db = MySql2Database<typeof schema>;
@@ -62,6 +64,15 @@ export async function formatExecutiveDeskContext(
   } catch {
     /* optional */
   }
+
+  try {
+    const presence = await formatExecutivePresenceContext(db, input.adminUserId, input.prompt);
+    if (presence.trim()) parts.push(presence);
+  } catch {
+    /* optional */
+  }
+
+  parts.push(EXECUTIVE_CHIEF_OF_STAFF_VOICE);
 
   try {
     const mem = await listExecutiveMemoryItems(db, { adminUserId: input.adminUserId, limit: 12 });

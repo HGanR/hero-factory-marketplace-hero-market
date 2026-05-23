@@ -18,6 +18,7 @@ import { FulfillmentThreadView } from "./FulfillmentThreadView";
 import { ExecutiveDecisionQueuePanel } from "./ExecutiveDecisionQueuePanel";
 import { ExecutiveTaskQueuePanel } from "./ExecutiveTaskQueuePanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
+import { ExecutivePresencePanel, operationalOrbBadgeLabel } from "./ExecutivePresencePanel";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import type { ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
 import {
@@ -44,6 +45,7 @@ import {
   type ExecutiveAgentKey,
 } from "@/lib/executive-agent/agent-intelligence-bus";
 import type { LiveMetricsResponse } from "@/lib/executive-agent/executive-live-metrics";
+import type { ExecutivePresenceSnapshot } from "@/lib/executive-agent/executive-presence-types";
 import type { ExecutiveDashboardMode } from "@/lib/executive-agent/executive-agent-chat-request";
 import { EXECUTIVE_DASHBOARD_MODES } from "@/lib/executive-agent/executive-agent-chat-request";
 import {
@@ -345,6 +347,10 @@ export function ExecutiveAgentDashboard() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [liveMetrics, setLiveMetrics] = useState<LiveMetricsResponse | null>(null);
   const [liveMetricsError, setLiveMetricsError] = useState<string | null>(null);
+  const [executivePresence, setExecutivePresence] = useState<ExecutivePresenceSnapshot | null>(null);
+  const [presenceError, setPresenceError] = useState<string | null>(null);
+  const [presenceLoading, setPresenceLoading] = useState(false);
+  const [dismissedInterruptions, setDismissedInterruptions] = useState<Set<string>>(() => new Set());
   const [agentIntel, setAgentIntel] = useState<AgentIntelligenceRecord[]>([]);
   const [agentIntelError, setAgentIntelError] = useState<string | null>(null);
   const [chatResult, setChatResult] = useState<ChatResult | null>(null);
@@ -1394,6 +1400,25 @@ export function ExecutiveAgentDashboard() {
     }
   }, []);
 
+  const loadExecutivePresence = useCallback(async () => {
+    setPresenceLoading(true);
+    setPresenceError(null);
+    try {
+      const r = await fetch("/api/admin/executive-agent/presence/snapshot", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await r.json().catch(() => ({}))) as ExecutivePresenceSnapshot & { error?: string };
+      if (!r.ok) throw new Error(j.error ?? "Executive presence failed");
+      setExecutivePresence(j);
+    } catch (e) {
+      setExecutivePresence(null);
+      setPresenceError(e instanceof Error ? e.message : "Executive presence failed");
+    } finally {
+      setPresenceLoading(false);
+    }
+  }, []);
+
   const loadAgentIntel = useCallback(async () => {
     setBusy("intel");
     setAgentIntelError(null);
@@ -1500,10 +1525,19 @@ export function ExecutiveAgentDashboard() {
     void loadSummary();
     void loadApprovals();
     void loadLiveMetrics();
+    void loadExecutivePresence();
     void loadRecentConversations();
     void loadFollowUpRecommendations();
     void loadBriefingToday();
-  }, [loadSummary, loadApprovals, loadLiveMetrics, loadRecentConversations, loadFollowUpRecommendations, loadBriefingToday]);
+  }, [
+    loadSummary,
+    loadApprovals,
+    loadLiveMetrics,
+    loadExecutivePresence,
+    loadRecentConversations,
+    loadFollowUpRecommendations,
+    loadBriefingToday,
+  ]);
 
   useEffect(() => {
     void loadLearningPendingPreview();
@@ -2274,13 +2308,34 @@ export function ExecutiveAgentDashboard() {
   const orbIntensity = voice.listening ? Math.min(1, voice.rms * 2.2) : idlePulse;
   const orbMode: ExecutiveOrbMode = useMemo(() => {
     if (voice.error) return "alert";
-    if (voiceApprovalFlash) return "alert";
+    if (voiceApprovalFlash) return "approval_waiting";
     if (busy === "chat" || busy === "voice_turn") return "processing";
     if (simSpeaking) return "speaking";
     if (voiceSttBusy || (voiceMode && voice.listening && voice.speaking)) return "speaking";
     if (voiceMode && voice.listening) return "listening";
-    return "idle";
-  }, [voice.error, voice.listening, voice.speaking, busy, simSpeaking, voiceApprovalFlash, voiceSttBusy, voiceMode]);
+    const operational = executivePresence?.orbState ?? "idle";
+    return operational as ExecutiveOrbMode;
+  }, [
+    voice.error,
+    voice.listening,
+    voice.speaking,
+    busy,
+    simSpeaking,
+    voiceApprovalFlash,
+    voiceSttBusy,
+    voiceMode,
+    executivePresence?.orbState,
+  ]);
+
+  const orbStandbyLabel = useMemo(() => {
+    if (busy === "voice_turn") return "Processing";
+    if (voiceApprovalFlash) return "Approvals";
+    if (voiceSttBusy) return "Dictating";
+    if (simSpeaking) return "Speaking";
+    if (voiceMode && voice.listening) return "Live mic";
+    if (executivePresence?.orbState) return operationalOrbBadgeLabel(executivePresence.orbState);
+    return "Standby";
+  }, [busy, voiceApprovalFlash, voiceSttBusy, simSpeaking, voiceMode, voice.listening, executivePresence?.orbState]);
 
   const applySubject = useCallback((subject: ExecutiveSubjectConfig) => {
     setActiveSubjectId(subject.id);
@@ -3347,6 +3402,16 @@ export function ExecutiveAgentDashboard() {
               ) : null}
             </section>
 
+            <ExecutivePresencePanel
+              presence={executivePresence}
+              loading={presenceLoading}
+              error={presenceError}
+              dismissedIds={dismissedInterruptions}
+              onDismissInterruption={(id) =>
+                setDismissedInterruptions((prev) => new Set([...prev, id]))
+              }
+            />
+
             <div className="relative aspect-[5/4] max-h-[min(62vh,640px)] w-full max-w-xl mx-auto overflow-hidden rounded-3xl border border-[#00e5ff]/30 bg-[#02070d]/80 shadow-[0_0_48px_rgba(0,229,255,0.14),inset_0_0_40px_rgba(0,183,255,0.06)]">
               {executiveOutputVoice?.voiceProvider === "self_hosted_tts" &&
               selfHostedHealth &&
@@ -3362,19 +3427,10 @@ export function ExecutiveAgentDashboard() {
                 mode={orbMode}
                 activeAgentCount={selectedAgents.length}
                 focusMode={dashboardMode.replace(/_/g, " ")}
+                operationalState={executivePresence?.orbState}
               />
               <div className="pointer-events-none absolute right-3 top-3 rounded-full border border-[#00e5ff]/35 bg-[#02070d]/85 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]">
-                {busy === "voice_turn"
-                  ? "Processing"
-                  : voiceApprovalFlash
-                    ? "Approvals"
-                    : voiceSttBusy
-                      ? "Dictating"
-                      : simSpeaking
-                        ? "Speaking"
-                        : voiceMode && voice.listening
-                          ? "Live mic"
-                          : "Standby"}
+                {orbStandbyLabel}
               </div>
               {voicePendingAnalytics ? (
                 <p className="pointer-events-none absolute left-3 top-14 z-[5] max-w-[15rem] rounded-lg border border-[#00e5ff]/30 bg-[#02070d]/90 px-2 py-1.5 text-[10px] leading-snug text-[#00e5ff]/90 shadow-md">

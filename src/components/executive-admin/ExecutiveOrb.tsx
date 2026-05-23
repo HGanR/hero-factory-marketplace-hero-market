@@ -11,6 +11,8 @@ export type ExecutiveOrbProps = ExecutiveOrbCanvasProps & {
   activeAgentCount?: number;
   dataThroughput?: number;
   focusMode?: string;
+  /** Operational intelligence label shown when voice is idle. */
+  operationalState?: string;
 };
 
 /**
@@ -21,12 +23,14 @@ export function ExecutiveOrb({
   activeAgentCount,
   dataThroughput,
   focusMode,
+  operationalState,
   intensity,
   mode,
 }: ExecutiveOrbProps) {
   const agents = activeAgentCount ?? 4;
   const tp = dataThroughput ?? 200_000 + intensity * 480_000;
   const label = focusMode ?? "Executive desk";
+  const modeLabel = operationalState ?? mode;
 
   return (
     <div
@@ -54,7 +58,7 @@ export function ExecutiveOrb({
       />
       <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex justify-between text-[9px] font-medium uppercase tracking-[0.2em] text-[#00A3FF]/55">
         <span>Neural core</span>
-        <span>{mode}</span>
+        <span>{modeLabel.replace(/_/g, " ")}</span>
       </div>
     </div>
   );
