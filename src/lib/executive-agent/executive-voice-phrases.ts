@@ -1,10 +1,15 @@
 /**
  * Executive Administration voice-only phrase detection (no LLM).
- * Used by POST /api/admin/executive-agent/voice/turn — not NPC/widget surfaces.
+ * Used by voice/chat Skipper hail detection — not NPC/widget surfaces.
  */
 
-export function buildSkipperGreetingResponse(): string {
-  return "Good day, Boss. How can I help you today?";
+import { resolveVoiceOperationalQuery } from "@/lib/executive-agent/executive-voice-operational-phrases";
+import { buildTimeAwareSkipperGreeting } from "@/lib/executive-agent/executive-presence-voice";
+
+export { buildTimeAwareSkipperGreeting } from "@/lib/executive-agent/executive-presence-voice";
+
+export function buildSkipperGreetingResponse(now?: Date): string {
+  return buildTimeAwareSkipperGreeting("", now);
 }
 
 export function buildAnalyticsClarificationResponse(): string {
@@ -38,12 +43,24 @@ export function hasSpecificAnalyticsMetric(input: string): boolean {
   return needles.some((n) => p.includes(n));
 }
 
+const SKIPPER_GREETING_TAIL =
+  /^(?:boss|chief|there|how are you|what'?s up|what can you do(?: for me)?|how can you help(?: me)?|anything new|status update|report in)[!.?]*$/;
+
 export function isSkipperGreeting(input: string): boolean {
   const t = norm(input);
   if (!t) return false;
   if (t === "skipper") return true;
-  if (/^(hello|hi|hey)\s+skipper[!.,?]*$/i.test(t)) return true;
-  if (/^good\s+(morning|afternoon|evening)\s+skipper[!.,?]*$/i.test(t)) return true;
+
+  const hailMatch = t.match(/^(?:(?:good\s+(?:morning|afternoon|evening))\s+|(?:hello|hi|hey)\s+)skipper\b/);
+  if (!hailMatch) return false;
+
+  const rest = t.slice(hailMatch[0].length).replace(/^[\s,!.?-]+/, "").trim();
+  if (!rest) return true;
+  if (SKIPPER_GREETING_TAIL.test(rest)) return true;
+
+  if (resolveVoiceOperationalQuery(input) != null) return false;
+  if (isTodayAnalyticsQuestion(input) || hasSpecificAnalyticsMetric(input)) return false;
+
   return false;
 }
 

@@ -16,15 +16,14 @@ import { insertSkipperLearningEvent } from "@/lib/executive-agent/skipper-learni
 import { startExecutiveVoiceSessionPayload } from "@/lib/executive-agent/executive-voice-provider";
 import {
   buildAnalyticsClarificationResponse,
-  buildSkipperGreetingResponse,
   buildVoiceAnalyticsFollowUpPrompt,
   isSkipperGreeting,
   isTodayAnalyticsQuestion,
   resolveAnalyticsFollowUpCategory,
 } from "@/lib/executive-agent/executive-voice-phrases";
-import { buildExecutivePresenceSnapshot } from "@/lib/executive-agent/executive-presence-service";
 import {
   buildVoiceInterruptAcknowledgement,
+  handleSkipperVoiceGreeting,
   isVoiceAcknowledgementRequest,
   isVoiceInterruptDuringBriefing,
 } from "@/lib/executive-agent/executive-presence-voice";
@@ -100,26 +99,15 @@ export async function POST(req: NextRequest) {
     let result: ExecutiveOrchestratorResult;
 
     if (isSkipperGreeting(transcript)) {
-      let greeting = buildSkipperGreetingResponse();
-      let presenceMeta: Record<string, unknown> = {};
-      try {
-        const presence = await buildExecutivePresenceSnapshot(db, adminUserId, { recordCheckIn: true });
-        greeting = presence.voiceGuidance.greetingBriefing;
-        presenceMeta = {
-          orbState: presence.orbState,
-          urgency: presence.urgency,
-          toneMode: presence.toneMode,
-          topRecommendedAction: presence.topRecommendedAction,
-        };
-      } catch {
-        /* fallback greeting */
-      }
-      result = buildVoiceShortCircuitResult(greeting, {
+      const latestTurn = await getLatestExecutiveVoiceTurnForSession(db, sessionId, adminUserId);
+      const greeting = handleSkipperVoiceGreeting(transcript, { isFreshSession: latestTurn == null });
+      result = buildVoiceShortCircuitResult(greeting.answer, {
         reasoningMode: "deterministic",
         confidence: 1,
         proposedApprovalsCount: 0,
-        voiceShortCircuit: "presence_greeting",
-        presenceMeta,
+        voiceShortCircuit: greeting.voiceShortCircuit,
+        greetingOnly: greeting.greetingOnly,
+        freshSession: greeting.freshSession,
       });
     } else if (isVoiceInterruptDuringBriefing(transcript) || isVoiceAcknowledgementRequest(transcript)) {
       result = buildVoiceShortCircuitResult(buildVoiceInterruptAcknowledgement(), {

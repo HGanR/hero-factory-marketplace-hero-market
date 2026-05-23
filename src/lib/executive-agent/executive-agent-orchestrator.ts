@@ -19,6 +19,7 @@ import {
   pendingClientsQueueToolAuditOutput,
   type PendingClientsClaudeHandoffPublic,
 } from "@/lib/executive-agent/pending-clients-handoff";
+import { buildTimeAwareSkipperGreeting, isSkipperGreeting } from "@/lib/executive-agent/executive-voice-phrases";
 
 export type ExecutiveOrchestratorMode = "read" | "plan" | "write_request";
 
@@ -330,6 +331,27 @@ export async function runExecutiveOrchestrator(
     outputJson: null,
     approvalStatus: "not_required",
   });
+
+  if (isSkipperGreeting(input.prompt)) {
+    return {
+      answer: buildTimeAwareSkipperGreeting(input.prompt),
+      insights: [],
+      recommendedActions: [],
+      todos: [],
+      charts: [],
+      referencedClients: [],
+      referencedAgents: [],
+      requiresApproval: [],
+      plannerMeta: {
+        reasoningMode: "deterministic",
+        confidence: 1,
+        proposedApprovalsCount: 0,
+        voiceShortCircuit: "fresh_greeting",
+        greetingOnly: true,
+      },
+      suggestedMemoryItems: [],
+    };
+  }
 
   const insights: ExecutiveOrchestratorResult["insights"] = [];
   const charts: ExecutiveOrchestratorResult["charts"] = [];

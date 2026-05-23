@@ -348,3 +348,7 @@ export async function tryExecutiveVoiceOperationalHandler(
 
   return null;
 }
+
+export {
+  handleSkipperVoiceGreeting,
+} from "@/lib/executive-agent/executive-presence-voice";

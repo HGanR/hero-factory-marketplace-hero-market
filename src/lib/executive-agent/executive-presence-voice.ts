@@ -90,6 +90,54 @@ export function composeExecutivePresenceGreeting(snapshot: Pick<
   return parts.join(" ");
 }
 
+/** Time-of-day bucket for natural Skipper hail responses (server/local clock). */
+export type SkipperGreetingPeriod = "morning" | "afternoon" | "evening";
+
+export function resolveTimeOfDayPeriod(now: Date = new Date()): SkipperGreetingPeriod {
+  const hour = now.getHours();
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
+}
+
+/** Honor explicit “good morning/afternoon/evening” in the hail when present. */
+export function resolveGreetingPeriodFromTranscript(transcript: string): SkipperGreetingPeriod | null {
+  const t = transcript.trim().toLowerCase();
+  if (/\bgood\s+morning\b/.test(t)) return "morning";
+  if (/\bgood\s+afternoon\b/.test(t)) return "afternoon";
+  if (/\bgood\s+evening\b/.test(t)) return "evening";
+  return null;
+}
+
+export function buildTimeAwareSkipperGreeting(transcript: string, now: Date = new Date()): string {
+  const period = resolveGreetingPeriodFromTranscript(transcript) ?? resolveTimeOfDayPeriod(now);
+  const prefix =
+    period === "morning" ? "Good morning" : period === "afternoon" ? "Good afternoon" : "Good evening";
+  return `${prefix} Boss, what can I do for you?`;
+}
+
+export type SkipperFreshGreetingResult = {
+  answer: string;
+  voiceShortCircuit: "fresh_greeting";
+  greetingOnly: true;
+  freshSession: boolean;
+};
+
+/**
+ * Greeting-only path — no tools, orchestrator, presence briefing, or ambient append.
+ */
+export function handleSkipperVoiceGreeting(
+  transcript: string,
+  opts?: { isFreshSession?: boolean; now?: Date },
+): SkipperFreshGreetingResult {
+  return {
+    answer: buildTimeAwareSkipperGreeting(transcript, opts?.now ?? new Date()),
+    voiceShortCircuit: "fresh_greeting",
+    greetingOnly: true,
+    freshSession: Boolean(opts?.isFreshSession),
+  };
+}
+
 export function buildVoiceGuidance(snapshot: Pick<ExecutivePresenceSnapshot, "urgency">) {
   return {
     acknowledgementPhrases: ACKNOWLEDGEMENTS,
@@ -98,9 +146,9 @@ export function buildVoiceGuidance(snapshot: Pick<ExecutivePresenceSnapshot, "ur
   };
 }
 
-/** Legacy fixed greeting — superseded when presence briefing is available. */
-export function buildSkipperGreetingResponse(): string {
-  return "Good day, Boss. How can I help you today?";
+/** @deprecated Use buildTimeAwareSkipperGreeting — kept for import compatibility. */
+export function buildSkipperGreetingResponse(now?: Date): string {
+  return buildTimeAwareSkipperGreeting("", now ?? new Date());
 }
 
 export function isVoiceAcknowledgementRequest(input: string): boolean {
