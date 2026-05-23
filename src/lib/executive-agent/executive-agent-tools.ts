@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/schema";
 import { summarizeBentleyExecutiveBridge, summarizeBentleyLaunchReadinessForClient } from "@/lib/executive-agent/bentley-executive-bridge";
 import { rollupSiteAnalyticsForExecutive } from "@/lib/analytics/site-analytics-store";
+import { rollupApprovedUserActivity } from "@/lib/analytics/approved-user-activity";
 
 export type ExecutiveToolContext = {
   db: MySql2Database<typeof schema>;
@@ -286,11 +287,14 @@ export async function getPlatformAnalyticsSummary(ctx: ExecutiveToolContext) {
   const [crm] = await ctx.db.select({ n: count() }).from(clients);
   const [camps] = await ctx.db.select({ n: count() }).from(campaigns);
   let siteTraffic: Awaited<ReturnType<typeof rollupSiteAnalyticsForExecutive>> = null;
+  let approvedUserActivity: Awaited<ReturnType<typeof rollupApprovedUserActivity>> = null;
   try {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     siteTraffic = await rollupSiteAnalyticsForExecutive(ctx.db, { since, landingPath: "/" });
+    approvedUserActivity = await rollupApprovedUserActivity(ctx.db, { since });
   } catch {
     siteTraffic = null;
+    approvedUserActivity = null;
   }
   return {
     marketplaceUsers: Number(users?.n ?? 0),
@@ -298,6 +302,7 @@ export async function getPlatformAnalyticsSummary(ctx: ExecutiveToolContext) {
     socialCampaigns: Number(camps?.n ?? 0),
     generatedAt: new Date().toISOString(),
     siteTraffic,
+    approvedUserActivity,
   };
 }
 

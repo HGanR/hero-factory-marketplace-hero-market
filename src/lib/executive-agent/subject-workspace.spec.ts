@@ -13,6 +13,7 @@ describe("subject workspace state", () => {
     const scope = resolveSubjectWorkspace({ subjectId: "site_builder" });
     assert.equal(scope.workspaceKind, "website");
     assert.equal(scope.department, "WEBSITE");
+    assert.ok(scope.label.includes("Stephon"));
   });
 
   it("resolves TRUST workspace from trust_jarva", () => {
@@ -31,6 +32,13 @@ describe("subject workspace state", () => {
     const scope = resolveSubjectWorkspace({ subjectId: "smart_trust" });
     assert.equal(scope.workspaceKind, "smart_trust");
     assert.equal(scope.department, "SMART_TRUST");
+  });
+
+  it("resolves TROO TOWN workspace from troo_town subject", () => {
+    const scope = resolveSubjectWorkspace({ subjectId: "troo_town" });
+    assert.equal(scope.workspaceKind, "troo_town");
+    assert.equal(scope.department, null);
+    assert.ok(scope.label.includes("TROO TOWN"));
   });
 
   it("resolves fulfillment_case when order pinned", () => {

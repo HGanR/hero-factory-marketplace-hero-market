@@ -22,6 +22,9 @@ describe("executive-live-metrics", () => {
     assert.equal(m.pageViews.unavailable, true);
     assert.equal(m.topPages.unavailable, true);
     assert.equal(m.trafficAttribution.unavailable, true);
+    assert.equal(m.landingCtaPerformance.unavailable, true);
+    assert.equal(m.landingCtaPerformance.items.length, 0);
+    assert.equal(m.approvedUserActivity.unavailable, true);
     assert.equal(m.pendingAccounts.value, 3);
     assert.equal(m.engagement.value, 8);
     assert.equal(m.systemHealth.database, "ok");
@@ -58,6 +61,29 @@ describe("executive-live-metrics", () => {
           },
         ],
         topPaths: [{ path: "/", visitors: 100 }],
+        landingCtas: [
+          { eventName: "landing_cta_click", label: "Join community", targetHref: "/join", clicks: 10 },
+          { eventName: "landing_cta_click", label: "PayPal", targetHref: "https://paypal.me/example", clicks: 4 },
+        ],
+      },
+      approvedUserActivity: {
+        windowStart: "a",
+        windowEnd: "b",
+        approvedActiveTotal: 12,
+        loginsInWindow: 5,
+        usersWithTrackedEvents: 3,
+        recentlyActive: [
+          {
+            userId: 1,
+            userLabel: "a…z",
+            lastLogin: "2026-01-01T00:00:00.000Z",
+            isActive: true,
+            eventsInWindow: 7,
+            lastEventPath: "/marketplace",
+            lastEventAt: "2026-01-01T01:00:00.000Z",
+          },
+        ],
+        unavailable: false,
       },
     };
     const m = buildLiveMetricsResponse(snap);
@@ -66,6 +92,12 @@ describe("executive-live-metrics", () => {
     assert.equal(m.trafficAttribution.joinCommunityConversionRate, safeRate(10, 100));
     assert.equal(m.trafficAttribution.paypalIntentRate, safeRate(4, 100));
     assert.equal(m.trafficAttribution.potentialRevenueTotal, 4 * 155);
+    assert.equal(m.landingCtaPerformance.unavailable, false);
+    assert.equal(m.landingCtaPerformance.items.length, 2);
+    assert.equal(m.landingCtaPerformance.items[0]?.clicks, 10);
+    assert.equal(m.approvedUserActivity.unavailable, false);
+    assert.equal(m.approvedUserActivity.loginsInWindow, 5);
+    assert.equal(m.approvedUserActivity.recentlyActive.length, 1);
   });
 
   it("marks engagement unavailable when inbox snapshot says so", () => {

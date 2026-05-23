@@ -11,6 +11,7 @@ export type SubjectWorkspaceKind =
   | "trust"
   | "revenue_os"
   | "smart_trust"
+  | "troo_town"
   | "client"
   | "fulfillment_case";
 
@@ -111,7 +112,7 @@ export function resolveSubjectWorkspace(input: ResolveSubjectWorkspaceInput): Su
       department: "WEBSITE",
       clientId: null,
       orderId: null,
-      label: "WEBSITE operations workspace",
+      label: "Stephon · Site Builder desk",
     };
   }
 
@@ -145,6 +146,17 @@ export function resolveSubjectWorkspace(input: ResolveSubjectWorkspaceInput): Su
       clientId: null,
       orderId: null,
       label: "Smart Trust governance workspace",
+    };
+  }
+
+  if (input.subjectId === "troo_town") {
+    return {
+      subjectId: input.subjectId,
+      workspaceKind: "troo_town",
+      department: null,
+      clientId: null,
+      orderId: null,
+      label: "TROO TOWN · Evaana world desk",
     };
   }
 

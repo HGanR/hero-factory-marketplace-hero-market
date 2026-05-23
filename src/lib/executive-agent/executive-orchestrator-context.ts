@@ -7,6 +7,7 @@ import { listExecutiveMemoryItems } from "@/lib/executive-agent/executive-memory
 import { listExecutiveQuestionHistory } from "@/lib/executive-agent/executive-question-history-store";
 import { searchExecutiveKnowledgeForPrompt } from "@/lib/executive-agent/executive-knowledge-store";
 import { rollupSiteAnalyticsForExecutive } from "@/lib/analytics/site-analytics-store";
+import { rollupApprovedUserActivity } from "@/lib/analytics/approved-user-activity";
 import { listDepartmentMessagesForExecutiveAdmin } from "@/lib/executive-agent/executive-department-inbox-store";
 
 type Db = MySql2Database<typeof schema>;
@@ -32,6 +33,31 @@ export async function formatExecutiveDeskContext(
       parts.push(
         `Site funnel (7d, landing ${rollup.landingPath}): visitors=${rollup.landingPageVisitors}, join_clicks=${rollup.joinCommunityClicks}, paypal_outbound=${rollup.outboundPayPalClicks}.`,
       );
+      if (rollup.landingCtas.length > 0) {
+        const topCtas = rollup.landingCtas
+          .slice(0, 5)
+          .map((c) => `${c.label}:${c.clicks}`)
+          .join(", ");
+        parts.push(`Top landing CTAs (7d): ${topCtas}.`);
+      }
+    }
+  } catch {
+    /* optional */
+  }
+
+  try {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const approved = await rollupApprovedUserActivity(db, { since, limit: 8 });
+    if (!approved.unavailable) {
+      parts.push(
+        `Approved accounts (7d): ${approved.approvedActiveTotal} active, ${approved.loginsInWindow} login(s), ${approved.usersWithTrackedEvents} with tracked session events.`,
+      );
+      const active = approved.recentlyActive
+        .filter((u) => u.eventsInWindow > 0 || u.lastLogin)
+        .slice(0, 4)
+        .map((u) => `${u.userLabel} events=${u.eventsInWindow}`)
+        .join(", ");
+      if (active) parts.push(`Recent approved activity: ${active}.`);
     }
   } catch {
     /* optional */

@@ -15,12 +15,13 @@ export type ExecutiveSubjectId =
   | "trust_jarva"
   | "revenue_os"
   | "smart_trust"
+  | "troo_town"
   | "settings"
   | "new_command";
 
 export type ExecutiveSubjectAgentSlot = {
   /** API-routable key; `jarva` maps to Skipper + TRUST read tools at orchestration time. */
-  routeKey: ExecutiveAgentKey | "jarva" | "maania";
+  routeKey: ExecutiveAgentKey | "jarva" | "maania" | "evaana" | "stephon";
   displayName: string;
   /** Domain shown under the agent name on the nav tab (e.g. ACCOUNTING). */
   domainLabel: string;
@@ -89,30 +90,31 @@ export const EXECUTIVE_SUBJECTS: ExecutiveSubjectConfig[] = [
   },
   {
     id: "site_builder",
-    navLabel: "Site Builder",
-    shortLabel: "Website",
-    description: "WEBSITE fulfillment — Site Builder drafts and owner review (no deploy from chat).",
+    navLabel: "Stephon",
+    shortLabel: "Stephon",
+    description:
+      "Site Builder desk — Stephon operator conversations, builder usability signals, and Skipper-governed engine feedback.",
     workspaceKind: "website",
     departmentFocus: "WEBSITE",
     dashboardMode: "SITE_BUILDER",
     delegateAgents: withSkipperNexus(["executive_admin"]),
     agentSlots: [
-      { routeKey: "executive_admin", displayName: "Executive Admin", domainLabel: "WEBSITE" },
-      { routeKey: "skipper", displayName: "SKIPPER", domainLabel: "FULFILLMENT" },
+      { routeKey: "stephon", displayName: "Stephon", domainLabel: "SITE BUILDER" },
+      { routeKey: "skipper", displayName: "SKIPPER", domainLabel: "USABILITY" },
     ],
   },
   {
     id: "analytics",
     navLabel: "Analytics",
     shortLabel: "Analytics",
-    description: "Platform analytics, campaigns, and Bentley performance signals.",
+    description: "Platform analytics — Skipper reads traffic, campaigns, and conversion signals.",
     workspaceKind: "desk",
     departmentFocus: null,
     dashboardMode: "OVERVIEW",
     delegateAgents: withSkipperNexus(["bentley"]),
     agentSlots: [
-      { routeKey: "bentley", displayName: "Bentley", domainLabel: "ANALYTICS" },
-      { routeKey: "skipper", displayName: "SKIPPER", domainLabel: "INSIGHTS" },
+      { routeKey: "skipper", displayName: "SKIPPER", domainLabel: "ANALYTICS" },
+      { routeKey: "bentley", displayName: "Bentley", domainLabel: "REVENUE OS" },
     ],
   },
   {
@@ -186,6 +188,21 @@ export const EXECUTIVE_SUBJECTS: ExecutiveSubjectConfig[] = [
     ],
   },
   {
+    id: "troo_town",
+    navLabel: "TROO TOWN",
+    shortLabel: "TROO TOWN",
+    description:
+      "TROO TOWN 3D world desk — Evaana visitor conversations at TROOTHHERTZ LLC, world intelligence, and Skipper-governed follow-ups.",
+    workspaceKind: "troo_town",
+    departmentFocus: null,
+    dashboardMode: "CONVERSATIONS",
+    delegateAgents: withSkipperNexus(["executive_admin"]),
+    agentSlots: [
+      { routeKey: "evaana", displayName: "Evaana", domainLabel: "TROO WORLD" },
+      { routeKey: "skipper", displayName: "SKIPPER", domainLabel: "FOLLOW-UP" },
+    ],
+  },
+  {
     id: "settings",
     navLabel: "Settings",
     shortLabel: "Settings",
@@ -220,6 +237,7 @@ export function subjectIdFromBottomTab(tab: string): ExecutiveSubjectId {
     "CRM Intelligence": "crm_intelligence",
     "AI Agents": "ai_agents",
     "Site Builder": "site_builder",
+    Stephon: "site_builder",
     Analytics: "analytics",
     Inbox: "inbox",
     Tasks: "tasks",
@@ -227,6 +245,7 @@ export function subjectIdFromBottomTab(tab: string): ExecutiveSubjectId {
     Jarva: "trust_jarva",
     "Revenue OS": "revenue_os",
     "Smart Trust": "smart_trust",
+    "TROO TOWN": "troo_town",
   };
   return map[tab] ?? "command_center";
 }

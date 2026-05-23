@@ -17,7 +17,7 @@ import {
 } from "@/lib/fulfillment/fulfillment-types";
 
 const SUBJECT_BY_AGENT: Record<ExecutiveDeskAgentId, string[]> = {
-  skipper: ["command_center", "tasks"],
+  skipper: ["command_center", "tasks", "troo_town", "site_builder"],
   bentley: ["revenue_os", "analytics"],
   jarva: ["trust_jarva", "smart_trust"],
   eleanor: ["ai_agents", "crm_intelligence"],
@@ -46,6 +46,7 @@ function resolveAgentForTask(task: ExecutiveOperationalTaskDto): ExecutiveDeskAg
 }
 
 function resolveAgentForThread(thread: ExecutiveOperationalThreadDto): ExecutiveDeskAgentId {
+  if (thread.subjectId === "troo_town") return "skipper";
   if (thread.subjectId === "revenue_os") return "bentley";
   if (thread.subjectId === "trust_jarva" || thread.subjectId === "smart_trust") return "jarva";
   if (thread.department === FULFILLMENT_PRIMARY_SERVICE_REVENUE_OS) return "bentley";

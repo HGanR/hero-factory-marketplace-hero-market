@@ -3,7 +3,8 @@
  * Numeric fields use `{ value, unavailable?, reason? }` so the UI never shows silent fakes.
  */
 
-import type { SiteAnalyticsRollup } from "@/lib/analytics/site-analytics-store";
+import type { ApprovedUserActivityRollup } from "@/lib/analytics/approved-user-activity";
+import type { LandingCtaRow, SiteAnalyticsRollup } from "@/lib/analytics/site-analytics-store";
 
 export type MetricValue<T> = {
   value: T | null;
@@ -39,6 +40,10 @@ export type LiveTrafficAttribution = {
   communityPrice: number | null;
 };
 
+export type LiveLandingCtaRow = LandingCtaRow;
+
+export type LiveApprovedUserActivity = ApprovedUserActivityRollup;
+
 export type LiveMetricsResponse = {
   generatedAt: string;
   activeVisitors: MetricValue<number>;
@@ -46,6 +51,8 @@ export type LiveMetricsResponse = {
   conversions: MetricValue<number>;
   topPages: { items: LiveTopPage[]; unavailable: boolean; reason?: string };
   trafficAttribution: LiveTrafficAttribution;
+  landingCtaPerformance: { items: LiveLandingCtaRow[]; unavailable: boolean; reason?: string };
+  approvedUserActivity: LiveApprovedUserActivity;
   pendingAccounts: MetricValue<number> & { pendingApprox30d?: number | null };
   approvedAccounts: MetricValue<number> & { approvedInactive?: number | null };
   activeAccounts: MetricValue<number>;
@@ -72,6 +79,7 @@ export type LiveMetricsDbSnapshot = {
   inboxMessage?: string;
   /** When present, replaces stubbed analytics slots with real `site_analytics_events` rollups. */
   siteTraffic?: SiteAnalyticsRollup | null;
+  approvedUserActivity?: ApprovedUserActivityRollup | null;
 };
 
 export function safeRate(numerator: number, denominator: number): number | null {
@@ -144,6 +152,19 @@ export function buildLiveMetricsResponse(snap: LiveMetricsDbSnapshot, generatedA
       ? st!.topPaths.map((p) => ({ path: p.path, visitors: p.visitors, unavailable: false }))
       : [];
 
+  const landingCtaItems = hasTraffic && st!.landingCtas.length > 0 ? st!.landingCtas : [];
+
+  const approvedActivity: ApprovedUserActivityRollup = snap.approvedUserActivity ?? {
+    windowStart: st?.windowStart ?? generatedAt,
+    windowEnd: st?.windowEnd ?? generatedAt,
+    approvedActiveTotal: snap.approvedActive ?? 0,
+    loginsInWindow: 0,
+    usersWithTrackedEvents: 0,
+    recentlyActive: [],
+    unavailable: true,
+    reason: "approved_user_activity_not_loaded",
+  };
+
   return {
     generatedAt,
     activeVisitors: hasTraffic
@@ -188,6 +209,12 @@ export function buildLiveMetricsResponse(snap: LiveMetricsDbSnapshot, generatedA
       reason: !hasTraffic || topPagesFromEvents.length === 0 ? "page_view_tables_not_configured" : undefined,
     },
     trafficAttribution,
+    landingCtaPerformance: {
+      items: landingCtaItems,
+      unavailable: !hasTraffic || landingCtaItems.length === 0,
+      reason: !hasTraffic || landingCtaItems.length === 0 ? "landing_cta_events_empty" : undefined,
+    },
+    approvedUserActivity: approvedActivity,
     pendingAccounts: {
       value: snap.pendingAllTime,
       pendingApprox30d: snap.pendingApprox30d,

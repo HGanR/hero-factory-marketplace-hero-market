@@ -27,6 +27,8 @@ import {
   buildRevenueOsOrchestrationSignals,
 } from "@/lib/fulfillment/revenue-os-orchestration-signals";
 import { buildSmartTrustOrchestrationSignals } from "@/lib/fulfillment/smart-trust-orchestration-signals";
+import { buildTrooTownEvanaOverview } from "@/lib/executive-agent/troo-town-evana-service";
+import { buildStephonSiteBuilderOverview } from "@/lib/executive-agent/stephon-site-builder-service";
 import {
   FULFILLMENT_DEPARTMENT_AI_REVENUE_OS,
   FULFILLMENT_DEPARTMENT_SITE_BUILDER,
@@ -98,7 +100,7 @@ async function loadOrderContext(
 
 function buildDeskWorkspaceHeadline(scope: ReturnType<typeof resolveSubjectWorkspace>): string {
   if (scope.workspaceKind === "website") {
-    return "WEBSITE fulfillment desk — Site Builder drafts and owner review (no deploy from workspace).";
+    return "Stephon · Site Builder desk — operator conversations and usability signals (no deploy from workspace).";
   }
   if (scope.workspaceKind === "trust") {
     return "TRUST legal-review desk — Jarva packets only; no trust apply or client-facing adaptation.";
@@ -108,6 +110,9 @@ function buildDeskWorkspaceHeadline(scope: ReturnType<typeof resolveSubjectWorks
   }
   if (scope.workspaceKind === "smart_trust") {
     return "SMART_TRUST governance — review checkpoints and resolution records only; no trust execution, filing, or signatures.";
+  }
+  if (scope.workspaceKind === "troo_town") {
+    return "TROO TOWN 3D world — Evaana (TROOTHHERTZ LLC) visitor conversations; Skipper proposes governed follow-ups only (no autonomous outreach).";
   }
   if (scope.workspaceKind === "client") {
     return "Client executive review — cross-department fulfillment graph and recommendations.";
@@ -186,23 +191,49 @@ export async function buildSubjectExecutiveWorkspace(
     scope.workspaceKind === "revenue_os" ||
     scope.workspaceKind === "smart_trust"
   ) {
-    const overview = await buildExecutiveFulfillmentOperationsOverview(db, {
-      adminUserId: input.adminUserId,
-      limit: 40,
-    });
-    const dept = scope.department!;
-    const clientRows = overview.clients.filter((c) => c.activeDepartments.includes(dept));
-    skipperBrief =
-      clientRows.length > 0
-        ? `${dept} desk: ${clientRows.length} active client(s); ${overview.totals.pendingApprovals} pending approval(s).`
-        : `No active ${dept} clients on desk.`;
+    if (scope.workspaceKind === "website") {
+      const stephon = await buildStephonSiteBuilderOverview(db, { sessionLimit: 16 });
+      skipperBrief = stephon.skipperBrief;
+      timelineSummary =
+        stephon.usabilityThemes.length > 0
+          ? `Usability themes: ${stephon.usabilityThemes.join("; ")}`
+          : stephon.npcConfigured
+            ? `${stephon.totals.sessions30d} Stephon session(s) in last 30 days.`
+            : "Stephon NPC not found — expected site-builder-stephon.";
+      recommendations = [];
+      orders = [];
+      timeline = [];
+    } else {
+      const overview = await buildExecutiveFulfillmentOperationsOverview(db, {
+        adminUserId: input.adminUserId,
+        limit: 40,
+      });
+      const dept = scope.department!;
+      const clientRows = overview.clients.filter((c) => c.activeDepartments.includes(dept));
+      skipperBrief =
+        clientRows.length > 0
+          ? `${dept} desk: ${clientRows.length} active client(s); ${overview.totals.pendingApprovals} pending approval(s).`
+          : `No active ${dept} clients on desk.`;
+      recommendations = [];
+      orders = [];
+      timeline = [];
+      timelineSummary = overview.bottlenecks
+        .filter((b) => b.department === dept)
+        .map((b) => b.summary)
+        .join("; ");
+    }
+  } else if (scope.workspaceKind === "troo_town") {
+    const evaana = await buildTrooTownEvanaOverview(db, { sessionLimit: 16 });
+    skipperBrief = evaana.skipperBrief;
+    timelineSummary =
+      evaana.followUpThemes.length > 0
+        ? `Follow-up themes: ${evaana.followUpThemes.join("; ")}`
+        : evaana.npcConfigured
+          ? `${evaana.totals.sessions30d} Evaana session(s) in last 30 days.`
+          : "Evaana NPC not found — expected troothhertz-evaana on green-terrain / troothhertz-tower.";
     recommendations = [];
     orders = [];
     timeline = [];
-    timelineSummary = overview.bottlenecks
-      .filter((b) => b.department === dept)
-      .map((b) => b.summary)
-      .join("; ");
   } else {
     const overview = await buildExecutiveFulfillmentOperationsOverview(db, {
       adminUserId: input.adminUserId,
@@ -307,6 +338,32 @@ export async function buildSubjectExecutiveWorkspace(
         clientId: scope.clientId,
       });
       skipperContext = `${skipperContext} ${stBundle.headline} Stalled: ${stBundle.queueSummary.stalledCount}; governance checkpoint pending: ${stBundle.queueSummary.pendingGovernanceCheckpoint}.`;
+    }
+    if (scope.workspaceKind === "troo_town") {
+      const evaanaCtx = await buildTrooTownEvanaOverview(db, { sessionLimit: 8 });
+      if (evaanaCtx.skipperBrief) {
+        skipperContext = `${skipperContext} Evaana desk: ${evaanaCtx.skipperBrief}`;
+      }
+      const snippets = evaanaCtx.sessions
+        .filter((s) => s.lastSnippet)
+        .slice(0, 4)
+        .map((s) => `${s.visitorLabel}: ${s.lastSnippet}`);
+      if (snippets.length) {
+        skipperContext = `${skipperContext} Recent visitor snippets: ${snippets.join(" | ")}`;
+      }
+    }
+    if (scope.workspaceKind === "website" || input.subjectId === "site_builder") {
+      const stephonCtx = await buildStephonSiteBuilderOverview(db, { sessionLimit: 8 });
+      if (stephonCtx.skipperBrief) {
+        skipperContext = `${skipperContext} Stephon desk: ${stephonCtx.skipperBrief}`;
+      }
+      const snippets = stephonCtx.sessions
+        .filter((s) => s.lastSnippet)
+        .slice(0, 4)
+        .map((s) => `${s.siteLabel}: ${s.lastSnippet}`);
+      if (snippets.length) {
+        skipperContext = `${skipperContext} Recent builder snippets: ${snippets.join(" | ")}`;
+      }
     }
   } catch {
     /* threads/decisions/tasks tables may be absent in some dev DBs */

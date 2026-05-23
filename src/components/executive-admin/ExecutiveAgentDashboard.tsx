@@ -4,50 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Mic } from "lucide-react";
-import { FulfillmentOrdersPanel } from "./FulfillmentOrdersPanel";
-import { TrustFulfillmentOrdersPanel } from "./TrustFulfillmentOrdersPanel";
-import { RevenueOsFulfillmentPanel } from "./RevenueOsFulfillmentPanel";
-import { SmartTrustOperationsPanel } from "./SmartTrustOperationsPanel";
-import { ExecutiveOperationsBriefingPanel } from "./ExecutiveOperationsBriefingPanel";
-import { OperationalMemoryInsightsPanel } from "./OperationalMemoryInsightsPanel";
-import { ExecutiveKpiOverviewPanel } from "./ExecutiveKpiOverviewPanel";
-import { FulfillmentForecastPanel } from "./FulfillmentForecastPanel";
-import { OperationalHealthPanel } from "./OperationalHealthPanel";
-import { ForecastRiskPanel } from "./ForecastRiskPanel";
-import { ExecutiveOperatorPanel } from "./ExecutiveOperatorPanel";
-import { OperatorWorkloadPanel } from "./OperatorWorkloadPanel";
-import { DelegationQueuePanel } from "./DelegationQueuePanel";
-import { EscalationPanel } from "./EscalationPanel";
-import { ExecutiveSimulationPanel } from "./ExecutiveSimulationPanel";
-import { SimulationForecastPanel } from "./SimulationForecastPanel";
-import { ScenarioComparisonPanel } from "./ScenarioComparisonPanel";
-import { BottleneckCascadePanel } from "./BottleneckCascadePanel";
-import { ExecutiveKnowledgeGraphPanel } from "./ExecutiveKnowledgeGraphPanel";
-import { StrategicMemoryPanel } from "./StrategicMemoryPanel";
-import { OrganizationalIntelligencePanel } from "./OrganizationalIntelligencePanel";
-import { HistoricalContextPanel } from "./HistoricalContextPanel";
-import { ExecutivePlanningPanel } from "./ExecutivePlanningPanel";
-import { RecoveryPlanningPanel } from "./RecoveryPlanningPanel";
-import { StaffingPlanningPanel } from "./StaffingPlanningPanel";
-import { InitiativePlanningPanel } from "./InitiativePlanningPanel";
+import { ExecutiveOperationsSidebar } from "./ExecutiveOperationsSidebar";
 import { ExecutiveCommandCenterPanel } from "./ExecutiveCommandCenterPanel";
-import { IncidentIntelligencePanel } from "./IncidentIntelligencePanel";
-import { LiveOperationalFeedPanel } from "./LiveOperationalFeedPanel";
-import { GovernanceAlertPanel } from "./GovernanceAlertPanel";
-import { CrisisCoordinationPanel } from "./CrisisCoordinationPanel";
-import { CrossAgentEscalationPanel } from "./CrossAgentEscalationPanel";
-import { ExecutiveWorkflowFabricPanel } from "./ExecutiveWorkflowFabricPanel";
-import { WorkflowLifecyclePanel } from "./WorkflowLifecyclePanel";
-import { WorkflowDependencyPanel } from "./WorkflowDependencyPanel";
-import { WorkflowRecoveryPanel } from "./WorkflowRecoveryPanel";
-import { WorkflowContinuityPanel } from "./WorkflowContinuityPanel";
-import { ExecutiveAgentCoordinationPanel } from "./ExecutiveAgentCoordinationPanel";
-import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
-import { AgentRoutingPanel } from "./AgentRoutingPanel";
-import { ExecutiveAutomationPanel } from "./ExecutiveAutomationPanel";
-import { ExecutionApprovalPanel } from "./ExecutionApprovalPanel";
-import { RollbackControlPanel } from "./RollbackControlPanel";
-import { AutomationHistoryPanel } from "./AutomationHistoryPanel";
+import { TrooTownEvanaPanel } from "./TrooTownEvanaPanel";
+import { StephonSiteBuilderPanel } from "./StephonSiteBuilderPanel";
+import { ExecutiveCollapsibleTile } from "./ExecutiveCollapsibleTile";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
 import { ExecutiveSubjectWorkspacePanel } from "./ExecutiveSubjectWorkspacePanel";
@@ -58,7 +19,7 @@ import { ExecutiveDecisionQueuePanel } from "./ExecutiveDecisionQueuePanel";
 import { ExecutiveTaskQueuePanel } from "./ExecutiveTaskQueuePanel";
 import { ExecutiveOrb } from "./ExecutiveOrb";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
-import { VoiceCommandDiagnosticsPanel, type ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
+import type { ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
 import {
   connectedSystemsFromRuntimePayload,
   deriveExecutiveVoiceState,
@@ -263,11 +224,12 @@ const BOTTOM_TABS = [
   "Command Center",
   "CRM Intelligence",
   "AI Agents",
-  "Site Builder",
+  "Stephon",
   "Analytics",
   "Inbox",
   "Tasks",
   "Jarva",
+  "TROO TOWN",
   "Settings",
 ] as const;
 
@@ -329,27 +291,6 @@ const INITIAL_VOICE_DIAG_FIELDS: VoiceDiagFields = {
   sttError: null,
   promptOverlaysStatus: "unavailable",
 };
-
-const SECRET_PAYLOAD_KEY = /(apikey|api_key|secret|password|token|authorization)/i;
-
-function formatApprovalPayloadPreview(payloadJson: string): string {
-  try {
-    const o = JSON.parse(payloadJson) as Record<string, unknown>;
-    const redacted: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(o)) {
-      if (SECRET_PAYLOAD_KEY.test(k)) {
-        redacted[k] = "[redacted]";
-        continue;
-      }
-      if (typeof v === "string" && v.length > 400) redacted[k] = `${v.slice(0, 400)}…`;
-      else redacted[k] = v;
-    }
-    const s = JSON.stringify(redacted, null, 2);
-    return s.length > 1200 ? `${s.slice(0, 1200)}…` : s;
-  } catch {
-    return payloadJson.length > 800 ? `${payloadJson.slice(0, 800)}…` : payloadJson;
-  }
-}
 
 function inboxNumericId(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return Math.trunc(v);
@@ -453,7 +394,7 @@ export function ExecutiveAgentDashboard() {
   const [dashboardMode, setDashboardMode] = useState<ExecutiveDashboardMode>("OVERVIEW");
   const [bottomTab, setBottomTab] = useState<(typeof BOTTOM_TABS)[number]>("Command Center");
   const [activeSubjectId, setActiveSubjectId] = useState<ExecutiveSubjectId>("command_center");
-  const [subjectChatOpen, setSubjectChatOpen] = useState(true);
+  const [analyticsFocusSeq, setAnalyticsFocusSeq] = useState(0);
   const [workspaceOrderId, setWorkspaceOrderId] = useState("");
   const [subjectSkipperContext, setSubjectSkipperContext] = useState<string | null>(null);
   const [selectedOpsThreadId, setSelectedOpsThreadId] = useState<string | null>(null);
@@ -2343,7 +2284,6 @@ export function ExecutiveAgentDashboard() {
 
   const applySubject = useCallback((subject: ExecutiveSubjectConfig) => {
     setActiveSubjectId(subject.id);
-    setSubjectChatOpen(true);
     const tabLabel = (BOTTOM_TABS as readonly string[]).includes(subject.navLabel)
       ? (subject.navLabel as (typeof BOTTOM_TABS)[number])
       : "Command Center";
@@ -2351,11 +2291,16 @@ export function ExecutiveAgentDashboard() {
     setDashboardMode(subject.dashboardMode);
     setCustomAgents(new Set(subject.delegateAgents));
     if (subject.id === "inbox") {
-      setSubjectChatOpen(false);
       void loadExecutiveInboxAdmin();
+    } else if (subject.id === "analytics") {
+      setDataPreset("ALL");
+      setAnalyticsFocusSeq((n) => n + 1);
+      requestAnimationFrame(() => {
+        document.getElementById("executive-analytics-tile")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
     } else if (subject.id === "ai_agents") setDataPreset("ALL");
-    else if (subject.id === "analytics") setDataPreset("BENTLEY");
     else if (subject.id === "crm_intelligence" || subject.id === "trust_jarva") setDataPreset("EXECUTIVE_ADMIN");
+    else if (subject.id === "troo_town") setDataPreset("ALL");
     else if (subject.id === "command_center" || subject.id === "new_command") setDataPreset("ALL");
   }, [loadExecutiveInboxAdmin]);
 
@@ -2364,6 +2309,9 @@ export function ExecutiveAgentDashboard() {
   };
 
   const topPages = liveMetrics?.topPages?.items ?? [];
+  const landingCtas = liveMetrics?.landingCtaPerformance?.items ?? [];
+  const landingCtasUnavailable = Boolean(liveMetrics?.landingCtaPerformance?.unavailable);
+  const approvedActivity = liveMetrics?.approvedUserActivity;
   const trafficRows =
     liveMetrics?.trafficAttribution?.items?.map((r) => ({
       name: r.source,
@@ -2405,10 +2353,19 @@ export function ExecutiveAgentDashboard() {
         <header className="mb-3 space-y-3 border-b border-[#00e5ff]/18 pb-3">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h1 className="text-lg font-bold uppercase tracking-[0.26em] text-white sm:text-xl">Executive Administration</h1>
+              <h1 className="text-lg font-bold uppercase tracking-[0.26em] text-white sm:text-xl">
+                {activeSubjectId === "site_builder"
+                  ? "Stephon"
+                  : activeSubjectId === "troo_town"
+                    ? "Evaana Desk"
+                    : "Executive Administration"}
+              </h1>
               <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-[#00b7ff]/65">
-                Permissioned orchestration: reads run under policy; writes queue for approval and audit. Filters shape tool
-                routing — they do not bypass controls.
+                {activeSubjectId === "site_builder"
+                  ? "Site Builder intelligence — Stephon operator conversations feed usability feedback for the engine (read-only, no autonomous product changes)."
+                  : activeSubjectId === "troo_town"
+                    ? "TROO TOWN desk — Evaana visitor conversations and Skipper-governed follow-ups only."
+                    : "Permissioned orchestration: reads run under policy; writes queue for approval and audit. Filters shape tool routing — they do not bypass controls."}
               </p>
             </div>
           </div>
@@ -2663,112 +2620,7 @@ export function ExecutiveAgentDashboard() {
               )}
             </ul>
           </section>
-        ) : (
-          <>
-            <ExecutiveSubjectWorkspacePanel
-              subjectId={activeSubjectId}
-              clientId={clientId}
-              orderId={workspaceOrderId}
-              onSkipperContext={setSubjectSkipperContext}
-            />
-            <ExecutiveDecisionQueuePanel
-              subjectId={activeSubjectId}
-              clientId={clientId}
-              orderId={workspaceOrderId}
-              threadId={selectedOpsThreadId}
-              onSelectThread={(id) => setSelectedOpsThreadId(id)}
-              onDecisionRecorded={onOperationalCoordinationChange}
-            />
-            <ExecutiveTaskQueuePanel
-              subjectId={activeSubjectId}
-              clientId={clientId}
-              orderId={workspaceOrderId}
-              threadId={selectedOpsThreadId}
-              onTasksChanged={onOperationalCoordinationChange}
-            />
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row">
-              <SubjectThreadSidebar
-                key={threadSidebarKey}
-                subjectId={activeSubjectId}
-                clientId={clientId}
-                orderId={workspaceOrderId}
-                selectedThreadId={selectedOpsThreadId}
-                onSelectThread={setSelectedOpsThreadId}
-              />
-              <div className="min-w-0 flex-1">
-                <ExecutiveThreadPanel
-                  threadId={selectedOpsThreadId}
-                  onSkipperContext={setThreadSkipperContext}
-                  onDecisionRecorded={onOperationalCoordinationChange}
-                  onCreateThread={async () => {
-                    const title = window.prompt("Thread title");
-                    if (!title?.trim()) return;
-                    const r = await fetch("/api/admin/executive-agent/threads", {
-                      method: "POST",
-                      credentials: "include",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: title.trim(),
-                        threadKind: "subject",
-                        subjectId: activeSubjectId,
-                        clientId: clientId.trim() || null,
-                        orderId: workspaceOrderId.trim() || null,
-                      }),
-                    });
-                    const j = (await r.json().catch(() => ({}))) as { thread?: { id: string } };
-                    if (j.thread?.id) setSelectedOpsThreadId(j.thread.id);
-                  }}
-                />
-              </div>
-            </div>
-            {workspaceOrderId.trim() ? (
-              <FulfillmentThreadView
-                orderId={workspaceOrderId.trim()}
-                clientId={clientId.trim() || undefined}
-                department={
-                  activeSubjectId === "trust_jarva"
-                    ? "TRUST"
-                    : activeSubjectId === "revenue_os"
-                      ? "REVENUE_OS"
-                      : activeSubjectId === "smart_trust"
-                        ? "SMART_TRUST"
-                        : "WEBSITE"
-                }
-                subjectId={
-                  activeSubjectId === "trust_jarva"
-                    ? "trust_jarva"
-                    : activeSubjectId === "revenue_os"
-                      ? "revenue_os"
-                      : activeSubjectId === "smart_trust"
-                        ? "smart_trust"
-                        : "site_builder"
-                }
-              />
-            ) : null}
-            {subjectChatOpen ? (
-              <ExecutiveSubjectAgentChatPanel
-                subject={activeSubject}
-                clientId={clientId}
-                campaignId={campaignId}
-                dryRun={dryRun}
-                timeRange={timeRange}
-                busy={busy !== null}
-                skipperWorkspaceContext={combinedSkipperWorkspaceContext}
-                onClose={() => setSubjectChatOpen(false)}
-              />
-            ) : (
-              <div className="mb-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setSubjectChatOpen(true)}
-                  className="rounded-full border border-[#00e5ff]/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#050b13]/50"
-                >
-                  Open {activeSubject.shortLabel} agent chat
-                </button>
-              </div>
-            )}
-          </>
-        )}
+        ) : null}
 
         {bottomTab === "Settings" ? (
           <section className="mb-4 rounded-2xl border border-[#00e5ff]/20 bg-slate-950/70 p-4 backdrop-blur-md">
@@ -2952,192 +2804,448 @@ export function ExecutiveAgentDashboard() {
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          {/* Left: site + traffic */}
+          {/* Left: collapsible operational stack */}
           <motion.aside
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-4 rounded-2xl border border-[#00e5ff]/18 bg-[#050b13]/85 p-4 shadow-[0_0_28px_rgba(0,229,255,0.06)] backdrop-blur-md xl:col-span-3"
+            className="space-y-2 xl:col-span-4 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto xl:pr-1"
           >
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00e5ff]/80">Site overview</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <MetricTile
-                label="Pending"
-                value={liveMetrics?.pendingAccounts.value ?? summary?.pendingAccounts?.pendingAllTime}
-                unavailable={Boolean(liveMetrics?.pendingAccounts.unavailable && liveMetrics?.pendingAccounts.value == null)}
-                error={liveMetricsError}
-              />
-              <MetricTile
-                label="Approved active"
-                value={liveMetrics?.approvedAccounts.value ?? summary?.approvedAccounts?.approvedActive}
-                unavailable={Boolean(liveMetrics?.approvedAccounts.unavailable)}
-                error={liveMetricsError}
-              />
-              <MetricTile
-                label="Active accounts"
-                value={liveMetrics?.activeAccounts.value}
-                unavailable={Boolean(liveMetrics?.activeAccounts.unavailable)}
-                error={liveMetricsError}
-              />
-              <MetricTile
-                label="Campaigns"
-                value={liveMetrics?.campaignCounts.value ?? summary?.platform?.socialCampaigns}
-                unavailable={Boolean(liveMetrics?.campaignCounts.unavailable)}
-                error={liveMetricsError}
-              />
-            </div>
-            <div>
-              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
-                Active visitors / page views
-              </h3>
-              <p className="text-xs text-slate-500">
-                {liveMetrics?.activeVisitors.unavailable
-                  ? "Not configured — connect analytics to populate."
-                  : liveMetrics?.activeVisitors.value ?? "—"}
-              </p>
-            </div>
-            <div>
-              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
-                Traffic sources
-              </h3>
-              {trafficUnavailable ? (
-                <p className="text-xs text-slate-500">Breakdown unavailable — no analytics events yet for this window.</p>
-              ) : (
-                <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trafficRows} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                      <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={48} />
-                      <YAxis tick={{ fill: "#94a3b8", fontSize: 9 }} allowDecimals={false} width={32} />
-                      <Tooltip
-                        cursor={{ fill: "rgba(0,229,255,0.08)" }}
-                        contentStyle={{ background: "#050b13", border: "1px solid rgba(0,229,255,0.3)", fontSize: 11 }}
-                      />
-                      <Bar dataKey="visitors" fill="#22d3ee" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-            <div className="rounded-xl border border-emerald-400/20 bg-slate-900/45 p-3">
-              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200/80">
-                Join community conversion
-              </h3>
-              <p className="font-mono text-lg text-white">
-                {ta?.joinCommunityConversionRate != null ? `${(ta.joinCommunityConversionRate * 100).toFixed(1)}%` : "—"}
-              </p>
-              <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">
-                PayPal intent rate:{" "}
-                <span className="font-mono text-[#00e5ff]">
-                  {ta?.paypalIntentRate != null ? `${(ta.paypalIntentRate * 100).toFixed(1)}%` : "—"}
-                </span>
-              </p>
-              <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">
-                PayPal potential revenue (est.):{" "}
-                <span className="font-mono text-emerald-200">
-                  {ta?.potentialRevenueTotal != null ? `$${ta.potentialRevenueTotal.toFixed(0)}` : "—"}
-                </span>
-                {ta?.communityPrice != null ? (
-                  <span className="text-slate-600">{` · $${ta.communityPrice}/join`}</span>
-                ) : null}
-              </p>
-            </div>
-            <div>
-              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">Top pages</h3>
-              {liveMetrics?.topPages.unavailable || topPages.length === 0 ? (
-                <p className="text-xs text-slate-500">No page-level rollups configured.</p>
-              ) : (
-                <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
-                  {topPages.map((pg) => (
-                    <li key={pg.path} className="flex justify-between gap-2 border-b border-[#00e5ff]/10 py-1 font-mono text-[#00e5ff]/80">
-                      <span className="truncate">{pg.path}</span>
-                      <span>{pg.visitors ?? "—"}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </motion.aside>
-
-          {/* Second left: agents */}
-          <motion.aside
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="space-y-3 rounded-2xl border border-violet-400/15 bg-[#050b13]/75 p-4 backdrop-blur-md xl:col-span-2"
-          >
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-200/80">Agent network</h2>
-            {agentIntelError ? <p className="text-xs text-amber-200/90">{agentIntelError}</p> : null}
-            <ul className="space-y-2 text-xs">
-              {displayAgents.map((a) => (
-                <li
-                  key={a.agentKey}
-                  className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-2 py-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <span className="font-medium text-slate-200">{a.displayName}</span>
-                      <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">
-                        {AGENT_DOMAIN_LABEL[a.agentKey]}
+            <ExecutiveCollapsibleTile
+              id="executive-analytics-tile"
+              title="Analytics"
+              subtitle="Traffic, accounts, conversions"
+              expandOnSignal={analyticsFocusSeq}
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <MetricTile
+                  label="Pending"
+                  value={liveMetrics?.pendingAccounts.value ?? summary?.pendingAccounts?.pendingAllTime}
+                  unavailable={Boolean(liveMetrics?.pendingAccounts.unavailable && liveMetrics?.pendingAccounts.value == null)}
+                  error={liveMetricsError}
+                />
+                <MetricTile
+                  label="Approved active"
+                  value={liveMetrics?.approvedAccounts.value ?? summary?.approvedAccounts?.approvedActive}
+                  unavailable={Boolean(liveMetrics?.approvedAccounts.unavailable)}
+                  error={liveMetricsError}
+                />
+                <MetricTile
+                  label="Active accounts"
+                  value={liveMetrics?.activeAccounts.value}
+                  unavailable={Boolean(liveMetrics?.activeAccounts.unavailable)}
+                  error={liveMetricsError}
+                />
+                <MetricTile
+                  label="Campaigns"
+                  value={liveMetrics?.campaignCounts.value ?? summary?.platform?.socialCampaigns}
+                  unavailable={Boolean(liveMetrics?.campaignCounts.unavailable)}
+                  error={liveMetricsError}
+                />
+              </div>
+              <div className="mt-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
+                  Active visitors / page views
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {liveMetrics?.activeVisitors.unavailable
+                    ? "Not configured — connect analytics to populate."
+                    : liveMetrics?.activeVisitors.value ?? "—"}
+                </p>
+              </div>
+              <div className="mt-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
+                  Traffic sources
+                </h3>
+                {trafficUnavailable ? (
+                  <p className="text-xs text-slate-500">Breakdown unavailable — no analytics events yet for this window.</p>
+                ) : (
+                  <div className="h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={trafficRows} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={48} />
+                        <YAxis tick={{ fill: "#94a3b8", fontSize: 9 }} allowDecimals={false} width={32} />
+                        <Tooltip
+                          cursor={{ fill: "rgba(0,229,255,0.08)" }}
+                          contentStyle={{ background: "#050b13", border: "1px solid rgba(0,229,255,0.3)", fontSize: 11 }}
+                        />
+                        <Bar dataKey="visitors" fill="#22d3ee" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3 rounded-xl border border-emerald-400/20 bg-slate-900/45 p-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200/80">
+                  Join community conversion
+                </h3>
+                <p className="font-mono text-lg text-white">
+                  {ta?.joinCommunityConversionRate != null ? `${(ta.joinCommunityConversionRate * 100).toFixed(1)}%` : "—"}
+                </p>
+                <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">
+                  PayPal intent rate:{" "}
+                  <span className="font-mono text-[#00e5ff]">
+                    {ta?.paypalIntentRate != null ? `${(ta.paypalIntentRate * 100).toFixed(1)}%` : "—"}
+                  </span>
+                </p>
+                <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">
+                  PayPal potential revenue (est.):{" "}
+                  <span className="font-mono text-emerald-200">
+                    {ta?.potentialRevenueTotal != null ? `$${ta.potentialRevenueTotal.toFixed(0)}` : "—"}
+                  </span>
+                  {ta?.communityPrice != null ? (
+                    <span className="text-slate-600">{` · $${ta.communityPrice}/join`}</span>
+                  ) : null}
+                </p>
+              </div>
+              <div className="mt-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">
+                  Landing link performance
+                </h3>
+                {landingCtasUnavailable || landingCtas.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    No landing CTA clicks recorded for this window — track landing buttons/links to populate.
+                  </p>
+                ) : (
+                  <ul className="max-h-44 space-y-1 overflow-y-auto text-xs">
+                    {landingCtas.map((cta) => (
+                      <li
+                        key={`${cta.eventName}:${cta.label}:${cta.targetHref ?? ""}`}
+                        className="flex items-start justify-between gap-2 border-b border-[#00e5ff]/10 py-1"
+                      >
+                        <div className="min-w-0">
+                          <span className="block truncate font-medium text-slate-200">{cta.label || cta.eventName}</span>
+                          {cta.targetHref ? (
+                            <span className="block truncate font-mono text-[10px] text-[#00e5ff]/60">{cta.targetHref}</span>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 font-mono text-[#00e5ff]/80">{cta.clicks}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="mt-3 rounded-xl border border-violet-400/20 bg-slate-900/45 p-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/80">
+                  Approved account activity
+                </h3>
+                {approvedActivity?.unavailable ? (
+                  <p className="text-xs text-slate-500">
+                    {approvedActivity.reason === "approved_user_activity_not_loaded"
+                      ? "Approved-user activity not loaded — refresh live metrics."
+                      : "Approved-user activity unavailable for this window."}
+                  </p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wide text-slate-500">Active approved</p>
+                        <p className="font-mono text-sm text-white">{approvedActivity?.approvedActiveTotal ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wide text-slate-500">Logins (7d)</p>
+                        <p className="font-mono text-sm text-white">{approvedActivity?.loginsInWindow ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wide text-slate-500">With events</p>
+                        <p className="font-mono text-sm text-white">{approvedActivity?.usersWithTrackedEvents ?? "—"}</p>
                       </div>
                     </div>
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${
-                        a.status === "online" ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-slate-600"
-                      }`}
-                    />
-                  </div>
-                  <div className="mt-1 space-y-0.5 text-[10px] text-slate-500">
-                    <div>
-                      Active: {a.activeConversations ?? "—"} · Total: {a.totalConversations ?? "—"}
+                    {(approvedActivity?.recentlyActive?.length ?? 0) > 0 ? (
+                      <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-xs">
+                        {approvedActivity!.recentlyActive.map((u) => (
+                          <li
+                            key={u.userId}
+                            className="flex items-start justify-between gap-2 border-b border-violet-400/10 py-1"
+                          >
+                            <div className="min-w-0">
+                              <span className="block font-medium text-slate-200">{u.userLabel}</span>
+                              <span className="block truncate font-mono text-[10px] text-violet-200/70">
+                                {u.lastEventPath ?? (u.lastLogin ? "login only" : "—")}
+                              </span>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <span className="block font-mono text-violet-200/90">{u.eventsInWindow}</span>
+                              <span className="block text-[9px] text-slate-500">
+                                {u.isActive ? "active" : "inactive"}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-slate-500">No approved users with logins or tracked session events in this window.</p>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="mt-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/60">Top pages</h3>
+                {liveMetrics?.topPages.unavailable || topPages.length === 0 ? (
+                  <p className="text-xs text-slate-500">No page-level rollups configured.</p>
+                ) : (
+                  <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+                    {topPages.map((pg) => (
+                      <li key={pg.path} className="flex justify-between gap-2 border-b border-[#00e5ff]/10 py-1 font-mono text-[#00e5ff]/80">
+                        <span className="truncate">{pg.path}</span>
+                        <span>{pg.visitors ?? "—"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </ExecutiveCollapsibleTile>
+
+            <ExecutiveCollapsibleTile title="Agent network" subtitle="Live agent status and activity">
+              {agentIntelError ? <p className="mb-2 text-xs text-amber-200/90">{agentIntelError}</p> : null}
+              <ul className="space-y-2 text-xs">
+                {displayAgents.map((a) => (
+                  <li
+                    key={a.agentKey}
+                    className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-2 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="font-medium text-slate-200">{a.displayName}</span>
+                        <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">
+                          {AGENT_DOMAIN_LABEL[a.agentKey]}
+                        </div>
+                      </div>
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${
+                          a.status === "online" ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-slate-600"
+                        }`}
+                      />
                     </div>
-                    <div className="font-mono uppercase tracking-wide text-slate-600">src: {a.source}</div>
-                    {a.lastActivityAt ? (
-                      <div className="text-slate-600">Last: {new Date(a.lastActivityAt).toLocaleString()}</div>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-              {activeSubjectId === "ai_agents" ? (
-                <li className="rounded-lg border border-dashed border-violet-500/30 bg-violet-950/20 px-2 py-2">
-                  <div className="font-medium text-slate-200">Maania</div>
-                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">PROPERTY</div>
-                  <p className="mt-1 text-[10px] text-slate-500">Routed via Skipper — full Maania API wiring later.</p>
-                </li>
-              ) : null}
-              {activeSubjectId === "trust_jarva" ? (
-                <li className="rounded-lg border border-dashed border-cyan-500/30 bg-cyan-950/20 px-2 py-2">
-                  <div className="font-medium text-slate-200">Jarva</div>
-                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/80">TRUST</div>
-                  <p className="mt-1 text-[10px] text-slate-500">TRUST legal-review desk — use chat + TRUST fulfillment panel.</p>
-                </li>
-              ) : null}
-              {activeSubjectId === "revenue_os" ? (
-                <li className="rounded-lg border border-dashed border-fuchsia-500/30 bg-fuchsia-950/20 px-2 py-2">
-                  <div className="font-medium text-slate-200">Bentley</div>
-                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-fuchsia-300/80">REVENUE OS</div>
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    Campaign fulfillment desk — review packets and launch readiness checkpoints only.
-                  </p>
-                </li>
-              ) : null}
-              {activeSubjectId === "smart_trust" ? (
-                <li className="rounded-lg border border-dashed border-amber-500/30 bg-amber-950/20 px-2 py-2">
-                  <div className="font-medium text-slate-200">Skipper</div>
-                  <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-amber-300/80">SMART TRUST</div>
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    Trust governance desk — review checkpoints and resolution records only.
-                  </p>
-                </li>
-              ) : null}
-            </ul>
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/60">Activity</h3>
-            <ul className="max-h-48 space-y-2 overflow-y-auto text-[11px] text-slate-400">
-              {activityFeed.map((line, i) => (
-                <li key={`${i}-${line.slice(0, 24)}`} className="border-l border-[#00e5ff]/20 pl-2">
-                  {line}
-                </li>
-              ))}
-            </ul>
+                    <div className="mt-1 space-y-0.5 text-[10px] text-slate-500">
+                      <div>
+                        Active: {a.activeConversations ?? "—"} · Total: {a.totalConversations ?? "—"}
+                      </div>
+                      <div className="font-mono uppercase tracking-wide text-slate-600">src: {a.source}</div>
+                      {a.lastActivityAt ? (
+                        <div className="text-slate-600">Last: {new Date(a.lastActivityAt).toLocaleString()}</div>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+                {activeSubjectId === "ai_agents" ? (
+                  <li className="rounded-lg border border-dashed border-violet-500/30 bg-violet-950/20 px-2 py-2">
+                    <div className="font-medium text-slate-200">Maania</div>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-300/80">PROPERTY</div>
+                    <p className="mt-1 text-[10px] text-slate-500">Routed via Skipper — full Maania API wiring later.</p>
+                  </li>
+                ) : null}
+                {activeSubjectId === "trust_jarva" ? (
+                  <li className="rounded-lg border border-dashed border-cyan-500/30 bg-cyan-950/20 px-2 py-2">
+                    <div className="font-medium text-slate-200">Jarva</div>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/80">TRUST</div>
+                    <p className="mt-1 text-[10px] text-slate-500">TRUST legal-review desk — use chat + TRUST fulfillment panel.</p>
+                  </li>
+                ) : null}
+                {activeSubjectId === "revenue_os" ? (
+                  <li className="rounded-lg border border-dashed border-fuchsia-500/30 bg-fuchsia-950/20 px-2 py-2">
+                    <div className="font-medium text-slate-200">Bentley</div>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-fuchsia-300/80">REVENUE OS</div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Campaign fulfillment desk — review packets and launch readiness checkpoints only.
+                    </p>
+                  </li>
+                ) : null}
+                {activeSubjectId === "smart_trust" ? (
+                  <li className="rounded-lg border border-dashed border-amber-500/30 bg-amber-950/20 px-2 py-2">
+                    <div className="font-medium text-slate-200">Skipper</div>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-amber-300/80">SMART TRUST</div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Trust governance desk — review checkpoints and resolution records only.
+                    </p>
+                  </li>
+                ) : null}
+                {activeSubjectId === "troo_town" ? (
+                  <li className="rounded-lg border border-dashed border-cyan-500/30 bg-cyan-950/20 px-2 py-2">
+                    <div className="font-medium text-slate-200">Evaana</div>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/80">TROO WORLD</div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      TROOTHHERTZ LLC reception — visitor voice/chat feeds this desk; Skipper proposes governed follow-ups.
+                    </p>
+                  </li>
+                ) : null}
+                {activeSubjectId === "site_builder" ? (
+                  <li className="rounded-lg border border-dashed border-indigo-500/30 bg-indigo-950/20 px-2 py-2">
+                    <div className="font-medium text-slate-200">Stephon</div>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-indigo-300/80">SITE BUILDER</div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Builder AI guide — operator chats sync here for usability intelligence and engine feedback.
+                    </p>
+                  </li>
+                ) : null}
+              </ul>
+              <h3 className="mt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/60">Activity</h3>
+              <ul className="max-h-48 space-y-2 overflow-y-auto text-[11px] text-slate-400">
+                {activityFeed.map((line, i) => (
+                  <li key={`${i}-${line.slice(0, 24)}`} className="border-l border-[#00e5ff]/20 pl-2">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </ExecutiveCollapsibleTile>
+
+            {activeSubjectId !== "inbox" ? (
+              <>
+                <ExecutiveCollapsibleTile
+                  title="Subject workspace"
+                  subtitle="Scope, orders, memory — read-only context"
+                >
+                  <ExecutiveSubjectWorkspacePanel
+                    embedded
+                    subjectId={activeSubjectId}
+                    clientId={clientId}
+                    orderId={workspaceOrderId}
+                    onSkipperContext={setSubjectSkipperContext}
+                  />
+                </ExecutiveCollapsibleTile>
+
+                <ExecutiveCollapsibleTile
+                  title="Decision queue"
+                  subtitle="Human-only owner decisions"
+                >
+                  <ExecutiveDecisionQueuePanel
+                    embedded
+                    subjectId={activeSubjectId}
+                    clientId={clientId}
+                    orderId={workspaceOrderId}
+                    threadId={selectedOpsThreadId}
+                    onSelectThread={(id) => setSelectedOpsThreadId(id)}
+                    onDecisionRecorded={onOperationalCoordinationChange}
+                  />
+                </ExecutiveCollapsibleTile>
+
+                <ExecutiveCollapsibleTile title="Task queue" subtitle="Human-coordinated operational tasks">
+                  <ExecutiveTaskQueuePanel
+                    embedded
+                    subjectId={activeSubjectId}
+                    clientId={clientId}
+                    orderId={workspaceOrderId}
+                    threadId={selectedOpsThreadId}
+                    onTasksChanged={onOperationalCoordinationChange}
+                  />
+                </ExecutiveCollapsibleTile>
+
+                <ExecutiveCollapsibleTile
+                  title="GPS"
+                  subtitle="Fulfillment case scope and positioning"
+                >
+                  {workspaceOrderId.trim() ? (
+                    <FulfillmentThreadView
+                      embedded
+                      orderId={workspaceOrderId.trim()}
+                      clientId={clientId.trim() || undefined}
+                      department={
+                        activeSubjectId === "trust_jarva"
+                          ? "TRUST"
+                          : activeSubjectId === "revenue_os"
+                            ? "REVENUE_OS"
+                            : activeSubjectId === "smart_trust"
+                              ? "SMART_TRUST"
+                              : "WEBSITE"
+                      }
+                      subjectId={
+                        activeSubjectId === "trust_jarva"
+                          ? "trust_jarva"
+                          : activeSubjectId === "revenue_os"
+                            ? "revenue_os"
+                            : activeSubjectId === "smart_trust"
+                              ? "smart_trust"
+                              : "site_builder"
+                      }
+                    />
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      Set a fulfillment order UUID in the header HUD to open GPS case scope.
+                    </p>
+                  )}
+                </ExecutiveCollapsibleTile>
+
+                <ExecutiveCollapsibleTile title="Threads" subtitle="Internal ops thread list">
+                  <SubjectThreadSidebar
+                    embedded
+                    key={threadSidebarKey}
+                    subjectId={activeSubjectId}
+                    clientId={clientId}
+                    orderId={workspaceOrderId}
+                    selectedThreadId={selectedOpsThreadId}
+                    onSelectThread={setSelectedOpsThreadId}
+                  />
+                </ExecutiveCollapsibleTile>
+
+                <ExecutiveCollapsibleTile title="Operational thread" subtitle="Selected thread discussion">
+                  <ExecutiveThreadPanel
+                    embedded
+                    threadId={selectedOpsThreadId}
+                    onSkipperContext={setThreadSkipperContext}
+                    onDecisionRecorded={onOperationalCoordinationChange}
+                    onCreateThread={async () => {
+                      const title = window.prompt("Thread title");
+                      if (!title?.trim()) return;
+                      const r = await fetch("/api/admin/executive-agent/threads", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          title: title.trim(),
+                          threadKind: "subject",
+                          subjectId: activeSubjectId,
+                          clientId: clientId.trim() || null,
+                          orderId: workspaceOrderId.trim() || null,
+                        }),
+                      });
+                      const j = (await r.json().catch(() => ({}))) as { thread?: { id: string } };
+                      if (j.thread?.id) setSelectedOpsThreadId(j.thread.id);
+                    }}
+                  />
+                </ExecutiveCollapsibleTile>
+
+                <ExecutiveCollapsibleTile
+                  title="Command center"
+                  subtitle="Live monitoring — no autonomous execution"
+                >
+                  <ExecutiveCommandCenterPanel embedded />
+                </ExecutiveCollapsibleTile>
+
+                {activeSubjectId === "troo_town" ? (
+                  <ExecutiveCollapsibleTile
+                    title="Evaana visitors"
+                    subtitle="TROOTHHERTZ LLC — Skipper follow-up intelligence"
+                  >
+                    <TrooTownEvanaPanel embedded />
+                  </ExecutiveCollapsibleTile>
+                ) : null}
+
+                {activeSubjectId === "site_builder" ? (
+                  <ExecutiveCollapsibleTile
+                    title="Stephon builder sessions"
+                    subtitle="Site Builder conversations — usability intelligence"
+                  >
+                    <StephonSiteBuilderPanel embedded />
+                  </ExecutiveCollapsibleTile>
+                ) : null}
+
+                <ExecutiveCollapsibleTile
+                  title={`${activeSubject.shortLabel} agent chat`}
+                  subtitle="Subject-scoped Skipper dialogue"
+                >
+                  <ExecutiveSubjectAgentChatPanel
+                    subject={activeSubject}
+                    clientId={clientId}
+                    campaignId={campaignId}
+                    dryRun={dryRun}
+                    timeRange={timeRange}
+                    busy={busy !== null}
+                    skipperWorkspaceContext={combinedSkipperWorkspaceContext}
+                    onClose={() => {}}
+                  />
+                </ExecutiveCollapsibleTile>
+              </>
+            ) : null}
           </motion.aside>
 
           {/* Center */}
@@ -3563,346 +3671,35 @@ export function ExecutiveAgentDashboard() {
             </div>
           </motion.main>
 
-          {/* Right */}
-          <motion.aside
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="space-y-4 rounded-2xl border border-[#00e5ff]/16 bg-[#050b13]/88 p-4 shadow-[0_0_24px_rgba(0,229,255,0.05)] backdrop-blur-md xl:col-span-3"
-          >
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00b7ff]/85">Operations</h2>
-            <div className="rounded-xl border border-red-400/20 bg-red-950/20 p-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-red-200/90">Pending approvals</span>
-                <span className="rounded bg-red-500/90 px-2 py-0.5 text-[11px] font-bold text-white">{approvals.length}</span>
-              </div>
-              {approvals.length === 0 ? (
-                <p className="mt-2 text-[11px] text-slate-500">No pending proposals.</p>
-              ) : (
-                <ul className="mt-2 max-h-52 space-y-2 overflow-y-auto text-[11px]">
-                  {approvals.map((a) => (
-                    <li key={a.id} id={`executive-approval-${a.id}`} className="rounded-lg border border-slate-700/50 p-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] uppercase text-[#00e5ff]/90">
-                          {a.proposedAction}
-                        </span>
-                        <span className="text-[10px] text-slate-600">{a.id.slice(0, 8)}…</span>
-                      </div>
-                      <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded border border-slate-800/80 bg-slate-950/80 p-2 font-mono text-[9px] text-slate-400">
-                        {formatApprovalPayloadPreview(a.payloadJson)}
-                      </pre>
-                      <div className="mt-2 flex gap-1">
-                        <button
-                          type="button"
-                          className="rounded bg-emerald-600/90 px-2 py-1 text-[10px] text-white"
-                          onClick={() => void approve(a)}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded bg-slate-700 px-2 py-1 text-[10px] text-slate-200"
-                          onClick={() => void reject(a.id)}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {lastApprovalExec ? (
-                <div
-                  className={`mt-3 rounded-lg border p-2 text-[11px] ${
-                    lastApprovalExec.ok ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/90" : "border-amber-500/30 bg-amber-950/20 text-amber-100/90"
-                  }`}
-                >
-                  <div className="font-semibold uppercase tracking-wide text-[10px] text-slate-400">Last execution</div>
-                  <div className="mt-1 font-mono text-[10px]">{lastApprovalExec.action}</div>
-                  <p className="mt-1">{lastApprovalExec.message}</p>
-                  {lastApprovalExec.status ? (
-                    <p className="mt-1 text-[10px] text-slate-500">Status: {lastApprovalExec.status}</p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <ExecutiveOperationsBriefingPanel
-              onOpenApproval={(approvalId) => {
-                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                });
-              }}
-            />
-            <ExecutiveKpiOverviewPanel />
-            <OperationalHealthPanel />
-            <FulfillmentForecastPanel />
-            <ForecastRiskPanel />
-            <ExecutiveOperatorPanel />
-            <OperatorWorkloadPanel />
-            <DelegationQueuePanel
-              onOpenApproval={(approvalId) => {
-                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                });
-              }}
-            />
-            <EscalationPanel
-              onOpenApproval={(approvalId) => {
-                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                });
-              }}
-            />
-            <ExecutiveSimulationPanel />
-            <SimulationForecastPanel />
-            <ScenarioComparisonPanel />
-            <BottleneckCascadePanel />
-            <ExecutiveKnowledgeGraphPanel />
-            <StrategicMemoryPanel />
-            <OrganizationalIntelligencePanel />
-            <HistoricalContextPanel />
-            <ExecutivePlanningPanel />
-            <RecoveryPlanningPanel />
-            <StaffingPlanningPanel />
-            <InitiativePlanningPanel />
-            <ExecutiveCommandCenterPanel />
-            <IncidentIntelligencePanel />
-            <LiveOperationalFeedPanel />
-            <GovernanceAlertPanel />
-            <CrisisCoordinationPanel />
-            <ExecutiveAutomationPanel />
-            <ExecutionApprovalPanel onExecuted={() => void loadApprovals()} />
-            <RollbackControlPanel onRolledBack={() => void loadApprovals()} />
-            <AutomationHistoryPanel />
-            <ExecutiveAgentCoordinationPanel />
-            <AgentWorkspacePanel />
-            <AgentRoutingPanel
-              onRouted={(approvalId) => {
-                if (approvalId) {
-                  document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "nearest",
-                  });
-                }
-                void loadApprovals();
-              }}
-            />
-            <CrossAgentEscalationPanel />
-            <ExecutiveWorkflowFabricPanel />
-            <WorkflowLifecyclePanel />
-            <WorkflowDependencyPanel />
-            <WorkflowRecoveryPanel />
-            <WorkflowContinuityPanel />
-            <OperationalMemoryInsightsPanel />
-            <FulfillmentOrdersPanel
-              defaultClientId={clientIdTrim}
-              onApprovalsRefresh={() => void loadApprovals()}
-              onOpenApproval={(approvalId) => {
-                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                });
-              }}
-            />
-            <TrustFulfillmentOrdersPanel
-              defaultClientId={clientIdTrim}
-              onApprovalsRefresh={() => void loadApprovals()}
-              onOpenApproval={(approvalId) => {
-                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                });
-              }}
-            />
-            <RevenueOsFulfillmentPanel
-              defaultClientId={clientIdTrim}
-              onApprovalsRefresh={() => void loadApprovals()}
-              onOpenApproval={(approvalId) => {
-                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                });
-              }}
-            />
-            <SmartTrustOperationsPanel
-              defaultClientId={clientIdTrim}
-              onApprovalsRefresh={() => void loadApprovals()}
-              onOpenApproval={(approvalId) => {
-                document.getElementById(`executive-approval-${approvalId}`)?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                });
-              }}
-            />
-            <div className="rounded-xl border border-[#00e5ff]/15 p-3">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/70">Recent conversations</h3>
-              {recentConversationsError ? (
-                <p className="mt-2 text-xs text-amber-200/90">{recentConversationsError}</p>
-              ) : recentConversations.length === 0 ? (
-                <p className="mt-2 text-xs text-slate-500">No recent threads returned — sources may be empty or unavailable.</p>
-              ) : (
-                <ul className="mt-2 max-h-56 space-y-2 overflow-y-auto text-[11px]">
-                  {recentConversations.map((c) => (
-                    <li key={c.id} className="rounded-lg border border-slate-700/50 p-2">
-                      <div className="flex justify-between gap-2 text-slate-400">
-                        <span className="font-medium text-slate-200">{c.displayName}</span>
-                        <span className="shrink-0 font-mono text-[9px] uppercase">{c.source}</span>
-                      </div>
-                      <div className="mt-0.5 text-slate-500">
-                        {c.agentKey} · {c.userLabel}
-                        {c.clientId ? ` · client ${c.clientId.slice(0, 8)}…` : ""}
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-slate-400">{c.snippet || "—"}</p>
-                      <div className="mt-1 text-[10px] text-slate-600">{new Date(c.lastMessageAt).toLocaleString()}</div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="rounded-xl border border-amber-400/20 bg-amber-950/10 p-3">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200/80">Follow-up signals</h3>
-              {followUpError ? (
-                <p className="mt-2 text-xs text-amber-200/90">{followUpError}</p>
-              ) : followUpRecommendations.length === 0 ? (
-                <p className="mt-2 text-xs text-slate-500">No actionable recommendations right now.</p>
-              ) : (
-                <ul className="mt-2 max-h-52 space-y-2 overflow-y-auto text-[11px]">
-                  {followUpRecommendations.map((rec) => (
-                    <li key={rec.id} className="rounded-lg border border-slate-700/50 p-2">
-                      <div className="font-medium text-slate-200">{rec.title}</div>
-                      <p className="mt-1 text-slate-400">{rec.detail}</p>
-                      <button
-                        type="button"
-                        disabled={followUpQueueBusyId === rec.id}
-                        onClick={() => void queueFollowUpRecommendation(rec)}
-                        className="mt-2 rounded bg-[#00e5ff]/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white disabled:opacity-40"
-                      >
-                        {followUpQueueBusyId === rec.id ? "Queueing…" : "Queue approval (internal note)"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="mt-2 text-[10px] text-slate-600">
-                Requires CRM client UUID in the panel — queues a createTodo proposal for explicit approval only.
-              </p>
-            </div>
-            <div className="rounded-xl border border-violet-400/20 bg-violet-950/20 p-3">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/80">Bentley readiness</h3>
-              {!bentleyBrief ? (
-                <p className="mt-2 text-xs text-slate-500">Summary did not include Bentley bridge data.</p>
-              ) : (
-                <div className="mt-2 space-y-2 text-[11px] text-slate-400">
-                  <div className="flex flex-wrap gap-x-3 gap-y-1">
-                    <span>Campaigns w/ payload: {bentleyBrief.campaignsWithBentleyPayloadApprox ?? "—"}</span>
-                    <span>Scheduled posts: {bentleyBrief.postsScheduledApprox ?? "—"}</span>
-                    <span>Draft/fail unsched.: {bentleyBrief.postsBlockedOrDraftUnscheduledApprox ?? "—"}</span>
-                  </div>
-                  <div>
-                    Pending approvals (you): {bentleyBrief.pendingExecutiveApprovalsForAdmin ?? "—"} · Content360 platform:{" "}
-                    {bentleyBrief.content360PlatformConfigured ? "configured" : "not configured"}
-                  </div>
-                  {bentleyBrief.unavailable ? (
-                    <p className="text-amber-200/80">Platform-wide Bentley tables returned no rollups (partial or missing).</p>
-                  ) : null}
-                  {bentleyBrief.latestCadenceRuns && bentleyBrief.latestCadenceRuns.length > 0 ? (
-                    <p className="text-slate-500">Latest cadence runs: {bentleyBrief.latestCadenceRuns.length} row(s) loaded.</p>
-                  ) : (
-                    <p className="text-slate-500">No recent cadence runs in window.</p>
-                  )}
-                  {bentleyBrief.notes && bentleyBrief.notes.length > 0 ? (
-                    <ul className="list-disc pl-4 text-[10px] text-slate-600">
-                      {bentleyBrief.notes.slice(0, 4).map((n, i) => (
-                        <li key={i}>{n}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {clientIdTrim && bentleyClientSlice ? (
-                    <div className="rounded border border-slate-700/60 p-2 text-[10px] text-slate-500">
-                      Client slice — campaigns w/ payload: {bentleyClientSlice.campaignsWithPayload ?? "—"}, scheduled:{" "}
-                      {bentleyClientSlice.scheduledPosts ?? "—"}, stuck: {bentleyClientSlice.stuckDraftOrFailed ?? "—"}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </div>
-            <div className="rounded-xl border border-[#00e5ff]/12 bg-[#02070d]/70 p-3 text-xs shadow-[inset_0_0_20px_rgba(0,229,255,0.04)]">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00b7ff]/70">System health</h3>
-              <ul className="mt-2 space-y-1">
-                <li className="flex justify-between">
-                  <span>Database</span>
-                  <span className="text-emerald-300">{liveMetrics?.systemHealth.database ?? "ok"}</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>API services</span>
-                  <span className="text-emerald-300">{liveMetrics?.systemHealth.apiServices ?? "ok"}</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Read tools</span>
-                  <span className="text-emerald-300">{liveMetrics?.systemHealth.executiveReadTools ?? "ok"}</span>
-                </li>
-              </ul>
-            </div>
-            {voicePreflight?.nextSteps && voicePreflight.nextSteps.length > 0 ? (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-[11px] text-amber-50/95 shadow-[inset_0_0_16px_rgba(251,191,36,0.06)]">
-                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200/90">Voice preflight</h3>
-                <p className="mt-1 text-[10px] text-amber-100/80">Server checks (no secrets). Fix env on the deployment, then refresh.</p>
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-[10px] text-amber-50/90">
-                  {voicePreflight.nextSteps.slice(0, 6).map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <VoiceCommandDiagnosticsPanel
-              data={voiceDiagnostics}
-              defaultCollapsed={false}
-              voiceSttInputMode={voiceSttInputMode}
-              voiceSessionId={voiceSession?.sessionId ?? null}
-              voicePendingAnalytics={voicePendingAnalytics}
-              onTestSttHealth={() => void refreshExecutiveVoiceSttDiagnostics()}
-              onTestSelfHostedStt={() => void runSelfHostedSttTestClip()}
-              sttTestBusy={sttTestBusy}
-              sttTestTranscript={sttTestTranscript}
-            />
-            {learningPendingPreview ? (
-              <div className="rounded-xl border border-violet-500/20 bg-violet-950/15 p-3 text-[11px] text-slate-300">
-                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/80">SKIPPER learning inbox</h3>
-                <p className="mt-1 text-slate-400">
-                  Pending: {learningPendingPreview.improvements} prompt suggestion(s),{" "}
-                  {learningPendingPreview.capabilities} capability note(s), {learningPendingPreview.overlays} overlay(s) awaiting
-                  activation.
-                </p>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Review via{" "}
-                  <code className="rounded bg-slate-900 px-1 py-0.5 text-[9px]">GET /api/admin/executive-agent/learning/pending</code>{" "}
-                  — overlays never auto-apply without admin action.
-                </p>
-              </div>
-            ) : null}
-            {summaryError ? <p className="text-xs text-amber-200">{summaryError}</p> : null}
-            {chatResult?.charts?.length ? (
-              <div className="space-y-2">
-                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/70">Charts</h3>
-                {chatResult.charts.map((c) => (
-                  <div key={c.title} className="rounded-lg border border-slate-700/50 p-2 text-[11px]">
-                    <div className="font-medium text-slate-200">{c.title}</div>
-                    <ul className="mt-1 space-y-0.5 text-slate-400">
-                      {c.series.map((s) => (
-                        <li key={s.label} className="flex justify-between gap-2">
-                          <span>{s.label}</span>
-                          <span className="text-[#00e5ff]">{s.value}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </motion.aside>
+          <ExecutiveOperationsSidebar
+            approvals={approvals}
+            onApprove={(row) => void approve(row)}
+            onReject={(id) => void reject(id)}
+            lastApprovalExec={lastApprovalExec}
+            clientIdTrim={clientIdTrim}
+            onLoadApprovals={() => void loadApprovals()}
+            recentConversations={recentConversations}
+            recentConversationsError={recentConversationsError}
+            followUpRecommendations={followUpRecommendations}
+            followUpError={followUpError}
+            followUpQueueBusyId={followUpQueueBusyId}
+            onQueueFollowUp={(rec) => void queueFollowUpRecommendation(rec)}
+            bentleyBrief={bentleyBrief}
+            bentleyClientSlice={bentleyClientSlice}
+            liveMetricsSystemHealth={liveMetrics?.systemHealth}
+            voicePreflight={voicePreflight}
+            voiceDiagnostics={voiceDiagnostics}
+            voiceSttInputMode={voiceSttInputMode}
+            voiceSessionId={voiceSession?.sessionId ?? null}
+            voicePendingAnalytics={voicePendingAnalytics}
+            onTestSttHealth={() => void refreshExecutiveVoiceSttDiagnostics()}
+            onTestSelfHostedStt={() => void runSelfHostedSttTestClip()}
+            sttTestBusy={sttTestBusy}
+            sttTestTranscript={sttTestTranscript}
+            learningPendingPreview={learningPendingPreview}
+            summaryError={summaryError}
+            chatCharts={chatResult?.charts ?? null}
+          />
         </div>
       </div>
 

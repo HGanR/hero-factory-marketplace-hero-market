@@ -37,6 +37,13 @@ export async function insertSiteAnalyticsEvent(db: Db, row: SiteEventInsert) {
   });
 }
 
+export type LandingCtaRow = {
+  eventName: string;
+  label: string;
+  targetHref: string | null;
+  clicks: number;
+};
+
 export type SiteAnalyticsRollup = {
   windowStart: string;
   windowEnd: string;
@@ -55,6 +62,8 @@ export type SiteAnalyticsRollup = {
     potentialRevenue: number | null;
   }>;
   topPaths: Array<{ path: string; visitors: number }>;
+  /** Landing home CTA / link clicks grouped by stable eventName metadata. */
+  landingCtas: LandingCtaRow[];
 };
 
 function communityPriceForRevenue(): number | null {
@@ -169,6 +178,29 @@ export async function rollupSiteAnalyticsForExecutive(
       visitors: Number(r.visitors ?? 0),
     }));
 
+    const ctaRows = await db.execute<{ eventName: string; label: string; targetHref: string | null; clicks: number }>(sql`
+      SELECT
+        COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.eventName')), ''), 'unknown') AS eventName,
+        COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.label')), ''), 'Link') AS label,
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.targetHref')), '') AS targetHref,
+        COUNT(*) AS clicks
+      FROM site_analytics_events
+      WHERE createdAt >= ${since} AND createdAt <= ${until}
+        AND eventType IN ('button_click', 'conversion_intent', 'outbound_paypal', 'agent_interaction')
+        AND metadataJson IS NOT NULL
+      GROUP BY eventName, label, targetHref
+      ORDER BY clicks DESC
+      LIMIT 24
+    `);
+    const landingCtas = (ctaRows as unknown as { eventName: string; label: string; targetHref: string | null; clicks: number }[]).map(
+      (r) => ({
+        eventName: r.eventName || "unknown",
+        label: r.label || "Link",
+        targetHref: r.targetHref?.trim() ? r.targetHref.trim() : null,
+        clicks: Number(r.clicks ?? 0),
+      }),
+    );
+
     return {
       windowStart: since.toISOString(),
       windowEnd: until.toISOString(),
@@ -179,6 +211,7 @@ export async function rollupSiteAnalyticsForExecutive(
       pageViewsOnLanding: Number(pvLanding?.n ?? 0),
       trafficBySource,
       topPaths,
+      landingCtas,
     };
   } catch {
     return null;
