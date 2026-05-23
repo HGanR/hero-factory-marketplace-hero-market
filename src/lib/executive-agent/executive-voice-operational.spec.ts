@@ -19,6 +19,7 @@ describe("executive-voice-operational-phrases", () => {
       resolveVoiceOperationalQuery("Hey Skipper, has Jarva had any conversations today?"),
       "jarva_activity",
     );
+    assert.equal(resolveVoiceOperationalQuery("what's the jarva activity today"), "jarva_activity");
     assert.equal(
       resolveVoiceOperationalQuery("has there been any Smart Trust activity"),
       "smart_trust_activity",
@@ -30,11 +31,13 @@ describe("executive-voice-operational-phrases", () => {
       resolveVoiceOperationalQuery("are there any new messages in the Executive Inbox"),
       "executive_inbox",
     );
+    assert.equal(resolveVoiceOperationalQuery("anything in my inbox today"), "executive_inbox");
     assert.equal(resolveVoiceOperationalQuery("has Reality had any activity today"), "reality_activity");
     assert.equal(
       resolveVoiceOperationalQuery("has there been any new visitors or new registrations"),
       "new_registrations",
     );
+    assert.equal(resolveVoiceOperationalQuery("new registrations today"), "new_registrations");
     assert.ok(isRegistrationPhoneRequest("what is the phone number for the new accounts"));
   });
 
@@ -52,10 +55,11 @@ describe("executive-voice-operational-phrases", () => {
 });
 
 describe("executive-voice-operational-voice copy", () => {
-  it("builds empty Jarva response", () => {
+  it("builds natural empty Jarva response", () => {
     const answer = buildJarvaActivityVoiceAnswer([]);
-    assert.match(answer, /No Boss/i);
-    assert.match(answer, /Smart Trust/i);
+    assert.match(answer, /Jarva's desk/i);
+    assert.doesNotMatch(answer, /Smart Trust/i);
+    assert.doesNotMatch(answer, /tool/i);
   });
 
   it("builds Jarva activity summary with account name", () => {
@@ -73,9 +77,10 @@ describe("executive-voice-operational-voice copy", () => {
     ]);
     assert.match(answer, /AcmeTrust/);
     assert.match(answer, /trust structuring/i);
+    assert.match(answer, /Jarva spoke with/i);
   });
 
-  it("offers audio playback for inbox with audio attachment", () => {
+  it("offers audio playback for inbox with natural phrasing", () => {
     const { answer, pendingAudio } = buildExecutiveInboxVoiceAnswer([
       {
         messageId: "m1",
@@ -88,11 +93,13 @@ describe("executive-voice-operational-voice copy", () => {
         attachmentCount: 1,
       },
     ]);
-    assert.match(answer, /play the audio/i);
+    assert.match(answer, /your inbox/i);
+    assert.match(answer, /voice note/i);
+    assert.doesNotMatch(answer, /inbox signal/i);
     assert.equal(pendingAudio?.attachmentId, "a1");
   });
 
-  it("masks registration summary and offers phone on availability", () => {
+  it("uses sign-up language for registrations and offers phone naturally", () => {
     const { answer, offerPhone } = buildNewRegistrationsVoiceAnswer(
       [
         {
@@ -106,8 +113,9 @@ describe("executive-voice-operational-voice copy", () => {
       ],
       3,
     );
-    assert.match(answer, /new registration/i);
+    assert.match(answer, /sign-up/i);
     assert.match(answer, /visitor/i);
+    assert.match(answer, /follow-up/i);
     assert.equal(offerPhone, true);
     assert.doesNotMatch(answer, /\d{3}-\d{3}-\d{4}/);
   });

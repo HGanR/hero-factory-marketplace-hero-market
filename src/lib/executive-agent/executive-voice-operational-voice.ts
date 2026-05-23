@@ -12,26 +12,26 @@ import type {
 
 export function buildJarvaActivityVoiceAnswer(rows: JarvaActivityRow[]): string {
   if (!rows.length) {
-    return "No Boss, I do not see any Smart Trust or Jarva activity today.";
+    return "Nothing on Jarva's desk today so far, Boss.";
   }
   const first = rows[0]!;
   const name = first.accountDisplayName;
   const summary = first.conversationSummary;
   if (rows.length === 1) {
-    return `Well Boss, so far today Jarva spoke with ${name}. The user asked Jarva about ${summary}.`;
+    return `Jarva spoke with ${name} today — they asked about ${summary}.`;
   }
-  return `Well Boss, Jarva had ${rows.length} conversations today. First up — ${name} asked about ${summary}. Say next for more.`;
+  return `Jarva had ${rows.length} conversations today. Most recent was ${name}, asking about ${summary}. Say next if you want another.`;
 }
 
 export function buildRealityActivityVoiceAnswer(rows: RealityActivityRow[]): string {
   if (!rows.length) {
-    return "No Boss, I do not see any Reality widget activity today.";
+    return "No Reality chats today so far.";
   }
   const first = rows[0]!;
   if (rows.length === 1) {
-    return `Yes Boss, Reality spoke with ${first.userDisplayName} at ${formatVoiceTimestamp(first.timestamp)} about ${first.conversationSummary}.`;
+    return `Reality spoke with ${first.userDisplayName} around ${formatVoiceTimestamp(first.timestamp)} about ${first.conversationSummary}.`;
   }
-  return `Yes Boss, Reality had ${rows.length} conversations today. Latest — ${first.userDisplayName} at ${formatVoiceTimestamp(first.timestamp)}: ${first.conversationSummary}.`;
+  return `Reality had ${rows.length} conversations today. Latest was ${first.userDisplayName} around ${formatVoiceTimestamp(first.timestamp)} — ${first.conversationSummary}.`;
 }
 
 export function buildExecutiveInboxVoiceAnswer(messages: ExecutiveInboxMessageRow[]): {
@@ -39,15 +39,19 @@ export function buildExecutiveInboxVoiceAnswer(messages: ExecutiveInboxMessageRo
   pendingAudio?: { messageId: string; attachmentId: string };
 } {
   if (!messages.length) {
-    return { answer: "No Boss, the Executive Inbox has no new messages today." };
+    return { answer: "Your inbox is quiet today — no new messages." };
   }
   const first = messages[0]!;
   const subject = first.subjectOrPreview.slice(0, 120);
   const sender = first.senderName;
   const when = formatVoiceTimestamp(first.receivedAt);
-  let answer = `Yes Boss, ${messages.length} new inbox signal${messages.length === 1 ? "" : "s"} today. Latest from ${sender} at ${when}: ${subject}.`;
+  const countLine =
+    messages.length === 1
+      ? "You have one new message in your inbox."
+      : `You have ${messages.length} new messages in your inbox.`;
+  let answer = `${countLine} The latest is from ${sender}, ${when}: ${subject}.`;
   if (first.hasAudioAttachment && first.firstAudioAttachmentId) {
-    answer += " Would you like me to play the audio file?";
+    answer += " Want me to play the voice note?";
     return {
       answer,
       pendingAudio: { messageId: first.messageId, attachmentId: first.firstAudioAttachmentId },
@@ -62,25 +66,27 @@ export function buildNewRegistrationsVoiceAnswer(
 ): { answer: string; offerPhone: boolean } {
   const visitorPart =
     visitorsToday != null && visitorsToday > 0
-      ? ` I also count ${visitorsToday} new site visitor${visitorsToday === 1 ? "" : "s"} today.`
+      ? ` We also had ${visitorsToday} new site visitor${visitorsToday === 1 ? "" : "s"} today.`
       : "";
   if (!rows.length) {
     return {
-      answer: `No Boss, I do not see new registrations today.${visitorPart}`,
+      answer: `No new sign-ups today.${visitorPart}`.trim(),
       offerPhone: false,
     };
   }
   const first = rows[0]!;
   const when = formatVoiceTimestamp(first.createdAt);
-  const phoneHint = rows.some((r) => r.phoneAvailable) ? " Would you like the phone number for manual onboarding?" : "";
+  const phoneHint = rows.some((r) => r.phoneAvailable)
+    ? " Want their number for a personal follow-up?"
+    : "";
   if (rows.length === 1) {
     return {
-      answer: `Yes Boss, there is a new registration.${visitorPart} ${first.accountDisplayName} registered at ${when}.${phoneHint}`,
+      answer: `One new sign-up today.${visitorPart} ${first.accountDisplayName} registered ${when}.${phoneHint}`.trim(),
       offerPhone: rows.some((r) => r.phoneAvailable),
     };
   }
   return {
-    answer: `Yes Boss, there are ${rows.length} new registrations.${visitorPart} ${first.accountDisplayName} registered at ${when}.${phoneHint}`,
+    answer: `${rows.length} new sign-ups today.${visitorPart} Latest is ${first.accountDisplayName}, registered ${when}.${phoneHint}`.trim(),
     offerPhone: rows.some((r) => r.phoneAvailable),
   };
 }
@@ -92,21 +98,21 @@ export function buildRegistrationPhoneQueueVoiceLine(row: {
   total: number;
 }): string {
   const spoken = formatPhoneForVoice(row.phone);
-  return `Contact ${row.index} of ${row.total}: ${row.accountDisplayName}. Phone: ${spoken}. Say next number, repeat number, skip, or stop.`;
+  return `${row.accountDisplayName}, ${row.index} of ${row.total}. The number is ${spoken}. Say next, repeat, skip, or stop.`;
 }
 
 export function buildInboxAudioPlayAck(): string {
-  return "Understood Boss — playing the inbox audio now.";
+  return "Playing that now.";
 }
 
 export function buildInboxAudioDeclined(): string {
-  return "Understood Boss — I will leave the audio on file.";
+  return "No problem — I'll leave it in your inbox.";
 }
 
 export function buildPhoneQueueStopped(): string {
-  return "Stopping the phone queue, Boss.";
+  return "Stopping there.";
 }
 
 export function buildPhoneQueueFinished(): string {
-  return "That was the last number in the queue, Boss.";
+  return "That's everyone in the queue.";
 }

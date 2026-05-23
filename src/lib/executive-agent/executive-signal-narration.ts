@@ -36,30 +36,30 @@ export function narrateAmbientSignal(opts: {
 
   switch (opts.category) {
     case "jarva_activity":
-      return `Boss, Jarva desk activity — ${who}${opts.summary}${memory}.`;
+      return `Jarva had desk activity — ${who}${opts.summary}${memory}.`;
     case "reality_activity":
-      return `Reality widget signal — ${who}${opts.summary}${memory}.`;
+      return `Reality picked up a conversation — ${who}${opts.summary}${memory}.`;
     case "bentley_campaign":
-      return `Bentley campaign watch — ${opts.summary}${memory}.`;
+      return `Bentley campaign needs a look — ${opts.summary}${memory}.`;
     case "smart_trust":
-      return `Smart Trust governance — ${opts.summary}${memory}.`;
+      return `Trust desk item — ${opts.summary}${memory}.`;
     case "executive_inbox":
-      return `Executive inbox — ${opts.summary}${memory}.`;
+      return `Something new in your inbox — ${opts.summary}${memory}.`;
     case "registration":
     case "onboarding":
-      return `Onboarding signal — ${opts.summary}${memory}. Would you like details when ready.`;
+      return `Onboarding movement — ${opts.summary}${memory}. I can pull details when you're ready.`;
     case "approval":
-      return `Approval queue — ${opts.summary}${memory}. Human authorization required.`;
+      return `Approvals need your eye — ${opts.summary}${memory}. Your call on next steps.`;
     case "workflow":
-      return `Workflow continuity — ${opts.summary}${memory}.`;
+      return `Workflow friction — ${opts.summary}${memory}.`;
     case "escalation":
-      return `Escalation advisory — ${opts.summary}${memory}.`;
+      return `Escalation on the desk — ${opts.summary}${memory}.`;
     case "operator":
-      return `Operator workload — ${opts.summary}${memory}.`;
+      return `Operator load is shifting — ${opts.summary}${memory}.`;
     case "kpi":
-      return `KPI drift watch — ${opts.summary}${memory}.`;
+      return `KPI drift — ${opts.summary}${memory}.`;
     case "governance":
-      return `Governance anomaly — ${opts.summary}${memory}.`;
+      return `Governance watch — ${opts.summary}${memory}.`;
     default:
       return `${opts.summary}${memory}.`;
   }
@@ -71,10 +71,10 @@ export function buildAmbientVoiceBriefing(signals: AmbientExecutiveSignal[], mod
   if (top.severity === "watch" && mode === "calm") return null;
   const prefix =
     top.severity === "critical" || top.severity === "high"
-      ? "Boss, heads up —"
+      ? "Heads up, Boss —"
       : mode === "elevated" || mode === "incident"
-        ? "Boss, situational note —"
-        : "Boss, when you have a moment —";
+        ? "Quick note —"
+        : "When you have a moment —";
   return `${prefix} ${top.narration}`;
 }
 

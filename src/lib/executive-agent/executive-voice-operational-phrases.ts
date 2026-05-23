@@ -72,9 +72,12 @@ export function resolveVoiceOperationalQuery(input: string): VoiceOperationalQue
   if (/\bsmart trust\b.*\b(activity|conversation|today)\b/.test(t)) return "smart_trust_activity";
   if (/\bjarva\b.*\b(conversation|activity|today)\b/.test(t)) return "jarva_activity";
   if (/\bhas jarva\b/.test(t)) return "jarva_activity";
+  if (/\bjarva activity\b/.test(t)) return "jarva_activity";
 
   if (/\breality\b/.test(t) && /\b(activity|conversation|spoke|chat|today)\b/.test(t)) return "reality_activity";
 
+  if (/\b(check|anything in|what's in|whats in)\b.*\b(inbox|my inbox)\b/.test(t)) return "executive_inbox";
+  if (/\b(inbox|my inbox)\b.*\b(today|new|unread|messages?)\b/.test(t)) return "executive_inbox";
   if (
     /\b(executive inbox|inbox)\b/.test(t) &&
     /\b(new message|new messages|any message|unread|signals)\b/.test(t)
@@ -83,11 +86,7 @@ export function resolveVoiceOperationalQuery(input: string): VoiceOperationalQue
   }
   if (/\bany new messages in the executive inbox\b/.test(t)) return "executive_inbox";
 
-  if (
-    /\b(new registration|new registrations|new visitor|new visitors|pending account|sign.?up|registered today)\b/.test(t)
-  ) {
-    return "new_registrations";
-  }
+  if (/\bnew registrations?\b/.test(t)) return "new_registrations";
 
   return null;
 }

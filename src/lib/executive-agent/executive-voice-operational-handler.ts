@@ -75,7 +75,7 @@ async function handleOperationalQuery(
   if (kind === "registration_phone_request") {
     const queue = await fetchRegistrationPhoneQueue(db);
     if (!queue.length) {
-      return buildShortCircuit("No Boss, I do not have phone numbers on file for today's pending registrations.", {
+      return buildShortCircuit("I don't have phone numbers on file for today's pending sign-ups.", {
         reasoningMode: "deterministic",
         confidence: 1,
         proposedApprovalsCount: 0,
@@ -175,7 +175,7 @@ async function handleOperationalQuery(
     return buildShortCircuit(answer, meta);
   }
 
-  return buildShortCircuit("I could not resolve that operational query, Boss.", {
+  return buildShortCircuit("I'm not sure I caught that one, Boss — try Jarva, your inbox, or new sign-ups.", {
     reasoningMode: "deterministic",
     confidence: 0.5,
     proposedApprovalsCount: 0,
@@ -198,7 +198,7 @@ async function handleInboxAudioConfirm(
     });
     const play = (result as { ok?: boolean; play?: { url: string; filename: string; mimeType: string } }).play;
     if (!play) {
-      return buildShortCircuit("Boss, I could not locate that audio attachment.", {
+      return buildShortCircuit("I couldn't find that voice note on file.", {
         reasoningMode: "deterministic",
         confidence: 1,
         proposedApprovalsCount: 0,
@@ -238,7 +238,7 @@ async function handleRegistrationPhoneOffer(
 ): Promise<VoiceOperationalHandlerResult | null> {
   if (!isAffirmativeVoice(transcript)) {
     if (isNegativeVoice(transcript)) {
-      return buildShortCircuit("Understood Boss — I will keep phone numbers masked.", {
+      return buildShortCircuit("Got it — I'll keep those numbers private.", {
         reasoningMode: "deterministic",
         confidence: 1,
         proposedApprovalsCount: 0,
@@ -262,7 +262,7 @@ async function handlePhoneQueueNavigation(
   const byId = new Map(queue.map((q) => [q.userId, q]));
   const ordered = pending.userIds.map((id) => byId.get(id)).filter(Boolean) as typeof queue;
   if (!ordered.length) {
-    return buildShortCircuit("The phone queue is empty, Boss.", {
+    return buildShortCircuit("That queue is empty now.", {
       reasoningMode: "deterministic",
       confidence: 1,
       proposedApprovalsCount: 0,
