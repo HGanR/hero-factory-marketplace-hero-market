@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BentleyPipelineAmbientStatusForDashboard } from "@/components/ai-revenue-os/BentleyPipelineAmbientStatus";
@@ -97,6 +97,7 @@ import {
   dashboardIndustryOfferType,
 } from "@/lib/revenue-os/bentley-string-coerce";
 import { loadWorkflowState } from "@/lib/revenue-os/bentley-workflow";
+import { repairCorruptBentleyPersistedSession } from "@/lib/revenue-os/bentley-session-repair";
 import { BentleyCampaignOutputTile } from "@/components/revenue-os/BentleyCampaignOutputTile";
 import { useInvalidateSocialAccounts, useSocialAccounts } from "@/hooks/useSocialAccounts";
 
@@ -360,6 +361,27 @@ function BentleyDashboardFormSyncWithPipeline({ form }: { form: RevenueOsDashboa
   return (
     <BentleyDashboardSharedStateSync form={form} onBentleySnapshotAppliedFromForm={onFormSynced} />
   );
+}
+
+/** Avoid SSR/client HTML drift from sessionStorage reads and repair corrupt JSON before panels mount. */
+function DashboardClientMountGate({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => {
+    try {
+      repairCorruptBentleyPersistedSession();
+    } catch {
+      /* ignore */
+    }
+    setReady(true);
+  }, []);
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white px-6 py-10">
+        <p className="text-sm text-slate-400">Loading Revenue OS dashboard…</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
 
 function RevenueOSDashboardInner() {
@@ -816,6 +838,7 @@ function RevenueOSDashboardInner() {
 
   return (
     <AiRevenueOsSharedStateProvider>
+      <DashboardClientMountGate>
       <Suspense fallback={null}>
         <BentleyAiRevenueOsScopeSync userId={userId} />
       </Suspense>
@@ -1557,6 +1580,7 @@ function RevenueOSDashboardInner() {
       )}
       </div>
       {!bentleyExecutionCampaignId ? <BentleyRevenueOsChat /> : null}
+      </DashboardClientMountGate>
     </AiRevenueOsSharedStateProvider>
   );
 }

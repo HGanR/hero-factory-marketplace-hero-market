@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Layers, Loader2, RefreshCw } from "lucide-react";
 
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
+
 const ACCENT = "#00D1FF";
 
 export type OfferLadderProfile = {
@@ -50,7 +52,7 @@ export function OfferLadderPanel({
   const [data, setData] = useState<GenerateResponse | null>(null);
 
   const canRequest =
-    Boolean(profile.userId?.trim()) &&
+    Boolean(coerceTrimmedString(profile.userId)) &&
     profile.targetMonthlyRevenue > 0 &&
     profile.avgOrderValue > 0;
 
@@ -75,9 +77,9 @@ export function OfferLadderPanel({
             cac: profile.cac,
             grossMarginPct: profile.grossMarginPct,
           },
-          industry: industry?.trim() || undefined,
-          clientId: clientId?.trim() || undefined,
-          trustId: trustId?.trim() || undefined,
+          industry: coerceTrimmedString(industry) || undefined,
+          clientId: coerceTrimmedString(clientId) || undefined,
+          trustId: coerceTrimmedString(trustId) || undefined,
         }),
       });
       const json = (await res.json()) as GenerateResponse;

@@ -8,8 +8,8 @@ import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 type NotesInput = { snapshot: BentleySnapshot } & BentleyWorkflowArtifacts;
 
-function section(title: string, body: string): string {
-  const b = body.trim();
+function section(title: string, body: unknown): string {
+  const b = coerceTrimmedString(body);
   if (!b) return "";
   return `## ${title}\n\n${b}`;
 }

@@ -19,8 +19,8 @@ import type { RevenueOsSystemSignals } from "@/lib/revenue-os/revenue-os-system-
 import type { TrendsResponse } from "@/lib/revenue-os/trends-schema";
 import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
-function clamp(s: string, max: number): string {
-  const t = s.trim();
+function clamp(s: unknown, max: number): string {
+  const t = coerceTrimmedString(s);
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
 }
@@ -131,9 +131,9 @@ function buildDays(params: {
   wf: BentleyWorkflowState | null | undefined;
 }): RevenueOsLaunchDayPlan[] {
   const { profile, readiness, signals, launchAngle, wf } = params;
-  const brand = profile.businessName.trim() || "your business";
-  const offerHint = profile.coreOffer.trim() || "your core offer";
-  const aud = profile.targetAudience.trim() || "your ideal buyer";
+  const brand = profileStr(profile, "businessName") || "your business";
+  const offerHint = profileStr(profile, "coreOffer") || "your core offer";
+  const aud = profileStr(profile, "targetAudience") || "your ideal buyer";
   const weakOffer = (signals.offerStrengthScore ?? 0) < 55;
   const highGap = (signals.executionGapScore ?? 0) > 50;
   const contentDone = workflowContentReady(wf);

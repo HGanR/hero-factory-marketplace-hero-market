@@ -3,9 +3,11 @@
  */
 
 import type { CampaignResponse } from "@/lib/revenue-os/campaign-schema";
+import { BENTLEY_PLATFORM_POST_KEYS } from "@/lib/revenue-os/campaign-schema";
 import { normalizeCampaignPostPlatformForPublish } from "@/lib/social/platform-identity";
 import { isOauthConnectablePlatformId } from "@/lib/social/platform-identity";
 import type { SocialPlatform } from "@/lib/social/config";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export const BENTLEY_UTM_UNIT_KEY = "bentley_unit_key";
 /** Traces optimization variant posts back to `bentley_optimization_runs.id` (idempotency + lineage). */
@@ -32,7 +34,7 @@ export function resolveOauthPlatformsForBentleyLaunch(input: {
 }): SocialPlatform[] {
   const out: SocialPlatform[] = [];
   const tryAdd = (raw: string) => {
-    const n = normalizeCampaignPostPlatformForPublish(raw.trim());
+    const n = normalizeCampaignPostPlatformForPublish(coerceTrimmedString(raw));
     if (n && isOauthConnectablePlatformId(n) && !out.includes(n)) out.push(n);
   };
   for (const p of input.postingPlatforms ?? []) {
@@ -40,7 +42,7 @@ export function resolveOauthPlatformsForBentleyLaunch(input: {
   }
   if (out.length) return out;
   for (const label of input.contentPlatforms ?? []) {
-    const low = label.trim().toLowerCase();
+    const low = coerceTrimmedString(label).toLowerCase();
     const hint = LABEL_HINT[low] ?? normalizeCampaignPostPlatformForPublish(label);
     if (hint && isOauthConnectablePlatformId(hint) && !out.includes(hint)) out.push(hint);
   }
@@ -69,20 +71,57 @@ export function collectBentleyUnitKeysFromPosts(
   const s = new Set<string>();
   for (const p of posts) {
     const u = p.utmParams as Record<string, string> | null | undefined;
-    const k = u?.[BENTLEY_UTM_UNIT_KEY]?.trim();
+    const k = coerceTrimmedString(u?.[BENTLEY_UTM_UNIT_KEY]);
     if (k) s.add(k);
   }
   return s;
 }
 
-export function buildCaptionForSlot(campaign: CampaignResponse, slot: number): string {
+/** Stored on `campaign_posts.bentley_draft_json` (caption stays on `caption`). */
+export type BentleyPostDraftJson = {
+  hook?: string;
+  cta?: string;
+  promptText?: string;
+  promptImage?: string;
+  promptVideo?: string;
+};
+
+export function normalizeBentleyPostPlatformKey(platform: unknown): string {
+  return coerceTrimmedString(platform).toLowerCase();
+}
+
+function isBentleyPlatformPostKey(k: string): k is (typeof BENTLEY_PLATFORM_POST_KEYS)[number] {
+  return (BENTLEY_PLATFORM_POST_KEYS as readonly string[]).includes(k);
+}
+
+/**
+ * Platform-specific caption: prefers `campaign.platformPosts[platform]`, else hook + offer rotation.
+ */
+export function buildCaptionForPlatform(platform: string, campaign: CampaignResponse): string {
+  const key = normalizeBentleyPostPlatformKey(platform);
+  const slot = isBentleyPlatformPostKey(key) ? campaign.platformPosts[key] : undefined;
+  if (coerceTrimmedString(slot?.caption)) return coerceTrimmedString(slot?.caption);
   const hooks = campaign.shortFormHooks ?? [];
-  const hook = hooks.length ? hooks[slot % hooks.length]!.trim() : "";
-  const offer = (campaign.offerStatement ?? "").trim();
+  const offer = coerceTrimmedString(campaign.offerStatement);
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h += key.charCodeAt(i);
+  const hook = hooks.length ? coerceTrimmedString(hooks[h % hooks.length]) : "";
   if (hook && offer) return `${hook}\n\n${offer}`;
   if (offer) return offer;
   if (hook) return hook;
   return "Bentley campaign post";
+}
+
+export function buildBentleyDraftForPlatform(platform: string, campaign: CampaignResponse): BentleyPostDraftJson {
+  const key = normalizeBentleyPostPlatformKey(platform);
+  const slot = isBentleyPlatformPostKey(key) ? campaign.platformPosts[key] : undefined;
+  return {
+    hook: coerceTrimmedString(slot?.hook),
+    cta: coerceTrimmedString(slot?.cta),
+    promptText: coerceTrimmedString(slot?.promptText),
+    promptImage: coerceTrimmedString(slot?.promptImage),
+    promptVideo: coerceTrimmedString(slot?.promptVideo),
+  };
 }
 
 export function computeScheduledAt(args: {

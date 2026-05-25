@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useSocialAccounts } from "@/hooks/useSocialAccounts";
 import type { SocialPlatform } from "@/lib/social/config";
 import type { BentleyLaunchPrefill } from "@/lib/revenue-os/bentley-orchestrator";
@@ -33,7 +33,7 @@ import {
 } from "@/lib/social/campaign-launch-readiness";
 import { describeBentleyCampaignArtifactForLaunch } from "@/lib/revenue-os/bentley-operator-pipeline-model";
 import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
-import { loadWorkflowState, subscribeBentleyWorkflowCrossTab } from "@/lib/revenue-os/bentley-workflow";
+import { loadWorkflowState, subscribeBentleyWorkflowCrossTab, defaultWorkflowState, type BentleyWorkflowState } from "@/lib/revenue-os/bentley-workflow";
 
 const GOLD = "#D4AF37";
 
@@ -332,6 +332,12 @@ export function CampaignLaunchSection({
   );
 
   const [wfGen, setWfGen] = useState(0);
+  const [wfState, setWfState] = useState<BentleyWorkflowState>(defaultWorkflowState);
+
+  useLayoutEffect(() => {
+    setWfState(loadWorkflowState());
+  }, [wfGen]);
+
   useEffect(() => {
     const bump = () => setWfGen((n) => n + 1);
     window.addEventListener("bentley-workflow-updated", bump);
@@ -341,8 +347,6 @@ export function CampaignLaunchSection({
       unsub();
     };
   }, []);
-
-  const wfState = useMemo(() => loadWorkflowState(), [wfGen]);
 
   const bentleyCampaignArtifact = useMemo(
     () =>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BentleyOperationalBlockerRow } from "@/lib/revenue-os/bentley-autonomy-readiness";
 import {
   BENTLEY_OPERATIONAL_MAX_RETRIES,
@@ -13,9 +13,11 @@ import {
 import {
   getBentleyOperationalRetryCount,
   retryBentleyLaunchSyncClient,
+  retryBentleyLaunchSyncContent360PlatformClient,
   retryBentleyOperationalReadinessClient,
 } from "@/lib/revenue-os/bentley-operational-retry-client";
 import { getBentleyStorageScope } from "@/lib/revenue-os/bentley-storage-scope";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 const btnBase =
   "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -28,7 +30,7 @@ export function BentleyOperationalBlockerActions(props: {
   campaignId: string | undefined;
 }) {
   const scope = typeof window !== "undefined" ? getBentleyStorageScope() : null;
-  const clientId = scope?.clientId?.trim();
+  const clientId = coerceTrimmedString(scope?.clientId) || undefined;
   const codes = useMemo(
     () => operationalCodesFromRows(props.operationalBlockers),
     [props.operationalBlockers]
@@ -38,11 +40,55 @@ export function BentleyOperationalBlockerActions(props: {
     [codes, clientId, props.campaignId]
   );
 
-  const cid = props.campaignId?.trim();
+  const cid = coerceTrimmedString(props.campaignId) || undefined;
   const [busy, setBusy] = useState<BentleyBlockerActionId | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [c360PlatformRetryAvailable, setC360PlatformRetryAvailable] = useState(false);
+  const [c360PlatformBusy, setC360PlatformBusy] = useState(false);
+
+  useEffect(() => {
+    if (codes.length === 0) {
+      setC360PlatformRetryAvailable(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch("/api/admin/content360/platform-status", { credentials: "include" });
+        if (cancelled) return;
+        if (!r.ok) {
+          setC360PlatformRetryAvailable(false);
+          return;
+        }
+        const j = (await r.json().catch(() => ({}))) as { canUseContent360PlatformSchedule?: boolean };
+        setC360PlatformRetryAvailable(Boolean(j.canUseContent360PlatformSchedule));
+      } catch {
+        if (!cancelled) setC360PlatformRetryAvailable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [codes.length]);
+
+  const anyBusy = busy !== null || c360PlatformBusy;
 
   if (codes.length === 0) return null;
+
+  async function onRetryLaunchC360Platform() {
+    if (!cid) {
+      setNote("Set a campaign in workflow (launch from AI Revenue OS) before retrying sync.");
+      return;
+    }
+    setC360PlatformBusy(true);
+    setNote(null);
+    try {
+      const r = await retryBentleyLaunchSyncContent360PlatformClient(cid);
+      setNote(r.ok ? (r.message ?? "Launch sync completed.") : r.message);
+    } finally {
+      setC360PlatformBusy(false);
+    }
+  }
 
   async function onRetryLaunch() {
     if (!cid) {
@@ -85,7 +131,7 @@ export function BentleyOperationalBlockerActions(props: {
               <button
                 key={m.actionId}
                 type="button"
-                disabled={busy !== null}
+                disabled={anyBusy}
                 aria-busy={busy === "retry_launch_sync"}
                 onClick={() => void onRetryLaunch()}
                 className={btnPrimary}
@@ -105,7 +151,7 @@ export function BentleyOperationalBlockerActions(props: {
               <button
                 key={m.actionId}
                 type="button"
-                disabled={busy !== null}
+                disabled={anyBusy}
                 aria-busy={busy === "refresh_operational_readiness"}
                 onClick={onRefreshReadiness}
                 className={btnPrimary}
@@ -126,6 +172,23 @@ export function BentleyOperationalBlockerActions(props: {
           );
         })}
       </div>
+      {c360PlatformRetryAvailable && cid ? (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Content360 platform scheduling (admin)">
+          <button
+            type="button"
+            disabled={anyBusy}
+            aria-busy={c360PlatformBusy}
+            onClick={() => void onRetryLaunchC360Platform()}
+            className={`${btnPrimary} border-amber-500/45 bg-amber-950/35 text-amber-100 hover:bg-amber-900/45`}
+          >
+            Retry with Content360 platform scheduling
+            <span className="font-normal text-amber-200/75">
+              ({getBentleyOperationalRetryCount("launch_sync_content360_platform", cid)} of {BENTLEY_OPERATIONAL_MAX_RETRIES}{" "}
+              retries this session)
+            </span>
+          </button>
+        </div>
+      ) : null}
       {note ? (
         <p className="text-[10px] text-slate-400 break-words" role="status">
           {note}
