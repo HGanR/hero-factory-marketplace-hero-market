@@ -14,6 +14,7 @@ type Props = {
   threadId?: string | null;
   decisionId?: string | null;
   onTasksChanged?: () => void;
+  embedded?: boolean;
 };
 
 function statusBadge(task: ExecutiveOperationalTaskDto): string {
@@ -30,6 +31,7 @@ export function ExecutiveTaskQueuePanel({
   threadId,
   decisionId,
   onTasksChanged,
+  embedded = false,
 }: Props) {
   const [queue, setQueue] = useState<ExecutiveOperationalTasksQueueDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -181,22 +183,40 @@ export function ExecutiveTaskQueuePanel({
   ];
 
   return (
-    <section className="mb-4 rounded-2xl border border-cyan-500/18 bg-[#050b13]/88 p-4 backdrop-blur-md">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300/90">
-            Task queue
-          </h2>
-          <p className="text-[9px] text-slate-600">Human-coordinated — no autonomous execution</p>
+    <section
+      className={
+        embedded
+          ? ""
+          : "mb-4 rounded-2xl border border-cyan-500/18 bg-[#050b13]/88 p-4 backdrop-blur-md"
+      }
+    >
+      {!embedded ? (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300/90">
+              Task queue
+            </h2>
+            <p className="text-[9px] text-slate-600">Human-coordinated — no autonomous execution</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90"
+          >
+            Refresh
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="text-[9px] uppercase text-cyan-400/90"
-        >
-          Refresh
-        </button>
-      </div>
+      ) : (
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
       {error ? <p className="mb-2 text-xs text-amber-200">{error}</p> : null}
       {loading && !queue ? <p className="text-xs text-slate-500">Loading tasks…</p> : null}
       {(queue?.recommendations?.length ?? 0) > 0 ? (

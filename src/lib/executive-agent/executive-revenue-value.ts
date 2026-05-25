@@ -21,6 +21,22 @@ export function formatExecutiveCurrency(value: number): string {
   }).format(value);
 }
 
+export function buildRevenueOverviewVoiceAnswer(snap: ExecutiveRevenueValueSnapshot): string {
+  if (snap.unavailable) {
+    return "Revenue numbers aren't available right now, Boss — I couldn't load the latest account counts.";
+  }
+
+  const pendingWord = snap.pendingAccounts === 1 ? "account" : "accounts";
+  const approvedWord = snap.approvedAccounts === 1 ? "account" : "accounts";
+
+  return (
+    `Here's the revenue overview, Boss. ` +
+    `With ${snap.pendingAccounts} pending ${pendingWord}, potential earnings are ${formatExecutiveCurrency(snap.potentialEarnings)}. ` +
+    `Approved account value from ${snap.approvedAccounts} active approved ${approvedWord} is ${formatExecutiveCurrency(snap.approvedAccountValue)}. ` +
+    `Monthly recurring revenue is ${formatExecutiveCurrency(snap.monthlyRecurringRevenue)}.`
+  );
+}
+
 export function computeExecutiveRevenueValue(input: {
   pendingAccounts: number | null | undefined;
   approvedAccounts: number | null | undefined;

@@ -10,9 +10,11 @@ import {
   fetchNewRegistrationsToday,
   fetchRealityActivityToday,
   fetchRegistrationPhoneQueue,
+  fetchRevenueOverviewVoiceSnapshot,
   fetchSiteAnalyticsVoiceSnapshot,
   fetchVisitorsToday,
 } from "@/lib/executive-agent/executive-voice-operational-data";
+import { buildRevenueOverviewVoiceAnswer } from "@/lib/executive-agent/executive-revenue-value";
 import { buildSiteAnalyticsVoiceAnswer } from "@/lib/executive-agent/executive-site-analytics-voice";
 import {
   isAffirmativeVoice,
@@ -187,6 +189,19 @@ async function handleOperationalQuery(
       voiceShortCircuit: "operational_query",
       operationalTool: "getPlatformAnalyticsSummary",
       voiceOperationalData: { siteAnalytics: snap },
+    });
+  }
+
+  if (kind === "revenue_overview") {
+    const snap = await fetchRevenueOverviewVoiceSnapshot(db);
+    const answer = buildRevenueOverviewVoiceAnswer(snap);
+    return buildShortCircuit(answer, {
+      reasoningMode: "deterministic",
+      confidence: 1,
+      proposedApprovalsCount: 0,
+      voiceShortCircuit: "operational_query",
+      operationalTool: "getPendingAccounts",
+      voiceOperationalData: { revenueOverview: snap },
     });
   }
 

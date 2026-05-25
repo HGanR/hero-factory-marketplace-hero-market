@@ -12,6 +12,7 @@ type Props = {
   selectedThreadId: string | null;
   onSelectThread: (threadId: string | null) => void;
   onThreadsLoaded?: (threads: ExecutiveOperationalThreadDto[]) => void;
+  embedded?: boolean;
 };
 
 function priorityClass(p: string): string {
@@ -33,6 +34,7 @@ export function SubjectThreadSidebar({
   selectedThreadId,
   onSelectThread,
   onThreadsLoaded,
+  embedded = false,
 }: Props) {
   const [threads, setThreads] = useState<ExecutiveOperationalThreadDto[]>([]);
   const [openDecisionCounts, setOpenDecisionCounts] = useState<Record<string, number>>({});
@@ -121,22 +123,42 @@ export function SubjectThreadSidebar({
   }, [load]);
 
   return (
-    <aside className="flex h-full min-h-[200px] w-full flex-col rounded-xl border border-slate-700/60 bg-slate-950/60 lg:max-w-[220px]">
-      <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 px-3 py-2">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-          Ops threads
-        </h3>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="text-[9px] uppercase text-cyan-400/90 hover:text-cyan-300"
-        >
-          Refresh
-        </button>
-      </div>
-      <p className="px-3 pb-1 text-[9px] text-slate-600">Internal only — no client messaging</p>
-      {error ? <p className="px-3 text-[10px] text-amber-200/90">{error}</p> : null}
-      <ul className="flex-1 space-y-1 overflow-y-auto px-2 pb-2">
+    <aside
+      className={
+        embedded
+          ? "flex flex-col"
+          : "flex h-full min-h-[200px] w-full flex-col rounded-xl border border-slate-700/60 bg-slate-950/60 lg:max-w-[220px]"
+      }
+    >
+      {!embedded ? (
+        <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 px-3 py-2">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Ops threads
+          </h3>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90 hover:text-cyan-300"
+          >
+            Refresh
+          </button>
+        </div>
+      ) : (
+        <div className="mb-2 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90 hover:text-cyan-300"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+      <p className={`text-[9px] text-slate-600 ${embedded ? "mb-2" : "px-3 pb-1"}`}>
+        Internal only — no client messaging
+      </p>
+      {error ? <p className={`text-[10px] text-amber-200/90 ${embedded ? "" : "px-3"}`}>{error}</p> : null}
+      <ul className={`flex-1 space-y-1 overflow-y-auto pb-2 ${embedded ? "" : "px-2"}`}>
         {loading && threads.length === 0 ? (
           <li className="px-2 py-3 text-[10px] text-slate-500">Loading…</li>
         ) : null}

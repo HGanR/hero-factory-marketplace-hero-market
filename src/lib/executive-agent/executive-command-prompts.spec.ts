@@ -13,11 +13,13 @@ describe("executive-command-prompts", () => {
     assert.equal(resolveExecutiveCommandPromptFromVoice("show Executive Inbox"), "inbox_signals");
     assert.equal(resolveExecutiveCommandPromptFromVoice("open Smart Trust"), "revenue_os_smart_trust");
     assert.equal(resolveExecutiveCommandPromptFromVoice("show KPI forecasting"), "kpi_forecasting");
+    assert.equal(resolveExecutiveCommandPromptFromVoice("what is the revenue overview"), "revenue_overview");
   });
 
   it("maps operational voice kinds to HUD modules", () => {
     assert.equal(executiveCommandPromptForOperationalKind("site_analytics"), "analytics");
     assert.equal(executiveCommandPromptForOperationalKind("executive_inbox"), "inbox_signals");
     assert.equal(executiveCommandPromptForOperationalKind("new_registrations"), "new_registrations");
+    assert.equal(executiveCommandPromptForOperationalKind("revenue_overview"), "revenue_overview");
   });
 });

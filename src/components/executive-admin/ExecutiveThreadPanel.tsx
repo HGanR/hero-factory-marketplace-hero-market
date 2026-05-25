@@ -19,6 +19,7 @@ type Props = {
   onSkipperContext?: (context: string | null) => void;
   onCreateThread?: () => void;
   onDecisionRecorded?: () => void;
+  embedded?: boolean;
 };
 
 export function ExecutiveThreadPanel({
@@ -26,6 +27,7 @@ export function ExecutiveThreadPanel({
   onSkipperContext,
   onCreateThread,
   onDecisionRecorded,
+  embedded = false,
 }: Props) {
   const [detail, setDetail] = useState<ExecutiveOperationalThreadDetailDto | null>(null);
   const [pendingDecisions, setPendingDecisions] = useState<ExecutiveOperationalDecisionDto[]>([]);
@@ -153,11 +155,15 @@ export function ExecutiveThreadPanel({
 
   if (!threadId) {
     return (
-      <section className="rounded-2xl border border-slate-700/50 bg-slate-950/50 p-4">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-          Operational thread
-        </h2>
-        <p className="mt-2 text-xs text-slate-500">Select a thread or start a new internal discussion.</p>
+      <section className={embedded ? "" : "rounded-2xl border border-slate-700/50 bg-slate-950/50 p-4"}>
+        {!embedded ? (
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+            Operational thread
+          </h2>
+        ) : null}
+        <p className={`text-xs text-slate-500 ${embedded ? "" : "mt-2"}`}>
+          Select a thread or start a new internal discussion.
+        </p>
         {onCreateThread ? (
           <button
             type="button"
@@ -174,27 +180,49 @@ export function ExecutiveThreadPanel({
   const thread: ExecutiveOperationalThreadDto | undefined = detail?.thread;
 
   return (
-    <section className="rounded-2xl border border-violet-500/20 bg-[#050b13]/88 p-4 backdrop-blur-md">
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-300/90">
-            {thread?.title ?? "Thread"}
-          </h2>
+    <section
+      className={
+        embedded ? "" : "rounded-2xl border border-violet-500/20 bg-[#050b13]/88 p-4 backdrop-blur-md"
+      }
+    >
+      {!embedded ? (
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-300/90">
+              {thread?.title ?? "Thread"}
+            </h2>
+            {thread ? (
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {thread.status} · {thread.priority}
+                {thread.decisionNeeded ? " · decision needed" : ""}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90"
+          >
+            Refresh
+          </button>
+        </div>
+      ) : (
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
           {thread ? (
-            <p className="mt-0.5 text-[10px] text-slate-500">
-              {thread.status} · {thread.priority}
+            <p className="text-[10px] text-slate-500">
+              {thread.title} · {thread.status} · {thread.priority}
               {thread.decisionNeeded ? " · decision needed" : ""}
             </p>
           ) : null}
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90"
+          >
+            Refresh
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="text-[9px] uppercase text-cyan-400/90"
-        >
-          Refresh
-        </button>
-      </div>
+      )}
       {thread?.pinnedNoteText ? (
         <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-100/90">
           <span className="text-[9px] font-semibold uppercase text-amber-400/80">Pinned note</span>

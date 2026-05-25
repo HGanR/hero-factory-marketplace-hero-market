@@ -9,9 +9,10 @@ type Props = {
   clientId?: string;
   department: "WEBSITE" | "TRUST" | "REVENUE_OS" | "SMART_TRUST";
   subjectId: "site_builder" | "trust_jarva" | "revenue_os" | "smart_trust";
+  embedded?: boolean;
 };
 
-export function FulfillmentThreadView({ orderId, clientId, department, subjectId }: Props) {
+export function FulfillmentThreadView({ orderId, clientId, department, subjectId, embedded = false }: Props) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [ensuring, setEnsuring] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,15 +72,19 @@ export function FulfillmentThreadView({ orderId, clientId, department, subjectId
   }, [ensureCaseThread]);
 
   return (
-    <div className="mt-3 rounded-xl border border-cyan-500/15 bg-slate-950/40 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300/80">
-          Case discussion · {department}
-        </h3>
-        {ensuring ? <span className="text-[9px] text-slate-500">Linking thread…</span> : null}
-      </div>
+    <div className={embedded ? "" : "mt-3 rounded-xl border border-cyan-500/15 bg-slate-950/40 p-3"}>
+      {!embedded ? (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300/80">
+            Case discussion · {department}
+          </h3>
+          {ensuring ? <span className="text-[9px] text-slate-500">Linking thread…</span> : null}
+        </div>
+      ) : ensuring ? (
+        <p className="mb-2 text-[9px] text-slate-500">Linking thread…</p>
+      ) : null}
       {error ? <p className="mb-2 text-[10px] text-amber-200">{error}</p> : null}
-      <ExecutiveThreadPanel threadId={threadId} />
+      <ExecutiveThreadPanel embedded={embedded} threadId={threadId} />
     </div>
   );
 }

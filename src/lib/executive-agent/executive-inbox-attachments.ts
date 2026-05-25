@@ -20,9 +20,12 @@ export const EXECUTIVE_INBOX_UPLOAD_MIME_TYPES = new Set([
   "audio/wave",
   "audio/x-wav",
   "audio/ogg",
+  "application/zip",
+  "application/x-zip-compressed",
+  "multipart/x-zip",
 ]);
 
-export type ExecutiveInboxAttachmentKind = "file" | "audio";
+export type ExecutiveInboxAttachmentKind = "file" | "audio" | "site_project";
 
 export type ExecutiveInboxAttachment = {
   id: string;
@@ -31,15 +34,18 @@ export type ExecutiveInboxAttachment = {
   mimeType: string;
   sizeBytes: number;
   url: string;
+  /** Present when kind is site_project — helps recipients open in Site Builder. */
+  projectType?: "vercel_nextjs";
 };
 
 const AttachmentInputSchema = z.object({
   id: z.string().uuid(),
-  kind: z.enum(["file", "audio"]),
+  kind: z.enum(["file", "audio", "site_project"]),
   filename: z.string().min(1).max(240),
   mimeType: z.string().min(1).max(120),
-  sizeBytes: z.number().int().nonnegative().max(EXECUTIVE_INBOX_MAX_UPLOAD_BYTES),
+  sizeBytes: z.number().int().nonnegative(),
   url: z.string().url().max(2000),
+  projectType: z.enum(["vercel_nextjs"]).optional(),
 });
 
 const AttachmentsArraySchema = z.array(AttachmentInputSchema).max(EXECUTIVE_INBOX_MAX_ATTACHMENTS_PER_MESSAGE);
@@ -51,6 +57,11 @@ export function validateExecutiveInboxAttachmentsArray(raw: unknown): ExecutiveI
   for (const a of arr.data) {
     if (!isSafeExecutiveInboxAttachmentUrl(a.url)) return null;
     if (!EXECUTIVE_INBOX_UPLOAD_MIME_TYPES.has(a.mimeType.toLowerCase())) return null;
+    const maxBytes =
+      a.kind === "site_project"
+        ? 50 * 1024 * 1024
+        : EXECUTIVE_INBOX_MAX_UPLOAD_BYTES;
+    if (a.sizeBytes > maxBytes) return null;
     out.push({
       id: a.id,
       kind: a.kind,
@@ -58,6 +69,7 @@ export function validateExecutiveInboxAttachmentsArray(raw: unknown): ExecutiveI
       mimeType: a.mimeType,
       sizeBytes: a.sizeBytes,
       url: a.url,
+      ...(a.projectType ? { projectType: a.projectType } : {}),
     });
   }
   return out;
@@ -110,15 +122,21 @@ export function buildExecutiveInboxAttachmentFromUpload(opts: {
   file: File;
   buffer: Buffer;
   ipfsUri: string;
+  kind?: ExecutiveInboxAttachmentKind;
+  projectType?: "vercel_nextjs";
 }): ExecutiveInboxAttachment {
   const mime = (opts.file.type || "application/octet-stream").toLowerCase();
-  const kind: ExecutiveInboxAttachmentKind = mime.startsWith("audio/") ? "audio" : "file";
+  const kind: ExecutiveInboxAttachmentKind =
+    opts.kind ??
+    (mime.startsWith("audio/") ? "audio" : mime.includes("zip") ? "site_project" : "file");
   const name =
     typeof opts.file.name === "string" && opts.file.name.trim()
       ? opts.file.name.trim().slice(0, 240)
       : kind === "audio"
         ? "voice-note.webm"
-        : "attachment";
+        : kind === "site_project"
+          ? "site-project.zip"
+          : "attachment";
   return {
     id: randomUUID(),
     kind,
@@ -126,5 +144,6 @@ export function buildExecutiveInboxAttachmentFromUpload(opts: {
     mimeType: mime,
     sizeBytes: opts.buffer.length,
     url: ipfsUriToExecutiveInboxPublicUrl(opts.ipfsUri),
+    ...(kind === "site_project" ? { projectType: opts.projectType ?? "vercel_nextjs" } : {}),
   };
 }

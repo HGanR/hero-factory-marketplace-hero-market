@@ -99,7 +99,6 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
     getPlatformAnalyticsSummary: "read:analytics",
     getInboxEngagementSummary: "read:analytics",
     getKnowledgeBaseSummary: "read:analytics",
-    getNeuroSourceAnswer: "read:crm",
     getClientFulfillmentOperations: "read:crm",
     getExecutiveFulfillmentOperationsOverview: "read:crm",
     getExecutiveFulfillmentOperationsBriefing: "read:crm",

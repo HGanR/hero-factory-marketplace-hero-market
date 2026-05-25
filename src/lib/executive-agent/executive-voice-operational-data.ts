@@ -16,7 +16,12 @@ import {
 } from "@/lib/db/schema";
 import { rollupSiteAnalyticsForExecutive } from "@/lib/analytics/site-analytics-store";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
+import * as Tools from "@/lib/executive-agent/executive-agent-tools";
 import { buildLiveMetricsResponse } from "@/lib/executive-agent/executive-live-metrics";
+import {
+  computeExecutiveRevenueValue,
+  type ExecutiveRevenueValueSnapshot,
+} from "@/lib/executive-agent/executive-revenue-value";
 import {
   siteAnalyticsVoiceSnapshotFromLiveMetrics,
   type SiteAnalyticsVoiceSnapshot,
@@ -376,6 +381,26 @@ export async function fetchVisitorsToday(db: Db): Promise<number | null> {
 }
 
 const SITE_ANALYTICS_VOICE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function fetchRevenueOverviewVoiceSnapshot(db: Db): Promise<ExecutiveRevenueValueSnapshot> {
+  try {
+    const ctx: Tools.ExecutiveToolContext = { db, adminUserId: 0 };
+    const [pending, approved] = await Promise.all([
+      Tools.getPendingAccounts(ctx),
+      Tools.getApprovedAccounts(ctx),
+    ]);
+    return computeExecutiveRevenueValue({
+      pendingAccounts: pending.pendingAllTime,
+      approvedAccounts: approved.approvedActive,
+    });
+  } catch {
+    return computeExecutiveRevenueValue({
+      pendingAccounts: null,
+      approvedAccounts: null,
+      unavailable: true,
+    });
+  }
+}
 
 export async function fetchSiteAnalyticsVoiceSnapshot(db: Db): Promise<SiteAnalyticsVoiceSnapshot> {
   try {

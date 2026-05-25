@@ -9,7 +9,8 @@ export type VoiceOperationalQueryKind =
   | "executive_inbox"
   | "new_registrations"
   | "registration_phone_request"
-  | "site_analytics";
+  | "site_analytics"
+  | "revenue_overview";
 
 export type PhoneQueueVoiceCommand = "next" | "repeat" | "skip" | "stop";
 
@@ -63,6 +64,16 @@ export function resolveVoiceOperationalQuery(input: string): VoiceOperationalQue
   if (!t) return null;
 
   if (isRegistrationPhoneRequest(t)) return "registration_phone_request";
+
+  if (
+    /\brevenue overview\b/.test(t) ||
+    /\bwhat is (the )?revenue overview\b/.test(t) ||
+    /\b(show|open|what is) (the )?revenue\b/.test(t) ||
+    /\b(potential earnings|approved account value|monthly recurring revenue|monthly recurring)\b/.test(t) ||
+    /\baccount value\b/.test(t)
+  ) {
+    return "revenue_overview";
+  }
 
   if (
     /\bwhat are (today'?s )?site analytics\b/.test(t) ||
@@ -119,6 +130,8 @@ export function voiceOperationalToolForQuery(kind: VoiceOperationalQueryKind): s
       return kind === "registration_phone_request" ? "getNewRegistrationPhoneQueue" : "getNewRegistrationsToday";
     case "site_analytics":
       return "getPlatformAnalyticsSummary";
+    case "revenue_overview":
+      return "getPendingAccounts";
     default:
       return "getJarvaActivityToday";
   }

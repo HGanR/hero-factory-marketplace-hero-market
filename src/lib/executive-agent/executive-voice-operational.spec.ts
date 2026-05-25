@@ -63,6 +63,13 @@ describe("executive-voice-operational-phrases", () => {
     assert.equal(resolveVoiceOperationalQuery("How is site traffic?"), "site_analytics");
     assert.equal(resolveVoiceOperationalQuery("How many visitors do we have?"), "site_analytics");
   });
+
+  it("detects revenue overview questions", () => {
+    assert.equal(resolveVoiceOperationalQuery("What is the Revenue Overview?"), "revenue_overview");
+    assert.equal(resolveVoiceOperationalQuery("Skipper, show revenue"), "revenue_overview");
+    assert.equal(resolveVoiceOperationalQuery("what is account value"), "revenue_overview");
+    assert.equal(resolveVoiceOperationalQuery("monthly recurring revenue"), "revenue_overview");
+  });
 });
 
 describe("executive-voice-operational-voice copy", () => {

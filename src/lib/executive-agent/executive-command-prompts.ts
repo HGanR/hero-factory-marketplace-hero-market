@@ -42,6 +42,7 @@ export type ExecutiveCommandPromptId =
   | "executive_briefing"
   | "executive_posture"
   | "revenue_overview"
+  | "bentley_campaign"
   | "pending_approvals";
 
 export type ExecutiveCommandPrompt = {
@@ -72,7 +73,15 @@ export const EXECUTIVE_COMMAND_PROMPTS: ExecutiveCommandPrompt[] = [
     label: "Revenue Overview",
     category: "intelligence",
     description: "Derived account value and live site performance.",
-    voicePhrases: ["revenue overview", "show revenue", "account value"],
+    voicePhrases: [
+      "revenue overview",
+      "show revenue",
+      "account value",
+      "what is the revenue overview",
+      "potential earnings",
+      "monthly recurring revenue",
+    ],
+    operationalKind: "revenue_overview",
   },
   {
     id: "agent_activity",
@@ -273,6 +282,22 @@ export const EXECUTIVE_COMMAND_PROMPTS: ExecutiveCommandPrompt[] = [
     category: "platform",
     description: "Health checks and voice diagnostics.",
     voicePhrases: ["system voice", "voice diagnostics", "system health"],
+  },
+  {
+    id: "bentley_campaign",
+    label: "Bentley Campaign Mode",
+    category: "fulfillment",
+    description:
+      "Conversational campaign orchestration — real Bentley intake, pipeline stages, approval-gated launch.",
+    voicePhrases: [
+      "bentley campaign",
+      "bentley campaign mode",
+      "create a campaign",
+      "start a campaign",
+      "afternoon campaign",
+      "open bentley",
+      "revenue os campaign",
+    ],
   },
   {
     id: "pending_approvals",

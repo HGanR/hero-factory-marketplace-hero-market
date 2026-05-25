@@ -82,7 +82,7 @@ export type ExecutiveCinematicPresenceState = {
 };
 
 export function useExecutiveCinematicPresence(input: ExecutiveCinematicPresenceInput): ExecutiveCinematicPresenceState {
-  const performance = usePresencePerformanceGovernance();
+  const presencePerf = usePresencePerformanceGovernance();
   const prevPromptRef = useRef<ExecutiveCommandPromptId | null>(null);
   const [activating, setActivating] = useState(false);
   const motionRef = useRef<OrbMotionState>({
@@ -131,9 +131,9 @@ export function useExecutiveCinematicPresence(input: ExecutiveCinematicPresenceI
   });
 
   useEffect(() => {
-    if (performance.animationsPaused) return;
+    if (presencePerf.animationsPaused) return;
     let raf = 0;
-    let last = performance.now();
+    let last = globalThis.performance.now();
     const tick = (now: number) => {
       const dt = Math.min(48, now - last) / 1000;
       last = now;
@@ -148,7 +148,7 @@ export function useExecutiveCinematicPresence(input: ExecutiveCinematicPresenceI
         timeSec,
       });
       const target: OrbMotionState = { ...targetPartial, pulseKind: orbPulseKind, smoothedIntensity: targetPartial.intensity };
-      const next = smoothOrbMotion(motionRef.current, target, dt * 4 * performance.maxFpsScale);
+      const next = smoothOrbMotion(motionRef.current, target, dt * 4 * presencePerf.maxFpsScale);
       motionRef.current = next;
       setOrbMotion(next);
       if (input.voiceSpeaking || input.simSpeaking) {
@@ -172,13 +172,13 @@ export function useExecutiveCinematicPresence(input: ExecutiveCinematicPresenceI
     orbPulseKind,
     profile.glowIntensity,
     profile.orbSpeed,
-    performance.animationsPaused,
-    performance.maxFpsScale,
+    presencePerf.animationsPaused,
+    presencePerf.maxFpsScale,
   ]);
 
   const atmosphere = atmosphereFromProfile(profile, {
-    allowScanLines: performance.allowScanLines,
-    animationsPaused: performance.animationsPaused,
+    allowScanLines: presencePerf.allowScanLines,
+    animationsPaused: presencePerf.animationsPaused,
   });
 
   const hudTransition = hudTransitionForPrompt(
@@ -206,7 +206,7 @@ export function useExecutiveCinematicPresence(input: ExecutiveCinematicPresenceI
       hudStyle: hudTransitionStyleRecord(hudTransition),
       commandFocus,
       commandFocusCssVars: commandFocusCssVars(commandFocus),
-      performance,
+      performance: presencePerf,
       topInterruptionLevel: interruptionChoreographyLevel(topSeverity),
       cinematicOrbIntensity,
       voiceWaveform,
@@ -220,7 +220,7 @@ export function useExecutiveCinematicPresence(input: ExecutiveCinematicPresenceI
       atmosphere,
       hudTransition,
       commandFocus,
-      performance,
+      presencePerf,
       topSeverity,
       cinematicOrbIntensity,
       voiceWaveform,

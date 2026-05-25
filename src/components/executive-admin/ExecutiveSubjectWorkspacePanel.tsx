@@ -9,6 +9,7 @@ type Props = {
   clientId: string;
   orderId: string;
   onSkipperContext?: (context: string | null) => void;
+  embedded?: boolean;
 };
 
 function shortId(id: string): string {
@@ -20,6 +21,7 @@ export function ExecutiveSubjectWorkspacePanel({
   clientId,
   orderId,
   onSkipperContext,
+  embedded = false,
 }: Props) {
   const [workspace, setWorkspace] = useState<SubjectExecutiveWorkspaceDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,28 +66,47 @@ export function ExecutiveSubjectWorkspacePanel({
   const mem = workspace?.memoryHighlights;
 
   return (
-    <section className="mb-4 rounded-2xl border border-violet-500/22 bg-[#050b13]/88 p-4 shadow-[0_0_24px_rgba(139,92,246,0.06)] backdrop-blur-md">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/90">
-            Subject workspace
-          </h2>
-          {workspace ? (
-            <p className="mt-0.5 text-[10px] text-slate-500">
-              {workspace.scope.label}
-              {workspace.scope.department ? ` · ${workspace.scope.department}` : ""}
-            </p>
-          ) : null}
+    <section
+      className={
+        embedded
+          ? ""
+          : "mb-4 rounded-2xl border border-violet-500/22 bg-[#050b13]/88 p-4 shadow-[0_0_24px_rgba(139,92,246,0.06)] backdrop-blur-md"
+      }
+    >
+      {!embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/90">
+              Subject workspace
+            </h2>
+            {workspace ? (
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {workspace.scope.label}
+                {workspace.scope.department ? ` · ${workspace.scope.department}` : ""}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="rounded-full border border-violet-500/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-violet-200 hover:bg-violet-950/30 disabled:opacity-40"
+          >
+            Refresh
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="rounded-full border border-violet-500/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-violet-200 hover:bg-violet-950/30 disabled:opacity-40"
-        >
-          Refresh
-        </button>
-      </div>
+      ) : (
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="rounded-full border border-violet-500/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-violet-200 hover:bg-violet-950/30 disabled:opacity-40"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
 
       {error ? <p className="mt-2 text-xs text-red-300/90">{error}</p> : null}
       {loading ? <p className="mt-2 text-xs text-slate-500">Loading workspace context…</p> : null}

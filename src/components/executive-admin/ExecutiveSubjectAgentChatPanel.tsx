@@ -83,7 +83,11 @@ export function ExecutiveSubjectAgentChatPanel({
     const routedPrompt =
       subject.id === "trust_jarva"
         ? `${contextBlock}[TRUST / Jarva desk — legal-review only, no trust apply] ${p}`
-        : `${contextBlock}[${subject.navLabel} — delegated: ${delegateLine}. Skipper routes; no autonomous execution.] ${p}`;
+        : subject.id === "troo_town"
+          ? `${contextBlock}[TROO TOWN / Evaana desk — TROOTHHERTZ LLC visitor conversations; propose governed follow-ups only, no autonomous outreach] ${p}`
+          : subject.id === "site_builder"
+            ? `${contextBlock}[Site Builder / Stephon desk — operator builder conversations and usability signals; propose engine improvements only, no autonomous deploy or product mutation] ${p}`
+            : `${contextBlock}[${subject.navLabel} — delegated: ${delegateLine}. Skipper routes; no autonomous execution.] ${p}`;
 
     try {
       const r = await fetch("/api/admin/executive-agent/chat", {

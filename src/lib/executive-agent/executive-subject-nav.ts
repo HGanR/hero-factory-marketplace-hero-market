@@ -16,7 +16,6 @@ export type ExecutiveSubjectId =
   | "revenue_os"
   | "smart_trust"
   | "troo_town"
-  | "neuro"
   | "settings"
   | "new_command";
 
@@ -33,8 +32,6 @@ export type ExecutiveSubjectConfig = {
   navLabel: string;
   shortLabel: string;
   description: string;
-  workspaceKind?: SubjectWorkspaceKind;
-  departmentFocus?: FulfillmentOrchestrationDepartment | null;
   dashboardMode: ExecutiveDashboardMode;
   /** Agents that receive tasks when this subject is active (Skipper always included for routing). */
   delegateAgents: ExecutiveAgentKey[];
@@ -206,18 +203,6 @@ export const EXECUTIVE_SUBJECTS: ExecutiveSubjectConfig[] = [
     ],
   },
   {
-    id: "neuro",
-    navLabel: "NEURO",
-    shortLabel: "NEURO",
-    description:
-      "NEURO Network — governed source-backed knowledge for Trust, Accounting, Tax, Revenue OS, and executive materials.",
-    workspaceKind: "neuro",
-    departmentFocus: null,
-    dashboardMode: "CONVERSATIONS",
-    delegateAgents: withSkipperNexus(["executive_admin"]),
-    agentSlots: [{ routeKey: "skipper", displayName: "SKIPPER", domainLabel: "NEURO OPS" }],
-  },
-  {
     id: "settings",
     navLabel: "Settings",
     shortLabel: "Settings",
@@ -261,7 +246,6 @@ export function subjectIdFromBottomTab(tab: string): ExecutiveSubjectId {
     "Revenue OS": "revenue_os",
     "Smart Trust": "smart_trust",
     "TROO TOWN": "troo_town",
-    NEURO: "neuro",
   };
   return map[tab] ?? "command_center";
 }

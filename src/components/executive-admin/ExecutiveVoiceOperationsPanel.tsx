@@ -88,7 +88,7 @@ export function ExecutiveVoiceOperationsPanel({
   return (
     <ExecutiveEmbeddedStack>
       {loading && !snapshot ? (
-        <div className="rounded-xl border border-[#00e5ff]/15 bg-[#050b13]/70 p-3 text-xs text-slate-500">
+        <div className="rounded-xl border border-[#00A3FF]/15 bg-[#000814]/70 p-3 text-xs text-slate-500">
           Loading agent & inbox signals…
         </div>
       ) : null}
@@ -167,7 +167,7 @@ export function ExecutiveVoiceOperationsPanel({
         ) : (
           <ul className="space-y-2 text-xs">
             {snapshot.inbox.map((msg) => (
-              <li key={msg.messageId} className="rounded-lg border border-[#00e5ff]/20 bg-slate-900/40 px-2 py-2">
+              <li key={msg.messageId} className="rounded-lg border border-[#00A3FF]/20 bg-slate-900/40 px-2 py-2">
                 <div className="flex justify-between gap-2 text-[10px] text-slate-400">
                   <span className="font-medium text-slate-200">{msg.senderName}</span>
                   <span>{formatExecutiveInboxTimestamp(msg.receivedAt)}</span>
