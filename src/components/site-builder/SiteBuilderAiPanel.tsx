@@ -88,6 +88,13 @@ import { buildSiteBuilderEditExplanation } from "@/lib/site-builder/site-builder
 import { chunkSectionIdsForBatch, listRefinableSectionIdsOnPage } from "@/lib/site-builder/site-builder-light-page";
 import { resolveOmnibarSubmitRoute } from "@/lib/site-builder/site-builder-omnibar-routing";
 import { normalizeSchemaJsonStringForTargeting } from "@/lib/site-builder/schema/ensure-block-targeting";
+import {
+  applyAssistantImagePlacement,
+  ASSISTANT_IMAGE_PLACEMENT_PROMPT,
+  parseImagePlacementFromPrompt,
+  shouldAskImagePlacement,
+  stripImagePlacementPhrasesFromPrompt,
+} from "@/lib/site-builder/assistant-image-placement";
 import { SiteBuilderVariantPicker } from "@/components/site-builder/SiteBuilderVariantPicker";
 import { hashSiteSchema } from "@/lib/site-builder/hash";
 import { builderActionTouchSectionIds } from "@/lib/site-builder/assistant/builder-action-touch-ids";
@@ -95,9 +102,14 @@ import { computeVariantSelectionIndices } from "@/lib/site-builder/variant-selec
 import {
   CHAT_FULL_BUILD_SUCCESS,
   filterChatMessagesForStorage,
+  shouldPersistChatMessage,
   shouldSkipConsecutiveChatMessage,
 } from "@/lib/site-builder/assistant-chat-persistence";
 import type { AssistantChatMessage, AssistantChatRole } from "@/lib/site-builder/assistant-chat-persistence";
+import {
+  STEPHON_DISPLAY_NAME,
+  STEPHON_FIRST_RUN_WELCOME,
+} from "@/lib/site-builder/stephon-persona";
 import {
   analyzeAssistantPrompt,
   type AssistantUiBuildPhase,
@@ -175,8 +187,7 @@ const REFINE_QUICK_SUGGESTIONS: ReadonlyArray<{ label: string; text: string }> =
   { label: "Improve design", text: "Improve the visual design: spacing, typography hierarchy, and color harmony across sections." },
 ];
 
-const FIRST_RUN_WELCOME_TEXT =
-  "Tell me what kind of site you want to build. I'll ask for anything missing, generate layout options, and let you edit with plain English. If you have a competitor or style reference URL, add it under Inspiration — we extract layout and tone patterns only, never copy their text.";
+const FIRST_RUN_WELCOME_TEXT = STEPHON_FIRST_RUN_WELCOME;
 
 const WELCOME_EXAMPLE_CHIPS: ReadonlyArray<{ label: string; prompt: string }> = [
   { label: "Consulting firm landing page", prompt: "A polished consulting firm landing page with services, team credibility, and a clear contact CTA." },
@@ -510,6 +521,15 @@ type BuildDebugInfo = {
 
 export type SiteBuilderClientLifecyclePhase = "post_agent_attach" | "post_publish_deploy";
 
+export type SiteBuilderAssistantCapability =
+  | "build_site"
+  | "import_url"
+  | "change_style"
+  | "add_image"
+  | "ai_widget"
+  | "share_preview"
+  | "open_engines";
+
 export type SiteBuilderAiPanelHandle = {
   /** `ok: false` when validation fails or the pipeline request errors. */
   runFullBuild: (opts?: { source?: "panel" | "sticky_bar" }) => Promise<FullBuildRunResult>;
@@ -528,6 +548,10 @@ export type SiteBuilderAiPanelHandle = {
   ) => Promise<void>;
   /** Consultant → client lifecycle nudges (attach agent, deploy) from the parent shell. */
   notifyClientLifecycle?: (phase: SiteBuilderClientLifecyclePhase) => void;
+  /** Prefill the omnibar without submitting. */
+  prefillUserPrompt: (text: string) => void;
+  /** Clear staged composer image attachments (after apply or cancel). */
+  clearComposerImageAttachments: () => void;
 };
 
 type Props = {
@@ -584,6 +608,10 @@ type Props = {
   onOpenCodeDrawerRequest?: () => void;
   /** Linked Revenue OS client id (hub pick or site row) — drives post-build client handoff copy. */
   handoffSiteClientId?: string;
+  /** v0-style surface: tuck marketing strips and tuck debug behind disclosure. */
+  builderSurface?: boolean;
+  /** Compact capability chips (parent may wire run build, open engines, etc.). */
+  onCapabilityAction?: (id: SiteBuilderAssistantCapability) => void;
 };
 
 export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(function SiteBuilderAiPanel(
@@ -620,10 +648,15 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
     hasSelectedProject = false,
     onOpenCodeDrawerRequest,
     handoffSiteClientId = "",
+    builderSurface = false,
+    onCapabilityAction,
   },
   ref
 ) {
   const [newHubClientDraft, setNewHubClientDraft] = useState("");
+  type ComposerImageAttachment = { assetId: string; publicUrl: string; mimeType?: string; name: string };
+  const [composerImageAttachments, setComposerImageAttachments] = useState<ComposerImageAttachment[]>([]);
+  const [composerDropActive, setComposerDropActive] = useState(false);
   const [userPrompt, setUserPrompt] = useState(
     "A credible landing page for a trust-linked Web3 product: clear next step for visitors, calm tone, operator-grade trust."
   );
@@ -822,6 +855,22 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
     }
   }
 
+  function syncStephonNpcMessage(role: AssistantChatRole, content: string) {
+    if (role !== "user" && role !== "assistant") return;
+    if (!shouldPersistChatMessage({ role, content })) return;
+    void fetch("/api/site-builder/assistant/npc-sync", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        siteId: builderSiteId?.trim() || null,
+        role,
+        content,
+        topic: builderSiteId?.trim() || "draft",
+      }),
+    }).catch(() => undefined);
+  }
+
   function pushChatMessage(role: AssistantChatRole, content: string) {
     const t = content.trim();
     if (!t) return;
@@ -832,6 +881,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       const next: AssistantChatMessage[] = [...prev, { id, role, content: t, at: Date.now() }];
       return next.length > ASSISTANT_CHAT_MAX ? next.slice(-ASSISTANT_CHAT_MAX) : next;
     });
+    syncStephonNpcMessage(role, t);
   }
 
   function pushClientSitePostBuildNudge() {
@@ -1171,6 +1221,47 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       c.visual = vis;
     }
     onApplySchema(JSON.stringify(doc, null, 2));
+  }
+
+  function mergeAssetIntoMetadataOnly(asset: SiteBuilderAssetRecord) {
+    try {
+      const doc = JSON.parse(schemaText) as {
+        metadata?: { siteBuilderAssets?: Record<string, SiteBuilderAssetRecord> };
+      };
+      doc.metadata = doc.metadata ?? {};
+      doc.metadata.siteBuilderAssets = { ...(doc.metadata.siteBuilderAssets ?? {}), [asset.assetId]: asset };
+      onApplySchema(normalizeSchemaJsonStringForTargeting(JSON.stringify(doc, null, 2)));
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Could not attach asset");
+    }
+  }
+
+  async function uploadComposerImageAndStage(file: File) {
+    if (!file.type.startsWith("image/")) {
+      onError("Drop an image file (PNG, JPG, WebP, …).");
+      return;
+    }
+    onError(null);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/site-builder/assets", { method: "POST", body: form, credentials: "include" });
+    const data = (await res.json().catch(() => ({}))) as { asset?: SiteBuilderAssetRecord; error?: string };
+    if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+    if (!data.asset) throw new Error("Invalid upload response");
+    mergeAssetIntoMetadataOnly(data.asset);
+    setComposerImageAttachments((prev) => [
+      ...prev,
+      {
+        assetId: data.asset!.assetId,
+        publicUrl: data.asset!.publicUrl ?? "",
+        mimeType: data.asset!.mimeType,
+        name: file.name,
+      },
+    ]);
+    onNotice(
+      `Attached “${file.name}”. Say where to use it (hero background, banner, card, gallery, logo), then press Enter.`,
+    );
+    trackSiteBuilderEvent("site_builder_composer_image_attached", { workflow_stage: workflowStage });
   }
 
   function removeHeroUploadedAsset() {
@@ -1563,7 +1654,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
   async function runAssistantProposedBuilderActions(
     actions: BuilderAction[],
     source: "ai_panel" | "manual" = "ai_panel",
-    options?: { assistantReplyPrefix?: string; pulseFromActions?: boolean },
+    options?: { assistantReplyPrefix?: string; pulseFromActions?: boolean; schemaJson?: string },
   ): Promise<{
     schemaChanged: boolean;
     hadHttpError: boolean;
@@ -1572,9 +1663,10 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
     appliedSchema?: unknown;
   }> {
     onError(null);
+    const schemaSrc = options?.schemaJson ?? schemaText;
     let doc: unknown;
     try {
-      doc = JSON.parse(schemaText);
+      doc = JSON.parse(schemaSrc);
     } catch {
       onError("Current schema is not valid JSON — fix the page JSON first.");
       return { schemaChanged: false, hadHttpError: false, partialFailures: true, summary: "invalid schema JSON", appliedSchema: undefined };
@@ -1774,13 +1866,14 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
    * Natural-language → execute-intent → client builder-actions.
    * Returns true when the request was handled (applied, clarification, error, or hash refresh) and the caller should skip legacy pipelines.
    */
-  async function tryExecuteIntentNlEdit(instr: string): Promise<boolean> {
+  async function tryExecuteIntentNlEdit(instr: string, opts?: { schemaJson?: string }): Promise<boolean> {
     lastExecuteIntentChatReplyRef.current = null;
     const siteId = builderSiteId?.trim();
+    const schemaSrc = opts?.schemaJson ?? schemaText;
 
     let doc: unknown;
     try {
-      doc = JSON.parse(schemaText);
+      doc = JSON.parse(schemaSrc);
     } catch {
       lastExecuteIntentChatReplyRef.current = "I couldn’t apply that until the page JSON is valid. Fix the schema, then try again.";
       setNlAssistStrip({
@@ -1791,7 +1884,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       return true;
     }
 
-    if (!siteId && isSiteBuilderDraftMode(schemaText, builderSiteId)) {
+    if (!siteId && isSiteBuilderDraftMode(schemaSrc, builderSiteId)) {
       return tryDraftNlEdit(instr, doc);
     }
 
@@ -1859,6 +1952,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
         const applyResult = await runAssistantProposedBuilderActions(actions, "ai_panel", {
           assistantReplyPrefix: data.assistantReply?.trim(),
           pulseFromActions: true,
+          schemaJson: schemaSrc,
         });
         if (applyResult.hadHttpError) {
           const msg = applyResult.summary || "Builder actions could not be applied.";
@@ -1884,7 +1978,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
         }
         const parsedApplied = applyResult.appliedSchema ? SiteSchemaDocument.safeParse(applyResult.appliedSchema) : null;
         const followSaved =
-          parsedApplied.success
+          parsedApplied?.success === true
             ? buildPostEditFollowup({
                 actions,
                 schema: parsedApplied.data,
@@ -3316,22 +3410,26 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
   }
 
   /** Returns whether merged schema differed from the starting snapshot (preview would change). */
-  async function executeLightPageRefinementPipeline(instrRaw: string): Promise<boolean> {
+  async function executeLightPageRefinementPipeline(
+    instrRaw: string,
+    opts?: { schemaJson?: string },
+  ): Promise<boolean> {
     const instr = instrRaw.trim();
-    const allIds = listRefinableSectionIdsOnPage(schemaText);
+    const schemaBase = opts?.schemaJson ?? schemaText;
+    const allIds = listRefinableSectionIdsOnPage(schemaBase);
     if (allIds.length === 0) {
       onError("Nothing to refine yet—generate a page first.");
       throw new Error("No refinable sections");
     }
     let startHash: string;
     try {
-      startHash = hashSiteSchema(JSON.parse(schemaText));
+      startHash = hashSiteSchema(JSON.parse(schemaBase));
     } catch {
       onError("Current schema is not valid JSON — fix the page JSON first.");
       throw new Error("Invalid schema JSON");
     }
     const chunks = chunkSectionIdsForBatch(allIds);
-    let working = schemaText;
+    let working = schemaBase;
     let lastEval: EvaluationOut | null = null;
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
@@ -3378,7 +3476,8 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
    * One omnibar submit: plan, full build, section regen, light page refinement, or publish hint—by stage + scope.
    */
   async function submitOmnibarCommand() {
-    const instr = userPrompt.trim();
+    let instr = userPrompt.trim();
+    let schemaForOmnibar = schemaText;
     if (conversationalIntakeActive) {
       if (!instr) {
         onError('Type an answer, "skip" to move on, or "exit" to stop guided intake.');
@@ -3421,6 +3520,42 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       setUserPrompt("");
       return;
     }
+    if (composerImageAttachments.length > 0) {
+      const placement = parseImagePlacementFromPrompt(instr);
+      if (!placement && shouldAskImagePlacement(instr, composerImageAttachments.length)) {
+        if (instr.length > 0) pushChatMessage("user", instr);
+        pushChatMessage("assistant", ASSISTANT_IMAGE_PLACEMENT_PROMPT);
+        setUserPrompt("");
+        return;
+      }
+      if (placement) {
+        const last = composerImageAttachments[composerImageAttachments.length - 1]!;
+        const next = applyAssistantImagePlacement(schemaForOmnibar, placement, {
+          assetId: last.assetId,
+          publicUrl: last.publicUrl,
+          mimeType: last.mimeType,
+        });
+        onApplySchema(next);
+        schemaForOmnibar = next;
+        setComposerImageAttachments([]);
+        const remainder = stripImagePlacementPhrasesFromPrompt(instr, placement).trim();
+        if (instr.trim().length > 0) pushChatMessage("user", instr);
+        if (remainder.length > 0) {
+          pushChatMessage(
+            "assistant",
+            `Applied your image to **${placement.replace(/_/g, " ")}** — continuing with your other instructions in the same request.`,
+          );
+          instr = remainder;
+        } else {
+          pushChatMessage(
+            "assistant",
+            `Applied your image to **${placement.replace(/_/g, " ")}** in the live schema.`,
+          );
+          setUserPrompt("");
+          return;
+        }
+      }
+    }
     if (instr && isShowCodeRequest(instr)) {
       pushChatMessage("user", instr);
       onOpenCodeDrawerRequest?.();
@@ -3431,22 +3566,27 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
     const jsonActs = instr ? tryExtractBuilderActionsFromMessage(instr) : null;
     if (jsonActs && (workflowStage === "refine" || workflowStage === "review")) {
       pushChatMessage("user", instr);
-      let apply: Awaited<ReturnType<typeof runAssistantProposedBuilderActions>> | null = null;
+      let captured: Awaited<ReturnType<typeof runAssistantProposedBuilderActions>> | null = null;
       await withBusy(async () => {
         onError(null);
-        apply = await runAssistantProposedBuilderActions(jsonActs, "manual", { pulseFromActions: true });
-        if (apply.schemaChanged && !apply.hadHttpError) {
+        const r = await runAssistantProposedBuilderActions(jsonActs, "manual", {
+          pulseFromActions: true,
+          schemaJson: schemaForOmnibar,
+        });
+        captured = r;
+        if (r.schemaChanged && !r.hadHttpError) {
           setNlAssistStrip({ kind: "applied", message: "Applied builder actions from JSON in the command bar." });
-        } else if (!apply.hadHttpError && !apply.schemaChanged) {
+        } else if (!r.hadHttpError && !r.schemaChanged) {
           setNlAssistStrip({
             kind: "clarify",
             message: "Those actions did not change the layout (output matched the current schema).",
           });
         }
       });
-      if (apply?.hadHttpError) {
-        pushChatMessage("error", apply.summary || "Builder actions did not apply. See the error above.");
-      } else if (apply?.schemaChanged) {
+      const applyOutcome = captured!;
+      if (applyOutcome.hadHttpError) {
+        pushChatMessage("error", applyOutcome.summary || "Builder actions did not apply. See the error above.");
+      } else if (applyOutcome.schemaChanged) {
         pushChatMessage("assistant", "Applied the builder actions from your message.");
       } else {
         pushChatMessage("assistant", "Those builder actions did not change the preview—check the notice above or adjust the JSON.");
@@ -3454,7 +3594,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       setUserPrompt("");
       return;
     }
-    const refinableN = listRefinableSectionIdsOnPage(schemaText).length;
+    const refinableN = listRefinableSectionIdsOnPage(schemaForOmnibar).length;
     const route = resolveOmnibarSubmitRoute({
       stage: workflowStage,
       selectedSectionCount: effectiveSectionIds.length,
@@ -3470,7 +3610,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       return;
     }
     if (route === "describe_plan" || route === "review_plan_first") {
-      const typed = userPrompt.trim().length > 0;
+      const typed = instr.trim().length > 0;
       if (typed) {
         pushChatMessage("user", instr);
         const r = await runFullBuildWithRefinement({ source: "panel" });
@@ -3503,7 +3643,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
         pushChatMessage("user", instr);
         let handled = false;
         await withBusy(async () => {
-          handled = await tryExecuteIntentNlEdit(instr);
+          handled = await tryExecuteIntentNlEdit(instr, { schemaJson: schemaForOmnibar });
         });
         if (handled) {
           if (lastExecuteIntentChatReplyRef.current) {
@@ -3533,7 +3673,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       return;
     }
     if (route === "refine_sections") {
-      await runRegenerateSection();
+      await runRegenerateSection({ instruction: instr, schemaJson: schemaForOmnibar });
       return;
     }
     if (route === "refine_light_page") {
@@ -3546,13 +3686,13 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
         onError(null);
         onSectionRegenerationVisualMask?.(true);
         try {
-          if (await tryExecuteIntentNlEdit(instr)) {
+          if (await tryExecuteIntentNlEdit(instr, { schemaJson: schemaForOmnibar })) {
             if (lastExecuteIntentChatReplyRef.current) {
               pushChatMessage("assistant", lastExecuteIntentChatReplyRef.current);
             }
             return;
           }
-          const lightChanged = await executeLightPageRefinementPipeline(instr);
+          const lightChanged = await executeLightPageRefinementPipeline(instr, { schemaJson: schemaForOmnibar });
           if (lightChanged) {
             pushChatMessage("assistant", "Applied your edit across the page layout.");
           } else {
@@ -3573,7 +3713,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
         pushChatMessage("user", instr);
         let handled = false;
         await withBusy(async () => {
-          handled = await tryExecuteIntentNlEdit(instr);
+          handled = await tryExecuteIntentNlEdit(instr, { schemaJson: schemaForOmnibar });
         });
         if (handled) {
           if (lastExecuteIntentChatReplyRef.current) {
@@ -3605,20 +3745,21 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
     }
   }
 
-  async function runRegenerateSection() {
+  async function runRegenerateSection(opts?: { instruction?: string; schemaJson?: string }) {
     const ids = normalizeRefineSectionIds(effectiveSectionIds, 3);
     if (ids.length === 0) {
       onError("Choose a section to update.");
       return;
     }
-    const inst = userPrompt.trim();
+    const inst = (opts?.instruction ?? userPrompt).trim();
+    const schemaPass = opts?.schemaJson ?? schemaText;
     if (inst) pushChatMessage("user", inst);
     await withBusy(async () => {
       onError(null);
       onSectionRegenerationVisualMask?.(true);
       try {
         if (inst) {
-          const handled = await tryExecuteIntentNlEdit(inst);
+          const handled = await tryExecuteIntentNlEdit(inst, { schemaJson: schemaPass });
           if (handled) {
             if (lastExecuteIntentChatReplyRef.current) {
               pushChatMessage("assistant", lastExecuteIntentChatReplyRef.current);
@@ -3627,9 +3768,9 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
           }
         }
         if (ids.length === 1) {
-          await executeRegenerateSectionPipeline(userPrompt.trim(), ids[0]!);
+          await executeRegenerateSectionPipeline(inst, ids[0]!, { schemaSource: schemaPass });
         } else {
-          await executeRegenerateBatchPipeline(userPrompt.trim(), ids);
+          await executeRegenerateBatchPipeline(inst, ids, { schemaSource: schemaPass });
         }
         if (inst) {
           pushChatMessage("assistant", "Regenerated the selected section(s) from your instruction.");
@@ -3679,6 +3820,10 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       submitOmnibarCommand: () => submitOmnibarCommand(),
       runRefineSectionRegenerate: (instruction: string, opts?: { sectionId?: string; sectionIds?: string[]; source?: "panel" | "canvas" }) =>
         runRefineSectionRegenerate(instruction, opts),
+      prefillUserPrompt: (text: string) => {
+        setUserPrompt(text);
+      },
+      clearComposerImageAttachments: () => setComposerImageAttachments([]),
       notifyClientLifecycle: (phase: SiteBuilderClientLifecyclePhase) => {
         if (phase === "post_agent_attach") {
           pushChatMessage(
@@ -4434,7 +4579,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-3 border-b border-white/[0.06] pb-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500">Site assistant</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500">{STEPHON_DISPLAY_NAME}</p>
             {chatMessages.length > 0 ? (
               <button
                 type="button"
@@ -4451,7 +4596,7 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-indigo-300/90" aria-hidden />
-              <span className="text-lg font-semibold tracking-tight text-slate-100">Build with AI</span>
+              <span className="text-lg font-semibold tracking-tight text-slate-100">Build with Stephon</span>
             </div>
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
@@ -4719,10 +4864,92 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
       ) : null}
 
       <div
-        className="mt-5 rounded-xl border border-indigo-500/20 bg-gradient-to-b from-indigo-500/[0.08] to-slate-950/40 p-4 shadow-[inset_0_1px_0_0_rgba(129,140,248,0.12)]"
+        className={`mt-5 rounded-xl border border-indigo-500/20 bg-gradient-to-b from-indigo-500/[0.08] to-slate-950/40 p-4 shadow-[inset_0_1px_0_0_rgba(129,140,248,0.12)] ${
+          composerDropActive ? "ring-2 ring-indigo-400/40 ring-offset-2 ring-offset-slate-950" : ""
+        }`}
         aria-label="Command"
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setComposerDropActive(true);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          try {
+            e.dataTransfer.dropEffect = "copy";
+          } catch {
+            /* ignore */
+          }
+        }}
+        onDragLeave={() => setComposerDropActive(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setComposerDropActive(false);
+          const list = e.dataTransfer?.files;
+          if (!list?.length) return;
+          void (async () => {
+            try {
+              for (const f of Array.from(list)) {
+                if (f.type.startsWith("image/")) {
+                  await uploadComposerImageAndStage(f);
+                }
+              }
+            } catch (err) {
+              onError(err instanceof Error ? err.message : "Image upload failed");
+            }
+          })();
+        }}
       >
         <label className={`${label} text-indigo-200/90`}>Message</label>
+        <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+          Drag and drop images here to attach; then describe placement (hero background, banner, logo, …) and press Enter.
+        </p>
+        {composerImageAttachments.length > 0 ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {composerImageAttachments.map((a) => (
+              <div
+                key={a.assetId}
+                className="relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-slate-900"
+                title={a.name}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={a.publicUrl} alt="" className="h-full w-full object-cover" />
+              </div>
+            ))}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setComposerImageAttachments([])}
+              className="rounded-full border border-slate-600 px-2 py-1 text-[10px] text-slate-300 hover:border-red-400/50 hover:text-red-200 disabled:opacity-40"
+            >
+              Clear images
+            </button>
+          </div>
+        ) : null}
+        {builderSurface && onCapabilityAction ? (
+          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Assistant capabilities">
+            {(
+              [
+                ["build_site", "Build site"],
+                ["import_url", "Import URL"],
+                ["change_style", "Change style"],
+                ["add_image", "Add image"],
+                ["ai_widget", "AI widget"],
+                ["share_preview", "Share preview"],
+                ["open_engines", "Engines"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                disabled={busy}
+                onClick={() => onCapabilityAction(id)}
+                className="rounded-full border border-white/[0.1] bg-slate-950/60 px-2.5 py-1 text-[10px] font-medium text-slate-200 hover:border-indigo-400/35 hover:bg-indigo-500/10 disabled:pointer-events-none disabled:opacity-40"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <p className="mt-1.5 text-[11px] font-semibold text-slate-300">
           {effectiveSectionIds.length > 0 ? "Target: selected section(s) in the preview" : "Target: full page"}
         </p>
@@ -4783,13 +5010,25 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
             {autoBuildProgressLabel}
           </div>
         ) : null}
-        <div className="mt-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-300">
-          <span className="font-semibold text-slate-200">Build debug:</span>{" "}
-          stage={buildDebugInfo.stage}
-          {" · "}api={buildDebugInfo.apiDurationMs == null ? "n/a" : `${buildDebugInfo.apiDurationMs}ms`}
-          {" · "}schemaApplied={buildDebugInfo.schemaApplied ? "yes" : "no"}
-          {" · "}variantPicker={buildDebugInfo.variantPickerOpened ? "open" : "closed"}
-        </div>
+        {builderSurface ? (
+          <details className="mt-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-300">
+            <summary className="cursor-pointer select-none font-medium text-slate-200">Build debug</summary>
+            <div className="mt-2 text-slate-300">
+              stage={buildDebugInfo.stage}
+              {" · "}api={buildDebugInfo.apiDurationMs == null ? "n/a" : `${buildDebugInfo.apiDurationMs}ms`}
+              {" · "}schemaApplied={buildDebugInfo.schemaApplied ? "yes" : "no"}
+              {" · "}variantPicker={buildDebugInfo.variantPickerOpened ? "open" : "closed"}
+            </div>
+          </details>
+        ) : (
+          <div className="mt-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-300">
+            <span className="font-semibold text-slate-200">Build debug:</span>{" "}
+            stage={buildDebugInfo.stage}
+            {" · "}api={buildDebugInfo.apiDurationMs == null ? "n/a" : `${buildDebugInfo.apiDurationMs}ms`}
+            {" · "}schemaApplied={buildDebugInfo.schemaApplied ? "yes" : "no"}
+            {" · "}variantPicker={buildDebugInfo.variantPickerOpened ? "open" : "closed"}
+          </div>
+        )}
         {showBuildRetry ? (
           <button
             type="button"
@@ -5374,17 +5613,26 @@ export const SiteBuilderAiPanel = forwardRef<SiteBuilderAiPanelHandle, Props>(fu
             </details>
           </div>
 
-          <div className="mt-4 border-t border-white/[0.06] pt-4" aria-label="Output range from one builder">
-            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">Same system, different feel</p>
-            <p className="mt-1.5 max-w-prose text-xs leading-relaxed text-slate-500">
-              Curated mini-frames echo real hero and section patterns. Your live preview matches what you generate—same Signature pipeline, one
-              builder.
-            </p>
-            <DescribeOutputProofStrip disabled={busy} onPickFeel={applyOutputProofFeel} />
-            <p className="mt-2 text-[11px] leading-snug text-slate-600">
-              Tap a snapshot or chip—one builder, same preview pipeline.
-            </p>
-          </div>
+          {!builderSurface ? (
+            <div className="mt-4 border-t border-white/[0.06] pt-4" aria-label="Output range from one builder">
+              <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">Same system, different feel</p>
+              <p className="mt-1.5 max-w-prose text-xs leading-relaxed text-slate-500">
+                Curated mini-frames echo real hero and section patterns. Your live preview matches what you generate—same Signature pipeline, one
+                builder.
+              </p>
+              <DescribeOutputProofStrip disabled={busy} onPickFeel={applyOutputProofFeel} />
+              <p className="mt-2 text-[11px] leading-snug text-slate-600">
+                Tap a snapshot or chip—one builder, same preview pipeline.
+              </p>
+            </div>
+          ) : (
+            <details className="mt-4 border-t border-white/[0.06] pt-4">
+              <summary className="cursor-pointer text-xs font-medium text-slate-500">Mini-frame snapshots (advanced)</summary>
+              <div className="mt-2">
+                <DescribeOutputProofStrip disabled={busy} onPickFeel={applyOutputProofFeel} />
+              </div>
+            </details>
+          )}
 
           <details className="mt-5 border-t border-white/[0.06] pt-4" open={false}>
             <summary className="cursor-pointer select-none text-sm font-medium text-slate-400 transition-colors hover:text-slate-200">

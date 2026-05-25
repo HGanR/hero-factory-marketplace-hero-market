@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server";
 import { broadcastAudit } from "./broadcast-audit";
 import { getBroadcastRealtimeAdapter } from "./broadcast-realtime-adapter";
 import { buildBroadcastRealtimeChannelForSession } from "./broadcast-realtime-channels";

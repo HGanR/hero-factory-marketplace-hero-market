@@ -4,7 +4,7 @@
 
 import { eq, and, inArray, asc } from "drizzle-orm";
 import crypto from "crypto";
-import { campaignPosts, campaignAuditEvents } from "@/lib/db/schema";
+import { campaignPosts, campaignAuditEvents, campaigns } from "@/lib/db/schema";
 import type { CampaignPostPublishContext } from "@/lib/social/campaign-post-publish";
 import {
   loadCampaignPostPublishContext,
@@ -49,6 +49,16 @@ export type RunDueScheduledPublishesSummary = {
   skipped: number;
   /** Skipped because approval gate is on and post not approved. */
   skippedAwaitingApproval: number;
+  /** `publishRoute === "content360"` — same cron tick, separate counters. */
+  content360Scanned?: number;
+  content360Attempted?: number;
+  content360Published?: number;
+  content360Retried?: number;
+  content360Failed?: number;
+  content360Skipped?: number;
+  content360SkippedAwaitingApproval?: number;
+  /** Post left SCHEDULED while provider has not confirmed publish yet. */
+  content360AwaitingRemote?: number;
 };
 
 async function insertAudit(
@@ -77,9 +87,22 @@ async function insertAudit(
 export type ScheduledPublishPublishDeps = {
   loadContext: (db: unknown, postId: string) => Promise<CampaignPostPublishContext | null>;
   executePublish: (ctx: CampaignPostPublishContext) => Promise<PublishResult>;
+  /** Injected in tests; production default is lazy-imported. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  processContent360DuePost?: any;
 };
 
-/** LinkedIn uses the REST scheduled-post path; other governed platforms use Graph adapters. */
+/** Lazy-loaded so `node:test` + tsx do not import `server-only` graph unless a Content360 row runs. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedProcessContent360DuePost: any = null;
+async function resolveProcessContent360DuePost(injected?: any) {
+  if (injected) return injected;
+  if (!cachedProcessContent360DuePost) {
+    const m = await import("@/lib/social/content360-publish-worker");
+    cachedProcessContent360DuePost = m.processContent360DuePost;
+  }
+  return cachedProcessContent360DuePost;
+}
 export async function defaultExecuteScheduledPublish(ctx: CampaignPostPublishContext): Promise<PublishResult> {
   if (ctx.platformKey === "linkedin") {
     const r = await publishLinkedinScheduledPost(ctx);
@@ -87,6 +110,12 @@ export async function defaultExecuteScheduledPublish(ctx: CampaignPostPublishCon
       throw new CampaignPostPublishError("PROVIDER_PUBLISH_FAILED", r.normalizedError);
     }
     return { platformPostId: r.externalPostId };
+  }
+  if (parseScheduledPublishMeta(ctx.post.scheduledPublishMeta).publishRoute === "content360") {
+    throw new CampaignPostPublishError(
+      "CONTENT360_WRONG_EXECUTOR",
+      "This post is routed to Content360 and must not be processed by the native OAuth publisher.",
+    );
   }
   return executeCampaignPostAdapterPublish(ctx);
 }
@@ -104,6 +133,8 @@ export async function runDueScheduledPublishes(args?: {
   const db = args?.db ?? (await getDb());
   const loadContext = args?.deps?.loadContext ?? loadCampaignPostPublishContext;
   const executePublish = args?.deps?.executePublish ?? defaultExecuteScheduledPublish;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let runContent360Branch: any = null;
 
   const summary: RunDueScheduledPublishesSummary = {
     scanned: 0,
@@ -113,6 +144,14 @@ export async function runDueScheduledPublishes(args?: {
     failed: 0,
     skipped: 0,
     skippedAwaitingApproval: 0,
+    content360Scanned: 0,
+    content360Attempted: 0,
+    content360Published: 0,
+    content360Retried: 0,
+    content360Failed: 0,
+    content360Skipped: 0,
+    content360SkippedAwaitingApproval: 0,
+    content360AwaitingRemote: 0,
   };
 
   const requireApproval = readScheduledPublishRequireApprovalEnv();
@@ -128,31 +167,90 @@ export async function runDueScheduledPublishes(args?: {
   }
 
   const candidates = await db
-    .select()
+    .select({
+      post: campaignPosts,
+      campaignAutopilotPublish: campaigns.bentleyAutopilotPublish,
+    })
     .from(campaignPosts)
+    .innerJoin(campaigns, eq(campaignPosts.campaignId, campaigns.id))
     .where(inArray(campaignPosts.status, ["SCHEDULED", "RETRY_SCHEDULED"]))
     .orderBy(asc(campaignPosts.scheduledAt))
     .limit(limit * 4);
 
-  const due = candidates.filter((row: (typeof candidates)[number]) =>
+  const dueAll = candidates.filter((row: (typeof candidates)[number]) =>
     isScheduledPostDue(
       {
-        id: row.id,
-        status: row.status,
-        scheduledAt: row.scheduledAt,
-        scheduledPublishMeta: row.scheduledPublishMeta,
+        id: row.post.id,
+        status: row.post.status,
+        scheduledAt: row.post.scheduledAt,
+        scheduledPublishMeta: row.post.scheduledPublishMeta,
       },
       now
     )
   );
 
-  summary.scanned = due.length;
+  const dueContent360 = dueAll.filter(
+    (row: (typeof candidates)[number]) =>
+      parseScheduledPublishMeta(row.post.scheduledPublishMeta).publishRoute === "content360"
+  );
 
-  for (const row of due.slice(0, limit)) {
-    const utm = utmAsStringRecord(row.utmParams);
+  summary.scanned = dueAll.length;
+  summary.content360Scanned = dueContent360.length;
+
+  function scheduledSortMs(p: (typeof campaignPosts.$inferSelect) & { scheduledPublishMeta?: unknown }): number {
+    const st = String(p.status || "").toUpperCase();
+    if (st === "RETRY_SCHEDULED") {
+      const m = parseScheduledPublishMeta(p.scheduledPublishMeta);
+      const t = m.nextPublishAttemptAt ? new Date(m.nextPublishAttemptAt).getTime() : NaN;
+      return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+    }
+    const raw = p.scheduledAt;
+    const t = raw instanceof Date ? raw.getTime() : raw ? new Date(String(raw)).getTime() : NaN;
+    return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+  }
+
+  const combined = dueAll
+    .map((row: (typeof dueAll)[number]) => ({
+      row,
+      isContent360: parseScheduledPublishMeta(row.post.scheduledPublishMeta).publishRoute === "content360",
+      sortKey: scheduledSortMs(row.post),
+    }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .slice(0, limit);
+
+  for (const item of combined) {
+    if (item.isContent360) {
+      if (!runContent360Branch) {
+        runContent360Branch = await resolveProcessContent360DuePost(args?.deps?.processContent360DuePost);
+      }
+      const row = item.row;
+      const c360 = await runContent360Branch({
+        db,
+        post: row.post,
+        campaignAutopilotPublish: Boolean(row.campaignAutopilotPublish),
+        now,
+        requireApproval,
+      });
+      if (c360 === "skipped") summary.content360Skipped = (summary.content360Skipped ?? 0) + 1;
+      else if (c360 === "skipped_awaiting_approval") {
+        summary.content360SkippedAwaitingApproval = (summary.content360SkippedAwaitingApproval ?? 0) + 1;
+      } else {
+        summary.content360Attempted = (summary.content360Attempted ?? 0) + 1;
+        if (c360 === "published") summary.content360Published = (summary.content360Published ?? 0) + 1;
+        else if (c360 === "retried") summary.content360Retried = (summary.content360Retried ?? 0) + 1;
+        else if (c360 === "failed") summary.content360Failed = (summary.content360Failed ?? 0) + 1;
+        else if (c360 === "awaiting_remote") summary.content360AwaitingRemote = (summary.content360AwaitingRemote ?? 0) + 1;
+      }
+      continue;
+    }
+
+    const row = item.row;
+    const post = row.post;
+    const utm = utmAsStringRecord(post.utmParams);
     const approvalGate = canScheduledPostPublishUnderApprovalMode({
       requireApproval,
       utmParams: utm,
+      campaignAutopilotPublish: Boolean(row.campaignAutopilotPublish),
     });
     if (!approvalGate.ok) {
       summary.skippedAwaitingApproval += 1;
@@ -164,7 +262,7 @@ export async function runDueScheduledPublishes(args?: {
       .set({ status: "PUBLISHING", updatedAt: now })
       .where(
         and(
-          eq(campaignPosts.id, row.id),
+          eq(campaignPosts.id, post.id),
           inArray(campaignPosts.status, ["SCHEDULED", "RETRY_SCHEDULED"])
         )
       );
@@ -176,18 +274,18 @@ export async function runDueScheduledPublishes(args?: {
     summary.attempted += 1;
 
     try {
-      const ctx = await loadContext(db, row.id);
+      const ctx = await loadContext(db, post.id);
       if (!ctx) {
         throw new CampaignPostPublishError("POST_NOT_FOUND", "Post disappeared after claim.");
       }
 
       await insertAudit(db, {
         userId: ctx.campaign.userId,
-        postId: row.id,
+        postId: post.id,
         platform: ctx.platformKey,
         action: "scheduled_publish_attempted",
         details: {
-          attemptCount: (parseScheduledPublishMeta(row.scheduledPublishMeta).publishAttemptCount ?? 0) + 1,
+          attemptCount: (parseScheduledPublishMeta(post.scheduledPublishMeta).publishAttemptCount ?? 0) + 1,
           retryable: true,
           reason: "attempt_start",
         },
@@ -205,16 +303,16 @@ export async function runDueScheduledPublishes(args?: {
           scheduledPublishMeta: {},
           updatedAt: now,
         })
-        .where(eq(campaignPosts.id, row.id));
+        .where(eq(campaignPosts.id, post.id));
 
       await insertAudit(db, {
         userId: ctx.campaign.userId,
-        postId: row.id,
+        postId: post.id,
         platform: ctx.platformKey,
         action: "scheduled_publish_succeeded",
         details: {
           platformPostId: result.platformPostId,
-          attemptCount: parseScheduledPublishMeta(row.scheduledPublishMeta).publishAttemptCount ?? 0,
+          attemptCount: parseScheduledPublishMeta(post.scheduledPublishMeta).publishAttemptCount ?? 0,
           retryable: false,
           reason: "ok",
         },
@@ -223,7 +321,7 @@ export async function runDueScheduledPublishes(args?: {
       await persistPublishOutcomeDeploymentFeedback(db, {
         userId: ctx.campaign.userId,
         campaignId: ctx.post.campaignId,
-        campaignPostId: row.id,
+        campaignPostId: post.id,
         platform: ctx.platformKey,
         outcome: "published",
         source: "publish_worker",
@@ -238,11 +336,11 @@ export async function runDueScheduledPublishes(args?: {
           ? normalizeScheduledPublishFailure(err, err.code)
           : normalizeScheduledPublishFailure(err);
 
-      const ctxTry = await loadContext(db, row.id).catch(() => null);
+      const ctxTry = await loadContext(db, post.id).catch(() => null);
       const userId = ctxTry?.campaign.userId ?? "";
-      const platform = ctxTry?.platformKey ?? row.platform;
+      const platform = ctxTry?.platformKey ?? post.platform;
 
-      const fresh = await db.select().from(campaignPosts).where(eq(campaignPosts.id, row.id)).limit(1);
+      const fresh = await db.select().from(campaignPosts).where(eq(campaignPosts.id, post.id)).limit(1);
       const currentMeta = fresh[0]?.scheduledPublishMeta;
 
       const nextState = buildRetryMetaAfterFailure({
@@ -259,12 +357,12 @@ export async function runDueScheduledPublishes(args?: {
           scheduledPublishMeta: nextState.meta,
           updatedAt: now,
         })
-        .where(eq(campaignPosts.id, row.id));
+        .where(eq(campaignPosts.id, post.id));
 
       if (userId) {
         await insertAudit(db, {
           userId,
-          postId: row.id,
+          postId: post.id,
           platform,
           action:
             nextState.status === "RETRY_SCHEDULED"
@@ -281,8 +379,8 @@ export async function runDueScheduledPublishes(args?: {
 
         await persistPublishOutcomeDeploymentFeedback(db, {
           userId,
-          campaignId: row.campaignId,
-          campaignPostId: row.id,
+          campaignId: post.campaignId,
+          campaignPostId: post.id,
           platform: String(platform),
           outcome: nextState.status === "RETRY_SCHEDULED" ? "retry_scheduled" : "failed",
           source: "publish_worker",

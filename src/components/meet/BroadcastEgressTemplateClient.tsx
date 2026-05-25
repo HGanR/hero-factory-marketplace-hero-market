@@ -396,11 +396,11 @@ function CompositeBody({
 
 export function BroadcastEgressTemplateClient() {
   const sp = useSearchParams();
-  const url = sp.get("url") ?? "";
-  const token = sp.get("token") ?? "";
-  const layoutParam = sp.get("layout") ?? "grid";
-  const rsidRaw = sp.get("rsid") ?? "";
-  const rt = sp.get("rt") ?? "";
+  const url = sp?.get("url") ?? "";
+  const token = sp?.get("token") ?? "";
+  const layoutParam = sp?.get("layout") ?? "grid";
+  const rsidRaw = sp?.get("rsid") ?? "";
+  const rt = sp?.get("rt") ?? "";
 
   const [model, setModel] = useState<BroadcastCompositorRenderModel | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);

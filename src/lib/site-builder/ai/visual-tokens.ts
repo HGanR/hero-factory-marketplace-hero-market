@@ -155,15 +155,24 @@ export function defaultMotionForMode(mode: StyleMode, profile: EngineProfile = g
 /** Framer Motion + static CSS share these timing curves (premium, not flashy). */
 export const THZ_EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
-export const THZ_MOTION = {
+/** Numeric timings (not literal unions) so profile-specific overrides stay assignable. */
+export type ThzMotionTiming = {
+  ease: readonly [number, number, number, number];
+  section: { duration: number; y: number };
+  entrance: { duration: number; yOffset: number };
+  micro: { duration: number; yOffset: number };
+  staggerBlock: number;
+};
+
+export const THZ_MOTION: ThzMotionTiming = {
   ease: THZ_EASE_OUT,
   section: { duration: 0.48, y: 16 },
   entrance: { duration: 0.42, yOffset: 12 },
   micro: { duration: 0.34, yOffset: 8 },
   staggerBlock: 0.052,
-} as const;
+};
 
-export function motionForEngineProfile(profile: EngineProfile): typeof THZ_MOTION & { section: { duration: number; y: number } } {
+export function motionForEngineProfile(profile: EngineProfile): ThzMotionTiming {
   if (profile === "stripped") {
     return {
       ...THZ_MOTION,

@@ -224,12 +224,15 @@ export function importBlueprintToSiteSchema(
     pages,
     metadata: {
       title: (blueprint.title || "Imported site").slice(0, 200),
+      removeDefaultCss: false,
       description: (blueprint.metaDescription || "").slice(0, 2000) || undefined,
+      governance: {},
       theme: {
         name: "imported-blueprint",
         backgroundMode: "simple_gradients",
         gradientStart,
         gradientEnd,
+        mediaType: "image",
         styleMode: "corporate",
       },
       designSystem,
@@ -252,6 +255,7 @@ export function importBlueprintToSiteSchema(
     doc.metadata!.widgetIntegration = {
       widgetKey: opts.widgetKey.trim().slice(0, 80),
       placement: opts.widgetPlacement ?? "body_end",
+      injectInDevPreviewTab: true,
       loaderOrigin: opts.loaderOrigin?.trim() || undefined,
     };
   }

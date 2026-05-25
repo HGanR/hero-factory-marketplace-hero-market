@@ -144,8 +144,9 @@ export async function POST(req: NextRequest) {
   }
 
   const sid = body.broadcastSessionId;
-  const broadcastSessionId = typeof sid === "string" ? Number(sid) : sid;
-  if (!Number.isFinite(broadcastSessionId) || broadcastSessionId <= 0) {
+  const broadcastSessionIdNum =
+    typeof sid === "string" ? Number(String(sid).trim()) : typeof sid === "number" ? sid : Number.NaN;
+  if (!Number.isFinite(broadcastSessionIdNum) || broadcastSessionIdNum <= 0) {
     broadcastAudit("broadcast_live_scene_invalid", { userId, reason: "bad_session_id" });
     incrementBroadcastLiveSceneError({ userId, sessionId: null, reason: "bad_session_id" });
     return NextResponse.json(
@@ -153,6 +154,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  const broadcastSessionId = broadcastSessionIdNum;
 
   const host = await assertMeetBroadcastHost(userId, body.hostWallet ?? null);
   if (!host.ok) {

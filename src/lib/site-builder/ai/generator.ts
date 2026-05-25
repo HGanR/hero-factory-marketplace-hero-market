@@ -115,6 +115,7 @@ export function generateSiteSchemaFromPlanner(
 
   const metadata: NonNullable<SiteSchemaDocumentType["metadata"]> = {
     title,
+    removeDefaultCss: false,
     description,
     visualDirection,
     theme: {
@@ -122,6 +123,7 @@ export function generateSiteSchemaFromPlanner(
       backgroundMode: dt.backgroundMode ?? (planner.designTokens.motionIntensity && planner.designTokens.motionIntensity > 60 ? "abstract_gradients" : "simple_gradients"),
       gradientStart: dt.gradientStart ?? "#0f172a",
       gradientEnd: dt.gradientEnd ?? "#1e293b",
+      mediaType: "image",
       styleMode,
       gradientStyle: dt.gradientStyle,
       buttonStyle: dt.buttonStyle,

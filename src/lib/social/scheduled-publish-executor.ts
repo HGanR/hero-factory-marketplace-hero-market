@@ -27,6 +27,8 @@ export type NormalizedScheduledPublishFailure = {
 };
 
 export function isScheduledPostDue(post: CampaignPostLike, now: Date): boolean {
+  const meta = parseScheduledPublishMeta(post.scheduledPublishMeta);
+  if (meta.content360ScheduleCanceled) return false;
   const st = String(post.status || "").toUpperCase();
   if (st === "SCHEDULED") {
     if (!post.scheduledAt) return false;
@@ -105,6 +107,8 @@ export function isRetryableScheduledPublishError(message: string, code?: string)
   if (
     /\b429\b/.test(m) ||
     /\brate limit\b/.test(m) ||
+    /\b501\b/.test(m) ||
+    /\bnot implemented\b/.test(m) ||
     /\b503\b/.test(m) ||
     /\b502\b/.test(m) ||
     /\b504\b/.test(m) ||
@@ -117,7 +121,10 @@ export function isRetryableScheduledPublishError(message: string, code?: string)
     /\btemporar(y|ily)\b/.test(m) ||
     /\btoken expired\b/.test(m) ||
     /\b401\b/.test(m) ||
-    /\bunauthorized\b/.test(m)
+    /\bunauthorized\b/.test(m) ||
+    /\bcontent360_api_not_configured\b/.test(m) ||
+    /\bcontent360_sync_unavailable\b/.test(m) ||
+    /\bcontent360_no_remote_schedule_id\b/.test(m)
   ) {
     return true;
   }

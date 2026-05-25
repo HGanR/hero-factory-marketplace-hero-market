@@ -1,6 +1,10 @@
 import { eq, inArray } from "drizzle-orm";
-import type { campaigns, campaignPosts } from "@/lib/db/schema";
-import { campaignExternalSocialReviewTokens, campaignPosts, campaigns, socialAccounts } from "@/lib/db/schema";
+import {
+  campaignExternalSocialReviewTokens,
+  campaignPosts,
+  campaigns,
+  socialAccounts,
+} from "@/lib/db/schema";
 import {
   clampAwaitingChainStepIndex,
   isMultiStepPublishApprovalChain,

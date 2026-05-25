@@ -156,8 +156,12 @@ export async function POST(req: NextRequest) {
   }
 
   const sid = body.broadcastSessionId;
-  const broadcastSessionId = typeof sid === "string" ? Number(sid) : sid;
-  if (!Number.isFinite(broadcastSessionId) || broadcastSessionId <= 0) {
+  const parsedSessionId = typeof sid === "string" ? Number(sid) : sid;
+  if (
+    parsedSessionId === undefined ||
+    !Number.isFinite(parsedSessionId) ||
+    parsedSessionId <= 0
+  ) {
     broadcastAudit("broadcast_schedule_invalid", { userId, reason: "bad_session_id" });
     incrementBroadcastScheduleError({ userId, sessionId: null, reason: "bad_session_id" });
     return NextResponse.json(
@@ -165,6 +169,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  const broadcastSessionId: number = parsedSessionId;
 
   const host = await assertMeetBroadcastHost(userId, body.hostWallet ?? null);
   if (!host.ok) {

@@ -19,6 +19,9 @@ import {
 import { closePackageArtifactFiles } from "@/lib/site-builder/deliverables/close-package-artifacts";
 import { proposalArtifactFiles } from "@/lib/site-builder/deliverables/proposal-artifacts";
 
+/** Metadata slice used for client deliverables copy (optional fields only). */
+type DeliverablesMetadataSource = Partial<NonNullable<SiteSchemaDocumentType["metadata"]>>;
+
 function safeStr(v: unknown, max: number): string {
   const s = typeof v === "string" ? v.trim() : "";
   return s.slice(0, max);
@@ -78,7 +81,7 @@ function outcomePrefix(code: string): string {
 }
 
 export function buildImprovementSummary(doc: SiteSchemaDocumentType): DeliverablesDocument["summary"] {
-  const meta = doc.metadata ?? {};
+  const meta: DeliverablesMetadataSource = doc.metadata ?? {};
   const audit = meta.importedSiteAudit;
   const queue = meta.importRestructureQueue ?? [];
   const siteTitle = safeStr(meta.title, 200);
@@ -188,7 +191,7 @@ function auditCuesForRoute(path: string, doc: SiteSchemaDocumentType): string {
 }
 
 export function buildRouteOutline(doc: SiteSchemaDocumentType): DeliverablesDocument["routeOutline"] {
-  const meta = doc.metadata ?? {};
+  const meta: DeliverablesMetadataSource = doc.metadata ?? {};
   const siteImport = meta.siteImport;
   const queue = meta.importRestructureQueue ?? [];
   const out: DeliverablesDocument["routeOutline"] = [];
@@ -238,7 +241,7 @@ export function buildRouteOutline(doc: SiteSchemaDocumentType): DeliverablesDocu
 }
 
 export function buildStakeholderFaq(doc: SiteSchemaDocumentType): DeliverablesDocument["stakeholderFaq"] {
-  const meta = doc.metadata ?? {};
+  const meta: DeliverablesMetadataSource = doc.metadata ?? {};
   const target = deploymentTargetFromSchema(doc);
   const deploy = deploymentLabelPlain(target);
   const widgetAttached = Boolean(meta.widgetIntegration?.widgetKey);

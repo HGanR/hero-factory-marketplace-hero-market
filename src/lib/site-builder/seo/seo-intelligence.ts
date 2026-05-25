@@ -526,8 +526,10 @@ export function applySeoIntelligenceToDocument(
 
   const structuredData = buildStructuredDataJsonLd(seoIntent, gen, home?.blocks ?? []);
 
-  const prev = doc.metadata ?? { title: gen.title, governance: {} };
-  const m = {
+  const prev: Partial<NonNullable<SiteSchemaDocumentType["metadata"]>> = doc.metadata ?? {};
+  const m: NonNullable<SiteSchemaDocumentType["metadata"]> = {
+    removeDefaultCss: prev.removeDefaultCss ?? false,
+    governance: prev.governance ?? {},
     ...prev,
     title: gen.title,
     description: gen.description,
@@ -539,7 +541,6 @@ export function applySeoIntelligenceToDocument(
     structuredData,
     seoPrimaryKeyword: seoIntent.primaryKeyword,
     seoAssistantSummary: buildSeoAssistantSummaryLine(seoIntent),
-    governance: prev.governance ?? {},
   };
 
   const h1Count = home?.blocks ? countH1InBlocks(home.blocks) : 0;

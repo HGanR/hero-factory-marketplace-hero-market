@@ -64,12 +64,14 @@ export function createInstantSkeletonSchema(input: SitePlannerInput): SiteSchema
     ],
     metadata: {
       title: `${biz} — Building preview`,
+      removeDefaultCss: false,
       description: `Generating a fast starter preview for ${ind}.`,
       governance: {},
       theme: {
         name: "streaming-preview",
         styleMode: input.web3VisualMode ? "web3" : "minimal",
         backgroundMode: "simple_gradients",
+        mediaType: "image",
         gradientStart: "#0f172a",
         gradientEnd: "#1e293b",
       },
@@ -132,7 +134,10 @@ export function applyStreamingBuildPhasePatch(
   const home = next.pages.find((p) => p.slug === "/") ?? next.pages[0];
   if (!home?.blocks) return next;
   for (const b of home.blocks) updateCopyByPhase(b, phase, input);
-  if (!next.metadata) next.metadata = { title: "Building preview", governance: {} };
-  next.metadata.title = phase === "finalizing" ? `${sanitize(input.businessName, "Your Business")} — Finalizing…` : next.metadata.title;
+  if (!next.metadata) {
+    next.metadata = { title: "Building preview", removeDefaultCss: false, governance: {} };
+  }
+  next.metadata.title =
+    phase === "finalizing" ? `${sanitize(input.businessName, "Your Business")} — Finalizing…` : next.metadata.title;
   return next;
 }

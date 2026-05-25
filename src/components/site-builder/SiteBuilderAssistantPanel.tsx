@@ -4,26 +4,29 @@ import type { ReactNode } from "react";
 import { SiteBuilderSeoAuditPanel } from "@/components/site-builder/SiteBuilderSeoAuditPanel";
 import type { SeoScoreBreakdown } from "@/components/site-builder/SiteBuilderKeywordScoreCard";
 
+type SeoAuditProps = {
+  title: string;
+  description: string;
+  primaryKeyword: string;
+  secondaryKeywords: string[];
+  h1Status: string;
+  structuredDataStatus: string;
+  imageAltStatus: string;
+  localSeoStatus: string;
+  warnings: string[];
+  score: SeoScoreBreakdown;
+  onGenerateSeo: () => void;
+  onImproveTitle: () => void;
+  onAddStructuredData: () => void;
+  onOptimizeLocal: () => void;
+};
+
 type Props = {
   statusLabel: "Building" | "Editing" | "Ready" | "Needs input";
   stageNav: ReactNode;
   aiPanel: ReactNode;
-  seoAudit: {
-    title: string;
-    description: string;
-    primaryKeyword: string;
-    secondaryKeywords: string[];
-    h1Status: string;
-    structuredDataStatus: string;
-    imageAltStatus: string;
-    localSeoStatus: string;
-    warnings: string[];
-    score: SeoScoreBreakdown;
-    onGenerateSeo: () => void;
-    onImproveTitle: () => void;
-    onAddStructuredData: () => void;
-    onOptimizeLocal: () => void;
-  };
+  /** When omitted, SEO checklist is not shown in the rail (e.g. moved to Engines drawer). */
+  seoAudit?: SeoAuditProps;
 };
 
 export function SiteBuilderAssistantPanel({ statusLabel, stageNav, aiPanel, seoAudit }: Props) {
@@ -42,7 +45,7 @@ export function SiteBuilderAssistantPanel({ statusLabel, stageNav, aiPanel, seoA
         <p className={`text-xs font-semibold ${statusTone}`}>{statusLabel}</p>
       </div>
       {stageNav}
-      <SiteBuilderSeoAuditPanel {...seoAudit} />
+      {seoAudit ? <SiteBuilderSeoAuditPanel {...seoAudit} /> : null}
       {aiPanel}
     </section>
   );

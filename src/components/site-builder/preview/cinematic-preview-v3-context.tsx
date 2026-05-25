@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type RefObject, type ReactNode } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform, type UseScrollOptions } from "framer-motion";
 import {
   detectLowDeviceMemoryHeuristic,
   detectSaveDataConnection,
@@ -122,9 +122,9 @@ function CinematicParallaxScrollLayer({ int, children }: { int: number; children
   const ctx = useCinematicPreviewV3();
   const container = ctx?.scrollRef;
   const targetRef = useRef<HTMLDivElement | null>(null);
-  const scrollOpts = container
-    ? { container, target: targetRef, offset: ["start 0.92", "end 0.08"] as const }
-    : { target: targetRef, offset: ["start 0.92", "end 0.08"] as const };
+  const scrollOpts: UseScrollOptions = container
+    ? { container, target: targetRef, offset: ["start 0.92", "end 0.08"] }
+    : { target: targetRef, offset: ["start 0.92", "end 0.08"] };
   const { scrollYProgress } = useScroll(scrollOpts);
   const yBg = useTransform(scrollYProgress, [0, 1], [0, 32 * int]);
   return (
@@ -143,9 +143,9 @@ function CinematicFadeScrollLayer({ int, children }: { int: number; children: Re
   const ctx = useCinematicPreviewV3();
   const container = ctx?.scrollRef;
   const targetRef = useRef<HTMLDivElement | null>(null);
-  const scrollOpts = container
-    ? { container, target: targetRef, offset: ["start 0.92", "end 0.08"] as const }
-    : { target: targetRef, offset: ["start 0.92", "end 0.08"] as const };
+  const scrollOpts: UseScrollOptions = container
+    ? { container, target: targetRef, offset: ["start 0.92", "end 0.08"] }
+    : { target: targetRef, offset: ["start 0.92", "end 0.08"] };
   const { scrollYProgress } = useScroll(scrollOpts);
   const opacity = useTransform(
     scrollYProgress,
@@ -163,9 +163,9 @@ function CinematicSlideScrollLayer({ int, index, children }: { int: number; inde
   const ctx = useCinematicPreviewV3();
   const container = ctx?.scrollRef;
   const targetRef = useRef<HTMLDivElement | null>(null);
-  const scrollOpts = container
-    ? { container, target: targetRef, offset: ["start 0.92", "end 0.08"] as const }
-    : { target: targetRef, offset: ["start 0.92", "end 0.08"] as const };
+  const scrollOpts: UseScrollOptions = container
+    ? { container, target: targetRef, offset: ["start 0.92", "end 0.08"] }
+    : { target: targetRef, offset: ["start 0.92", "end 0.08"] };
   const { scrollYProgress } = useScroll(scrollOpts);
   const y = useTransform(scrollYProgress, [0, 0.25, 0.75, 1], [14 * int, 0, 0, 10 * int]);
   const x = useTransform(scrollYProgress, [0, 1], [index % 2 === 0 ? -6 * int : 6 * int, 0]);

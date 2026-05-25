@@ -14,7 +14,7 @@ export type ContentQualityResult = {
 };
 
 function collectText(doc: SiteSchemaDocumentType): string {
-  const parts: string[] = [doc.metadata.title, doc.metadata.description || ""].filter(Boolean);
+  const parts: string[] = [doc.metadata?.title, doc.metadata?.description || ""].filter(Boolean) as string[];
   for (const p of doc.pages) {
     for (const b of p.blocks) {
       const c = b.content;

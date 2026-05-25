@@ -90,7 +90,7 @@ function extractFontHints($: ReturnType<typeof load>, baseUrl: string): string[]
 
 export function htmlToImportBlueprint(html: string, sourceUrl: string, finalUrl?: string): ImportBlueprint {
   const notes: string[] = [];
-  const $ = load(html, { decodeEntities: true });
+  const $ = load(html);
   const base = finalUrl || sourceUrl;
 
   $("script, noscript, style, svg").remove();

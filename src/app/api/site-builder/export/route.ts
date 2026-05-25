@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   try {
     const files = await buildDeploymentProjectFromSchema(parsed.data, { userId });
     const buf = await zipProjectFiles(files);
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         "Content-Type": "application/zip",

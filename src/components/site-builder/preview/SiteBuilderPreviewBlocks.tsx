@@ -41,7 +41,13 @@ function SiteBuilderHeroPreview({ raw, idx }: { raw: unknown; idx: number }) {
   const block = raw as PreviewBlock;
   const c = block.content || {};
   const visual = (c.visual || {}) as Record<string, unknown>;
-  const mot = (c.motion || {}) as { entrance?: string; stagger?: number; hover?: string; staggerChildren?: number };
+  const mot = (c.motion || {}) as {
+    entrance?: string;
+    stagger?: number;
+    hover?: string;
+    staggerChildren?: number;
+    backgroundPulse?: boolean;
+  };
   const cine = parseCinematicMotionFromBlock(raw);
   const cinV3 = cine;
   const cinCtx = useCinematicPreviewV3();
@@ -295,7 +301,13 @@ export function SiteBuilderPreviewBlock({ block: raw, index: idx }: { block: unk
     align === "center" ? "justify-center text-center" : align === "right" ? "justify-end text-right" : "justify-start text-left";
   const c = block.content || {};
   const visual = (c.visual || {}) as Record<string, unknown>;
-  const mot = (c.motion || {}) as { entrance?: string; stagger?: number; hover?: string; staggerChildren?: number };
+  const mot = (c.motion || {}) as {
+    entrance?: string;
+    stagger?: number;
+    hover?: string;
+    staggerChildren?: number;
+    backgroundPulse?: boolean;
+  };
 
   if (type === "hero") {
     return <SiteBuilderHeroPreview raw={raw} idx={idx} />;
@@ -707,7 +719,10 @@ export function SiteBuilderPreviewBlock({ block: raw, index: idx }: { block: unk
     const avatarBorderStyle: CSSProperties = {
       borderWidth: typeof avatarStyle.borderWidth === "number" ? `${avatarStyle.borderWidth}px` : undefined,
       borderStyle: avatarStyle.borderWidth ? String(avatarStyle.borderStyle || "solid") : undefined,
-      borderColor: avatarStyle.borderColor || undefined,
+      borderColor:
+        avatarStyle.borderColor !== undefined && avatarStyle.borderColor !== null && avatarStyle.borderColor !== ""
+          ? (String(avatarStyle.borderColor) as CSSProperties["borderColor"])
+          : undefined,
     };
     return (
       <div key={`side-preview-${idx}`} style={style} className={`flex ${alignClass}`}>

@@ -41,12 +41,21 @@ export function mergeClientLifecycleMetadataIntoDocument(
   const clientId = effectiveClientId(input, doc);
   /** Consultant path: explicit “build for client” toggle or any linked hub client id. */
   const clientSiteBuild = Boolean(input.buildForClient) || Boolean(clientId);
-  const m = { ...(doc.metadata ?? { title: doc.metadata?.title ?? "Site", governance: {} }) };
+  const prev: Partial<NonNullable<SiteSchemaDocumentType["metadata"]>> = doc.metadata ?? {};
+  const m: NonNullable<SiteSchemaDocumentType["metadata"]> = {
+    title: typeof prev.title === "string" && prev.title.trim() ? prev.title : "Site",
+    removeDefaultCss: prev.removeDefaultCss ?? false,
+    governance: prev.governance ?? {},
+    ...prev,
+  };
   if (!m.title?.trim()) {
     m.title = "Site";
   }
   if (m.governance === undefined) {
     m.governance = {};
+  }
+  if (m.removeDefaultCss === undefined) {
+    m.removeDefaultCss = false;
   }
   if (clientId && !UUID_RE.test(clientId)) {
     return SiteSchemaDocument.parse({ ...doc, metadata: m });

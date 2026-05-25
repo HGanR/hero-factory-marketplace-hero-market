@@ -21,6 +21,8 @@ export function mergeWidgetIntegrationIntoSiteSchema(
     metadata: {
       ...prevMeta,
       widgetIntegration: {
+        placement: "body_end",
+        injectInDevPreviewTab: true,
         ...(prevMeta.widgetIntegration ?? {}),
         widgetKey: key.slice(0, 80),
         ...(opts.loaderOrigin?.trim()

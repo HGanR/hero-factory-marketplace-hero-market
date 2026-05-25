@@ -55,7 +55,7 @@ function isSocialPlatformString(s: string): s is SocialPlatform {
  * Defaults to `instagram` when unknown (matches previous dashboard behavior).
  */
 export function normalizeStrategyLabelToContentPlatformId(label: string): ContentPlatformId {
-  const t = label.trim();
+  const t = (typeof label === "string" ? label : String(label ?? "")).trim();
   if (!t) return "instagram";
   const exact = EXACT_DISPLAY_LABEL_TO_CONTENT_ID[t];
   if (exact) return exact;
@@ -78,7 +78,7 @@ export function isContentPlatformChipId(id: string): id is ContentPlatformId {
  * (Does not map YouTube / generic “social” — same rules as legacy `mapLabelsToPostingPlatforms` per label.)
  */
 export function normalizeStrategyLabelToOauthPostingPlatform(label: string): SocialPlatform | null {
-  const low = label.trim().toLowerCase();
+  const low = (typeof label === "string" ? label : String(label ?? "")).trim().toLowerCase();
   if (!low) return null;
   if (low.includes("instagram") || low === "ig") return "instagram";
   if (low.includes("tiktok") || low.includes("tik tok")) return "tiktok";

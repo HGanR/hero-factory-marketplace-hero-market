@@ -1,5 +1,6 @@
 import type { SiteSchemaDocumentType } from "@/lib/site-builder/schema";
 import { appendDeliverablesPackToExport } from "@/lib/site-builder/deliverables/deliverables-pack-export";
+import { embedBuilderSchemaInExport } from "./builder-schema-artifact";
 import type { AssetStrategy, DeploymentTarget, RoutingMode } from "@/lib/site-builder/refinement-schema";
 import { componentFolderForPageSlug, nextRouteSegment } from "./export-route-meta";
 import { HANDOFF_MANIFEST_SCHEMA_VERSION, nextSectionDescriptorsForRoute } from "./export-section-labels";
@@ -333,6 +334,8 @@ export function finalizeHandoffArtifacts(
 
   upsert("site.tokens.json", `${JSON.stringify(tokens, null, 2)}\n`);
   upsert("site.content-map.json", `${JSON.stringify(contentMap, null, 2)}\n`);
+
+  embedBuilderSchemaInExport(files, schema);
 
   appendDeliverablesPackToExport(files, schema, { target: ctx.target, themeSlug });
 }

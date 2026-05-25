@@ -16,7 +16,13 @@ export function applyRefinementToSchema(
 ): SiteSchemaDocumentType {
   if (!refinement) return doc;
   const next = JSON.parse(JSON.stringify(doc)) as SiteSchemaDocumentType;
-  const meta = { ...(next.metadata ?? {}) };
+  const prevMeta = (next.metadata ?? {}) as Partial<NonNullable<SiteSchemaDocumentType["metadata"]>>;
+  const meta: NonNullable<SiteSchemaDocumentType["metadata"]> = {
+    title: typeof prevMeta.title === "string" && prevMeta.title.trim() ? prevMeta.title : "Site",
+    removeDefaultCss: prevMeta.removeDefaultCss ?? false,
+    governance: prevMeta.governance ?? {},
+    ...prevMeta,
+  };
   const prevRef =
     meta.builderRefinement && typeof meta.builderRefinement === "object"
       ? { ...(meta.builderRefinement as Record<string, unknown>) }
@@ -89,7 +95,11 @@ export function applyRefinementToSchema(
     }
   }
 
-  meta.theme = theme;
+  meta.theme = {
+    backgroundMode: theme.backgroundMode ?? "simple_gradients",
+    mediaType: theme.mediaType ?? "image",
+    ...theme,
+  };
   next.metadata = meta;
 
   if (refinement.colorScheme === "light") {

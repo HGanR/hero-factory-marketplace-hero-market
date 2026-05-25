@@ -43,6 +43,7 @@ export type SiteBuilderAnalyticsEvent =
   | "site_builder_deployment_target_selected"
   | "site_builder_asset_uploaded"
   | "site_builder_asset_removed"
+  | "site_builder_composer_image_attached"
   | "site_builder_export_bundled_assets"
   | "site_builder_brand_brain_evaluated"
   | "site_builder_brand_brain_fix_applied"

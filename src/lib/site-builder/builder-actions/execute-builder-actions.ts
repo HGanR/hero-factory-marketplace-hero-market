@@ -59,15 +59,23 @@ function findPageIndex(doc: SiteSchemaDocumentType, slug: string): number {
 
 function ensureMetadata(doc: SiteSchemaDocumentType): NonNullable<SiteSchemaDocumentType["metadata"]> {
   if (!doc.metadata) {
-    doc.metadata = { title: "Site", governance: {} };
+    doc.metadata = {
+      title: "Site",
+      removeDefaultCss: false,
+      governance: {},
+    };
   }
-  if (!doc.metadata.title?.trim()) {
-    doc.metadata.title = "Site";
+  const m = doc.metadata;
+  if (!m.title?.trim()) {
+    m.title = "Site";
   }
-  if (doc.metadata.governance === undefined) {
-    doc.metadata.governance = {};
+  if (m.governance === undefined) {
+    m.governance = {};
   }
-  return doc.metadata;
+  if (m.removeDefaultCss === undefined) {
+    m.removeDefaultCss = false;
+  }
+  return m;
 }
 
 function applyContentPatch(
@@ -107,7 +115,7 @@ export async function executeBuilderActions(input: {
   siteId?: string | null;
   sessionEditContext?: SessionEditContext;
   /** When set, regenerate_section uses this invoker (BYOK / managed) instead of default global LLM. */
-  invokeLlm?: (messages: LlmMessage[]) => Promise<string | null>;
+  invokeLlm?: ((messages: LlmMessage[]) => Promise<string | null>) | null;
   /** When false, stop on first failing action (default). When true, continue and accumulate failures. */
   continueOnError?: boolean;
 }): Promise<{
@@ -197,7 +205,8 @@ export async function executeBuilderActions(input: {
           let ridx = -1;
           let slugForResult = act.pageSlug;
           if (hasNonemptyTarget(act.target)) {
-            const merged = { ...act.target, pageSlug: act.target.pageSlug ?? act.pageSlug };
+            const target = act.target;
+            const merged = { ...target, pageSlug: target.pageSlug ?? act.pageSlug };
             const r = resolveSectionTarget(doc, merged);
             ridx = r.blockIndex;
             slugForResult = r.pageSlug;
@@ -324,8 +333,10 @@ export async function executeBuilderActions(input: {
         }
         case "set_theme_tokens": {
           const m = ensureMetadata(doc);
-          m.theme = {
-            ...(m.theme ?? {}),
+          const prevTheme = m.theme ?? {};
+          type ThemeRow = NonNullable<NonNullable<SiteSchemaDocumentType["metadata"]>["theme"]>;
+          const mergedTheme: Partial<ThemeRow> = {
+            ...prevTheme,
             ...(act.styleMode !== undefined ? { styleMode: act.styleMode } : {}),
             ...(act.gradientStart !== undefined ? { gradientStart: act.gradientStart } : {}),
             ...(act.gradientEnd !== undefined ? { gradientEnd: act.gradientEnd } : {}),
@@ -335,6 +346,11 @@ export async function executeBuilderActions(input: {
             ...(act.buttonStyle !== undefined ? { buttonStyle: act.buttonStyle } : {}),
             ...(act.depthStyle !== undefined ? { depthStyle: act.depthStyle } : {}),
             ...(act.motionHint !== undefined ? { motionHint: act.motionHint } : {}),
+          };
+          m.theme = {
+            backgroundMode: mergedTheme.backgroundMode ?? "simple_gradients",
+            mediaType: mergedTheme.mediaType ?? "image",
+            ...mergedTheme,
           };
           const theme = m.theme;
           let ds = designSystemFromThemeSnapshot({
@@ -482,7 +498,8 @@ export async function executeBuilderActions(input: {
           let sectionId = act.sectionId?.trim() || "";
           let resolvedDetail: Record<string, unknown> | undefined;
           if (hasNonemptyTarget(act.target)) {
-            const r = resolveSectionTarget(doc, act.target);
+            const target = act.target;
+            const r = resolveSectionTarget(doc, target);
             sectionId = r.aiSectionId;
             resolvedDetail = { resolvedTarget: r };
           }
@@ -735,6 +752,10 @@ export async function executeBuilderActions(input: {
             details: { connectionId: row.id, status: row.status, domain: row.domain },
           });
           break;
+        }
+        default: {
+          const _exhaustive: never = act;
+          throw new Error(`Unsupported builder action: ${String((_exhaustive as BuilderAction).action)}`);
         }
       }
 

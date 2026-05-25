@@ -76,7 +76,13 @@ export function applyBrandGovernanceToDocument(doc: SiteSchemaDocumentType): boo
   }
 
   if (touched) {
-    const base = doc.metadata ?? { title: "Site" };
+    const prev: Partial<NonNullable<SiteSchemaDocumentType["metadata"]>> = doc.metadata ?? {};
+    const base: NonNullable<SiteSchemaDocumentType["metadata"]> = {
+      title: typeof prev.title === "string" && prev.title.trim() ? prev.title : "Site",
+      removeDefaultCss: prev.removeDefaultCss ?? false,
+      governance: prev.governance ?? {},
+      ...prev,
+    };
     const gv = base.governance;
     doc.metadata = {
       ...base,

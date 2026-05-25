@@ -36,7 +36,7 @@ export class SectionResolveError extends Error {
   }
 }
 
-export function hasNonemptyTarget(target: SectionTargetDescriptor | undefined): boolean {
+export function hasNonemptyTarget(target: SectionTargetDescriptor | undefined): target is SectionTargetDescriptor {
   if (!target) return false;
   return (
     target.blockIndex !== undefined ||

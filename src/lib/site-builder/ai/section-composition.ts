@@ -236,7 +236,7 @@ export function composeHomeSectionPlan(
       intent,
     });
     if (ff.length > 0) {
-      return capPlanForLayoutFamily(ff, family, layoutFamilyId);
+      return capPlanForLayoutFamily(ff, family, layoutFamilyId ?? family.id);
     }
   }
 

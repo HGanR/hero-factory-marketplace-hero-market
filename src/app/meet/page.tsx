@@ -3,12 +3,19 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useRef, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi';
-import { injected } from "@wagmi/core";
+import { useAccount, useChainId, useConnect, useDisconnect, useReadContract } from 'wagmi';
+import { injected } from '@wagmi/core';
 import { TokenGateWrapper } from '../components/TokenGateWrapper';
+import type {
+  MeetAvatarNftItem,
+  MeetAvatarNftsResponse,
+  MeetAvatarNftWarning,
+} from '@/lib/meet/avatar-nfts/types';
+import { meetAvatarLog } from '@/lib/meet/meetAvatarLog';
+import { TrooLiveKitMeeting } from './TrooLiveKitMeeting';
 
 // Icons (using Lucide React or similar)
 const VideoIcon = () => (
@@ -160,13 +167,7 @@ interface ChatMessage {
   timestamp: number;
 }
 
-interface NFT {
-  mint?: string;
-  tokenId?: string;
-  name: string;
-  image: string;
-  description?: string;
-}
+type DemoNftPick = { mint: string; name: string; image: string; description?: string };
 
 interface ExtendedMediaRecorder extends MediaRecorder {
   timer?: ReturnType<typeof setInterval>;
@@ -176,82 +177,31 @@ interface ExtendedMediaRecorder extends MediaRecorder {
 const ELECTRIC_BLUE = "#00D1FF";
 const BRIGHT_ELECTRIC_BLUE = "#00E5FF";
 
-// ERC20 ABI for token balance checking
-const ERC20_ABI = [
+// HERO NFT (Polygon ERC-1155) gate configuration
+const HERO_1155_CONTRACT = "0x7202cd71cb52ce0d71b9a13f2dacc4599b6cb13a" as `0x${string}`;
+const HERO_1155_TOKEN_IDS = [0n, 1n, 2n, 3n, 4n, 5n, 6n, 7n, 8n, 9n];
+const ERC1155_ABI = [
   {
-    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-    "name": "balanceOf",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [
+      { name: "account", type: "address" },
+      { name: "id", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
   },
   {
-    "inputs": [],
-    "name": "decimals",
-    "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
+    type: "function",
+    name: "uri",
+    stateMutability: "view",
+    inputs: [{ name: "id", type: "uint256" }],
+    outputs: [{ name: "", type: "string" }],
+  },
 ] as const;
 
-// TROO Token Configuration
-const TROO_POLYGON_CONTRACT = "0xa7927231898293377Ce676CFC9bbD551Cb845695";
-const TROO_SOLANA_MINT = "BAeN51zZmMsnkSRFnKZHLFG1G9LkGTFoTMUbyTUDpump";
-const REQUIRED_TROO_AMOUNT = 100; // 100 TROO tokens (matches Trust page gate requirement)
+const REQUIRED_NFT_LABEL = "Hero NFT (ERC-1155)";
 const DEV_TREASURY_ADDRESS = "0x5c8B7C050d7E83E01A278bE24d578A4Daf3e17EF";
-const EXTRA_EVM_ADDRESSES: `0x${string}`[] = ["0x5c8B7C050d7E83E01A278bE24d578A4Daf3e17EF"];
-
-// Polygon RPC fallbacks (match Trust/Trust-Records/Oasis + extra)
-const POLYGON_RPC_CANDIDATES = [
-  (process.env.NEXT_PUBLIC_POLYGON_RPC || "").trim(),
-  "https://polygon-bor-rpc.publicnode.com",
-  "https://polygon-rpc.com",
-  "https://1rpc.io/polygon",
-  "https://rpc.ankr.com/polygon",
-  "https://polygon.gateway.tenderly.co", // public gateway
-  "https://polygon-mainnet.blastapi.io", // blast api public
-].filter(Boolean);
-
-const pad32 = (hexNo0x: string) => hexNo0x.toLowerCase().padStart(64, "0");
-const encodeBalanceOf = (addr: string) => {
-  const selector = "70a08231";
-  const addrNo0x = addr.replace(/^0x/i, "");
-  return ("0x" + selector + pad32(addrNo0x)) as `0x${string}`;
-};
-
-async function ethCallPolygonSmart(
-  to: string,
-  data: `0x${string}`
-): Promise<{ result: `0x${string}`; notes: string[] }> {
-  const notes: string[] = [];
-  for (const url of POLYGON_RPC_CANDIDATES) {
-    try {
-      const body = { jsonrpc: "2.0", id: Math.floor(Math.random() * 1e6), method: "eth_call", params: [{ to, data }, "latest"] };
-      const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-      if (!r.ok) { notes.push(`RPC ${url} → HTTP ${r.status}`); continue; }
-      const j = await r.json();
-      if ((j as any)?.error) { notes.push(`RPC ${url} → ${String((j as any)?.error?.message || "error")}`); continue; }
-      const res = (j as any)?.result as `0x${string}`;
-      if (typeof res === "string") { notes.push(`RPC ${url} → ok`); return { result: res, notes }; }
-      notes.push(`RPC ${url} → empty`);
-    } catch (e: any) { notes.push(`RPC ${url} → ${String(e?.message || e)}`); }
-  }
-  throw new Error(notes.join(" | "));
-}
-
-async function readPolygonDecimals(contract: string): Promise<{ value: number; notes: string[] }> {
-  try {
-    const { result, notes } = await ethCallPolygonSmart(contract, "0x313ce567");
-    return { value: Number(BigInt(result)), notes };
-  } catch (e: any) {
-    return { value: 18, notes: [`decimals fallback to 18 (${String(e?.message || e)})`] };
-  }
-}
-
-async function readPolygonBalance(contract: string, addr: string) {
-  const { result, notes } = await ethCallPolygonSmart(contract, encodeBalanceOf(addr));
-  return { value: BigInt(result || "0x0"), notes };
-}
 
 // Demo NFTs for avatar selection
 const DEMO_NFTS = [
@@ -290,26 +240,6 @@ const detectWalletType = (address?: string | null) => {
   if ((window as any).ethereum) return "metamask";
   if ((window as any).phantom?.solana) return "phantom";
   return null;
-};
-
-// NFT fetching functions
-const fetchUserNFTs = async (walletAddress: string, walletType: 'phantom' | 'metamask') => {
-  try {
-    if (walletType === 'phantom') {
-      // Fetch Solana NFTs
-      const response = await fetch(`/api/nfts/solana?owner=${walletAddress}`);
-      const data = await response.json();
-      return data.nfts || [];
-    } else {
-      // Fetch Ethereum/Polygon NFTs
-      const response = await fetch(`/api/nft-metadata?owner=${walletAddress}&chain=polygon`);
-      const data = await response.json();
-      return data.nfts || [];
-    }
-  } catch (error) {
-    console.error('Failed to fetch NFTs:', error);
-    return [];
-  }
 };
 
 // Device detection function
@@ -547,7 +477,9 @@ function ParticipantGrid({
 // Main TROO Video Meeting Component
 function TrooVideoMeeting() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   
@@ -555,6 +487,7 @@ function TrooVideoMeeting() {
   const [meetingState, setMeetingState] = useState('setup');
   const [roomId, setRoomId] = useState('');
   const [roomName, setRoomName] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [maxParticipants] = useState(100);
@@ -584,107 +517,56 @@ function TrooVideoMeeting() {
   const [inviteLink, setInviteLink] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   
+  // LiveKit state (real-time multi-participant video)
+  const [livekitToken, setLivekitToken] = useState<string | null>(null);
+  const [livekitServerUrl, setLivekitServerUrl] = useState<string | null>(null);
+  const [livekitError, setLivekitError] = useState<string | null>(null);
+
+  // Host-only: layout, participant record, recording
+  const [meetingLayout, setMeetingLayout] = useState<'grid' | 'speaker' | 'single-speaker'>('grid');
+  const [recordParticipants, setRecordParticipants] = useState(false);
+  const [egressId, setEgressId] = useState<string | null>(null);
+
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Token gate state
-  const [isTokenHolder, setIsTokenHolder] = useState(false);
-  const [tokenBalance, setTokenBalance] = useState(0);
-  const [isCheckingTokens, setIsCheckingTokens] = useState(false);
   const [walletType, setWalletType] = useState<'phantom' | 'metamask' | null>(null);
-  const [polyManual, setPolyManual] = useState<{
-    sum: bigint;
-    decimals: number;
-    notes: string[];
-    ts: number | null;
-    loading: boolean;
-  }>({ sum: 0n, decimals: 18, notes: [], ts: null, loading: false });
   
-  // NFT state
-  const [userNFTs, setUserNFTs] = useState<NFT[]>([]);
+  // Avatar NFTs (unified GET /api/meet/avatar-nfts)
+  const [avatarNftItems, setAvatarNftItems] = useState<MeetAvatarNftItem[]>([]);
+  const [avatarNftWarnings, setAvatarNftWarnings] = useState<MeetAvatarNftWarning[]>([]);
+  const [avatarNftSourcesSucceeded, setAvatarNftSourcesSucceeded] = useState<
+    Array<"marketplace" | "hero">
+  >([]);
+  const [nftFetchPartialFailure, setNftFetchPartialFailure] = useState(false);
+  const [solanaAvatarUnsupported, setSolanaAvatarUnsupported] = useState(false);
+  const [avatarNftsTruncated, setAvatarNftsTruncated] = useState(false);
+  const [nftFetchError, setNftFetchError] = useState<string | null>(null);
   const [isLoadingNFTs, setIsLoadingNFTs] = useState(false);
   
   // Device detection state
   const [deviceInfo, setDeviceInfo] = useState<{videoDevices: number, audioDevices: number, error?: string} | null>(null);
 
-  // Real token balance checking with wagmi
-  const { data: trooBalanceData } = useReadContract({
-    address: TROO_POLYGON_CONTRACT,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    chainId: 137, // Polygon
-    query: { enabled: Boolean(address && address.startsWith("0x")) },
-  });
+  // NFT gate checks (Polygon ERC-1155)
+  const heroReads = HERO_1155_TOKEN_IDS.map((id) =>
+    useReadContract({
+      address: HERO_1155_CONTRACT,
+      abi: ERC1155_ABI,
+      functionName: "balanceOf",
+      args: address ? [address as `0x${string}`, id] : undefined,
+      chainId: 137,
+      query: { enabled: Boolean(address && address.startsWith("0x")) },
+    })
+  );
+  const heroBalances = heroReads.map((r) => Number(r.data ?? 0n));
+  const heroAny = heroBalances.some((b) => b > 0);
+  const heroLoadingAny = heroReads.some((r) => r.isLoading);
 
-  const { data: tokenDecimals } = useReadContract({
-    address: TROO_POLYGON_CONTRACT,
-    abi: ERC20_ABI,
-    functionName: 'decimals',
-    chainId: 137,
-  });
-
-  const trooRawWagmi = (trooBalanceData ?? 0n) as bigint;
-  const trooDecimals = Number(tokenDecimals ?? 18);
-
-  const fetchAllEvmAccounts = useCallback(async (): Promise<string[]> => {
-    if (typeof window === "undefined") return [];
-    const mm = (window as any).ethereum;
-    const base: string[] = [];
-    if (address?.startsWith("0x")) base.push(address);
-    base.push(...EXTRA_EVM_ADDRESSES);
-    if (!mm) return Array.from(new Set(base.map((a) => a.toLowerCase())));
-    try {
-      const permitted = await mm.request({ method: "eth_accounts" });
-      const list = Array.isArray(permitted) ? permitted : [];
-      const set = new Set<string>(base.map((a) => a.toLowerCase()));
-      list.forEach((a) => { if (typeof a === "string" && a.startsWith("0x")) set.add(a.toLowerCase()); });
-      return [...set];
-    } catch {
-      return Array.from(new Set(base.map((a) => a.toLowerCase())));
-    }
-  }, [address]);
-
-  const rescanPolygonManual = useCallback(async () => {
-    const baseAddrs = await fetchAllEvmAccounts();
-    const addrs = Array.from(new Set([...baseAddrs, ...EXTRA_EVM_ADDRESSES.map((a) => a.toLowerCase())]));
-    if (!addrs.length) {
-      setPolyManual({ sum: 0n, decimals: 18, notes: [], ts: Date.now(), loading: false });
-      return { raw: 0n, decimals: 18 };
-    }
-    setPolyManual((p) => ({ ...p, loading: true, notes: [] }));
-    const notes: string[] = [];
-    try {
-      const { value: dec, notes: decNotes } = await readPolygonDecimals(TROO_POLYGON_CONTRACT);
-      notes.push(...decNotes);
-      let sum = 0n;
-      for (const addr of addrs) {
-        try {
-          const { value: bal, notes: balNotes } = await readPolygonBalance(TROO_POLYGON_CONTRACT, addr);
-          notes.push(...balNotes);
-          notes.push(`Polygon ${addr.slice(0, 6)}...${addr.slice(-4)} → ${bal.toString()} (raw)`);
-          sum += bal;
-        } catch (e: any) {
-          notes.push(`Polygon ${addr.slice(0, 6)}...${addr.slice(-4)} read error: ${String(e?.message || e)}`);
-        }
-      }
-      const decimals = Number.isFinite(dec) ? dec : 18;
-      setPolyManual({ sum, decimals, notes, ts: Date.now(), loading: false });
-      return { raw: sum, decimals };
-    } catch (e: any) {
-      notes.push(`Polygon manual scan failed: ${String(e?.message || e)}`);
-      setPolyManual({ sum: 0n, decimals: 18, notes, ts: Date.now(), loading: false });
-      return { raw: 0n, decimals: 18 };
-    }
-  }, [fetchAllEvmAccounts]);
-
-  useEffect(() => {
-    if (!isConnected || !address?.startsWith("0x")) return;
-    rescanPolygonManual();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address, rescanPolygonManual]);
+  const isTokenHolder = Boolean(isConnected && address?.startsWith("0x") && heroAny);
+  const gatePending = Boolean(isConnected && address?.startsWith("0x") && heroLoadingAny);
 
   // Check if user is host
   const isHost = address === DEV_TREASURY_ADDRESS || isTokenHolder;
@@ -699,78 +581,133 @@ function TrooVideoMeeting() {
     return result;
   }, []);
 
-  // Token gate check with real balance data
-  const checkTokenBalance = useCallback(async () => {
-    if (!address || !isConnected) {
-      setIsTokenHolder(false);
-      setTokenBalance(0);
-      setWalletType(null);
-      return;
-    }
+  const selectableAvatarNfts = useMemo(
+    () => avatarNftItems.filter((i) => i.selectable && i.image),
+    [avatarNftItems]
+  );
 
-    // Detect wallet type
-    const detectedWalletType = detectWalletType(address);
-    setWalletType(detectedWalletType);
+  const displayAvatarNfts = useMemo(
+    () => selectableAvatarNfts.slice(0, 7),
+    [selectableAvatarNfts]
+  );
 
-    // Dev treasury bypass
-    if (address === DEV_TREASURY_ADDRESS) {
-      setIsTokenHolder(true);
-      setTokenBalance(REQUIRED_TROO_AMOUNT);
-      return;
-    }
+  const hasSolanaWarning =
+    solanaAvatarUnsupported ||
+    avatarNftWarnings.some((w) => w.code === "solana_unsupported");
+  const marketplaceFetchFailed = avatarNftWarnings.some(
+    (w) => w.code === "marketplace_fetch_failed"
+  );
+  const heroFetchFailed = avatarNftWarnings.some((w) => w.code === "hero_fetch_failed");
+  const heroSourceOk = avatarNftSourcesSucceeded.includes("hero");
+  const marketplaceSourceOk = avatarNftSourcesSucceeded.includes("marketplace");
 
-    setIsCheckingTokens(true);
-    
-    try {
-      let balance = 0;
-      
-      // Match Trust page: gate is based on Polygon TROO (ERC-20) contract.
-      // Prefer wagmi read; fall back to manual multi-RPC scan when wagmi returns 0/undefined.
-      if (address?.startsWith("0x")) {
-        let decimals = Number.isFinite(trooDecimals) ? trooDecimals : 18;
-        let raw = trooRawWagmi;
-
-          if (raw <= 0n) {
-            const manual = await rescanPolygonManual();
-          raw = manual.raw;
-          decimals = Number.isFinite(manual.decimals) ? manual.decimals : decimals;
-        }
-
-        balance = Number(raw) / Math.pow(10, Number.isFinite(decimals) ? decimals : 18);
-      } else {
-        // No supported on-chain check for this wallet type on /meet right now.
-        balance = 0;
-      }
-      
-      setTokenBalance(balance);
-      setIsTokenHolder(balance >= REQUIRED_TROO_AMOUNT);
-    } catch (error) {
-      console.error('Token balance check failed:', error);
-      setIsTokenHolder(false);
-      setTokenBalance(0);
-    } finally {
-      setIsCheckingTokens(false);
-    }
-  }, [address, isConnected, rescanPolygonManual, trooDecimals, trooRawWagmi]);
-
-  // Check tokens when wallet connects
   useEffect(() => {
-    checkTokenBalance();
-  }, [checkTokenBalance]);
+    meetAvatarLog("picker NFT count (server)", {
+      items: avatarNftItems.length,
+      selectable: selectableAvatarNfts.length,
+    });
+  }, [avatarNftItems.length, selectableAvatarNfts.length]);
 
-  // Fetch user NFTs when they pass token gate
   useEffect(() => {
-    if (isTokenHolder && address && walletType) {
-      setIsLoadingNFTs(true);
-      fetchUserNFTs(address, walletType).then(nfts => {
-        setUserNFTs(nfts);
-        setIsLoadingNFTs(false);
-      }).catch(error => {
-        console.error('Failed to fetch NFTs:', error);
-        setIsLoadingNFTs(false);
+    meetAvatarLog("selected avatar payload", {
+      imageUrl: selectedAvatar,
+      isLiveCamera: selectedAvatar === null,
+      previewLen: selectedAvatar ? selectedAvatar.length : 0,
+    });
+  }, [selectedAvatar]);
+
+  useEffect(() => {
+    if (!showAvatarSelector) return;
+    meetAvatarLog("avatar picker open", {
+      selectableTotal: selectableAvatarNfts.length,
+      truncated: avatarNftsTruncated,
+      isLoadingNFTs,
+      nftFetchError,
+      partialFailure: nftFetchPartialFailure,
+      hasSolanaWarning,
+    });
+  }, [
+    showAvatarSelector,
+    selectableAvatarNfts.length,
+    avatarNftsTruncated,
+    isLoadingNFTs,
+    nftFetchError,
+    nftFetchPartialFailure,
+    hasSolanaWarning,
+  ]);
+
+  useEffect(() => {
+    if (address) {
+      meetAvatarLog("wallet context", {
+        address,
+        chainId,
+        walletType,
+        renderWalletNftSection: Boolean(address && walletType),
       });
     }
-  }, [isTokenHolder, address, walletType]);
+  }, [address, chainId, walletType]);
+
+  // Unified server avatar NFTs (marketplace DB + Hero ERC-1155 on Polygon)
+  useEffect(() => {
+    if (!address || !walletType) {
+      setAvatarNftItems([]);
+      setAvatarNftWarnings([]);
+      setAvatarNftSourcesSucceeded([]);
+      setNftFetchPartialFailure(false);
+      setSolanaAvatarUnsupported(false);
+      setAvatarNftsTruncated(false);
+      setNftFetchError(null);
+      return;
+    }
+    const apiWalletType = walletType === "phantom" ? "phantom" : "evm";
+    let cancelled = false;
+    setIsLoadingNFTs(true);
+    meetAvatarLog("avatar-nfts API fetch", { address, apiWalletType });
+    const q = new URLSearchParams({
+      walletAddress: address,
+      walletType: apiWalletType,
+      limit: "20",
+    });
+    fetch(`/api/meet/avatar-nfts?${q.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(text || `Request failed (${res.status})`);
+        }
+        return res.json() as Promise<MeetAvatarNftsResponse>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setAvatarNftItems(data.items ?? []);
+        setAvatarNftWarnings(data.warnings ?? []);
+        setAvatarNftSourcesSucceeded(data.sourcesSucceeded ?? []);
+        setNftFetchPartialFailure(Boolean(data.partialFailure));
+        setSolanaAvatarUnsupported(Boolean(data.solanaAvatarUnsupported));
+        setAvatarNftsTruncated(Boolean(data.truncated));
+        setNftFetchError(null);
+        meetAvatarLog("avatar-nfts API settled", {
+          items: data.items?.length ?? 0,
+          partialFailure: data.partialFailure,
+          solanaUnsupported: data.solanaAvatarUnsupported,
+        });
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setAvatarNftItems([]);
+        setAvatarNftWarnings([]);
+        setAvatarNftSourcesSucceeded([]);
+        setNftFetchPartialFailure(true);
+        setSolanaAvatarUnsupported(false);
+        setAvatarNftsTruncated(false);
+        setNftFetchError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingNFTs(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address, walletType]);
 
   // Detect wallet type and media devices on mount
   useEffect(() => {
@@ -783,6 +720,58 @@ function TrooVideoMeeting() {
       console.log('Device detection result:', info);
     });
   }, [address]);
+
+  // Read room, name, presetLabel from URL when arriving via shared link (e.g. /meet?room=ABC123&name=RoomName&presetLabel=Voice%20discussion%20room)
+  const presetLabelFromUrl = searchParams?.get("presetLabel")?.trim() || "";
+  useEffect(() => {
+    const room = searchParams?.get("room")?.trim().toUpperCase() || searchParams?.get("room")?.trim() || "";
+    const name = searchParams?.get("name")?.trim() || "";
+    if (room) {
+      setRoomId(room);
+      if (name) setRoomName(name);
+    }
+  }, [searchParams]);
+
+  // Resolve avatar identity for room entry (Phase 2)
+  const [avatarIdentity, setAvatarIdentity] = useState<{ displayName: string; avatarModelUrl: string; thumbnailUrl?: string | null; isFallback: boolean } | null>(null);
+  const [avatarLoading, setAvatarLoading] = useState(true);
+  useEffect(() => {
+    fetch("/api/avatars/default", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.avatar) {
+          setAvatarIdentity({
+            displayName: data.avatar.displayName || "Guest",
+            avatarModelUrl: data.avatar.avatarModelUrl,
+            thumbnailUrl: data.avatar.thumbnailUrl,
+            isFallback: false,
+          });
+          setDisplayName((prev) => prev || data.avatar.displayName || "");
+          if (!selectedAvatar && data.avatar.thumbnailUrl) {
+            setSelectedAvatar(data.avatar.thumbnailUrl);
+          }
+        } else {
+          setAvatarIdentity({
+            displayName: "Guest",
+            avatarModelUrl: "/models/avatars/guest/default-avatar.glb",
+            thumbnailUrl: null,
+            isFallback: true,
+          });
+        }
+      })
+      .catch(() => {
+        setAvatarIdentity({
+          displayName: "Guest",
+          avatarModelUrl: "/models/avatars/guest/default-avatar.glb",
+          thumbnailUrl: null,
+          isFallback: true,
+        });
+      })
+      .finally(() => setAvatarLoading(false));
+  }, []);
+
+  // Visitor arrived via shared link (room in URL) = joining existing meeting
+  const isJoiningViaLink = Boolean(searchParams?.get("room")?.trim());
 
   // Request media permissions
   const requestPermissions = useCallback(async (includeVideo = true) => {
@@ -908,36 +897,72 @@ function TrooVideoMeeting() {
     }
   }, []);
 
-  // Start meeting
+  // Start/join meeting - fetches LiveKit token for real-time multi-participant video
   const handleStartMeeting = useCallback(async () => {
-    // Match /trust behavior: token gate is informational (status + perks), not a hard blocker.
-    // Non-holders can still start/join meetings; holder status can still grant host perks.
-
     setIsConnecting(true);
-    
-    setTimeout(() => {
-      setMeetingState('joining');
-      
-      setTimeout(() => {
-        setMeetingState('meeting');
-        setIsConnecting(false);
-        
-        // Add self as participant
-        const selfParticipant = {
-          id: 'self',
-          address: address || 'demo',
-          name: 'You',
-          isHost,
-          isMuted: !isAudioOn,
-          isVideoOn: isVideoOn && !cameraOptional,
-          avatar: selectedAvatar || undefined,
-          stream: localStream || undefined
-        };
-        
-        setParticipants([selfParticipant]);
-      }, 2000);
-    }, 1000);
-  }, [isTokenHolder, address, isHost, isAudioOn, isVideoOn, cameraOptional, selectedAvatar, localStream]);
+    setLivekitError(null);
+    setMeetingState('joining');
+
+    try {
+      const participantIdentity = address
+        ? `${address.slice(0, 8)}-${Date.now().toString(36)}`
+        : `guest-${Date.now().toString(36)}`;
+      const participantName =
+        (displayName?.trim() || '').slice(0, 64) ||
+        (address ? `0x${address.slice(2, 6)}...${address.slice(-4)}` : 'Guest');
+
+      const res = await fetch('/api/livekit/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomName: roomId,
+          participantIdentity,
+          participantName,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (res.status === 503) {
+          setLivekitError(
+            'LiveKit not configured. Using demo mode—participants won\'t see each other. Set LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET for real video calls.'
+          );
+          // Fall back to local demo
+          setTimeout(() => {
+            setMeetingState('meeting');
+            setIsConnecting(false);
+            setParticipants([
+              {
+                id: 'self',
+                address: address || 'demo',
+                name: 'You',
+                isHost,
+                isMuted: !isAudioOn,
+                isVideoOn: isVideoOn && !cameraOptional,
+                avatar: selectedAvatar || undefined,
+                stream: localStream || undefined,
+              },
+            ]);
+          }, 800);
+          return;
+        }
+        throw new Error(data?.error || `Token request failed (${res.status})`);
+      }
+
+      // Stop setup stream; LiveKit will manage its own media
+      localStream?.getTracks().forEach((t) => t.stop());
+      setLocalStream(null);
+
+      setLivekitToken(data.token);
+      setLivekitServerUrl(data.serverUrl);
+      setMeetingState('meeting');
+      setIsConnecting(false);
+    } catch (err) {
+      setLivekitError(err instanceof Error ? err.message : 'Failed to connect');
+      setMeetingState('setup');
+      setIsConnecting(false);
+    }
+  }, [roomId, address, displayName, isHost, isAudioOn, isVideoOn, cameraOptional, selectedAvatar, localStream]);
 
   // Toggle functions with participant sync
   const toggleVideo = useCallback(() => {
@@ -1150,22 +1175,31 @@ function TrooVideoMeeting() {
   const leaveMeeting = useCallback(() => {
     localStream?.getTracks().forEach(track => track.stop());
     screenStream?.getTracks().forEach(track => track.stop());
-    
+
     if (isRecording) {
       stopRecording();
     }
-    
+
     setMeetingState('setup');
     setLocalStream(null);
     setScreenStream(null);
     setIsScreenSharing(false);
     setParticipants([]);
+    setLivekitToken(null);
+    setLivekitServerUrl(null);
+    setLivekitError(null);
+    setEgressId(null);
   }, [localStream, screenStream, isRecording, stopRecording]);
 
   // Generate invite link
   const generateInviteLink = useCallback(() => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const link = `${baseUrl}/meet?room=${roomId}${roomName ? `&name=${encodeURIComponent(roomName)}` : ''}`;
+    const params = new URLSearchParams();
+    params.set('room', roomId);
+    if (roomName) params.set('name', roomName);
+    const presetLabel = searchParams?.get('presetLabel')?.trim();
+    if (presetLabel) params.set('presetLabel', presetLabel);
+    const link = `${baseUrl}/meet?${params.toString()}`;
     setInviteLink(link);
     
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -1174,7 +1208,7 @@ function TrooVideoMeeting() {
         setTimeout(() => setLinkCopied(false), 2000);
       });
     }
-  }, [roomId, roomName]);
+  }, [roomId, roomName, searchParams]);
 
   // Send chat message
   const sendMessage = useCallback(() => {
@@ -1240,60 +1274,124 @@ function TrooVideoMeeting() {
                   <p className="text-gray-400">Set up your exclusive video meeting</p>
                 </div>
 
-                {/* Token Status */}
+                {/* Token Status — collapsed by default; expand for full wallet / contract / balances */}
                 {isConnected && (
-                  <div className="mb-6 p-4 bg-slate-700 rounded-lg">
-                    <h3 className="text-sm font-medium mb-2">Token Status</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Wallet:</span>
-                        <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Wallet Type:</span>
-                        <span className="capitalize">{walletType || 'Unknown'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Contract:</span>
-                        <span className="font-mono">{TROO_POLYGON_CONTRACT.slice(0, 6)}...{TROO_POLYGON_CONTRACT.slice(-4)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Token Balance:</span>
-                        <span className={isTokenHolder ? 'text-green-400' : 'text-red-400'}>
-                          {isCheckingTokens ? 'Checking...' : `${tokenBalance.toLocaleString()} TROO`}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Access:</span>
-                        <span className={isTokenHolder ? 'text-green-400' : 'text-slate-300'}>
-                          {isTokenHolder ? '✓ Member perks enabled' : 'Available to all visitors'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-400">
-                        <span>Source:</span>
-                        <span>{trooRawWagmi > 0n ? "wagmi" : polyManual.loading ? "manual (loading)" : "manual fallback"}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => { rescanPolygonManual(); checkTokenBalance(); }}
-                      className="mt-3 w-full px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm border border-slate-600"
-                      disabled={polyManual.loading || isCheckingTokens}
-                    >
-                      {polyManual.loading || isCheckingTokens ? "Rescanning…" : "Rescan Polygon (manual)"}
-                    </button>
-                    {polyManual.ts && polyManual.notes.length > 0 && (
-                      <details className="mt-2 text-xs text-gray-400">
-                        <summary className="cursor-pointer text-cyan-300">Debug notes</summary>
-                        <div className="mt-1 space-y-1 max-h-36 overflow-y-auto">
-                          {polyManual.notes.map((n, i) => <div key={i}>{n}</div>)}
+                  <details className="group mb-6 rounded-lg bg-slate-700">
+                    <summary className="cursor-pointer list-none p-4 rounded-lg select-none [&::-webkit-details-marker]:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-white">Token Status</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
+                            <span className="font-mono">
+                              {address?.slice(0, 6)}…{address?.slice(-4)}
+                            </span>
+                            <span className="text-slate-500">·</span>
+                            <span className="capitalize">{walletType || "Unknown"}</span>
+                          </div>
                         </div>
-                      </details>
-                    )}
-                    {!isTokenHolder && address !== DEV_TREASURY_ADDRESS && (
-                      <p className="text-xs text-gray-400 mt-2">
-                        Member perks: hold {REQUIRED_TROO_AMOUNT.toLocaleString()} TROO to unlock host privileges (e.g., recording).
-                      </p>
-                    )}
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={
+                              gatePending
+                                ? "text-slate-300"
+                                : isTokenHolder
+                                  ? "text-green-400"
+                                  : "text-red-400"
+                            }
+                          >
+                            {gatePending
+                              ? "Checking…"
+                              : heroAny
+                                ? "✓ NFT holder"
+                                : "No NFT"}
+                          </span>
+                          <svg
+                            className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    </summary>
+                    <div className="space-y-2 border-t border-slate-600 px-4 pb-4 pt-3 text-sm">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-slate-400">Wallet</span>
+                        <span className="font-mono text-right text-xs sm:text-sm">
+                          {address?.slice(0, 6)}…{address?.slice(-4)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-slate-400">Wallet type</span>
+                        <span className="capitalize">{walletType || "Unknown"}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-slate-400">Contract</span>
+                        <span className="font-mono text-right text-xs sm:text-sm">
+                          {HERO_1155_CONTRACT.slice(0, 6)}…{HERO_1155_CONTRACT.slice(-4)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-2">
+                        <span className="shrink-0 text-slate-400">Token IDs</span>
+                        <span className="break-all text-xs text-slate-300">
+                          {HERO_1155_TOKEN_IDS.join(", ")}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-slate-400">Balances</span>
+                        <span className="break-all text-xs leading-relaxed text-slate-300">
+                          {heroBalances.map((b, i) => `${HERO_1155_TOKEN_IDS[i]}:${b}`).join(" | ")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-slate-400">NFT balance</span>
+                        <span className={isTokenHolder ? "text-green-400" : "text-red-400"}>
+                          {gatePending
+                            ? "Checking…"
+                            : heroAny
+                              ? "✓ NFT holder"
+                              : "No NFT found"}
+                        </span>
+                      </div>
+                      {!isTokenHolder && address !== DEV_TREASURY_ADDRESS && (
+                        <p className="text-xs text-gray-400 pt-1">
+                          Member perks: hold the {REQUIRED_NFT_LABEL} on Polygon to unlock host
+                          privileges (e.g., recording).
+                        </p>
+                      )}
+                    </div>
+                  </details>
+                )}
+
+                {/* Joining via link banner */}
+                {isJoiningViaLink && (
+                  <div className="mb-6 p-4 rounded-lg border border-blue-500/50 bg-blue-500/10">
+                    <p className="text-sm text-blue-200 font-medium">
+                      You&apos;re joining an existing meeting. Grant permissions below and click Join to enter.
+                    </p>
+                  </div>
+                )}
+
+                {/* Avatar identity banner (Phase 2) */}
+                {!avatarLoading && avatarIdentity?.isFallback && (
+                  <div className="mb-6 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10">
+                    <p className="text-sm text-amber-200 font-medium">
+                      You&apos;re using a default guest avatar.
+                    </p>
+                    <a
+                      href="/avatars"
+                      className="text-sm text-cyan-400 hover:text-cyan-300 mt-1 inline-block"
+                    >
+                      Create your avatar →
+                    </a>
                   </div>
                 )}
 
@@ -1358,7 +1456,20 @@ function TrooVideoMeeting() {
                   )}
                 </div>
 
-                {/* Avatar Selection */}
+                {/* Display Name - shown to other participants */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-2">Your display name</label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value.slice(0, 64))}
+                    placeholder={address ? `0x${address.slice(2, 6)}...${address.slice(-4)}` : "Guest"}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white focus:border-blue-400 focus:outline-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Change from guest or wallet address</p>
+                </div>
+
+                {/* Avatar - NFT from wallet or live camera */}
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-3">Avatar</h3>
                   <button
@@ -1371,9 +1482,10 @@ function TrooVideoMeeting() {
                       ) : (
                         <CameraIcon />
                       )}
-                      <span>{selectedAvatar ? 'NFT Avatar Selected' : 'Live Camera'}</span>
+                      <span>{selectedAvatar ? "NFT from wallet" : "Live camera"}</span>
                     </div>
                   </button>
+                  <p className="text-xs text-gray-400 mt-1">Display an NFT from your wallet as your avatar</p>
                 </div>
 
                 {/* Device Permissions */}
@@ -1439,10 +1551,10 @@ function TrooVideoMeeting() {
                     {isConnecting ? (
                       <div className="flex items-center justify-center space-x-2">
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Starting Meeting...</span>
+                        <span>{isJoiningViaLink ? "Joining Meeting..." : "Starting Meeting..."}</span>
                       </div>
                     ) : (
-                      'Start Meeting'
+                      isJoiningViaLink ? "Join Meeting" : "Start Meeting"
                     )}
                 </button>
                 </div>
@@ -1484,13 +1596,43 @@ function TrooVideoMeeting() {
                 <h2 className="text-2xl font-bold mb-2">Joining Meeting...</h2>
                 <p className="text-gray-400">Room: {roomId}</p>
                 {roomName && <p className="text-gray-400">{roomName}</p>}
+                {presetLabelFromUrl && <p className="text-cyan-400/80 text-sm">{presetLabelFromUrl}</p>}
               </div>
             </div>
           )}
 
-          {meetingState === 'meeting' && (
-            /* Meeting Interface */
+          {meetingState === 'meeting' && livekitToken && livekitServerUrl && (
+            /* LiveKit real-time meeting with host controls */
+            <TrooLiveKitMeeting
+              token={livekitToken}
+              serverUrl={livekitServerUrl}
+              roomId={roomId}
+              roomName={roomName}
+              isHost={isHost}
+              meetingLayout={meetingLayout}
+              setMeetingLayout={setMeetingLayout}
+              recordParticipants={recordParticipants}
+              setRecordParticipants={setRecordParticipants}
+              egressId={egressId}
+              setEgressId={setEgressId}
+              selectedAvatar={selectedAvatar}
+              isAudioOn={isAudioOn}
+              isVideoOn={isVideoOn}
+              cameraOptional={cameraOptional}
+              onLeave={leaveMeeting}
+              hostWalletAddress={address ?? ''}
+              onOpenAvatarPicker={() => setShowAvatarSelector(true)}
+            />
+          )}
+
+          {meetingState === 'meeting' && !livekitToken && (
+            /* Fallback demo (LiveKit not configured) */
             <div className="flex-1 flex flex-col">
+              {livekitError && (
+                <div className="flex-none px-4 py-2 bg-amber-900/50 border-b border-amber-600/50 text-amber-200 text-sm">
+                  {livekitError}
+                </div>
+              )}
               {/* Header */}
               <div className="bg-slate-800 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
@@ -1504,6 +1646,12 @@ function TrooVideoMeeting() {
                       <>
                         <span>•</span>
                         <span>Room: {roomName}</span>
+                      </>
+                    )}
+                    {presetLabelFromUrl && (
+                      <>
+                        <span>•</span>
+                        <span className="text-cyan-400/90">{presetLabelFromUrl}</span>
                       </>
                     )}
                   </div>
@@ -1635,6 +1783,14 @@ function TrooVideoMeeting() {
               <div className="bg-slate-800 px-6 py-4">
                 <div className="flex items-center justify-center space-x-4">
                   <button
+                    type="button"
+                    onClick={() => setShowAvatarSelector(true)}
+                    className="px-3 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 text-sm"
+                    title="NFT or camera avatar"
+                  >
+                    Avatar
+                  </button>
+                  <button
                     onClick={toggleVideo}
                     className={`p-3 rounded-full transition-colors ${
                       isVideoOn ? 'bg-slate-600 hover:bg-slate-500' : 'bg-red-600 hover:bg-red-500'
@@ -1713,6 +1869,47 @@ function TrooVideoMeeting() {
                   <XIcon />
                 </button>
               </div>
+              {hasSolanaWarning ? (
+                <p className="mb-3 text-xs text-amber-300/90" role="status">
+                  Solana NFT avatars are not supported in Meet yet. Connect an EVM wallet (e.g. MetaMask) on
+                  Polygon for wallet NFTs, or use live camera / sample images below.
+                </p>
+              ) : nftFetchError ? (
+                <p className="mb-3 text-xs text-amber-300/90" role="status">
+                  Could not load avatar NFTs from the server: {nftFetchError}. You can still use live camera
+                  or sample images below.
+                </p>
+              ) : nftFetchPartialFailure &&
+                selectableAvatarNfts.length > 0 &&
+                marketplaceFetchFailed &&
+                heroSourceOk ? (
+                <p className="mb-3 text-xs text-amber-300/90" role="status">
+                  Marketplace NFTs could not be loaded. The avatars below are on-chain Hero (ERC-1155) assets
+                  from Polygon.
+                </p>
+              ) : nftFetchPartialFailure &&
+                selectableAvatarNfts.length > 0 &&
+                heroFetchFailed &&
+                marketplaceSourceOk ? (
+                <p className="mb-3 text-xs text-amber-300/90" role="status">
+                  On-chain Hero assets could not be loaded. The avatars below are from your marketplace
+                  wallet list.
+                </p>
+              ) : nftFetchPartialFailure && selectableAvatarNfts.length > 0 ? (
+                <p className="mb-3 text-xs text-amber-300/90" role="status">
+                  Some avatar sources failed to load; showing what we could recover below.
+                </p>
+              ) : nftFetchPartialFailure && selectableAvatarNfts.length === 0 ? (
+                <p className="mb-3 text-xs text-amber-300/90" role="status">
+                  Wallet NFT sources could not be loaded. Use live camera or sample images below, or try again
+                  later.
+                </p>
+              ) : null}
+              {avatarNftsTruncated && selectableAvatarNfts.length > 0 ? (
+                <p className="mb-2 text-xs text-slate-400" role="status">
+                  Showing first 7 selectable avatars; more may be available (list was truncated server-side).
+                </p>
+              ) : null}
 
               <div className="grid grid-cols-4 gap-4 mb-4">
                 {/* Live Camera Option */}
@@ -1735,15 +1932,17 @@ function TrooVideoMeeting() {
                 {isLoadingNFTs ? (
                   <div className="col-span-3 flex items-center justify-center p-4">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-                    <span className="ml-2 text-sm text-gray-400">Loading NFTs...</span>
+                    <span className="ml-2 text-sm text-gray-400">Loading wallet NFTs…</span>
                   </div>
-                ) : userNFTs.length > 0 ? (
-                  userNFTs.slice(0, 7).map((nft, index) => (
+                ) : displayAvatarNfts.length > 0 ? (
+                  displayAvatarNfts.map((nft) => (
                     <div
-                      key={nft.mint || nft.tokenId || index}
+                      key={nft.id}
                       onClick={() => {
-                        setSelectedAvatar(nft.image);
-                        setShowAvatarSelector(false);
+                        if (nft.image) {
+                          setSelectedAvatar(nft.image);
+                          setShowAvatarSelector(false);
+                        }
                       }}
                       className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                         selectedAvatar === nft.image ? 'border-blue-400 bg-slate-700' : 'border-slate-600 hover:border-slate-500'
@@ -1751,7 +1950,7 @@ function TrooVideoMeeting() {
                     >
                       <div className="aspect-square bg-slate-700 rounded-lg overflow-hidden mb-2">
                         <img 
-                          src={nft.image} 
+                          src={nft.image!} 
                           alt={nft.name} 
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -1762,28 +1961,61 @@ function TrooVideoMeeting() {
                       <p className="text-sm text-center truncate">{nft.name || 'NFT'}</p>
                     </div>
                   ))
-                ) : (
-                  /* Fallback Demo NFTs if no user NFTs */
-                  DEMO_NFTS.map((nft) => (
-                  <div
-                    key={nft.mint}
-                    onClick={() => {
-                      setSelectedAvatar(nft.image);
-                      setShowAvatarSelector(false);
-                    }}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                      selectedAvatar === nft.image ? 'border-blue-400 bg-slate-700' : 'border-slate-600 hover:border-slate-500'
-                    }`}
-                  >
-                    <div className="aspect-square bg-slate-700 rounded-lg overflow-hidden mb-2">
-                      <img 
-                        src={nft.image} 
-                        alt={nft.name} 
-                        className="w-full h-full object-cover"
-                      />
+                ) : nftFetchError || (nftFetchPartialFailure && selectableAvatarNfts.length === 0) ? (
+                  <>
+                    <div className="col-span-3 flex flex-col justify-center rounded-lg border border-slate-600 bg-slate-900/40 p-4 text-sm text-slate-300">
+                      <p className="font-medium text-slate-200">No wallet NFTs loaded</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {nftFetchError
+                          ? "Server request failed (see note above)."
+                          : "All avatar sources failed (see note above)."}{" "}
+                        Sample images below are not from your wallet.
+                      </p>
                     </div>
-                    <p className="text-sm text-center truncate">{nft.name}</p>
-                  </div>
+                    {DEMO_NFTS.map((nft) => (
+                      <div
+                        key={nft.mint}
+                        onClick={() => {
+                          setSelectedAvatar(nft.image);
+                          setShowAvatarSelector(false);
+                        }}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                          selectedAvatar === nft.image
+                            ? 'border-amber-400/80 bg-slate-700'
+                            : 'border-dashed border-slate-500 hover:border-slate-400'
+                        }`}
+                      >
+                        <div className="aspect-square bg-slate-700 rounded-lg overflow-hidden mb-2">
+                          <img
+                            src={nft.image}
+                            alt={nft.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <p className="text-xs text-center text-slate-400">Demo</p>
+                        <p className="text-sm text-center truncate">{nft.name}</p>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  /* Successful fetch (or non-EVM) with zero wallet NFTs: optional demo placeholders */
+                  DEMO_NFTS.map((nft) => (
+                    <div
+                      key={nft.mint}
+                      onClick={() => {
+                        setSelectedAvatar(nft.image);
+                        setShowAvatarSelector(false);
+                      }}
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                        selectedAvatar === nft.image ? 'border-blue-400 bg-slate-700' : 'border-slate-600 hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="aspect-square bg-slate-700 rounded-lg overflow-hidden mb-2">
+                        <img src={nft.image} alt={nft.name} className="w-full h-full object-cover" />
+                      </div>
+                      <p className="text-xs text-center text-slate-500">Sample</p>
+                      <p className="text-sm text-center truncate">{nft.name}</p>
+                    </div>
                   ))
                 )}
               </div>
@@ -1847,6 +2079,21 @@ function TrooVideoMeeting() {
   );
 }
 
+/** `useSearchParams` must be under Suspense (App Router). */
+function MeetPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-400 text-sm">
+          Loading…
+        </div>
+      }
+    >
+      <TrooVideoMeeting />
+    </Suspense>
+  );
+}
+
 // Export as dynamic component to disable SSR
-const DynamicTrooVideoMeeting = dynamic(() => Promise.resolve(TrooVideoMeeting), { ssr: false });
-export default DynamicTrooVideoMeeting;
+const DynamicMeetPage = dynamic(() => Promise.resolve(MeetPage), { ssr: false });
+export default DynamicMeetPage;

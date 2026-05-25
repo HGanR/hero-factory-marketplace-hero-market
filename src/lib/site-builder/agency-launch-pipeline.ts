@@ -232,7 +232,6 @@ export function runAgencyLaunchOrchestration(doc: SiteSchemaDocumentType): void 
   const deliverableSuggestions = buildDeliverableSuggestions(doc, readiness, styleMode);
   const launchQueue = buildLaunchQueue(checks, brandBrain, companionPageSuggestions, deliverableSuggestions);
 
-  const base = doc.metadata ?? { title: "Site" };
   const state = AgencyLaunchStateSchema.parse({
     version: 1,
     evaluatedAt: new Date().toISOString(),
@@ -243,7 +242,14 @@ export function runAgencyLaunchOrchestration(doc: SiteSchemaDocumentType): void 
     launchQueue,
     deliverableSuggestions,
   });
-  doc.metadata = { ...base, agencyLaunch: state };
+  const base = (doc.metadata ?? {}) as Partial<NonNullable<SiteSchemaDocumentType["metadata"]>>;
+  doc.metadata = {
+    title: typeof base.title === "string" && base.title.trim() ? base.title : "Site",
+    removeDefaultCss: base.removeDefaultCss ?? false,
+    governance: base.governance ?? {},
+    ...base,
+    agencyLaunch: state,
+  };
 }
 
 export function pickAgencyLaunchActions(

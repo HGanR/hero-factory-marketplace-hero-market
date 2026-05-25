@@ -194,6 +194,7 @@ export function applyContentRepair(
 ): SiteSchemaDocumentType {
   const d = document as unknown as { pages: typeof document.pages; metadata: typeof document.metadata };
   const md = d.metadata;
+  if (!md) return document;
   if (md.title) md.title = dedupeRepeatedPhrases(String(md.title));
   if (md.description) md.description = dedupeRepeatedPhrases(String(md.description));
 

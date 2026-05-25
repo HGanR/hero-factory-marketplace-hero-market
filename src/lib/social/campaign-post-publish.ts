@@ -15,6 +15,7 @@ import {
 import { getAdapter } from "@/lib/social/adapters";
 import { decryptToken } from "@/lib/social/encrypt";
 import { normalizeCampaignPostPlatformForPublish } from "@/lib/social/platform-identity";
+import { parseScheduledPublishMeta } from "@/lib/social/scheduled-publish-meta";
 import type { PublishResult } from "@/lib/social/types";
 import type { SocialPlatform } from "@/lib/social/config";
 
@@ -145,6 +146,12 @@ export async function loadCampaignPostPublishContext(db: any, postId: string): P
 }
 
 export async function executeCampaignPostAdapterPublish(ctx: CampaignPostPublishContext): Promise<PublishResult> {
+  if (parseScheduledPublishMeta(ctx.post.scheduledPublishMeta).publishRoute === "content360") {
+    throw new CampaignPostPublishError(
+      "CONTENT360_WRONG_EXECUTOR",
+      "This post is routed to Content360 and must not be processed by a native social adapter.",
+    );
+  }
   const adapter = getAdapter(ctx.platformKey);
   if (!adapter) {
     throw new CampaignPostPublishError("PLATFORM_UNSUPPORTED", `${ctx.platformKey} publishing not implemented`);

@@ -89,7 +89,6 @@ function writeBrandBrainState(
   mode: BrandBrainDecisionMode,
   appliedCodes: string[],
 ): void {
-  const base = doc.metadata ?? { title: "Site" };
   const queue = buildQueue(evaluation.findings, mode, appliedCodes);
   const state = BrandBrainStateSchema.parse({
     version: 1,
@@ -100,7 +99,14 @@ function writeBrandBrainState(
     improvementQueue: queue,
     lastAppliedCodes: appliedCodes,
   });
-  doc.metadata = { ...base, brandBrain: state };
+  const base = (doc.metadata ?? {}) as Partial<NonNullable<SiteSchemaDocumentType["metadata"]>>;
+  doc.metadata = {
+    title: typeof base.title === "string" && base.title.trim() ? base.title : "Site",
+    removeDefaultCss: base.removeDefaultCss ?? false,
+    governance: base.governance ?? {},
+    ...base,
+    brandBrain: state,
+  };
   runAgencyLaunchOrchestration(doc);
 }
 

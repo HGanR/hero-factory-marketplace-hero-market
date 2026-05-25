@@ -100,11 +100,22 @@ export function applyPlannerSectionSpacingFromRows(
 }
 
 export function injectCinematicVisualMetadata(doc: SiteSchemaDocumentType, plannerInput?: SitePlannerInput): void {
-  const vm = buildSiteVisualMetaFromPlannerInput(
-    plannerInput ?? { userPrompt: doc.metadata?.title?.trim() || " ", siteType: "auto" },
-  );
+  const fallbackPlannerInput: SitePlannerInput = {
+    userPrompt: doc.metadata?.title?.trim() || " ",
+    siteType: "auto",
+    styleIntensity: 55,
+    web3VisualMode: false,
+  };
+  const vm = buildSiteVisualMetaFromPlannerInput(plannerInput ?? fallbackPlannerInput);
   if (!vm) return;
-  doc.metadata = { ...(doc.metadata ?? {}), visualMeta: vm };
+  const prev = (doc.metadata ?? {}) as Partial<NonNullable<SiteSchemaDocumentType["metadata"]>>;
+  doc.metadata = {
+    title: typeof prev.title === "string" && prev.title.trim() ? prev.title : "Site",
+    removeDefaultCss: prev.removeDefaultCss ?? false,
+    governance: prev.governance ?? {},
+    ...prev,
+    visualMeta: vm,
+  };
 }
 
 function typographyToneFromVisualMeta(vm: SiteVisualMetaV2 | undefined): CinematicTypographyTonePreset {

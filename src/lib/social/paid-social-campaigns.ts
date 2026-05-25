@@ -294,7 +294,8 @@ export async function loadPrimaryAssetHintsForPaidSocialRows(
     })
     .from(campaignAssets)
     .where(and(eq(campaignAssets.campaignId, campaignId), inArray(campaignAssets.id, uniq)));
-  const byId = new Map(assetRows.map((r) => [r.id, r]));
+  type AssetHintRow = (typeof assetRows)[number];
+  const byId = new Map<string, AssetHintRow>(assetRows.map((r: AssetHintRow) => [r.id, r]));
   for (const [paidId, aid] of paidToAsset) {
     const ar = byId.get(aid);
     hintMap.set(paidId, {
@@ -598,10 +599,10 @@ function pickDominantNonComparableReason(
   counts: PromotionNonComparableReasonCounts | undefined
 ): PromotionDecisionDominantNonComparableReason | undefined {
   if (!counts || Object.keys(counts).length === 0) return undefined;
-  const pairs = Object.entries(counts).filter(([, n]) => n > 0) as [
-    CrossSurfaceComparisonReadinessReason,
-    number,
-  ][];
+  const pairs = Object.entries(counts).filter(
+    (e): e is [CrossSurfaceComparisonReadinessReason, number] =>
+      typeof e[1] === "number" && e[1] > 0
+  );
   if (pairs.length === 0) return undefined;
   const max = Math.max(...pairs.map(([, n]) => n));
   const atMax = pairs.filter(([, n]) => n === max);
@@ -720,7 +721,10 @@ export function computePromotionDecisionSummaryForCampaign(
   const nonComparableReasonCounts: PromotionNonComparableReasonCounts | undefined =
     Object.keys(reasonScratch).length > 0
       ? (Object.fromEntries(
-          Object.entries(reasonScratch).filter(([, n]) => n > 0)
+          Object.entries(reasonScratch).filter(
+            (e): e is [CrossSurfaceComparisonReadinessReason, number] =>
+              typeof e[1] === "number" && e[1] > 0
+          )
         ) as PromotionNonComparableReasonCounts)
       : undefined;
 

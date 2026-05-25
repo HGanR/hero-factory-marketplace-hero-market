@@ -22,7 +22,11 @@ export type SiteBuilderFailureAnalyticsEvent =
   | "site_builder_version_save_failed"
   | "site_builder_deploy_failed";
 
-export type SiteBuilderSaveSource = "sticky_bar" | "advanced_panel";
+export type SiteBuilderSaveSource = "sticky_bar" | "advanced_panel" | "header_save";
+
+function isTrackedVersionSaveSource(source: string): source is SiteBuilderSaveSource {
+  return source === "sticky_bar" || source === "advanced_panel" || source === "header_save";
+}
 
 /** Derived operator-facing signals (computed; no PII). */
 export type SiteBuilderOperatorDiagnostics = {
@@ -179,21 +183,21 @@ function deriveHotspot(
   const build =
     (failureCounts.site_builder_full_build_failed ?? 0) + (failureCounts.site_builder_plan_only_failed ?? 0);
   const section = failureCounts.site_builder_section_regenerate_failed ?? 0;
-  const breakdown = { deploy, save, build, section };
+  const hotspotBreakdown = { deploy, save, build, section };
   const total = deploy + save + build + section;
   if (total === 0) {
     return {
       hotspot: "none",
-      breakdown,
+      hotspotBreakdown,
       hotspotLabel: "no_failures",
     };
   }
   const maxN = Math.max(deploy, save, build, section);
   const order = ["deploy", "save", "build", "section"] as const;
-  const hotspot = order.find((k) => breakdown[k] === maxN) ?? "none";
+  const hotspot = order.find((k) => hotspotBreakdown[k] === maxN) ?? "none";
   return {
     hotspot,
-    breakdown,
+    hotspotBreakdown,
     hotspotLabel: `${hotspot}_n=${maxN}`,
   };
 }
@@ -272,7 +276,11 @@ export function ingestSiteBuilderReadoutEvent(
       workflow_stage: typeof props.workflow_stage === "string" ? props.workflow_stage : undefined,
       source: typeof props.source === "string" ? props.source : undefined,
     };
-    if (fe === "site_builder_version_save_failed" && (props.source === "sticky_bar" || props.source === "advanced_panel")) {
+    if (
+      fe === "site_builder_version_save_failed" &&
+      typeof props.source === "string" &&
+      isTrackedVersionSaveSource(props.source)
+    ) {
       bumpSaveSource(props.source, "failed");
     }
   }
@@ -306,7 +314,7 @@ export function ingestSiteBuilderReadoutEvent(
         source: typeof props.source === "string" ? props.source : undefined,
       };
       if (typeof props.style_mode === "string") state.latestStyleMode = props.style_mode;
-      if (props.source === "sticky_bar" || props.source === "advanced_panel") {
+      if (typeof props.source === "string" && isTrackedVersionSaveSource(props.source)) {
         bumpSaveSource(props.source, "completed");
       }
       break;
@@ -332,6 +340,7 @@ export function getSiteBuilderAnalyticsReadoutSnapshot(): SiteBuilderAnalyticsRe
   const saveBySource: SiteBuilderAnalyticsReadoutSnapshot["saveBySource"] = {
     ...(sb.sticky_bar ? { sticky_bar: { ...sb.sticky_bar } } : {}),
     ...(sb.advanced_panel ? { advanced_panel: { ...sb.advanced_panel } } : {}),
+    ...(sb.header_save ? { header_save: { ...sb.header_save } } : {}),
   };
   const failureCategoryCodeCounts = { ...state.failureCategoryCodeCounts };
   const base: Omit<SiteBuilderAnalyticsReadoutSnapshot, "diagnostics"> = {

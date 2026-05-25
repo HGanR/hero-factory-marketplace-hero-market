@@ -178,18 +178,33 @@ export function ensureDesignSystemOnDocument(doc: SiteSchemaDocumentType): Desig
       ...parsed.data,
       lock: designSystemLockForMode(mode, parsed.data.density),
     });
-    const meta = doc.metadata ?? { title: "Site" };
-    doc.metadata = { ...meta, designSystem: withLock };
+    const prev: Partial<NonNullable<SiteSchemaDocumentType["metadata"]>> = doc.metadata ?? {};
+    const meta: NonNullable<SiteSchemaDocumentType["metadata"]> = {
+      title: typeof prev.title === "string" && prev.title.trim() ? prev.title : "Site",
+      removeDefaultCss: prev.removeDefaultCss ?? false,
+      governance: prev.governance ?? {},
+      ...prev,
+      designSystem: withLock,
+    };
+    doc.metadata = meta;
     return withLock;
   }
-  const theme = doc.metadata?.theme ?? {};
+  type ThemeRow = NonNullable<NonNullable<SiteSchemaDocumentType["metadata"]>["theme"]>;
+  const theme: Partial<ThemeRow> = doc.metadata?.theme ?? {};
   const ds = designSystemFromThemeSnapshot({
     styleMode: theme.styleMode,
     gradientStart: theme.gradientStart,
     gradientEnd: theme.gradientEnd,
   });
-  const meta = doc.metadata ?? { title: "Site" };
-  doc.metadata = { ...meta, designSystem: ds };
+  const prevMeta: Partial<NonNullable<SiteSchemaDocumentType["metadata"]>> = doc.metadata ?? {};
+  const meta: NonNullable<SiteSchemaDocumentType["metadata"]> = {
+    title: typeof prevMeta.title === "string" && prevMeta.title.trim() ? prevMeta.title : "Site",
+    removeDefaultCss: prevMeta.removeDefaultCss ?? false,
+    governance: prevMeta.governance ?? {},
+    ...prevMeta,
+    designSystem: ds,
+  };
+  doc.metadata = meta;
   return ds;
 }
 

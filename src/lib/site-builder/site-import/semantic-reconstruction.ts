@@ -171,7 +171,7 @@ function needsSemanticEnrichment(blueprint: ImportBlueprint, signals: SemanticSi
   if (blueprint.sections.length === 0) return true;
   if (signals.weakExtraction) return true;
   if (countHeroSections(blueprint.sections) === 0 && countCtaSections(blueprint.sections) === 0) return true;
-  if (signals.marketingStructureScore < 0.35) return true;
+  if ((signals.marketingStructureScore ?? 0) < 0.35) return true;
   return false;
 }
 

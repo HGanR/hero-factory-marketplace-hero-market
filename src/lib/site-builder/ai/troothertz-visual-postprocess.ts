@@ -144,11 +144,8 @@ function applySectionDepthAndContinuity(blocks: SiteSchemaDocumentType["pages"][
     const prev = i > 0 ? blocks[i - 1]! : undefined;
     const next = i < blocks.length - 1 ? blocks[i + 1]! : undefined;
     const prevC = prev?.content && typeof prev.content === "object" ? (prev.content as Record<string, unknown>) : undefined;
-    const nextC = next?.content && typeof next.content === "object" ? (next.content as Record<string, unknown>) : undefined;
     const prevVe = prevC?.visualEngine as { sectionTone?: string } | undefined;
-    const nextVe = nextC?.visualEngine as { sectionTone?: string } | undefined;
     const prevTone = prevVe?.sectionTone as "light" | "dark" | "visual" | undefined;
-    const nextTone = nextVe?.sectionTone as "light" | "dark" | "visual" | undefined;
 
     const vis =
       content.visual && typeof content.visual === "object" && !Array.isArray(content.visual)
@@ -177,7 +174,6 @@ function applySectionDepthAndContinuity(blocks: SiteSchemaDocumentType["pages"][
       nextType: next ? String(next.type) : undefined,
       sectionTone: tone,
       prevTone,
-      nextTone,
       rhythmSlot: slot,
       prevRegistryKey: prev ? registryKeyFromBlock(prev) : undefined,
       nextRegistryKey: next ? registryKeyFromBlock(next) : undefined,

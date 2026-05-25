@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   let invokeLlm: ((messages: LlmMessage[]) => Promise<string | null>) | undefined;
   if (parsed.data.siteId) {
     const r = await resolveSiteBuilderLlmInvokeForSite(db, userId, parsed.data.siteId);
-    if (r) invokeLlm = r.invokeLlm;
+    if (r) invokeLlm = r.invokeLlm ?? undefined;
   }
 
   const logSource = parsed.data.source ?? "api";

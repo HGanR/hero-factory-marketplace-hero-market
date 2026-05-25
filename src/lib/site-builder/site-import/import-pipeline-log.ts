@@ -4,6 +4,8 @@ export type SiteImportPipelineStage =
   | "html_to_blueprint"
   | "blueprint_to_schema"
   | "finalize_document"
+  | "semantic_reconstruction"
+  | "semantic_reconstruction_applied"
   | "response_ready"
   | "error";
 

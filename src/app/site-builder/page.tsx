@@ -7,8 +7,13 @@ import {
   readMaaniaImportSchemaForSiteBuilder,
 } from "@/lib/maania/maania-demo-storage";
 import { MAANIA_FROM_MAANIA_PARAM, MAANIA_SITE_BUILDER_IMPORT_PARAM } from "@/lib/maania/open-in-builder";
+import { EXECUTIVE_INBOX_SITE_PROJECT_IMPORT_PARAM } from "@/lib/executive-inbox/executive-inbox-site-project-client";
 import { SiteBuilderAgentAttachWizard } from "@/components/site-builder/SiteBuilderAgentAttachWizard";
-import { SiteBuilderAiPanel, type SiteBuilderAiPanelHandle } from "@/components/site-builder/SiteBuilderAiPanel";
+import {
+  SiteBuilderAiPanel,
+  type SiteBuilderAiPanelHandle,
+  type SiteBuilderAssistantCapability,
+} from "@/components/site-builder/SiteBuilderAiPanel";
 import { SiteBuilderAssistantPanel } from "@/components/site-builder/SiteBuilderAssistantPanel";
 import { SiteBuilderFileDrawer } from "@/components/site-builder/SiteBuilderFileDrawer";
 import { SiteBuilderHeader } from "@/components/site-builder/SiteBuilderHeader";
@@ -18,10 +23,18 @@ import { SiteBuilderStageNav } from "@/components/site-builder/SiteBuilderStageN
 import { SiteBuilderStickyBar } from "@/components/site-builder/SiteBuilderStickyBar";
 import { SiteBuilderConnectDomainPanel } from "@/components/site-builder/SiteBuilderConnectDomainPanel";
 import { SiteBuilderWorkspaceLayout } from "@/components/site-builder/SiteBuilderWorkspaceLayout";
+import { SiteBuilderEnginesDrawer } from "@/components/site-builder/SiteBuilderEnginesDrawer";
+import { SiteBuilderSeoAuditPanel } from "@/components/site-builder/SiteBuilderSeoAuditPanel";
+import { ActiveClientIndicator } from "@/components/client-context/ActiveClientIndicator";
 import type { BuilderWorkflowStage } from "@/components/site-builder/builder-workflow-stage";
 import { getBlockPlacement } from "@/lib/site-builder/preview/blockPreviewUtils";
 import { compactSectionIdPrefixes, normalizeRefineSectionIds } from "@/lib/site-builder/refine-selection-utils";
 import { trackSiteBuilderEvent } from "@/lib/site-builder/siteBuilderAnalytics";
+import {
+  persistClientSiteBuilderProgress,
+  pickSiteIdForClientId,
+  readClientSiteBuilderProgress,
+} from "@/lib/site-builder/site-builder-client-progress";
 import { SiteSchemaDocument } from "@/lib/site-builder/schema";
 import { buildPreviewHeadTagsHtml } from "@/lib/site-builder/seo/seo-intelligence";
 import { buildPaymentEmbedForIsolatedPreviewHtml } from "@/lib/site-builder/site-builder-payment-embed";
@@ -279,6 +292,7 @@ export default function SiteBuilderPage() {
   const [canvasPulseSectionIds, setCanvasPulseSectionIds] = useState<string[]>([]);
   const [scrollPreviewToTopTrigger, setScrollPreviewToTopTrigger] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [enginesDrawerOpen, setEnginesDrawerOpen] = useState(false);
   const [fileDrawerOpen, setFileDrawerOpen] = useState(false);
   const [activeDrawerFileId, setActiveDrawerFileId] = useState("schema.json");
   const [agencyAgents, setAgencyAgents] = useState<
@@ -300,8 +314,19 @@ export default function SiteBuilderPage() {
   >([]);
   const [agencyWidgetBusy, setAgencyWidgetBusy] = useState(false);
   /** Revenue OS client hub accounts — for site + widget attribution. */
-  const [hubClients, setHubClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [hubClients, setHubClients] = useState<Array<{ id: string; name: string; crmClientId?: string | null }>>([]);
   const [hubClientPick, setHubClientPick] = useState("");
+  /** CRM `clients.id` from dashboard workspace binding (`smart_trust_platform_binding_v1`). */
+  const [bindingCrmClientId, setBindingCrmClientId] = useState<string | null>(null);
+  const [workspaceClientDetail, setWorkspaceClientDetail] = useState<{
+    crmClientId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    existingEntityName: string | null;
+    logoUrl: string | null;
+    linkedHubId: string | null;
+  } | null>(null);
   const [hubClientCreateBusy, setHubClientCreateBusy] = useState(false);
   const [widgetNewHubClientName, setWidgetNewHubClientName] = useState("");
   const [buildForClient, setBuildForClient] = useState(false);
@@ -381,7 +406,8 @@ export default function SiteBuilderPage() {
     const params = new URLSearchParams(window.location.search);
     const importParam = params.get(MAANIA_SITE_BUILDER_IMPORT_PARAM) === "1";
     const fromMaania = params.get(MAANIA_FROM_MAANIA_PARAM) === "1";
-    if (!importParam && !fromMaania) return;
+    const fromExecutiveInbox = params.get(EXECUTIVE_INBOX_SITE_PROJECT_IMPORT_PARAM) === "1";
+    if (!importParam && !fromMaania && !fromExecutiveInbox) return;
 
     maaniaImportConsumed.current = true;
 
@@ -396,7 +422,9 @@ export default function SiteBuilderPage() {
         setSchemaText(normalizeSchemaJsonStringForTargeting(JSON.stringify(doc, null, 2)));
         setMaaniaImportBanner(true);
         setNotice(
-          "MAANIA demo imported into the schema editor. Review JSON, edit blocks in the preview, then save as a site version or template."
+          fromExecutiveInbox
+            ? "Executive Inbox website project imported. Edit in the assistant or schema editor, then save or re-export for Vercel."
+            : "MAANIA demo imported into the schema editor. Review JSON, edit blocks in the preview, then save as a site version or template.",
         );
       }
     } catch {
@@ -406,6 +434,7 @@ export default function SiteBuilderPage() {
     clearMaaniaSiteBuilderPendingImport();
     params.delete(MAANIA_SITE_BUILDER_IMPORT_PARAM);
     params.delete(MAANIA_FROM_MAANIA_PARAM);
+    params.delete(EXECUTIVE_INBOX_SITE_PROJECT_IMPORT_PARAM);
     const qs = params.toString();
     const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState({}, "", next);
@@ -656,7 +685,7 @@ export default function SiteBuilderPage() {
     [selectedSiteId, hasSavedVersion, hasDeployedVersion, hasDomainConfigured, hasMintPrepared, selectedSite?.nftTokenId]
   );
 
-  async function loadSites(preferredSiteId?: string) {
+  async function loadSites(preferredSiteId?: string, preferredClientId?: string): Promise<string> {
     setError(null);
     const data = await jsonFetch<{ items: SiteRow[] }>("/api/site-builder/sites");
     const items = data.items || [];
@@ -664,8 +693,13 @@ export default function SiteBuilderPage() {
     const urlSite =
       typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("siteId")?.trim() : "";
     const fromUrl = urlSite && items.some((s) => s.id === urlSite) ? urlSite : "";
-    const fallback = preferredSiteId || fromUrl || selectedSiteId || items[0]?.id || "";
-    setSelectedSiteId(items.some((s) => s.id === fallback) ? fallback : (items[0]?.id || ""));
+    const clientPick = (preferredClientId || "").trim()
+      ? pickSiteIdForClientId(items, preferredClientId!.trim())
+      : "";
+    const fallback = preferredSiteId || fromUrl || clientPick || selectedSiteId || items[0]?.id || "";
+    const nextId = items.some((s) => s.id === fallback) ? fallback : (items[0]?.id || "");
+    setSelectedSiteId(nextId);
+    return nextId;
   }
 
   async function loadVersions(siteId: string) {
@@ -778,10 +812,14 @@ export default function SiteBuilderPage() {
     if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(BINDING_KEY);
-      if (!raw) return;
+      if (!raw) {
+        setBindingCrmClientId(null);
+        return;
+      }
       const parsed = JSON.parse(raw) as { trustId?: string | null; clientId?: string | null };
       const trustId = String(parsed?.trustId || "").trim();
       const bindingClientId = String(parsed?.clientId || "").trim();
+      setBindingCrmClientId(bindingClientId || null);
       const workspaceId = trustId;
       if (trustId) {
         setCreateTrustId((prev) => prev || trustId);
@@ -794,24 +832,39 @@ export default function SiteBuilderPage() {
         setActiveTrustContext({ trustId, workspaceId, clientId: bindingClientId });
       }
     } catch {
+      setBindingCrmClientId(null);
       // ignore malformed local binding payloads
     }
   }
 
   useEffect(() => {
+    let urlClientId = "";
     if (typeof window !== "undefined") {
-      const cid = new URLSearchParams(window.location.search).get("clientId")?.trim();
-      if (cid) {
-        setClientId((prev) => prev || cid);
-        setHubClientPick(cid);
+      urlClientId = new URLSearchParams(window.location.search).get("clientId")?.trim() || "";
+      if (urlClientId) {
+        setClientId((prev) => prev || urlClientId);
+        setHubClientPick((prev) => prev || urlClientId);
       }
     }
     void (async () => {
       try {
-        await loadSites();
+        const chosen = await loadSites(undefined, urlClientId || undefined);
         await loadTemplates();
         await loadActiveSessionContext();
         loadLocalSessionBinding();
+        if (!chosen && urlClientId) {
+          const prog = readClientSiteBuilderProgress(urlClientId);
+          if (prog?.schemaText?.trim()) {
+            const p = SiteSchemaDocument.safeParse(JSON.parse(prog.schemaText));
+            if (p.success) {
+              setSchemaText(normalizeSchemaJsonStringForTargeting(JSON.stringify(p.data, null, 2)));
+              if (prog.createName?.trim()) {
+                setCreateName((n) => (n.trim() ? n : prog.createName!.trim()));
+              }
+              setNotice("Restored in-browser progress for this client.");
+            }
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load sites");
       }
@@ -823,9 +876,17 @@ export default function SiteBuilderPage() {
     try {
       const r = await fetch("/api/revenue-os/clients", { credentials: "include" });
       if (!r.ok) return;
-      const j = (await r.json()) as { clients?: Array<{ id: string; name: string }> };
+      const j = (await r.json()) as {
+        clients?: Array<{ id: string; name: string; crmClientId?: string | null }>;
+      };
       if (!Array.isArray(j.clients)) return;
-      setHubClients(j.clients.map((c) => ({ id: c.id, name: c.name })));
+      setHubClients(
+        j.clients.map((c) => ({
+          id: c.id,
+          name: c.name,
+          crmClientId: typeof c.crmClientId === "string" && c.crmClientId.trim() ? c.crmClientId.trim() : null,
+        })),
+      );
     } catch {
       /* optional — requires Revenue OS access */
     }
@@ -837,6 +898,52 @@ export default function SiteBuilderPage() {
 
   useEffect(() => {
     void loadVersions(selectedSiteId);
+  }, [selectedSiteId]);
+
+  useEffect(() => {
+    if (!selectedSiteId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/site-builder/sites/${encodeURIComponent(selectedSiteId)}`, {
+          credentials: "include",
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          site?: SiteRow;
+          currentVersion?: { id?: string; schemaJson?: string | Record<string, unknown> };
+        };
+        if (!res.ok || cancelled) return;
+        const raw = data.currentVersion?.schemaJson;
+        if (raw != null && String(raw).length > 0) {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          setSchemaText(normalizeSchemaJsonStringForTargeting(JSON.stringify(parsed, null, 2)));
+          const vid = data.currentVersion?.id;
+          if (vid) setVersionIdForActions((prev) => prev || vid);
+          return;
+        }
+        const urlCid =
+          typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("clientId")?.trim() || ""
+            : "";
+        const cid = (data.site?.clientId?.trim() || urlCid || "").trim();
+        if (!cid) return;
+        const prog = readClientSiteBuilderProgress(cid);
+        if (!prog?.schemaText.trim() || cancelled) return;
+        const p = SiteSchemaDocument.safeParse(JSON.parse(prog.schemaText));
+        if (!p.success) return;
+        setSchemaText(normalizeSchemaJsonStringForTargeting(JSON.stringify(p.data, null, 2)));
+        if (prog.createName?.trim()) {
+          setCreateName((n) => (n.trim() ? n : prog.createName!.trim()));
+        }
+        setNotice((prev) => prev ?? "Restored in-browser progress for this client.");
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedSiteId]);
 
   useEffect(() => {
@@ -2053,11 +2160,11 @@ export default function SiteBuilderPage() {
   );
 
   const clientBadgeLabel = useMemo(() => {
-    const cid = selectedSite?.clientId?.trim();
+    const cid = (selectedSite?.clientId?.trim() || hubClientPick.trim()) || "";
     if (!cid) return null;
     const row = hubClients.find((c) => c.id === cid);
     return row?.name ?? `${cid.slice(0, 8)}…`;
-  }, [hubClients, selectedSite?.clientId]);
+  }, [hubClients, hubClientPick, selectedSite?.clientId]);
 
   const publishChecklist = useMemo(
     () =>
@@ -2144,9 +2251,9 @@ export default function SiteBuilderPage() {
     const primary = seoPrimaryKeyword.toLowerCase();
     const firstPage = parsedSchema?.pages?.[0];
     const blocks = firstPage?.blocks ?? [];
-    const heroText = String((blocks.find((b) => b.type === "hero")?.content as { title?: string } | undefined)?.title || "");
-    const firstParagraphText = String((blocks.find((b) => b.type === "paragraph")?.content as { text?: string } | undefined)?.text || "");
-    const cta = String((blocks.find((b) => b.type === "call_to_action")?.content as { label?: string } | undefined)?.label || "");
+    const heroText = String((blocks.find((b: { type?: string }) => b.type === "hero")?.content as { title?: string } | undefined)?.title || "");
+    const firstParagraphText = String((blocks.find((b: { type?: string }) => b.type === "paragraph")?.content as { text?: string } | undefined)?.text || "");
+    const cta = String((blocks.find((b: { type?: string }) => b.type === "call_to_action")?.content as { label?: string } | undefined)?.label || "");
     const hasStructured = Array.isArray(publishMeta?.structuredData) && publishMeta.structuredData.length > 0;
     const checks = [
       { ok: Boolean(primary && seoTitleValue.toLowerCase().includes(primary)), pts: 20, missing: "Keyword in title" },
@@ -2181,7 +2288,9 @@ export default function SiteBuilderPage() {
   const handleHubClientPick = useCallback(
     async (next: string) => {
       setHubClientPick(next);
-      if (next.trim()) setClientId(next.trim());
+      const hubRow = hubClients.find((h) => h.id === next.trim());
+      const crmFromHub = (hubRow?.crmClientId || "").trim();
+      if (next.trim()) setClientId(crmFromHub || next.trim());
       else if (selectedSite?.clientId?.trim()) setClientId(selectedSite.clientId.trim());
       else setClientId("");
       if (!selectedSiteId) return;
@@ -2195,7 +2304,7 @@ export default function SiteBuilderPage() {
         setError(e instanceof Error ? e.message : "Could not update site client");
       }
     },
-    [selectedSite?.clientId, selectedSiteId],
+    [hubClients, selectedSite?.clientId, selectedSiteId],
   );
 
   const createRevenueOsHubClient = useCallback(
@@ -2235,6 +2344,84 @@ export default function SiteBuilderPage() {
     },
     [handleHubClientPick, loadHubClients],
   );
+
+  /** Load CRM client file for display (entity name, contact) — same records as dashboard / `/api/clients`. */
+  useEffect(() => {
+    const crmId = bindingCrmClientId?.trim() || "";
+    if (!crmId) {
+      setWorkspaceClientDetail(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/clients/${encodeURIComponent(crmId)}`, { credentials: "include" });
+        if (!res.ok) {
+          if (!cancelled) setWorkspaceClientDetail(null);
+          return;
+        }
+        const data = (await res.json()) as {
+          client?: {
+            id?: string;
+            firstName?: string;
+            lastName?: string;
+            email?: string;
+            existingEntityName?: string | null;
+            logoUrl?: string | null;
+          };
+        };
+        const c = data?.client;
+        if (!c?.id || cancelled) return;
+        const idStr = String(c.id).trim();
+        const linkedHubId =
+          hubClients.find((h) => (h.crmClientId || "").trim() === idStr)?.id?.trim() || null;
+        setWorkspaceClientDetail({
+          crmClientId: idStr,
+          firstName: String(c.firstName || ""),
+          lastName: String(c.lastName || ""),
+          email: String(c.email || ""),
+          existingEntityName:
+            typeof c.existingEntityName === "string" && c.existingEntityName.trim()
+              ? c.existingEntityName.trim()
+              : null,
+          logoUrl: typeof c.logoUrl === "string" && c.logoUrl.trim() ? c.logoUrl.trim() : null,
+          linkedHubId,
+        });
+      } catch {
+        if (!cancelled) setWorkspaceClientDetail(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bindingCrmClientId, hubClients]);
+
+  /** If `hubClientPick` holds a CRM file UUID, map it to the linked Revenue OS hub row id once the list loads. */
+  useEffect(() => {
+    const pick = hubClientPick.trim();
+    if (!pick || hubClients.length === 0) return;
+    if (hubClients.some((h) => h.id === pick)) return;
+    const byCrm = hubClients.find((h) => (h.crmClientId || "").trim() === pick)?.id;
+    if (byCrm) setHubClientPick(byCrm);
+  }, [hubClientPick, hubClients]);
+
+  /**
+   * When the dashboard workspace selector has a CRM client that is linked to a hub account (`CRM_REF` in notes),
+   * turn on “Build for Revenue OS client” and select that hub row (same persistence as manual pick).
+   */
+  useEffect(() => {
+    const crm = bindingCrmClientId?.trim() || "";
+    if (!crm || hubClients.length === 0) return;
+    const hubId = hubClients.find((h) => (h.crmClientId || "").trim() === crm)?.id?.trim();
+    if (!hubId) return;
+    const pick = hubClientPick.trim();
+    const pickIsHub = Boolean(pick && hubClients.some((h) => h.id === pick));
+    if (pickIsHub && pick !== hubId) return;
+    setBuildForClient(true);
+    if (pick !== hubId) {
+      void handleHubClientPick(hubId);
+    }
+  }, [bindingCrmClientId, hubClients, hubClientPick, handleHubClientPick]);
 
   const dismissAgentAttachWizard = useCallback(() => {
     setAgentAttachWizardOpen(false);
@@ -2461,7 +2648,7 @@ export default function SiteBuilderPage() {
     return { version: data.version.version, schemaHash: data.schemaHash, styleMode };
   }
 
-  async function saveSiteVersionWithAnalytics(source: "sticky_bar" | "advanced_panel") {
+  async function saveSiteVersionWithAnalytics(source: "sticky_bar" | "advanced_panel" | "header_save") {
     return runSiteBuilderTrackedAction({
       successEvent: "site_builder_version_save_completed",
       failureEvent: "site_builder_version_save_failed",
@@ -2485,10 +2672,88 @@ export default function SiteBuilderPage() {
     });
   }
 
+  async function handleSaveProgressFromHeader() {
+    setError(null);
+    const urlCid =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("clientId")?.trim() || ""
+        : "";
+    const cid = (hubClientPick.trim() || clientId.trim() || urlCid).trim();
+    if (selectedSiteId) {
+      await withBusy(async () => {
+        await saveSiteVersionWithAnalytics("header_save");
+      });
+      return;
+    }
+    if (!cid) {
+      setError("Select a client or create a site project before saving progress.");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(schemaText) as unknown;
+      const ok = SiteSchemaDocument.safeParse(parsed);
+      if (!ok.success) {
+        setError("Schema JSON is invalid — fix errors before saving.");
+        return;
+      }
+      const normalized = normalizeSchemaJsonStringForTargeting(JSON.stringify(ok.data, null, 2));
+      persistClientSiteBuilderProgress(cid, {
+        schemaText: normalized,
+        ...(createName.trim() ? { createName: createName.trim() } : {}),
+      });
+      setNotice("Saved in this browser for this client. Open Site Builder with the same client to continue.");
+    } catch {
+      setError("Schema JSON is invalid — fix errors before saving.");
+    }
+  }
+
   function openAdvancedPanel(source: string) {
     trackSiteBuilderEvent("site_builder_advanced_opened", { source, workflow_stage: builderStage });
+    setEnginesDrawerOpen(true);
     setAdvancedOpen(true);
   }
+
+  const handleAssistantCapability = useCallback(
+    async (id: SiteBuilderAssistantCapability) => {
+      const panel = aiPanelRef.current;
+      switch (id) {
+        case "build_site":
+          await panel?.runFullBuildWithRefinement({ source: "panel" });
+          return;
+        case "import_url":
+          panel?.prefillUserPrompt("Import this URL as a blueprint and map it to our section schema: ");
+          return;
+        case "change_style":
+          panel?.prefillUserPrompt(
+            "Refresh visual style: more modern, generous spacing, refined typography hierarchy while keeping the same content structure.",
+          );
+          return;
+        case "add_image":
+          panel?.prefillUserPrompt(
+            "Improve imagery: stronger hero visual and cohesive section photos aligned to the brand tone.",
+          );
+          return;
+        case "ai_widget":
+          panel?.prefillUserPrompt(
+            "Should the embedded AI widget focus on answering client questions, capturing leads, or both? After you confirm, we can bind the agency widget in Engines → builder actions or the attach wizard.",
+          );
+          return;
+        case "share_preview":
+          setEnginesDrawerOpen(true);
+          setAdvancedOpen(true);
+          setNotice(
+            "Deploy & share: save a version first if needed, then use IPFS / webhash in Advanced. Prefer a preview link before buying a domain, or jump to domain + hosting when you are ready.",
+          );
+          return;
+        case "open_engines":
+          setEnginesDrawerOpen(true);
+          return;
+        default:
+          return;
+      }
+    },
+    [],
+  );
 
   const assistantStatusLabel: "Building" | "Editing" | "Ready" | "Needs input" =
     busy ? "Building" : error ? "Needs input" : builderStage === "refine" ? "Editing" : "Ready";
@@ -2502,6 +2767,11 @@ export default function SiteBuilderPage() {
           lastIpfsShort={lastDeployIpfsCid || "not deployed"}
           onOpenAdvanced={() => openAdvancedPanel("header")}
           clientBadgeLabel={clientBadgeLabel}
+          compactMarketing
+          onOpenEngines={() => setEnginesDrawerOpen(true)}
+          onSaveProgress={handleSaveProgressFromHeader}
+          saveProgressDisabled={busy}
+          saveProgressBusy={busy}
         />
 
         {maaniaImportBanner ? (
@@ -2562,31 +2832,66 @@ export default function SiteBuilderPage() {
             />
           }
           assistant={
-            <SiteBuilderAssistantPanel
+            <>
+              {workspaceClientDetail ? (
+                <div className="mb-3 rounded-2xl border border-cyan-500/25 bg-slate-950/75 p-3 shadow-sm">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300/90">
+                    Dashboard workspace client
+                  </div>
+                  <div className="flex flex-wrap items-start gap-3">
+                    {workspaceClientDetail.logoUrl ? (
+                      <div className="shrink-0 overflow-hidden rounded-lg border border-white/10 bg-slate-900/80">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={workspaceClientDetail.logoUrl} alt="" className="h-12 w-12 object-contain" />
+                      </div>
+                    ) : null}
+                    <div className="min-w-0 flex-1 space-y-1 text-xs text-slate-200">
+                      <div className="font-semibold text-slate-100">
+                        {[workspaceClientDetail.firstName, workspaceClientDetail.lastName].filter(Boolean).join(" ") ||
+                          "Client"}
+                      </div>
+                      {workspaceClientDetail.existingEntityName ? (
+                        <div>
+                          <span className="text-slate-500">Entity / business: </span>
+                          <span className="text-slate-100">{workspaceClientDetail.existingEntityName}</span>
+                        </div>
+                      ) : null}
+                      <div className="text-[11px] text-slate-400">{workspaceClientDetail.email}</div>
+                      <div className="font-mono text-[10px] text-slate-500">
+                        CRM file{" "}
+                        <Link
+                          href={`/clients/${encodeURIComponent(workspaceClientDetail.crmClientId)}`}
+                          className="text-cyan-400 hover:underline"
+                        >
+                          {workspaceClientDetail.crmClientId.slice(0, 8)}…
+                        </Link>
+                      </div>
+                      {workspaceClientDetail.linkedHubId ? (
+                        <p className="text-[11px] leading-relaxed text-emerald-200/90">
+                          Linked to Revenue OS hub — <strong className="font-medium">Build for client</strong> is turned
+                          on and this hub client is selected for full generation (same as the picker below).
+                        </p>
+                      ) : (
+                        <p className="text-[11px] leading-relaxed text-amber-200/90">
+                          No Client Hub row linked to this CRM file yet (needs onboarding{" "}
+                          <code className="text-amber-100/90">CRM_REF</code> link). Create or pick a hub client below;
+                          contact and entity above are already stored on the client record.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              <SiteBuilderAssistantPanel
               statusLabel={assistantStatusLabel}
               stageNav={<SiteBuilderStageNav stage={builderStage} onStageChange={setBuilderStage} />}
-              seoAudit={{
-                title: seoTitleValue,
-                description: seoDescValue,
-                primaryKeyword: seoPrimaryKeyword,
-                secondaryKeywords: seoSecondaryKeywords,
-                h1Status: (seoWarnings.find((w) => /H1/i.test(w)) ? "Needs fix" : "Good"),
-                structuredDataStatus:
-                  Array.isArray(publishMeta?.structuredData) && publishMeta.structuredData.length > 0 ? "Present" : "Missing",
-                imageAltStatus: firstPageBlocks.some((b) => b.type === "image" || b.type === "image_grid") ? "Present" : "No image blocks",
-                localSeoStatus: typeof publishMeta?.localSeoStatus === "string" ? publishMeta.localSeoStatus : "Auto-detected",
-                warnings: seoWarnings,
-                score: seoScore,
-                onGenerateSeo: () => void runSeoQuickAction("generate SEO metadata and page signals"),
-                onImproveTitle: () => void runSeoQuickAction("improve SEO title quality and keyword targeting"),
-                onAddStructuredData: () => void runSeoQuickAction("add and improve structured data"),
-                onOptimizeLocal: () => void runSeoQuickAction("optimize for local search"),
-              }}
               aiPanel={
                 <SiteBuilderAiPanel
                   ref={aiPanelRef}
                   workflowStage={builderStage}
                   suppressPrimaryGenerate
+                  builderSurface
+                  onCapabilityAction={(id) => void handleAssistantCapability(id)}
                   onPlanReadyGoReview={() => setBuilderStage("review")}
                   onImportBlueprintReady={() => setBuilderStage("refine")}
                   schemaText={schemaText}
@@ -2645,8 +2950,36 @@ export default function SiteBuilderPage() {
                 />
               }
             />
+            </>
           }
         />
+        <SiteBuilderEnginesDrawer open={enginesDrawerOpen} onClose={() => setEnginesDrawerOpen(false)}>
+          <div className="mb-4 rounded-2xl border border-white/[0.08] bg-slate-900/35 p-3">
+            <SiteBuilderSeoAuditPanel
+              title={seoTitleValue}
+              description={seoDescValue}
+              primaryKeyword={seoPrimaryKeyword}
+              secondaryKeywords={seoSecondaryKeywords}
+              h1Status={seoWarnings.find((w) => /H1/i.test(w)) ? "Needs fix" : "Good"}
+              structuredDataStatus={
+                Array.isArray(publishMeta?.structuredData) && publishMeta.structuredData.length > 0 ? "Present" : "Missing"
+              }
+              imageAltStatus={
+                firstPageBlocks.some((b) => b.type === "image" || b.type === "image_grid") ? "Present" : "No image blocks"
+              }
+              localSeoStatus={typeof publishMeta?.localSeoStatus === "string" ? publishMeta.localSeoStatus : "Auto-detected"}
+              warnings={seoWarnings}
+              score={seoScore}
+              onGenerateSeo={() => void runSeoQuickAction("generate SEO metadata and page signals")}
+              onImproveTitle={() => void runSeoQuickAction("improve SEO title quality and keyword targeting")}
+              onAddStructuredData={() => void runSeoQuickAction("add and improve structured data")}
+              onOptimizeLocal={() => void runSeoQuickAction("optimize for local search")}
+            />
+          </div>
+          <div className="mb-4 rounded-xl border border-white/[0.06] bg-slate-900/40 px-3 py-2">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-slate-500">Workspace context</p>
+            <ActiveClientIndicator compact />
+          </div>
         <section className={`${cardClass} mt-5 p-5`}>
           <div className="mb-3 rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -4485,6 +4818,7 @@ export default function SiteBuilderPage() {
 
         </div>
         </details>
+        </SiteBuilderEnginesDrawer>
 
         <SiteBuilderAgentAttachWizard
           open={agentAttachWizardOpen}

@@ -45,13 +45,15 @@ export async function POST(req: NextRequest) {
   }
 
   const sid = body.broadcastSessionId;
-  const broadcastSessionId = typeof sid === "string" ? Number(sid) : sid;
-  if (!Number.isFinite(broadcastSessionId) || broadcastSessionId <= 0) {
+  const broadcastSessionIdNum =
+    typeof sid === "string" ? Number(String(sid).trim()) : typeof sid === "number" ? sid : Number.NaN;
+  if (!Number.isFinite(broadcastSessionIdNum) || broadcastSessionIdNum <= 0) {
     return NextResponse.json(
       { ok: false, code: BROADCAST_CODES.liveSceneInvalid, error: "broadcastSessionId is required" },
       { status: 400 }
     );
   }
+  const broadcastSessionId = broadcastSessionIdNum;
 
   const host = await assertMeetBroadcastHost(userId, body.hostWallet ?? null);
   if (!host.ok) {

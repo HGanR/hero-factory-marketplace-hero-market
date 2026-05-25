@@ -6,7 +6,7 @@ import type {
   BroadcastRealtimeAdapter,
   BroadcastRealtimeEnvelope,
   BroadcastRealtimeSessionMeta,
-} from "./broadcast-realtime-adapter";
+} from "./broadcast-realtime-adapter-interface";
 import { upstashRedisPipeline } from "./broadcast-realtime-redis";
 import { buildBroadcastRealtimeChannelForSession } from "./broadcast-realtime-channels";
 import {

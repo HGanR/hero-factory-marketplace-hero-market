@@ -199,7 +199,7 @@ export function buildBrandGradientPair(accentHex: string | undefined, salt: stri
   let end = mix(base, mist, 0.22 + h * 0.05);
 
   if (relativeLuminance(start) > 0.72 && relativeLuminance(end) > 0.78) {
-    end = mix(parseHex(end) ?? end, ink, 0.55);
+    end = mix(end, ink, 0.55);
   }
   if (relativeLuminance(start) < 0.04 && relativeLuminance(end) < 0.06) {
     start = mix(start, mist, 0.35);

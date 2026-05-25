@@ -10,12 +10,12 @@ type Props = {
 
 export function SiteBuilderWorkspaceLayout({ preview, assistant, fileDrawer }: Props) {
   return (
-    <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
-      <div className="min-w-0 space-y-4">
+    <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(280px,420px)_minmax(0,1fr)]">
+      <aside className="min-h-[72vh] min-w-0 xl:order-1">{assistant}</aside>
+      <div className="min-w-0 space-y-4 xl:order-2">
         {preview}
         {fileDrawer}
       </div>
-      <aside className="min-h-[72vh] min-w-0">{assistant}</aside>
     </section>
   );
 }

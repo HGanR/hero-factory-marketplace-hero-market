@@ -6,7 +6,7 @@ import type {
   BroadcastRealtimeAdapter,
   BroadcastRealtimeEnvelope,
   BroadcastRealtimeSessionMeta,
-} from "./broadcast-realtime-adapter";
+} from "./broadcast-realtime-adapter-interface";
 import { buildBroadcastRealtimeChannelForSession } from "./broadcast-realtime-channels";
 
 const HUB_KEY = "__heroMeetBroadcastRealtimeAdapterMemory_v1" as const;

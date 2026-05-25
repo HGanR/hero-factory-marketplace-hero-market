@@ -109,6 +109,8 @@ interface TrooLiveKitMeetingProps {
   onLeave: () => void;
   /** Wallet address from /meet page; used with signed-in account for broadcast APIs. */
   hostWalletAddress: string;
+  /** Opens the NFT / camera avatar picker (modal lives on the parent /meet page). */
+  onOpenAvatarPicker?: () => void;
 }
 
 export function TrooLiveKitMeeting({
@@ -129,6 +131,7 @@ export function TrooLiveKitMeeting({
   cameraOptional,
   onLeave,
   hostWalletAddress,
+  onOpenAvatarPicker,
 }: TrooLiveKitMeetingProps) {
   const startRecording = useCallback(async () => {
     if (!isHost) return;
@@ -253,6 +256,16 @@ export function TrooLiveKitMeeting({
                 </button>
               )}
             </>
+          )}
+          {onOpenAvatarPicker && (
+            <button
+              type="button"
+              onClick={onOpenAvatarPicker}
+              className="px-2 py-1.5 rounded-lg bg-slate-600 hover:bg-slate-500 text-sm"
+              title="Change NFT or camera avatar"
+            >
+              Avatar
+            </button>
           )}
           <button
             onClick={onLeave}

@@ -49,6 +49,14 @@ export const LAYOUT_FAMILIES: LayoutFamily[] = [
     visualDensity: "high",
     trustPattern: "proof after narrative",
     bestForIndustries: ["media", "creative", "web3", "premium services"],
+    enforcement: {
+      sectionCountMin: 8,
+      sectionCountMax: 12,
+      expendableRegistryKeys: ["faq", "visual_break_gradient", "glow_strip"],
+      trustEarlyMaxIndex: 3,
+      firstCtaMinIndex: 4,
+      maxCtas: 2,
+    },
   },
   {
     id: "split_authority",
