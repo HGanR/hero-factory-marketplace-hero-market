@@ -1,5 +1,6 @@
 import type { KnowledgeEntry, NPCProfile, NPCResponse, NPCRole, PersonalityTraits } from "./types";
 import { matchTrustObjectives, formatDecisionTreeOutput } from "./trust";
+import { EXECUTIVE_ADMIN_NPC_RULE_FALLBACKS, isSkipperExecutiveNpcProfile } from "@/lib/agents/executive-admin-system-prompt";
 
 type NpcContext = {
   source?: "trust-records" | "smart-trust" | "ecclesiastical" | "oasis-world" | "unknown";
@@ -44,9 +45,14 @@ const ROLE_SUGGESTIONS: Record<NPCRole, string[]> = {
   avatar: ["Tell me your story", "What is for sale?", "How does ownership work?"],
   guide: ["Start the tour", "Show me the buildings", "Any hidden spots?"],
   voice_agent: ["Schedule an appointment", "Leave a message", "Speak with a consultant"],
+  executive_admin: [
+    "Summarize agent activity",
+    "What needs approval?",
+    "Surface CRM follow-ups",
+  ],
 };
 
-const ROLE_FALLBACKS: Record<NPCRole, string[]> = {
+export const ROLE_FALLBACKS: Record<NPCRole, string[]> = {
   secretary: [
     "I can help with scheduling, introductions, and general questions. What do you need?",
     "Happy to assist. Would you like to set up a meeting or learn about this space?",
@@ -63,6 +69,7 @@ const ROLE_FALLBACKS: Record<NPCRole, string[]> = {
     "Thank you for calling. How can I help you today? I can schedule appointments or take a message.",
     "I am your virtual receptionist. Would you like to book a consultation or leave a callback request?",
   ],
+  executive_admin: [...EXECUTIVE_ADMIN_NPC_RULE_FALLBACKS],
 };
 
 function normalize(text: string) {
@@ -123,13 +130,18 @@ function pickMoodFromIntent(intent: string): NPCResponse["mood"] {
   return "neutral";
 }
 
-function getSuggestions(role: NPCRole): string[] {
+function getSuggestions(profile: NPCProfile): string[] {
+  const role: NPCRole = isSkipperExecutiveNpcProfile(profile) ? "executive_admin" : profile.role;
   return ROLE_SUGGESTIONS[role] || ["Tell me more", "What else can you do?", "Thanks!"];
 }
 
-function pickFallback(role: NPCRole): string {
-  const options = ROLE_FALLBACKS[role] || ROLE_FALLBACKS.secretary;
-  return options[Math.floor(Math.random() * options.length)];
+function pickFallback(profile: NPCProfile): string {
+  if (isSkipperExecutiveNpcProfile(profile)) {
+    const options = EXECUTIVE_ADMIN_NPC_RULE_FALLBACKS;
+    return options[Math.floor(Math.random() * options.length)]!;
+  }
+  const options = ROLE_FALLBACKS[profile.role] || ROLE_FALLBACKS.secretary;
+  return options[Math.floor(Math.random() * options.length)]!;
 }
 
 function buildTrustAdvisorFallback(message: string, context?: NpcContext): string {
@@ -397,7 +409,7 @@ export function buildNpcResponse(params: {
       mood: pickMoodFromIntent(intent),
       source: "knowledge",
       intent,
-      suggestions: getSuggestions(profile.role),
+      suggestions: getSuggestions(profile),
     };
   }
 
@@ -434,10 +446,10 @@ export function buildNpcResponse(params: {
   }
 
   return {
-    text: pickFallback(profile.role),
+    text: pickFallback(profile),
     mood: pickMoodFromIntent(intent),
     source: "rule",
     intent,
-    suggestions: getSuggestions(profile.role),
+    suggestions: getSuggestions(profile),
   };
 }

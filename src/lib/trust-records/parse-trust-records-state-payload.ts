@@ -301,16 +301,16 @@ function parseMinute(x: unknown): unknown | null {
   if (!Array.isArray(rc) || !rc.every((c) => typeof c === "string")) return null;
   if (!Array.isArray(ra) || !ra.every((a) => typeof a === "string")) return null;
   return {
-    id: x.id,
-    kind: x.kind,
-    title: x.title,
-    meetingDate: x.meetingDate,
-    body: clampStr(x.body, 500_000),
+    id: x.id as string,
+    kind: x.kind as string,
+    title: x.title as string,
+    meetingDate: x.meetingDate as string,
+    body: clampStr(x.body as string, 500_000),
     relatedCertificateIds: rc,
     relatedAssetIds: ra,
-    adoptedBy: x.adoptedBy,
-    createdAt: x.createdAt,
-    hash: x.hash,
+    adoptedBy: x.adoptedBy as string,
+    createdAt: x.createdAt as string,
+    hash: x.hash as string,
   };
 }
 
@@ -321,15 +321,15 @@ function parseMeeting(x: unknown): unknown | null {
     if (typeof x[k] !== "string") return null;
   }
   const o: Record<string, unknown> = {
-    id: x.id,
-    title: x.title,
-    meetingDate: x.meetingDate,
-    attendees: clampStr(x.attendees, 100_000),
-    location: clampStr(x.location, 20_000),
-    agenda: clampStr(x.agenda, 200_000),
-    notes: clampStr(x.notes, 200_000),
-    resolutions: clampStr(x.resolutions, 200_000),
-    createdAt: x.createdAt,
+    id: x.id as string,
+    title: x.title as string,
+    meetingDate: x.meetingDate as string,
+    attendees: clampStr(x.attendees as string, 100_000),
+    location: clampStr(x.location as string, 20_000),
+    agenda: clampStr(x.agenda as string, 200_000),
+    notes: clampStr(x.notes as string, 200_000),
+    resolutions: clampStr(x.resolutions as string, 200_000),
+    createdAt: x.createdAt as string,
   };
   for (const img of ["sealDataUrl", "watermarkDataUrl", "qrDataUrl", "barcodeDataUrl", "noticeQrDataUrl", "renderData"] as const) {
     if (typeof x[img] === "string") o[img] = clampStr(x[img] as string, MAX_CONFIG_STRING);

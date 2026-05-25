@@ -15,6 +15,7 @@ export async function GET() {
         userId: consultantProfiles.userId,
         specialty: consultantProfiles.specialty,
         note: consultantProfiles.note,
+        avatarUrl: consultantProfiles.avatarUrl,
         username: marketplaceUsers.username,
       })
       .from(consultantProfiles)
@@ -37,6 +38,7 @@ export async function GET() {
           displayName,
           specialty: r.specialty,
           note: r.note ?? undefined,
+          avatarUrl: r.avatarUrl?.trim() ? String(r.avatarUrl).trim() : undefined,
         };
       }),
     });
@@ -55,11 +57,17 @@ export async function GET() {
         // Some drizzle/mysql2 error messages wrap the SQL without including the MySQL error text
         m.includes("failed query:"));
 
-    if (looksLikeMissingTable) {
+    const looksLikeMissingAvatarColumn =
+      m.includes("avatarurl") ||
+      m.includes("avatar_url") ||
+      (m.includes("unknown column") && m.includes("consultant"));
+
+    if (looksLikeMissingTable || looksLikeMissingAvatarColumn) {
       return NextResponse.json({
         consultants: [],
-        warning:
-          "Consultations database tables are not yet created. Ask an admin to run the database migration (drizzle db:push) to create consultant_profiles and consultation_bookings.",
+        warning: looksLikeMissingAvatarColumn
+          ? "Consultant avatar column is missing. Run migrations/add_consultant_profile_avatar_url.sql (or drizzle db:push) to add avatarUrl to consultant_profiles."
+          : "Consultations database tables are not yet created. Ask an admin to run the database migration (drizzle db:push) to create consultant_profiles and consultation_bookings.",
       });
     }
 

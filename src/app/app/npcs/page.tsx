@@ -20,6 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
   avatar: "World Owner",
   guide: "World Guide",
   voice_agent: "Virtual Receptionist",
+  executive_admin: "Executive administration",
 };
 
 export default function MyNPCsPage() {
@@ -199,6 +200,7 @@ export default function MyNPCsPage() {
                   <option value="avatar">World Owner</option>
                   <option value="guide">World Guide</option>
                   <option value="voice_agent">Virtual Receptionist</option>
+                  <option value="executive_admin">Executive administration</option>
                 </select>
               </div>
               <div>

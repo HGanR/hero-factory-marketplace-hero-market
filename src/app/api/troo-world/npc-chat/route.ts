@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { oasisNpcs, oasisNpcKnowledge, oasisNpcSessions, oasisNpcMessages } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { resolveUnifiedSkipperRuntimeContext } from "@/lib/agents/skipper-unified-runtime";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
           .limit(10);
 
         existingMessages = prevMessages.map((m) => ({
-          role: m.role,
+          role: m.role === "user" ? "user" : "npc",
           content: m.content,
         }));
 
@@ -127,8 +128,23 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Build system prompt
-    const systemPrompt = `${personality.systemPrompt || `You are ${npc.name}, a helpful assistant.`}
+    // Build system prompt (executive_admin uses unified SKIPPER resolver for persona + capability stack)
+    let executivePersonaCore = personality.systemPrompt?.trim() || `You are ${npc.name}, a helpful assistant.`;
+    if (npc.role === "executive_admin") {
+      const cognitive = await resolveUnifiedSkipperRuntimeContext({
+        surface: "troo_world",
+        db,
+        npcName: npc.name,
+        npcRole: npc.role,
+        hasKnowledgeDocs: knowledgeDocs.length > 0,
+        personalitySystemPrompt: personality.systemPrompt ?? null,
+      });
+      if (cognitive) {
+        executivePersonaCore = cognitive.systemPrompt;
+      }
+    }
+
+    const systemPrompt = `${executivePersonaCore}
 
 Your name is ${npc.name}.
 Your role is: ${npc.title || npc.role}

@@ -146,6 +146,8 @@ interface Props {
   onElementDragEnd?: (id: number, prev: WorldElementData, next: WorldElementData) => void;
   /** World/campus title (e.g. "MERIDIAN CAMPUS") */
   worldTitle?: string;
+  /** Optional terrain flavor label (e.g. from `troo_worlds.terrainType`); reserved for future terrain variants. */
+  terrainType?: string;
 }
 
 export default function TrooWorldUnifiedViewer({
@@ -167,7 +169,9 @@ export default function TrooWorldUnifiedViewer({
   onPlacementDragEnd,
   onElementDragEnd,
   worldTitle = "TROO WORLD",
+  terrainType: _terrainType,
 }: Props) {
+  void _terrainType;
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     initialBuilding === "nexus" ? "nexus" : initialBuilding === "meridian" ? "meridian" : initialBuilding === "apex" ? "apex" : initialBuilding === "harborview" ? "harborview" : "world"
   );
@@ -543,13 +547,15 @@ function WorldView({
                 mat.emissiveIntensity = 0.2;
               } else {
                 const c = "color" in old && old.color ? (old.color as THREE.Color).clone() : new THREE.Color(0x4a7a9a);
+                const baseMap =
+                  "map" in old && old.map instanceof THREE.Texture ? (old.map as THREE.Texture) : undefined;
                 mat = new THREE.MeshStandardMaterial({
                   color: c,
                   roughness: 0.6,
                   metalness: 0.2,
                   emissive: c.clone(),
                   emissiveIntensity: 0.15,
-                  map: "map" in old ? old.map : undefined,
+                  map: baseMap,
                 });
               }
               mat.side = THREE.DoubleSide;
@@ -584,7 +590,7 @@ function WorldView({
       transformControls = new TransformControls(camera, renderer.domElement);
       transformControls.setMode(mode);
       transformControlsRef.current = transformControls;
-      scene.add(transformControls);
+      scene.add(transformControls as unknown as THREE.Object3D);
       const dragStartRef: { placement?: Placement; element?: WorldElementData } = {};
       transformControls.addEventListener("dragging-changed", (ev) => {
         transformDragging = Boolean(ev.value);

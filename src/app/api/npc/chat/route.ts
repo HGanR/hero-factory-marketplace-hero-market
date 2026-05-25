@@ -7,6 +7,8 @@ import { ensureClientsTitleColumn } from "@/lib/db/clients-ensure";
 import { clients, trustDrafts, trusts } from "@/lib/db/schema";
 import { getAuthedUserId } from "@/lib/api/auth";
 import { insertAuditLog } from "@/lib/audit";
+import { isSkipperExecutiveNpcProfile } from "@/lib/agents/executive-admin-system-prompt";
+import { resolveUnifiedSkipperRuntimeContext } from "@/lib/agents/skipper-unified-runtime";
 import { buildNpcResponse } from "@/lib/npc/engine";
 import { generateLlmResponse, type ChatContext } from "@/lib/npc/llm-bridge";
 import {
@@ -751,7 +753,27 @@ export async function POST(req: Request) {
   // Optional enhancement: if LLM configured, improve rule-based fallbacks (never required)
   if (response.source === "rule" && response.intent === "unknown" && !jarvaFrontDoorReply && !laneControlApplied) {
     try {
-      const llmResponse = await generateLlmResponse({ message: messageForNpc, profile, knowledge, context: contextForNpc });
+      let unifiedPersonaBase: string | undefined;
+      if (isSkipperExecutiveNpcProfile(profile)) {
+        const dbNpc = db ?? (await getDb());
+        db = dbNpc;
+        const cognitive = await resolveUnifiedSkipperRuntimeContext({
+          surface: "npc",
+          db: dbNpc,
+          profile,
+          knowledgeEntryCount: knowledge.length,
+        });
+        if (cognitive) {
+          unifiedPersonaBase = `${cognitive.systemPrompt}\n\n---\nSURFACE BOUNDARY (NPC / authenticated API):\n${cognitive.analyticsContext}`;
+        }
+      }
+      const llmResponse = await generateLlmResponse({
+        message: messageForNpc,
+        profile,
+        knowledge,
+        context: contextForNpc,
+        unifiedPersonaBase,
+      });
       if (llmResponse?.text) {
         response = {
           ...llmResponse,

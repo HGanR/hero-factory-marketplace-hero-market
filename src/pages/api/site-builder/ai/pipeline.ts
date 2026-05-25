@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { randomUUID } from "node:crypto";
-import { verifyToken, normalizeJwtUserId } from "@/lib/auth";
+import { marketplaceUserIdFromSessionCookiePair } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { applyCinematicPostProcessToPlannerOutput } from "@/lib/site-builder/ai/cinematic-planner-layer";
 import { evaluateSiteSchema } from "@/lib/site-builder/ai/evaluator";
@@ -80,7 +80,7 @@ function buildGenerationDesignFlags(
 
 type VariantOutput = {
   seed: string;
-  schema: unknown;
+  schema: SiteSchemaDocumentType;
   planner: unknown;
   generationMeta: GenerationMeta;
 };
@@ -170,10 +170,7 @@ function parseCookieHeader(cookieHeader: string | undefined): Record<string, str
 
 function getAuthedUserIdFromPagesReq(req: NextApiRequest): number | null {
   const parsed = parseCookieHeader(req.headers.cookie);
-  const token = parsed["auth-token"] || parsed["admin-token"] || null;
-  if (!token) return null;
-  const payload = verifyToken(token);
-  return normalizeJwtUserId(payload?.userId);
+  return marketplaceUserIdFromSessionCookiePair(parsed["auth-token"] ?? "", parsed["admin-token"] ?? "");
 }
 
 function computeRegistryDrops(planner: { sectionPlan?: Array<{ registryKey?: string }> }): number {
@@ -300,26 +297,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
       case "full": {
+        const full = parsed.data;
         stage = "planner_started";
         logPipelineStage(requestId, "planner_started");
         const db = await getDb();
-        const clientId = "clientId" in parsed.data ? parsed.data.clientId : undefined;
-        const siteIdForRun = "siteId" in parsed.data ? parsed.data.siteId : undefined;
+        const clientId = "clientId" in full ? full.clientId : undefined;
+        const siteIdForRun = "siteId" in full ? full.siteId : undefined;
         let llmEnriched = false;
-        let planInput = parsed.data.input;
+        let planInput = full.input;
         let intelligencePatternHints: string | undefined;
         let intelligenceMatchCount = 0;
-        const retrievalSkipped = Boolean(parsed.data.planner);
+        const retrievalSkipped = Boolean(full.planner);
         let enrichFailed = false;
         let enrichError: string | undefined;
 
-        if (!parsed.data.planner) {
+        if (!full.planner) {
           const enriched = await withStageTimeout(
             "planner_started",
             stageTimeoutMs(45_000),
-            enrichPlannerInputWithRetrievedPatterns(db, userId, parsed.data.input, {
-              industry: parsed.data.input.industry ?? null,
-              siteType: String(parsed.data.input.siteType),
+            enrichPlannerInputWithRetrievedPatterns(db, userId, full.input, {
+              industry: full.input.industry ?? null,
+              siteType: String(full.input.siteType),
             }),
           );
           intelligencePatternHints = enriched.patternHints;
@@ -344,8 +342,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         stage = "planner_finished";
         logPipelineStage(requestId, "planner_finished");
-        const n = Math.min(3, Math.max(1, parsed.data.variantCount ?? 1));
-        const baseSeed = parsed.data.variantSeed?.trim() || `v1-${randomUUID()}`;
+        const n = Math.min(3, Math.max(1, full.variantCount ?? 1));
+        const baseSeed = full.variantSeed?.trim() || `v1-${randomUUID()}`;
         const families = chooseVariantLayoutFamilies(n, baseSeed, planInput.inspirationBrief, planInput);
         const seeds = Array.from({ length: n }, (_, i) => (i === 0 ? baseSeed : `${baseSeed}-alt${i}`));
         const inspirationPatternsUsed = Boolean(planInput.inspirationBrief);
@@ -378,22 +376,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             variantCount: n,
           });
           let s = generateSiteSchemaFromPlanner(p, seed, { plannerInput: variantInput });
-          if (parsed.data.siteBuilderAssets && typeof parsed.data.siteBuilderAssets === "object") {
-            s.metadata = s.metadata ?? {};
-            s.metadata.siteBuilderAssets = {
-              ...(s.metadata.siteBuilderAssets ?? {}),
-              ...parsed.data.siteBuilderAssets,
+          const mdFull = s.metadata;
+          if (!mdFull) {
+            throw new Error("pipeline invariant: schema missing metadata after planner generation");
+          }
+          if (full.siteBuilderAssets && typeof full.siteBuilderAssets === "object") {
+            const prev = (mdFull.siteBuilderAssets as Record<string, unknown> | undefined) ?? {};
+            mdFull.siteBuilderAssets = {
+              ...prev,
+              ...(full.siteBuilderAssets as Record<string, unknown>),
+            } as NonNullable<SiteSchemaDocumentType["metadata"]>["siteBuilderAssets"];
+          }
+          if (full.input.widgetKey) {
+            const prev = mdFull.widgetIntegration;
+            mdFull.widgetIntegration = {
+              widgetKey: full.input.widgetKey,
+              placement: full.input.widgetPlacement ?? "body_end",
+              loaderOrigin: prev?.loaderOrigin,
+              pageSlug: prev?.pageSlug,
+              injectInDevPreviewTab: prev?.injectInDevPreviewTab ?? true,
             };
           }
-          if (parsed.data.input.widgetKey) {
-            s.metadata = s.metadata ?? {};
-            s.metadata.widgetIntegration = {
-              ...(s.metadata.widgetIntegration ?? {}),
-              widgetKey: parsed.data.input.widgetKey,
-              placement: parsed.data.input.widgetPlacement ?? "body_end",
-            };
-          }
-          s = applyRefinementToSchema(s, parsed.data.refinement);
+          s = applyRefinementToSchema(s, full.refinement);
           finalizeGenerationWithTroothertzAndBrandBrain(s);
           const ci = runContentIntelligencePipeline(variantInput, p, s);
           s = SiteSchemaDocument.parse(ci.document);
@@ -544,15 +548,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return sendJson(res, 200, { evaluation, generationRuntime: GENERATION_RUNTIME });
       }
       case "generate": {
-        const n = Math.min(3, Math.max(1, parsed.data.variantCount ?? 1));
-        const baseSeed = parsed.data.variantSeed?.trim() || `v1-${randomUUID()}`;
-        const families = chooseVariantLayoutFamilies(n, baseSeed, parsed.data.input.inspirationBrief, parsed.data.input);
-        const inspirationPatternsUsed = Boolean(parsed.data.input.inspirationBrief);
+        const gen = parsed.data;
+        const n = Math.min(3, Math.max(1, gen.variantCount ?? 1));
+        const baseSeed = gen.variantSeed?.trim() || `v1-${randomUUID()}`;
+        const families = chooseVariantLayoutFamilies(n, baseSeed, gen.input.inspirationBrief, gen.input);
+        const inspirationPatternsUsed = Boolean(gen.input.inspirationBrief);
         const seeds = Array.from({ length: n }, (_, i) => (i === 0 ? baseSeed : `${baseSeed}-alt${i}`));
         const makeVariant = async (seed: string, variantIndex: number, retryCount = 0): Promise<VariantOutput> => {
           const family = families[variantIndex] ?? families[0];
           const variantInput = {
-            ...parsed.data.input,
+            ...gen.input,
             layoutVariantIndex: variantIndex,
             layoutFamilyId: family?.id,
             variantIntent: family?.intent,
@@ -566,22 +571,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             variantCount: n,
           });
           let s = generateSiteSchemaFromPlanner(p, seed, { plannerInput: variantInput });
-          if (parsed.data.siteBuilderAssets && typeof parsed.data.siteBuilderAssets === "object") {
-            s.metadata = s.metadata ?? {};
-            s.metadata.siteBuilderAssets = {
-              ...(s.metadata.siteBuilderAssets ?? {}),
-              ...parsed.data.siteBuilderAssets,
+          const md = s.metadata;
+          if (!md) {
+            throw new Error("pipeline invariant: schema missing metadata after planner generation");
+          }
+          if (gen.siteBuilderAssets && typeof gen.siteBuilderAssets === "object") {
+            const prev = (md.siteBuilderAssets as Record<string, unknown> | undefined) ?? {};
+            md.siteBuilderAssets = {
+              ...prev,
+              ...(gen.siteBuilderAssets as Record<string, unknown>),
+            } as NonNullable<SiteSchemaDocumentType["metadata"]>["siteBuilderAssets"];
+          }
+          if (gen.input.widgetKey) {
+            const prev = md.widgetIntegration;
+            md.widgetIntegration = {
+              widgetKey: gen.input.widgetKey,
+              placement: gen.input.widgetPlacement ?? "body_end",
+              loaderOrigin: prev?.loaderOrigin,
+              pageSlug: prev?.pageSlug,
+              injectInDevPreviewTab: prev?.injectInDevPreviewTab ?? true,
             };
           }
-          if (parsed.data.input.widgetKey) {
-            s.metadata = s.metadata ?? {};
-            s.metadata.widgetIntegration = {
-              ...(s.metadata.widgetIntegration ?? {}),
-              widgetKey: parsed.data.input.widgetKey,
-              placement: parsed.data.input.widgetPlacement ?? "body_end",
-            };
-          }
-          s = applyRefinementToSchema(s, parsed.data.refinement);
+          s = applyRefinementToSchema(s, gen.refinement);
           finalizeGenerationWithTroothertzAndBrandBrain(s);
           const ciG = runContentIntelligencePipeline(variantInput, p, s);
           s = SiteSchemaDocument.parse(ciG.document);

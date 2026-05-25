@@ -125,34 +125,62 @@ export function buildApexWorkerMesh(def: WorkerDef): WorkerMesh {
   head.position.set(0, 1.42 * SCALE, 0);
   group.add(head);
 
-  group.add(boxMesh(0.34 * SCALE, 0.1 * SCALE, 0.34 * SCALE, def.hairColor).position.set(0, 1.54 * SCALE, 0));
-  group.add(boxMesh(0.04, 0.04, 0.02, 0x111111).position.set(-0.06 * SCALE, 1.44 * SCALE, 0.15 * SCALE));
-  group.add(boxMesh(0.04, 0.04, 0.02, 0x111111).position.set(0.06 * SCALE, 1.44 * SCALE, 0.15 * SCALE));
-  group.add(boxMesh(0.1 * SCALE, 0.1 * SCALE, 0.1 * SCALE, def.skinColor).position.set(0, 1.26 * SCALE, 0));
+  const hair = boxMesh(0.34 * SCALE, 0.1 * SCALE, 0.34 * SCALE, def.hairColor);
+  hair.position.set(0, 1.54 * SCALE, 0);
+  group.add(hair);
+  const eyeL = boxMesh(0.04, 0.04, 0.02, 0x111111);
+  eyeL.position.set(-0.06 * SCALE, 1.44 * SCALE, 0.15 * SCALE);
+  group.add(eyeL);
+  const eyeR = boxMesh(0.04, 0.04, 0.02, 0x111111);
+  eyeR.position.set(0.06 * SCALE, 1.44 * SCALE, 0.15 * SCALE);
+  group.add(eyeR);
+  const nose = boxMesh(0.1 * SCALE, 0.1 * SCALE, 0.1 * SCALE, def.skinColor);
+  nose.position.set(0, 1.26 * SCALE, 0);
+  group.add(nose);
 
   const leftArm = new THREE.Group();
-  leftArm.add(boxMesh(0.1 * SCALE, 0.28 * SCALE, 0.1 * SCALE, def.shirtColor).position.set(0, -0.14 * SCALE, 0));
-  leftArm.add(boxMesh(0.09 * SCALE, 0.26 * SCALE, 0.09 * SCALE, def.skinColor).position.set(0, -0.42 * SCALE, 0));
+  const leftArmUpper = boxMesh(0.1 * SCALE, 0.28 * SCALE, 0.1 * SCALE, def.shirtColor);
+  leftArmUpper.position.set(0, -0.14 * SCALE, 0);
+  leftArm.add(leftArmUpper);
+  const leftArmLower = boxMesh(0.09 * SCALE, 0.26 * SCALE, 0.09 * SCALE, def.skinColor);
+  leftArmLower.position.set(0, -0.42 * SCALE, 0);
+  leftArm.add(leftArmLower);
   leftArm.position.set(-0.21 * SCALE, 1.05 * SCALE, 0);
   group.add(leftArm);
 
   const rightArm = new THREE.Group();
-  rightArm.add(boxMesh(0.1 * SCALE, 0.28 * SCALE, 0.1 * SCALE, def.shirtColor).position.set(0, -0.14 * SCALE, 0));
-  rightArm.add(boxMesh(0.09 * SCALE, 0.26 * SCALE, 0.09 * SCALE, def.skinColor).position.set(0, -0.42 * SCALE, 0));
+  const rightArmUpper = boxMesh(0.1 * SCALE, 0.28 * SCALE, 0.1 * SCALE, def.shirtColor);
+  rightArmUpper.position.set(0, -0.14 * SCALE, 0);
+  rightArm.add(rightArmUpper);
+  const rightArmLower = boxMesh(0.09 * SCALE, 0.26 * SCALE, 0.09 * SCALE, def.skinColor);
+  rightArmLower.position.set(0, -0.42 * SCALE, 0);
+  rightArm.add(rightArmLower);
   rightArm.position.set(0.21 * SCALE, 1.05 * SCALE, 0);
   group.add(rightArm);
 
   const leftLeg = new THREE.Group();
-  leftLeg.add(boxMesh(0.12 * SCALE, 0.3 * SCALE, 0.12 * SCALE, def.pantsColor).position.set(0, -0.15 * SCALE, 0));
-  leftLeg.add(boxMesh(0.11 * SCALE, 0.28 * SCALE, 0.11 * SCALE, def.pantsColor).position.set(0, -0.44 * SCALE, 0));
-  leftLeg.add(boxMesh(0.13 * SCALE, 0.07 * SCALE, 0.18 * SCALE, 0x1a1a1a).position.set(0, -0.61 * SCALE, 0.03 * SCALE));
+  const leftLegUpper = boxMesh(0.12 * SCALE, 0.3 * SCALE, 0.12 * SCALE, def.pantsColor);
+  leftLegUpper.position.set(0, -0.15 * SCALE, 0);
+  leftLeg.add(leftLegUpper);
+  const leftLegLower = boxMesh(0.11 * SCALE, 0.28 * SCALE, 0.11 * SCALE, def.pantsColor);
+  leftLegLower.position.set(0, -0.44 * SCALE, 0);
+  leftLeg.add(leftLegLower);
+  const leftFoot = boxMesh(0.13 * SCALE, 0.07 * SCALE, 0.18 * SCALE, 0x1a1a1a);
+  leftFoot.position.set(0, -0.61 * SCALE, 0.03 * SCALE);
+  leftLeg.add(leftFoot);
   leftLeg.position.set(-0.1 * SCALE, 0.68 * SCALE, 0);
   group.add(leftLeg);
 
   const rightLeg = new THREE.Group();
-  rightLeg.add(boxMesh(0.12 * SCALE, 0.3 * SCALE, 0.12 * SCALE, def.pantsColor).position.set(0, -0.15 * SCALE, 0));
-  rightLeg.add(boxMesh(0.11 * SCALE, 0.28 * SCALE, 0.11 * SCALE, def.pantsColor).position.set(0, -0.44 * SCALE, 0));
-  rightLeg.add(boxMesh(0.13 * SCALE, 0.07 * SCALE, 0.18 * SCALE, 0x1a1a1a).position.set(0, -0.61 * SCALE, 0.03 * SCALE));
+  const rightLegUpper = boxMesh(0.12 * SCALE, 0.3 * SCALE, 0.12 * SCALE, def.pantsColor);
+  rightLegUpper.position.set(0, -0.15 * SCALE, 0);
+  rightLeg.add(rightLegUpper);
+  const rightLegLower = boxMesh(0.11 * SCALE, 0.28 * SCALE, 0.11 * SCALE, def.pantsColor);
+  rightLegLower.position.set(0, -0.44 * SCALE, 0);
+  rightLeg.add(rightLegLower);
+  const rightFoot = boxMesh(0.13 * SCALE, 0.07 * SCALE, 0.18 * SCALE, 0x1a1a1a);
+  rightFoot.position.set(0, -0.61 * SCALE, 0.03 * SCALE);
+  rightLeg.add(rightFoot);
   rightLeg.position.set(0.1 * SCALE, 0.68 * SCALE, 0);
   group.add(rightLeg);
 

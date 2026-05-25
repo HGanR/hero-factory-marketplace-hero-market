@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/admin/xrpl", label: "XRPL" },
   { href: "/admin/npc", label: "NPCs" },
   { href: "/admin/appointments", label: "Appointments", icon: Calendar },
+  { href: "/admin/executive-agent", label: "Executive Agent" },
   { href: "/app/dashboard", label: "CRM", external: true },
   { href: "/admin/crypto-window", label: "Crypto Window" },
   { href: "/admin/troo-sales", label: "Troo Sales" },
@@ -78,7 +79,7 @@ export function AdminNavBar({
   };
 
   return (
-    <nav className="flex items-center justify-between gap-4 px-6 py-3 bg-slate-900/80 border-b border-slate-700/50 backdrop-blur-sm">
+    <nav className="sticky top-0 z-[200] flex items-center justify-between gap-4 border-b border-slate-700/50 bg-slate-900/95 px-6 py-3 backdrop-blur-md">
       <div className="flex items-center gap-1">
         <Link href="/admin" className="text-lg font-bold text-white hover:text-cyan-400 transition-colors">
           Admin Panel
@@ -101,7 +102,7 @@ export function AdminNavBar({
               <ChevronDown className={`h-4 w-4 transition-transform ${moreOpen ? "rotate-180" : ""}`} />
             </button>
             {moreOpen && (
-              <div className="absolute top-full left-0 mt-1 py-2 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[180px]">
+              <div className="absolute left-0 top-full z-[210] mt-1 min-w-[180px] rounded-lg border border-slate-600 bg-slate-800 py-2 shadow-2xl ring-1 ring-black/20">
                 {secondary.map((item) => (
                   <div key={item.href} className="px-2">
                     <NavLink item={item} />
@@ -125,6 +126,9 @@ export function AdminNavBar({
           try {
             localStorage.removeItem("adminLoggedIn");
             localStorage.removeItem("user");
+          } catch {}
+          try {
+            window.dispatchEvent(new Event("admin-logout"));
           } catch {}
           router.push("/");
           router.refresh();

@@ -40,6 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
   avatar: "World Owner",
   guide: "World Guide",
   voice_agent: "Virtual Receptionist",
+  executive_admin: "Executive administration",
 };
 
 export default function AgentsOverviewPage() {

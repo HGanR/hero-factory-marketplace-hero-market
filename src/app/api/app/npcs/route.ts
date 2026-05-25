@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!name || !role) {
       return NextResponse.json({ error: "Missing name or role" }, { status: 400 });
     }
-    if (!["secretary", "avatar", "guide", "voice_agent"].includes(role)) {
+    if (!["secretary", "avatar", "guide", "voice_agent", "executive_admin"].includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 

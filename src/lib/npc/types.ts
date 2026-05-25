@@ -1,4 +1,4 @@
-export type NPCRole = "secretary" | "avatar" | "guide" | "voice_agent";
+export type NPCRole = "secretary" | "avatar" | "guide" | "voice_agent" | "executive_admin";
 export type Mood = "neutral" | "happy" | "busy" | "concerned" | "excited" | "formal";
 export type ResponseSource = "rule" | "knowledge" | "llm";
 export type Sentiment = "positive" | "neutral" | "negative";

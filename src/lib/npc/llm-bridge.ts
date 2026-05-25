@@ -1,5 +1,6 @@
 import type { KnowledgeEntry, NPCProfile, NPCResponse } from "./types";
 import { invokeNpcLlm } from "./llm";
+import { buildExecutiveAdminNpcLlmPersonaSection, isSkipperExecutiveNpcProfile } from "@/lib/agents/executive-admin-system-prompt";
 import {
   getTrustPlaybookPrompt,
   getFamilyOfficeArchitecturePrompt,
@@ -8,7 +9,10 @@ import {
   sanitizeResponse,
 } from "./trust";
 import type { JarvaEntryIntent } from "@/lib/jarva/jarva-entry-router";
-import type { JarvaDocumentAssemblyHints } from "@/lib/jarva/jarva-document-assembly-hints";
+import {
+  jarvaDocumentAssemblyHintsHaveSignals,
+  type JarvaDocumentAssemblyHints,
+} from "@/lib/jarva/jarva-document-assembly-hints";
 import type { JarvaProceduralStep } from "@/lib/jarva/jarva-procedural-engine";
 import type { JarvaWorkflowPath, JarvaWorkflowPathSource } from "@/lib/jarva/jarva-workflow-path";
 
@@ -131,7 +135,7 @@ When clientRecord.title or context.clientTitle is provided (e.g., Trustee, CEO, 
 TRUST WORKFLOW STEP GATE (when context.jarvaProceduralStep is set — trust-advisor only):
 You are in a **single** procedural step at a time. Do not jump ahead to later trust topics until that step is satisfied.
 - front_door: welcome and classify what the consultant is doing; point to Trust Records / Smart Trust / Ecclesiastical — no parallel system.
-- trust_type_choice: ask Revocable vs Irrevocable vs Ecclesiastical before deep intake; align with Smart Trust/Trust Records vs `/ecclesiastical`.
+- trust_type_choice: ask Revocable vs Irrevocable vs Ecclesiastical before deep intake; align with Smart Trust/Trust Records vs the /ecclesiastical route.
 - specialty_guidance: certificates, PPM/securities, bonds, or estate — use existing Trust Records tabs (Issue, Certificates, Bonds, Estate); still DRAFT for counsel.
 - workspace: only help create/open a trust workspace and explain why an id is required; do not drill into parties/assets yet.
 - client: only client record creation, identity, and binding Client ID; no deep drafting.
@@ -165,12 +169,18 @@ function buildSystemPrompt(
   profile: NPCProfile,
   knowledge: KnowledgeEntry[],
   context?: ChatContext,
-  userMessage?: string
+  userMessage?: string,
+  /** Unified SKIPPER cognitive stack from {@link resolveUnifiedSkipperRuntimeContext} (NPC surface). */
+  unifiedPersonaBase?: string | null,
 ): string {
   // npcId-based persona switch (Jarva) before role fallback
   let personaSection: string;
   if (profile.id === "trust-advisor") {
     personaSection = buildJarvaPersona(profile);
+  } else if (unifiedPersonaBase?.trim() && isSkipperExecutiveNpcProfile(profile)) {
+    personaSection = unifiedPersonaBase.trim();
+  } else if (isSkipperExecutiveNpcProfile(profile)) {
+    personaSection = buildExecutiveAdminNpcLlmPersonaSection(profile.name);
   } else {
     const roleDescriptions: Record<string, string> = {
       secretary: `You are ${profile.name}, an executive secretary in the Oasis World. You help visitors schedule, find information, and navigate services.`,
@@ -227,8 +237,7 @@ Personality traits:
       context.jarvaProceduralStep ||
       context.jarvaWorkflowPath ||
       context.jarvaWorkflowPathSource != null ||
-      context.jarvaDocumentAssemblyHints != null ||
-      (context.jarvaDocumentAssemblyHints?.lines?.length ?? 0) > 0)
+      jarvaDocumentAssemblyHintsHaveSignals(context.jarvaDocumentAssemblyHints))
       ? `
 Current context (summarized, do not fabricate):
 ${context.source ? `- Source: ${context.source}` : ""}
@@ -301,13 +310,15 @@ export async function generateLlmResponse(params: {
   profile: NPCProfile;
   knowledge: KnowledgeEntry[];
   context?: ChatContext;
+  /** When provided for Executive NPC profiles, replaces the default persona block (unified cognitive runtime). */
+  unifiedPersonaBase?: string | null;
 }): Promise<NPCResponse | null> {
   if (process.env.NPC_LLM_ENABLED !== "true") {
     return null; // Platform operates in knowledge-only mode; no external APIs.
   }
 
-  const { message, profile, knowledge, context } = params;
-  const systemPrompt = buildSystemPrompt(profile, knowledge, context, message);
+  const { message, profile, knowledge, context, unifiedPersonaBase } = params;
+  const systemPrompt = buildSystemPrompt(profile, knowledge, context, message, unifiedPersonaBase);
 
   const responseText = await invokeNpcLlm([
     { role: "system", content: systemPrompt },

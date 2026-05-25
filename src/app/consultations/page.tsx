@@ -9,6 +9,7 @@ type Consultant = {
   displayName: string;
   specialty: string;
   note?: string;
+  avatarUrl?: string;
 };
 
 export default function ConsultationsPage() {
@@ -51,25 +52,27 @@ export default function ConsultationsPage() {
 
         // Guard against non-JSON responses (e.g. HTML error page / empty body)
         const raw = await res.text();
-        let data: any = null;
+        let data: unknown = null;
         try {
           data = raw ? JSON.parse(raw) : null;
         } catch {
           data = null;
         }
+        const payload = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
 
         if (!res.ok) {
-          const msg =
-            data?.error ||
+          const errMsg =
+            (payload?.error != null && String(payload.error)) ||
             (raw?.trim()
               ? `Failed to load consultants (HTTP ${res.status}).`
               : `Failed to load consultants (HTTP ${res.status}). Empty response.`);
-          throw new Error(msg);
+          throw new Error(errMsg);
         }
 
-        const list: Consultant[] = Array.isArray(data?.consultants) ? data.consultants : [];
+        const rawList = payload?.consultants;
+        const list: Consultant[] = Array.isArray(rawList) ? (rawList as Consultant[]) : [];
         if (!mounted) return;
-        if (data?.warning) setWarning(String(data.warning));
+        if (payload?.warning != null) setWarning(String(payload.warning));
         setConsultants(list);
         setSelectedUserId(list[0]?.userId ?? null);
       } catch (e) {
@@ -218,15 +221,28 @@ export default function ConsultationsPage() {
 
             <section className="md:col-span-2 rounded-2xl border border-slate-800 bg-slate-950 p-5">
               <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-slate-400">
-                    Selected specialist
-                  </div>
-                  <div className="mt-1 text-lg font-semibold">
-                    {selected?.displayName || "—"}
-                  </div>
-                  <div className="mt-1 text-sm text-cyan-200">
-                    {selected?.specialty || ""}
+                <div className="flex items-start gap-4 min-w-0">
+                  <span
+                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-500/40 bg-slate-800 text-sm font-bold text-slate-400 shadow-[0_0_20px_rgba(34,211,238,0.12)]"
+                    aria-hidden
+                  >
+                    {selected?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={selected.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      (selected?.displayName || "—").slice(0, 2).toUpperCase()
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-xs uppercase tracking-wider text-slate-400">
+                      Selected specialist
+                    </div>
+                    <div className="mt-1 text-lg font-semibold">
+                      {selected?.displayName || "—"}
+                    </div>
+                    <div className="mt-1 text-sm text-cyan-200">
+                      {selected?.specialty || ""}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -281,13 +297,19 @@ export default function ConsultationsPage() {
                 </div>
               )}
 
-              <div className="mt-6 flex items-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={submitBooking}
                   disabled={submitting || !selected}
-                  className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-semibold hover:bg-cyan-400 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 font-semibold text-black hover:bg-cyan-400 disabled:opacity-50"
                 >
+                  {selected?.avatarUrl ? (
+                    <span className="flex h-8 w-8 shrink-0 overflow-hidden rounded-full border border-black/20">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={selected.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    </span>
+                  ) : null}
                   {submitting ? "Scheduling..." : "Schedule Consultation"}
                 </button>
                 <Link href="/dashboard" className="text-sm text-slate-300 hover:text-cyan-300">

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { oasisNpcs, oasisNpcKnowledge } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 
 function requireAdmin(request: NextRequest) {
@@ -27,19 +27,18 @@ export async function GET(request: NextRequest) {
     const buildingId = searchParams.get("buildingId");
     const floor = searchParams.get("floor");
 
-    let query = db.select().from(oasisNpcs);
-
-    if (worldId) {
-      query = query.where(eq(oasisNpcs.worldId, worldId));
-    }
-    if (buildingId) {
-      query = query.where(eq(oasisNpcs.buildingId, buildingId));
-    }
+    const filters: SQL[] = [];
+    if (worldId) filters.push(eq(oasisNpcs.worldId, worldId));
+    if (buildingId) filters.push(eq(oasisNpcs.buildingId, buildingId));
     if (floor !== null && floor !== undefined && floor !== "") {
-      query = query.where(eq(oasisNpcs.floor, parseInt(floor, 10)));
+      const floorNum = parseInt(floor, 10);
+      if (!Number.isNaN(floorNum)) filters.push(eq(oasisNpcs.floor, floorNum));
     }
 
-    const npcs = await query.orderBy(oasisNpcs.floor, oasisNpcs.name);
+    const npcs =
+      filters.length > 0
+        ? await db.select().from(oasisNpcs).where(and(...filters)).orderBy(oasisNpcs.floor, oasisNpcs.name)
+        : await db.select().from(oasisNpcs).orderBy(oasisNpcs.floor, oasisNpcs.name);
 
     // For each NPC, get their knowledge document count
     const npcIds = npcs.map((n) => n.id);

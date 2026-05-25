@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db";
 import { cryptoBubbleSettings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
     await db
       .insert(cryptoBubbleSettings)
       .values({
+        id: randomUUID(),
         currency,
         symbol,
         name,

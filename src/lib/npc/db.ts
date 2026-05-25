@@ -18,6 +18,7 @@ import {
   oasisNpcMessages,
 } from "@/lib/db/schema";
 import type { InsertOasisNpcRow } from "@/lib/db/schema";
+import { STEPHON_NPC_ID, STEPHON_SYSTEM_PROMPT } from "@/lib/site-builder/stephon-persona";
 
 const DEFAULT_NPCS: Array<{
   npcId: string;
@@ -77,6 +78,15 @@ const DEFAULT_NPCS: Array<{
     avatarEmoji: "📈",
     greeting:
       "I'm Bentley. I surface trending content from YouTube, TikTok, and Reddit to help consultants shape campaign strategy based on what's resonating in the market.",
+  },
+  {
+    npcId: "site-builder-stephon",
+    name: "Stephon",
+    role: "secretary",
+    title: "Site Builder AI Guide",
+    avatarEmoji: "✨",
+    greeting:
+      "I'm Stephon, your Site Builder guide. Tell me what kind of site you want — I'll help you plan, generate layouts, refine copy, and spot usability friction along the way.",
   },
 ];
 
@@ -752,6 +762,7 @@ export async function seedDefaultNpcs() {
       .limit(1);
     if (exists.length) continue;
 
+    const isStephon = npc.npcId === "site-builder-stephon";
     await db.insert(oasisNpcs).values({
       npcId: npc.npcId,
       name: npc.name,
@@ -759,9 +770,20 @@ export async function seedDefaultNpcs() {
       title: npc.title,
       avatarEmoji: npc.avatarEmoji,
       greeting: npc.greeting,
-      personalityJson: JSON.stringify(DEFAULT_PERSONALITY),
+      worldId: isStephon ? "site-builder" : undefined,
+      buildingId: isStephon ? "site-builder-engine" : undefined,
+      personalityJson: JSON.stringify(
+        isStephon
+          ? {
+              ...DEFAULT_PERSONALITY,
+              department: "Site Builder",
+              expertise:
+                "Site planning, section layout, copy refinement, builder UX, publish readiness — advisory only, no autonomous deploy",
+            }
+          : DEFAULT_PERSONALITY
+      ),
       mood: "neutral",
-      isDefault: true,
+      isDefault: !isStephon,
       isActive: true,
     } as InsertOasisNpcRow);
   }
@@ -906,6 +928,7 @@ export async function seedDefaultNpcs() {
 
   await seedJarvaKnowledge(db);
   await seedAiRevenueTrendsKnowledge(db);
+  await seedStephonKnowledge(db);
 }
 
 const AI_REVENUE_TRENDS_KNOWLEDGE: Array<{
@@ -1029,6 +1052,60 @@ async function seedJarvaKnowledge(db: Awaited<ReturnType<typeof getDb>>) {
   await db.insert(oasisNpcKnowledge).values(
     validEntries.map((k) => ({
       npcId: jarvaId,
+      topic: k.topic,
+      keywords: JSON.stringify(k.keywords),
+      content: k.content,
+      priority: k.priority,
+      category: k.category,
+    }))
+  );
+}
+
+const STEPHON_KNOWLEDGE: KnowledgeEntry[] = [
+  {
+    topic: "Stephon Site Builder System Prompt",
+    keywords: ["stephon", "site builder", "assistant", "persona", "system prompt"],
+    content: STEPHON_SYSTEM_PROMPT,
+    priority: 10,
+    category: "general",
+  },
+  {
+    topic: "Site Builder usability intelligence for executives",
+    keywords: ["usability", "friction", "ux", "builder engine", "skipper", "executive"],
+    content: `Executive desk note: Stephon conversations in Site Builder are synced to OASIS for Skipper review.
+Flag patterns where operators repeat prompts, report confusion, or stall before first successful build — these inform engine usability recommendations only (no autonomous product mutation).`,
+    priority: 8,
+    category: "business",
+  },
+  {
+    topic: "What Stephon can and cannot do",
+    keywords: ["deploy", "publish", "limits", "capabilities"],
+    content: `Stephon helps plan sites, run full builds, refine sections, place imagery, and explain builder workflows.
+Stephon does NOT deploy to IPFS, connect domains, charge clients, or execute fulfillment approvals — those remain explicit owner actions in Site Builder and Executive Administration.`,
+    priority: 7,
+    category: "general",
+  },
+];
+
+async function seedStephonKnowledge(db: Awaited<ReturnType<typeof getDb>>) {
+  const row = await db
+    .select({ id: oasisNpcs.id })
+    .from(oasisNpcs)
+    .where(eq(oasisNpcs.npcId, STEPHON_NPC_ID))
+    .limit(1);
+  if (row.length === 0) return;
+
+  const npcRowId = row[0]!.id;
+  const existing = await db
+    .select({ id: oasisNpcKnowledge.id })
+    .from(oasisNpcKnowledge)
+    .where(eq(oasisNpcKnowledge.npcId, npcRowId))
+    .limit(1);
+  if (existing.length > 0) return;
+
+  await db.insert(oasisNpcKnowledge).values(
+    STEPHON_KNOWLEDGE.map((k) => ({
+      npcId: npcRowId,
       topic: k.topic,
       keywords: JSON.stringify(k.keywords),
       content: k.content,

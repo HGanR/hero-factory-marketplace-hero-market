@@ -17,7 +17,10 @@ import {
   trustParties,
   trusts,
   workflowAssetCertificates,
+  type TrustPartyRow,
 } from "@/lib/db/schema";
+
+type TrustRow = typeof trusts.$inferSelect;
 
 export type WorkspaceSummaryPayload = NonNullable<Awaited<ReturnType<typeof buildWorkspaceSummaryForTrust>>>;
 
@@ -97,17 +100,17 @@ export async function buildWorkspaceSummaryForTrust(
     .where(and(eq(trusts.id, String(trustId)), eq(trusts.userId, userId)))
     .limit(1);
   if (trustRows.length === 0) return null;
-  const t: any = trustRows[0];
+  const t: TrustRow = trustRows[0];
 
-  const parties = await db.select().from(trustParties).where(eq(trustParties.trustId, String(trustId)));
+  const parties: TrustPartyRow[] = await db.select().from(trustParties).where(eq(trustParties.trustId, String(trustId)));
   const beneficiaries = await db
     .select({ id: trustBeneficiaries.id })
     .from(trustBeneficiaries)
     .where(eq(trustBeneficiaries.trustId, String(trustId)));
   const assets = await db.select({ id: trustAssets.id }).from(trustAssets).where(eq(trustAssets.trustId, String(trustId)));
 
-  const grantor = parties.find((p: any) => p.role === "grantor") ?? null;
-  const trustee = parties.find((p: any) => p.role === "trustee") ?? null;
+  const grantor = parties.find((p) => p.role === "grantor") ?? null;
+  const trustee = parties.find((p) => p.role === "trustee") ?? null;
 
   let clientInfo: { id: string; fullName: string; title: string | null } | null = null;
   if (t.clientId) {
@@ -161,10 +164,10 @@ export async function buildWorkspaceSummaryForTrust(
     : null;
 
   let firm = {
-    name: (t as any).firmName ?? null,
-    address: (t as any).firmAddress ?? null,
-    phone: (t as any).firmPhone ?? null,
-    email: (t as any).firmEmail ?? null,
+    name: t.firmName ?? null,
+    address: t.firmAddress ?? null,
+    phone: t.firmPhone ?? null,
+    email: t.firmEmail ?? null,
   };
   try {
     const draftRows = await db

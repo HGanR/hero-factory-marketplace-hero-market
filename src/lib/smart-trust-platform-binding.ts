@@ -2,9 +2,24 @@
  * Shared localStorage binding for trust workspace / client context across dashboard, Smart Trust, Trust Records, etc.
  */
 
+import { setSelectedClientId } from "@/lib/client-context/selected-client";
+
 export const SMART_TRUST_PLATFORM_BINDING_KEY = "smart_trust_platform_binding_v1";
 
 export const SMART_TRUST_PLATFORM_BINDING_UPDATED_EVENT = "smart_trust_platform_binding_updated";
+
+/** Synthetic workspace id for CRM `clients` rows that do not yet have a trust — kept in `trustId` in localStorage. */
+export const CRM_ONLY_WORKSPACE_PREFIX = "crm-ws:";
+
+export function isCrmOnlyWorkspaceId(id: string | null | undefined): boolean {
+  return typeof id === "string" && id.startsWith(CRM_ONLY_WORKSPACE_PREFIX);
+}
+
+export function crmClientIdFromWorkspaceId(id: string | null | undefined): string | null {
+  if (id == null || !isCrmOnlyWorkspaceId(id)) return null;
+  const rest = id.slice(CRM_ONLY_WORKSPACE_PREFIX.length).trim();
+  return rest || null;
+}
 
 export type SmartTrustPlatformBinding = {
   clientId: string | null;
@@ -42,6 +57,7 @@ export function saveSmartTrustPlatformBinding(binding: SmartTrustPlatformBinding
   };
   window.localStorage.setItem(SMART_TRUST_PLATFORM_BINDING_KEY, JSON.stringify(payload));
   window.dispatchEvent(new Event(SMART_TRUST_PLATFORM_BINDING_UPDATED_EVENT));
+  setSelectedClientId(payload.clientId ?? null);
 }
 
 export function workspaceLabelFromList(

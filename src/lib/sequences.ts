@@ -68,6 +68,18 @@ export async function allocateNoteNumber(trustId: string, year: number = new Dat
   return `PN-${trustId.slice(0, 8)}-${year}-${seq.toString().padStart(4, '0')}`;
 }
 
+export async function allocateBondNumber(
+  trustId: string,
+  year: number = new Date().getFullYear(),
+  bondPrefix?: string,
+): Promise<string> {
+  const seq = await allocateSequence(`BOND:${trustId}:${year}`);
+  const raw = (bondPrefix ?? "").trim().slice(0, 20);
+  const safe = raw.replace(/[^a-zA-Z0-9-_]/g, "");
+  const prefix = safe || "BN";
+  return `${prefix}-${trustId.slice(0, 8)}-${year}-${seq.toString().padStart(4, "0")}`;
+}
+
 export async function allocateAgreementNumber(trustId: string, year: number = new Date().getFullYear()): Promise<string> {
   const seq = await allocateSequence(`AGREEMENT:${trustId}:${year}`);
   return `SA-${trustId.slice(0, 8)}-${year}-${seq.toString().padStart(4, '0')}`;

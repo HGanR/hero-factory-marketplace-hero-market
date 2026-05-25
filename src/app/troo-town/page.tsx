@@ -109,8 +109,14 @@ function TrooTownPageContent() {
       setError("");
       try {
         const [placeRes, elemRes] = await Promise.all([
-          fetch(`/api/troo-world/placements?worldId=${encodeURIComponent(DEFAULT_WORLD_ID)}`, { credentials: "include" }),
-          fetch(`/api/troo-world/elements?worldId=${encodeURIComponent(DEFAULT_WORLD_ID)}`, { credentials: "include" }),
+          fetch(`/api/troo-world/placements?worldId=${encodeURIComponent(DEFAULT_WORLD_ID)}`, {
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch(`/api/troo-world/elements?worldId=${encodeURIComponent(DEFAULT_WORLD_ID)}`, {
+            credentials: "include",
+            cache: "no-store",
+          }),
         ]);
         if (cancelled) return;
 

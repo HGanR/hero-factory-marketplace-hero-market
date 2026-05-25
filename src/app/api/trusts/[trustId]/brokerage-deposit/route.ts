@@ -86,7 +86,7 @@ export async function POST(
       instrumentType: body.instrumentType ?? null,
       issuer: body.issuer ?? null,
       faceValue: body.faceValue != null ? String(body.faceValue) : null,
-      issueDate: body.issueDate ?? null,
+      issueDate: body.issueDate ? new Date(body.issueDate) : null,
       transferability: body.transferability ?? null,
       cusip: body.cusip ?? null,
       transferAgent: body.transferAgent ?? null,

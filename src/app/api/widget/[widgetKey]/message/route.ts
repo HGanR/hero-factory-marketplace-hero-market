@@ -11,7 +11,7 @@ import { retSnapshotFromDraftJson } from "@/lib/ret/session-snapshot";
 import { isOriginAllowed, parseAllowedDomains } from "@/lib/widget/allowed-domains";
 import { logWebChatMessage } from "@/lib/widget/crm-logger";
 import { checkRateLimit } from "@/lib/widget/rate-limit";
-import { tryMaaniaDeterministicReply } from "@/lib/maania/maania-deterministic-reply";
+import { isSkipperExecutiveAgent, resolveUnifiedSkipperRuntimeContext } from "@/lib/agents/skipper-unified-runtime";
 import { appendWidgetContextToSystemPrompt, type WidgetMessageContext } from "@/lib/widget/context-prompt";
 import { parseWidgetBindingMetadata } from "@/lib/widget/widget-binding-metadata";
 import { resolveSiteBuilderLlmInvokeForSite } from "@/lib/site-builder/ai/provider-resolver";
@@ -87,6 +87,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         systemPrompt: aiAgents.systemPrompt,
         language: aiAgents.language,
         industriesJson: aiAgents.industriesJson,
+        agentRuntimeType: aiAgents.agentRuntimeType,
         status: aiAgents.status,
         allowedDomains: aiAgentSiteBindings.allowedDomains,
         llmEndpoint: aiAgents.llmEndpoint,
@@ -259,6 +260,22 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     let systemPrompt = row.systemPrompt || "You are a helpful assistant.";
+    const skipperCognitive = isSkipperExecutiveAgent({
+      kind: "agent",
+      name: row.agentName,
+      agentRuntimeType: row.agentRuntimeType,
+    })
+      ? await resolveUnifiedSkipperRuntimeContext({
+          surface: "widget",
+          db,
+          ownerUserId: row.userId,
+          agentId: row.agentId,
+          knowledgeUserMessage: message,
+        })
+      : null;
+    if (skipperCognitive) {
+      systemPrompt = skipperCognitive.systemPrompt;
+    }
     const industries = parseIndustriesJson(row.industriesJson);
     if (industries.length > 0) {
       const labels = getIndustryLabels(industries);
@@ -305,7 +322,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       .orderBy(asc(aiAgentKnowledgeItems.sortOrder));
 
     const knowledgeContext = buildKnowledgeContextFromRows(knowledgeRows, message, 8);
-    if (knowledgeContext) {
+    if (!skipperCognitive && knowledgeContext) {
       systemPrompt += `\n\n---\n${knowledgeContext}`;
     }
 

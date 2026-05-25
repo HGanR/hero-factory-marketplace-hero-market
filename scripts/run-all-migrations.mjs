@@ -80,16 +80,6 @@ function cleanMigrationSql(sql) {
     .trim();
 }
 
-/** Schema may already exist from db:push or manual apply — treat as applied when safe. */
-function isIdempotentDdlError(err) {
-  const msg = String(err?.message ?? err ?? "").toLowerCase();
-  const code = err?.errno ?? err?.code;
-  if (code === 1060 || msg.includes("duplicate column")) return true;
-  if (code === 1061 || msg.includes("duplicate key name")) return true;
-  if (code === 1050 || msg.includes("already exists")) return true;
-  return false;
-}
-
 function sha256(content) {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
@@ -286,12 +276,7 @@ async function main() {
       }
 
       console.log(`Applying: ${key}`);
-      try {
-        await conn.query(sql);
-      } catch (err) {
-        if (!isIdempotentDdlError(err)) throw err;
-        console.warn(`OK (already applied in DB, marking tracked): ${key} — ${err.message}`);
-      }
+      await conn.query(sql);
 
       await conn.query(
         `INSERT INTO ${MIGRATION_TABLE} (\`filename\`, \`checksum_sha256\`) VALUES (?, ?)`,

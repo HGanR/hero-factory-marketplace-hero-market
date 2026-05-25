@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
 import { consultantProfiles } from "@/lib/db/schema";
-import { verifyToken } from "@/lib/auth";
+import { getAdminApiDecoded } from "@/lib/admin/admin-api-request-auth";
 
 const BodySchema = z.object({
   userId: z.number().int().positive(),
@@ -17,10 +17,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const token = request.cookies.get("admin-token")?.value;
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const decoded = verifyToken(token);
-  if (!decoded?.isAdmin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!getAdminApiDecoded(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: z.infer<typeof BodySchema>;
   try {

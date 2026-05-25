@@ -8,7 +8,7 @@ import { createClientPortalToken } from "@/lib/client-portal/portal-token";
 import { checkPortalRateLimit } from "@/lib/client-portal/portal-rate-limit";
 import { getClientPortalTokenFromRequest, verifyClientPortalToken } from "@/lib/client-portal/portal-token";
 import { logClientPortalActivity } from "@/lib/client-portal/portal-activity";
-import { sessionCookieBase } from "@/lib/auth-cookie-options";
+import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
 
 function clientIp(req: NextRequest): string {
   return (
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     .set({ lastLoginAt: new Date() })
     .where(eq(clientPortalUsers.id, u.id));
   await logClientPortalActivity(u.clientId, u.id, "portal_login", { via: "password" });
-  const b = sessionCookieBase();
+  const b = sessionCookieBase(cookieHostFromRequest(req));
   const res = NextResponse.json({ ok: true, client: { name: acc.name, id: acc.id } });
   res.cookies.set("client-portal-token", token, { ...b, maxAge: 7 * 24 * 60 * 60, httpOnly: true });
   return res;

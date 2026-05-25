@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useState, Suspense } from "react";
+import dynamic from "next/dynamic";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAccount, useReadContract, useChainId } from "wagmi";
 
@@ -9,7 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DocumentUploadPanel from "@/components/reporting/DocumentUploadPanel";
 import TransactionTaggingPanel from "@/components/reporting/TransactionTaggingPanel";
+import BusinessSpreadsheetPanel from "@/components/reporting/BusinessSpreadsheetPanel";
+import BankerSummaryPanel from "@/components/reporting/BankerSummaryPanel";
 import MobileWalletButton from "@/components/MobileWalletButton";
+import { AccountingComplianceBanner } from "@/components/accounting/AccountingComplianceBanner";
+
+const EleanorAccountingChat = dynamic(
+  () => import("@/components/accounting/EleanorAccountingChat").then((m) => m.EleanorAccountingChat),
+  { ssr: false }
+);
 
 // Token gate constants (mirrors /accounting)
 const REQUIRED_TROO_AMOUNT = 1_000_000;
@@ -87,8 +96,10 @@ const ERC20_ABI = [
   },
 ] as const;
 
-export default function AccountingReportingPage() {
+function AccountingReportingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams?.get("tab");
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const [isTokenHolder, setIsTokenHolder] = useState(false);
@@ -332,6 +343,7 @@ export default function AccountingReportingPage() {
   return (
     <div className="min-h-screen bg-slate-900 p-6 text-slate-100">
       <div className="mx-auto max-w-7xl space-y-6">
+        <AccountingComplianceBanner />
         <div className="flex items-end justify-between gap-4">
           <div>
             <div className="text-3xl font-bold">Reporting</div>
@@ -340,16 +352,24 @@ export default function AccountingReportingPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => router.push("/accounting")}>
-              Back to Accounting
+            <Button variant="secondary" onClick={() => router.push("/dashboard")}>
+              Home
+            </Button>
+            <Button variant="secondary" onClick={() => router.push("/payroll")}>
+              Payroll
             </Button>
           </div>
         </div>
 
-        <Tabs defaultValue="documents" className="space-y-4">
+        <Tabs
+          defaultValue={tabFromUrl === "banker" ? "banker" : "documents"}
+          className="space-y-4"
+        >
           <TabsList className="bg-slate-950">
             <TabsTrigger value="documents">Document Upload</TabsTrigger>
             <TabsTrigger value="transactions">Transaction Tagging</TabsTrigger>
+            <TabsTrigger value="spreadsheet">Business Spreadsheet</TabsTrigger>
+            <TabsTrigger value="banker">Banker Summary</TabsTrigger>
           </TabsList>
           <TabsContent value="documents">
             <DocumentUploadPanel />
@@ -357,7 +377,15 @@ export default function AccountingReportingPage() {
           <TabsContent value="transactions">
             <TransactionTaggingPanel />
           </TabsContent>
+          <TabsContent value="spreadsheet">
+            <BusinessSpreadsheetPanel />
+          </TabsContent>
+          <TabsContent value="banker">
+            <BankerSummaryPanel />
+          </TabsContent>
         </Tabs>
+
+        <EleanorAccountingChat />
 
         <div className="fixed bottom-4 right-4 hidden">
           <AlertCircle className="w-5 h-5" />
@@ -367,4 +395,14 @@ export default function AccountingReportingPage() {
   );
 }
 
-
+export default function AccountingReportingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-900 p-6 text-slate-100 flex items-center justify-center">
+        <div className="text-slate-400">Loading...</div>
+      </div>
+    }>
+      <AccountingReportingContent />
+    </Suspense>
+  );
+}

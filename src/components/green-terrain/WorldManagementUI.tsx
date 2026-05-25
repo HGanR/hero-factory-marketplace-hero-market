@@ -2,21 +2,19 @@
 
 /**
  * WorldManagementUI.tsx
- * World management sidebar — integrates with existing TidbCloud REST API
+ * World management sidebar — integrates with Troo World placement APIs.
  *
- * IMPORTANT: This component ALWAYS saves with worldId="default" so that
- * changes made in the green-terrain admin page appear on the public /troo-world page.
+ * Saves use `currentWorldId` from the parent (green-terrain page passes `green-terrain`) so
+ * public `/troo-town` (which loads `?worldId=green-terrain`) shows the same layout as the editor.
+ * The separate urban experience `/troo-world` uses `worldId=default` from the modeling pipeline.
  *
- * API shape (from existing backend):
+ * API shape:
  *   GET  /api/admin/troo-world/worlds          → { worlds: [...] }
  *   POST /api/admin/troo-world/worlds          → create world
- *   PUT  /api/admin/troo-world/placements      → save placements (uses worldId="default")
+ *   PUT  /api/admin/troo-world/placements      → save placements (body.worldId)
  *   GET  /api/troo-world/placements?worldId=X  → public placements
  *   GET  /api/troo-world/elements?worldId=X    → public elements
  */
-
-// Target world ID for saving - always "default" so changes appear on public /troo-world
-const PUBLISH_WORLD_ID = "default";
 
 import { useState, useCallback, useEffect } from "react";
 import type { WorldObjectType } from "./WorldObjects";
@@ -87,6 +85,14 @@ const OBJECT_LIBRARY: LibraryItem[] = [
     icon: "🏟️",
     category: "Buildings",
     description: "Large venue for concerts, seminars, lectures. 500 capacity. Purchasable from World Explorer catalog.",
+    kind: "building",
+  },
+  {
+    key: "veritas-school",
+    label: "School of Veritas",
+    icon: "🏫",
+    category: "Buildings",
+    description: "Veritas Education campus — brick school building with classrooms K–12.",
     kind: "building",
   },
   // ── Infrastructure ──
@@ -167,6 +173,7 @@ interface WorldManagementUIProps {
   stadiumPosition: [number, number, number];
   stadiumScale: number;
   onStadiumScaleChange: (scale: number) => void;
+  veritasPosition: [number, number, number];
   trees: Array<{ id: number; pos: [number, number, number]; scale: number }>;
   placedObjects: Array<{ id: string; type: WorldObjectType; position: [number, number, number]; rotation?: [number, number, number] }>;
   onPlaceObject: (type: WorldObjectType) => void;
@@ -194,6 +201,7 @@ export default function WorldManagementUI({
   stadiumPosition,
   stadiumScale,
   onStadiumScaleChange,
+  veritasPosition,
   trees,
   placedObjects,
   onPlaceObject,
@@ -233,7 +241,8 @@ export default function WorldManagementUI({
   ];
 
   useEffect(() => {
-    fetch("/api/admin/troo-world/elements?worldId=" + PUBLISH_WORLD_ID, { credentials: "include" })
+    const wid = currentWorldId.trim() || "green-terrain";
+    fetch("/api/admin/troo-world/elements?worldId=" + encodeURIComponent(wid), { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         const list = (data.elements || []).filter((e: { type: string }) => e.type === "plain");
@@ -250,20 +259,21 @@ export default function WorldManagementUI({
         setPlains(merged);
       })
       .catch(() => setPlains(DEFAULT_CARDINAL_PLAINS));
-  }, [showConnectPlainModal]);
+  }, [showConnectPlainModal, currentWorldId]);
 
   const handleConnectPlain = useCallback(async () => {
     if (!newPlainName.trim()) return;
     setIsAddingPlain(true);
     const posMap = { north: [0, 0, -95], south: [0, 0, 95], east: [95, 0, 0], west: [-95, 0, 0] } as const;
     const [posX, posY, posZ] = posMap[newPlainPos];
+    const wid = currentWorldId.trim() || "green-terrain";
     try {
       const res = await fetch("/api/admin/troo-world/elements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          worldId: PUBLISH_WORLD_ID,
+          worldId: wid,
           type: "plain",
           posX,
           posY,
@@ -275,7 +285,7 @@ export default function WorldManagementUI({
         setShowConnectPlainModal(false);
         setNewPlainName("");
         setTimeout(() => {
-          fetch("/api/admin/troo-world/elements?worldId=" + PUBLISH_WORLD_ID, { credentials: "include" })
+          fetch("/api/admin/troo-world/elements?worldId=" + encodeURIComponent(wid), { credentials: "include" })
             .then((r) => r.json())
             .then((data) => {
               const list = (data.elements || []).filter((e: { type: string }) => e.type === "plain");
@@ -293,7 +303,7 @@ export default function WorldManagementUI({
     } finally {
       setIsAddingPlain(false);
     }
-  }, [newPlainName, newPlainPos, onPlainAdded]);
+  }, [newPlainName, newPlainPos, onPlainAdded, currentWorldId]);
 
   const categories = ["All", ...Array.from(new Set(OBJECT_LIBRARY.map(o => o.category)))];
   const filteredLibrary = selectedCategory === "All"
@@ -305,9 +315,8 @@ export default function WorldManagementUI({
     setSaveStatus("idle");
     setSaveErrorMessage("");
     try {
-      // ALWAYS use "default" worldId so changes appear on public /troo-world
-      const targetWorldId = PUBLISH_WORLD_ID;
-      
+      const targetWorldId = currentWorldId.trim() || "green-terrain";
+
       const placements: PlacementRecord[] = [
         {
           worldId: targetWorldId,
@@ -347,6 +356,16 @@ export default function WorldManagementUI({
           posY: stadiumPosition[1],
           posZ: stadiumPosition[2],
           scale: stadiumScale,
+          rotY: 0,
+        },
+        {
+          worldId: targetWorldId,
+          elementKey: "veritas-school",
+          glbUrl: "procedural:veritas",
+          posX: veritasPosition[0],
+          posY: veritasPosition[1],
+          posZ: veritasPosition[2],
+          scale: 1,
           rotY: 0,
         },
         ...placedObjects.map((obj, idx) => ({
@@ -392,7 +411,7 @@ export default function WorldManagementUI({
       console.log("[WorldSave] Placements:", JSON.stringify(placements, null, 2));
       console.log("[WorldSave] Elements:", JSON.stringify(elements, null, 2));
 
-      // Save placements using existing Troo-world API - ALWAYS to "default" world
+      // Save placements — worldId matches public /troo-town (?worldId=green-terrain)
       // Set replace: true to delete any old objects that no longer exist in the current state
       const placementsRes = await fetch("/api/admin/troo-world/placements", {
         method: "PUT",
@@ -452,7 +471,18 @@ export default function WorldManagementUI({
     } finally {
       setIsSaving(false);
     }
-  }, [nexusPosition, meridianPosition, troothhertzPosition, stadiumPosition, stadiumScale, trees, placedObjects, plains]);
+  }, [
+    currentWorldId,
+    nexusPosition,
+    meridianPosition,
+    troothhertzPosition,
+    stadiumPosition,
+    stadiumScale,
+    veritasPosition,
+    trees,
+    placedObjects,
+    plains,
+  ]);
 
   const handleCreateWorld = useCallback(async () => {
     if (!newWorldName.trim()) return;
@@ -845,6 +875,10 @@ export default function WorldManagementUI({
                 <div style={{ color: "#fff", fontSize: 12 }}>🏢 Nexus Corporate Tower</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>🏙️ Meridian Tower</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>🏛️ TROOTHHERTZ LLC.</div>
+                <div style={{ color: "#fff", fontSize: 12, marginTop: 4 }}>🏫 School of Veritas</div>
+                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, marginBottom: 6 }}>
+                  x:{veritasPosition[0].toFixed(0)} z:{veritasPosition[2].toFixed(0)}
+                </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6, marginBottom: 4 }}>
                   <span style={{ color: "#fff", fontSize: 12 }}>🏟️ Stadium Elyseum</span>
                   <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>scale: {(stadiumScale * 100).toFixed(0)}%</span>
@@ -874,7 +908,7 @@ export default function WorldManagementUI({
                 </div>
                 <div style={{ color: "#fff", fontSize: 12 }}>🌲 {trees.length} trees</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>📦 {placedObjects.length} environment objects</div>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 4 }}>Publish target: {PUBLISH_WORLD_ID}</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 4 }}>Publish target: {currentWorldId}</div>
               </div>
 
               <button

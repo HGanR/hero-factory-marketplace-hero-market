@@ -151,6 +151,40 @@ function saveSessionId(
   }
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return Boolean(v) && typeof v === "object" && !Array.isArray(v);
+}
+
+function parseJarvaNextQuestionItemsFromApi(raw: unknown): Array<{ category: string; question: string }> {
+  if (!isPlainObject(raw)) return [];
+  const items = raw.nextQuestionItems;
+  if (Array.isArray(items) && items.length > 0) {
+    const out: Array<{ category: string; question: string }> = [];
+    for (const el of items) {
+      if (!isPlainObject(el)) continue;
+      const category = el.category;
+      const question = el.question;
+      if (typeof category === "string" && typeof question === "string" && question.trim()) {
+        out.push({ category, question: question.trim() });
+      }
+    }
+    return out;
+  }
+  const qs = raw.nextQuestions;
+  if (Array.isArray(qs) && qs.length > 0) {
+    return qs
+      .filter((q): q is string => typeof q === "string" && q.trim() !== "")
+      .map((q) => ({ category: "suggested", question: q.trim() }));
+  }
+  return [];
+}
+
+function parseJarvaSuggestedApplyTimingFromApi(raw: unknown): string | null {
+  if (!isPlainObject(raw)) return null;
+  const v = raw.suggestedApplyTiming;
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "npc";
@@ -425,21 +459,10 @@ export function FloatingNPCChat({
       if (data.jarvaMode === "build" || data.jarvaMode === "review" || data.jarvaMode === "assist") {
         setJarvaMode(data.jarvaMode);
       }
-      if (data.jarvaNextActions?.nextQuestionItems?.length) {
-        setJarvaNextQuestionItems(data.jarvaNextActions.nextQuestionItems as Array<{ category: string; question: string }>);
-      } else if (Array.isArray(data.jarvaNextActions?.nextQuestions) && data.jarvaNextActions.nextQuestions.length) {
-        setJarvaNextQuestionItems(
-          (data.jarvaNextActions.nextQuestions as string[]).map((q: string) => ({
-            category: "suggested",
-            question: q,
-          }))
-        );
-      } else {
-        setJarvaNextQuestionItems([]);
-      }
-      if (data.jarvaReadinessFull?.suggestedApplyTiming) {
-        setJarvaSuggestedTiming(data.jarvaReadinessFull.suggestedApplyTiming as string);
-      }
+      const nextItems = parseJarvaNextQuestionItemsFromApi(data.jarvaNextActions);
+      setJarvaNextQuestionItems(nextItems);
+      const timing = parseJarvaSuggestedApplyTimingFromApi(data.jarvaReadinessFull);
+      if (timing) setJarvaSuggestedTiming(timing);
 
       if (data.jarvaIntakeUpdated) {
         setJarvaCompleteness(
@@ -468,9 +491,10 @@ export function FloatingNPCChat({
         setJarvaError(typeof data.jarvaIntakeError === "string" ? data.jarvaIntakeError : null);
       }
 
-      const newSessionId = data.sessionId || null;
+      const rawSid = data.sessionId;
+      const newSessionId = typeof rawSid === "string" && rawSid.trim() ? rawSid.trim() : null;
       setSessionId(newSessionId);
-      if (newSessionId) saveSessionId(npcId, context, newSessionId);
+      if (newSessionId) saveSessionId(npcId, context ?? null, newSessionId);
 
       if (npcId === "trust-advisor") {
         setJarvaNeedsTrustTypeChoice(Boolean(data.jarvaNeedsTrustTypeChoice));
@@ -1149,12 +1173,14 @@ export function FloatingNPCChat({
                 </p>
               ) : null}
               <div className="flex flex-col gap-1.5 pt-0.5">
-                <Link
-                  href={`/trust-records/jarva?trustId=${encodeURIComponent(context.trustId!)}`}
-                  className="w-fit text-sm font-medium text-cyan-400/90 underline-offset-2 hover:underline"
-                >
-                  View mapped fields &amp; explainability
-                </Link>
+                {context?.trustId ? (
+                  <Link
+                    href={`/trust-records/jarva?trustId=${encodeURIComponent(context.trustId)}`}
+                    className="w-fit text-sm font-medium text-cyan-400/90 underline-offset-2 hover:underline"
+                  >
+                    View mapped fields &amp; explainability
+                  </Link>
+                ) : null}
                 <button
                   type="button"
                   className="w-fit text-left text-[11px] text-cyan-400/80 underline-offset-2 hover:underline"

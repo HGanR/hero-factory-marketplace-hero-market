@@ -4,17 +4,9 @@
  * Structured to match troo_world_elements / NPC agent DB schema
  */
 
-export interface AgentData {
-  id: string;
-  name: string;
-  role: string;
-  floor: number;         // 0 = Lobby
-  floorLabel: string;
-  expertise: string;
-  avatar: string;        // emoji fallback
-  department: string;
-  greeting: string;
-}
+import type { AgentData } from "@/components/green-terrain/AgentChatPanel";
+
+export type { AgentData };
 
 export interface FloorConfig {
   floor: number;

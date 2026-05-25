@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db";
 import { marketplaceUsers } from "@/lib/db/schema";
 import { eq, or } from "drizzle-orm";
 import { verifyPassword, createToken } from "@/lib/auth";
+import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
+import { mysqlTruthy } from "@/lib/mysqlTruthy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,14 +37,14 @@ export async function POST(request: NextRequest) {
 
     const user = users[0];
 
-    if (!user.isApproved) {
+    if (!mysqlTruthy(user.isApproved)) {
       return NextResponse.json(
         { error: "Account not yet approved" },
         { status: 403 }
       );
     }
 
-    if (!user.isActive) {
+    if (!mysqlTruthy(user.isActive)) {
       return NextResponse.json(
         { error: "Account has been deactivated" },
         { status: 403 }
@@ -87,9 +89,7 @@ export async function POST(request: NextRequest) {
     });
 
     response.cookies.set("auth-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      ...sessionCookieBase(cookieHostFromRequest(request)),
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 

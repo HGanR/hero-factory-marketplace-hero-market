@@ -84,13 +84,18 @@ function latestHandoffSummary(ctx: EleanorServerContext | null | undefined): str
   return `**Latest server packet:** ${name} · status **${status.replace(/_/g, " ")}**. ${exported}`;
 }
 
+function asUnknownRecord(r: unknown): Record<string, unknown> {
+  return r !== null && typeof r === "object" ? (r as Record<string, unknown>) : {};
+}
+
 function serverFormSummary(ctx: EleanorServerContext | null | undefined): { lines: string[]; count: number } {
   const rows = ctx?.serverWorkspace?.formCandidates;
   if (!Array.isArray(rows) || rows.length === 0) return { lines: [], count: 0 };
-  const lines = rows.slice(0, 6).map((r: Record<string, unknown>) => {
-    const name = typeof r.displayName === "string" ? r.displayName : String(r.formCode ?? "Form");
-    const why = typeof r.rationale === "string" ? r.rationale.split("\n")[0]?.slice(0, 160) : "";
-    const st = typeof r.status === "string" ? r.status : "";
+  const lines = rows.slice(0, 6).map((r) => {
+    const row = asUnknownRecord(r);
+    const name = typeof row.displayName === "string" ? row.displayName : String(row.formCode ?? "Form");
+    const why = typeof row.rationale === "string" ? row.rationale.split("\n")[0]?.slice(0, 160) : "";
+    const st = typeof row.status === "string" ? row.status : "";
     return `**${name}**${st ? ` (${st})` : ""}${why ? ` — ${why}` : ""}`;
   });
   return { lines, count: rows.length };
@@ -109,32 +114,34 @@ function serverOpenBlockerTitles(ctx: EleanorServerContext | null | undefined): 
   const items = ctx?.serverWorkspace?.reviewItems;
   if (!Array.isArray(items)) return [];
   return items
-    .filter((r: Record<string, unknown>) => {
-      const sev = r.severity;
-      const st = r.status;
+    .filter((r) => {
+      const row = asUnknownRecord(r);
+      const sev = row.severity;
+      const st = row.status;
       return sev === "blocker" && (st === "open" || st === "in_progress");
     })
-    .map((r: Record<string, unknown>) => String(r.title ?? "Review item"));
+    .map((r) => String(asUnknownRecord(r).title ?? "Review item"));
 }
 
 function serverWaitingOnClientTitles(ctx: EleanorServerContext | null | undefined): string[] {
   const items = ctx?.serverWorkspace?.reviewItems;
   if (!Array.isArray(items)) return [];
   return items
-    .filter((r: Record<string, unknown>) => r.status === "waiting_on_client")
-    .map((r: Record<string, unknown>) => String(r.title ?? "Item"));
+    .filter((r) => asUnknownRecord(r).status === "waiting_on_client")
+    .map((r) => String(asUnknownRecord(r).title ?? "Item"));
 }
 
 function serverReviewerResolvableTitles(ctx: EleanorServerContext | null | undefined): string[] {
   const items = ctx?.serverWorkspace?.reviewItems;
   if (!Array.isArray(items)) return [];
   return items
-    .filter((r: Record<string, unknown>) => {
-      const role = r.assignedRole;
-      const st = r.status;
+    .filter((r) => {
+      const row = asUnknownRecord(r);
+      const role = row.assignedRole;
+      const st = row.status;
       return (role === "reviewer" || role === "preparer" || role === "admin") && (st === "open" || st === "in_progress");
     })
-    .map((r: Record<string, unknown>) => String(r.title ?? "Item"));
+    .map((r) => String(asUnknownRecord(r).title ?? "Item"));
 }
 
 function handoffNotReadyWhy(ctx: EleanorServerContext | null | undefined): string | null {

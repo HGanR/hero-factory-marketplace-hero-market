@@ -45,6 +45,7 @@ Repeatable end-to-end QA for the **completed** consultant flow: Revenue OS clien
 
 - Row in **`client_accounts`** with `ownerUserId` = test user’s numeric id.
 - UUID **`clientId`** used in URLs: `/ai-revenue-os/clients/{clientId}/…` and `POST /api/site-builder/sites` body `{ "clientId": "<uuid>" }`.
+- **Alternate creation path:** `POST /api/revenue-os/clients` (name + optional `logoUrl`) or the **`/clients/new`** wizard, which can send **`entity_name`** and **`business_logo_data_url`** on `POST /api/clients` to create the same `client_accounts` row (plus the CRM `clients` contact record).
 
 **Verify ownership (SQL):**
 

@@ -9,7 +9,7 @@ import { hashInviteToken } from "@/lib/client-portal/invite-token";
 import { createClientPortalToken } from "@/lib/client-portal/portal-token";
 import { checkPortalRateLimit } from "@/lib/client-portal/portal-rate-limit";
 import { logClientPortalActivity } from "@/lib/client-portal/portal-activity";
-import { sessionCookieBase } from "@/lib/auth-cookie-options";
+import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
 
 const MIN_PASS = 8;
 
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     role,
   });
   await logClientPortalActivity(inv.clientId, id, "portal_invite_accepted", { email: inv.email });
-  const b = sessionCookieBase();
+  const b = sessionCookieBase(cookieHostFromRequest(req));
   const res = NextResponse.json({ ok: true, client: { name: acc.name, id: acc.id } });
   res.cookies.set("client-portal-token", token, { ...b, maxAge: 7 * 24 * 60 * 60, httpOnly: true });
   return res;

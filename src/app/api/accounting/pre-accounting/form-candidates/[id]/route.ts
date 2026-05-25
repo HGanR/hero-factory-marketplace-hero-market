@@ -123,7 +123,8 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       if (!gapClosed) {
         await upsertReviewItemForFormSupportGap(profileId, formId, userId, {
           title: `Form support gap: ${updatedRow.displayName}`,
-          description: [missing.slice(0, 5).join("; "), updatedRow.supportGapNote].filter(Boolean).join(" — ") || null,
+          description:
+            [missing.slice(0, 5).join("; "), updatedRow.supportGapNote].filter(Boolean).join(" — ") || undefined,
           severity: sg === "still_missing" ? "blocker" : "warning",
           status: "open",
         });

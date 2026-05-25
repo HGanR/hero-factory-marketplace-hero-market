@@ -27,6 +27,8 @@ import {
   type IndustryKey,
 } from "@/lib/agents/industry-mapper";
 import { AgentCapabilitiesPanel } from "@/components/agents/AgentCapabilitiesPanel";
+import { ActiveClientIndicator } from "@/components/client-context/ActiveClientIndicator";
+import { AGENT_RUNTIME_TYPES, resolveAgentRuntimeType, type AgentRuntimeType } from "@/lib/agents/agent-runtime-types";
 
 type Agent = {
   id: string;
@@ -60,6 +62,22 @@ type KnowledgeItem = {
 };
 
 type Site = { id: string; name?: string | null; domain?: string | null; slug?: string | null };
+
+type RuntimeDiagnostics = {
+  runtimeType: string;
+  capabilities: Record<string, "connected" | "partial" | "disconnected">;
+  capabilityNotes?: string[];
+  kbEntries?: number;
+  fallbackReason?: string | null;
+  unifiedDiagnostics?: {
+    entryPoint: string;
+    runtimeStack: string[];
+    orchestrationLevel: string;
+    activePromptLayers: string[];
+    connectedDataSources: string[];
+    fallbackFlags: string[];
+  };
+};
 
 const TEMPLATES = [
   {
@@ -100,6 +118,15 @@ Output:
   },
 ];
 
+const RUNTIME_TYPE_LABELS: Record<AgentRuntimeType, string> = {
+  general: "General assistant",
+  receptionist: "Receptionist / phone desk",
+  executive_admin: "Executive administration (orchestration desk)",
+  revenue_operator: "Revenue operator",
+  trust_advisor: "Trust advisor",
+  concierge: "Concierge",
+};
+
 function cx(...s: Array<string | false | undefined | null>) {
   return s.filter(Boolean).join(" ");
 }
@@ -117,6 +144,23 @@ type Voice = {
   isCustom?: boolean;
 };
 
+type VoiceEnginesStatusJson = {
+  selfHostedTts: { enabledFlag: boolean; configured: boolean };
+  elevenlabs: { configured: boolean };
+  openaiPresets: { configured: boolean };
+};
+
+type SelfHostedHealthJson = {
+  configured: boolean;
+  enabled: boolean;
+  baseUrlPresent: boolean;
+  reachable: boolean;
+  createEndpointKnown: boolean;
+  speakEndpointKnown: boolean;
+  message: string;
+  uiLabel: "Not configured" | "Unreachable" | "Configured" | "Ready";
+};
+
 const ENROLLMENT_SCRIPTS = [
   "Hi, this is a voice sample for TroothHertz. Today is a great day to build systems that help people. I can speak clearly, confidently, and at a natural pace. Please confirm your name, your email address, and the best time to follow up. If you have questions, I'm here to help.",
   "For quality testing: one, two, three, four, five. My phone number is 555-123-4567. I can pronounce common names like Jordan, Alexis, Christopher, and Monique. I can also read websites like troothhurtz dot app, and I can handle dates like February twenty-fourth, twenty twenty-six.",
@@ -129,12 +173,15 @@ function VoiceTab({
   onSelect,
   onSave,
   hasSelection,
+  agentDisplayName,
 }: {
   selectedVoiceId: string | null;
   selectedVoiceProvider: string | null;
   onSelect: (id: string, provider: string) => void;
-  onSave: () => void;
+  onSave: () => boolean | Promise<boolean>;
   hasSelection: boolean;
+  /** Current agent name for success copy (e.g. SKIPPER). */
+  agentDisplayName?: string | null;
 }) {
   const [mode, setMode] = useState<"preset" | "custom">("preset");
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -150,6 +197,25 @@ function VoiceTab({
   const [customRecordings, setCustomRecordings] = useState<Blob[]>([]);
   const [customRecording, setCustomRecording] = useState(false);
   const [customCreating, setCustomCreating] = useState(false);
+  const [engineStatus, setEngineStatus] = useState<VoiceEnginesStatusJson | null>(null);
+  const [selfHostedHealth, setSelfHostedHealth] = useState<SelfHostedHealthJson | null>(null);
+  const [cloneProvider, setCloneProvider] = useState<"self_hosted_tts" | "elevenlabs">("elevenlabs");
+  const clipRecordRef = useRef<{ timeoutId: number | null; recorder: MediaRecorder | null }>({
+    timeoutId: null,
+    recorder: null,
+  });
+
+  const [attachStatus, setAttachStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+
+  useEffect(() => {
+    setAttachStatus("idle");
+  }, [selectedVoiceId, selectedVoiceProvider]);
+
+  useEffect(() => {
+    if (attachStatus !== "saved") return;
+    const t = window.setTimeout(() => setAttachStatus("idle"), 12_000);
+    return () => window.clearTimeout(t);
+  }, [attachStatus]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -158,11 +224,15 @@ function VoiceTab({
     if (gender !== "all") params.set("gender", gender);
     if (highQualityOnly) params.set("highQualityOnly", "true");
     if (search.trim()) params.set("search", search.trim());
+    params.set("includeSelfHostedHealth", "1");
     setLoading(true);
     fetch(`/api/app/voices?${params.toString()}`, { credentials: "include" })
       .then((r) => r.json())
       .then((j) => {
         setVoices(j.voices ?? []);
+        if (j.engineStatus) setEngineStatus(j.engineStatus as VoiceEnginesStatusJson);
+        if (j.selfHostedHealth) setSelfHostedHealth(j.selfHostedHealth as SelfHostedHealthJson);
+        else setSelfHostedHealth(null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -176,7 +246,14 @@ function VoiceTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ voiceId: v.providerVoiceId, provider: (v as Voice & { isCustom?: boolean }).isCustom ? "elevenlabs" : "openai" }),
+        body: JSON.stringify({
+          voiceId: v.providerVoiceId,
+          provider: (v as Voice).isCustom
+            ? (v as Voice).provider === "self_hosted_tts"
+              ? "self_hosted_tts"
+              : "elevenlabs"
+            : "openai",
+        }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
@@ -193,21 +270,54 @@ function VoiceTab({
     }
   }
 
+  function stopClipRecording() {
+    const { timeoutId } = clipRecordRef.current;
+    if (timeoutId != null) {
+      window.clearTimeout(timeoutId);
+      clipRecordRef.current.timeoutId = null;
+    }
+    const rec = clipRecordRef.current.recorder;
+    clipRecordRef.current.recorder = null;
+    if (rec && rec.state === "recording") {
+      try {
+        rec.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   async function startRecording() {
+    if (customRecording) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        if (clipRecordRef.current.timeoutId != null) {
+          window.clearTimeout(clipRecordRef.current.timeoutId);
+          clipRecordRef.current.timeoutId = null;
+        }
+        clipRecordRef.current.recorder = null;
         if (chunks.length) setCustomRecordings((r) => [...r, new Blob(chunks, { type: "audio/webm" })]);
         setCustomRecording(false);
       };
-      recorder.start();
+      clipRecordRef.current.recorder = recorder;
+      clipRecordRef.current.timeoutId = window.setTimeout(() => {
+        clipRecordRef.current.timeoutId = null;
+        try {
+          if (recorder.state === "recording") recorder.stop();
+        } catch {
+          /* ignore */
+        }
+      }, 45_000);
+      recorder.start(250);
       setCustomRecording(true);
-      setTimeout(() => recorder.stop(), 45000);
-    } catch (e) {
+    } catch {
       alert("Microphone access required for recording.");
       setCustomRecording(false);
     }
@@ -223,7 +333,7 @@ function VoiceTab({
       const form = new FormData();
       form.append("name", "My Voice");
       form.append("consent", "true");
-      form.append("consentText", "I own this voice or have explicit permission to use it. I will not use it to imitate another person.");
+      form.append("cloneProvider", cloneProvider);
       customRecordings.forEach((blob, i) => {
         const ext = blob instanceof File
           ? (blob.name.match(/\.(\w+)$/)?.[1] ?? "mp3")
@@ -244,6 +354,17 @@ function VoiceTab({
     }
   }
 
+  async function handleSaveVoiceToAgent() {
+    if (!hasSelection) return;
+    setAttachStatus("saving");
+    try {
+      const ok = await Promise.resolve(onSave());
+      setAttachStatus(ok ? "saved" : "failed");
+    } catch {
+      setAttachStatus("failed");
+    }
+  }
+
   return (
     <div className="grid gap-3">
       <div className="text-sm font-semibold">Voice Selection</div>
@@ -251,7 +372,25 @@ function VoiceTab({
         Pick a preset voice or record your own. Used for webchat read-aloud and voice calls when connected.
       </p>
 
-      <div className="flex gap-2">
+      {selfHostedHealth ? (
+        <div
+          className={cx(
+            "rounded-xl border px-3 py-2 text-xs",
+            selfHostedHealth.uiLabel === "Ready"
+              ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-100/95"
+              : selfHostedHealth.uiLabel === "Not configured"
+                ? "border-white/15 bg-black/25 text-white/55"
+                : selfHostedHealth.uiLabel === "Unreachable"
+                  ? "border-rose-400/40 bg-rose-950/40 text-rose-100/90"
+                  : "border-amber-400/40 bg-amber-950/35 text-amber-100/90",
+          )}
+        >
+          <p className="font-semibold uppercase tracking-wide">Self-hosted engine: {selfHostedHealth.uiLabel}</p>
+          <p className="mt-1 text-[11px] opacity-90">{selfHostedHealth.message}</p>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setMode("preset")}
@@ -264,19 +403,71 @@ function VoiceTab({
         </button>
         <button
           type="button"
-          onClick={() => setMode("custom")}
+          onClick={() => {
+            setMode("custom");
+            setCloneProvider("self_hosted_tts");
+          }}
           className={cx(
             "rounded-xl px-3 py-2 text-sm",
-            mode === "custom" ? "bg-cyan-500/30 border border-cyan-400/50" : "border border-white/10 bg-black/20"
+            mode === "custom" && cloneProvider === "self_hosted_tts"
+              ? "bg-cyan-500/30 border border-cyan-400/50"
+              : "border border-white/10 bg-black/20"
           )}
         >
-          Use my voice
+          Use my voice — Self-hosted
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode("custom");
+            setCloneProvider("elevenlabs");
+          }}
+          className={cx(
+            "rounded-xl px-3 py-2 text-sm",
+            mode === "custom" && cloneProvider === "elevenlabs"
+              ? "bg-cyan-500/30 border border-cyan-400/50"
+              : "border border-white/10 bg-black/20"
+          )}
+        >
+          Use my voice — ElevenLabs
         </button>
       </div>
 
       {mode === "custom" ? (
         <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
-          <div className="text-xs text-white/60">Record 1–3 clips (30–45 sec each). Quiet room, consistent mic distance.</div>
+          <div className="text-xs text-white/70">
+            Cloning via:{" "}
+            <span className="font-semibold text-cyan-300/90">
+              {cloneProvider === "self_hosted_tts" ? "Self-hosted engine" : "ElevenLabs"}
+            </span>
+          </div>
+          {engineStatus && selfHostedHealth ? (
+            <div className="rounded-lg border border-white/10 bg-black/30 p-2 text-[11px] text-white/55 space-y-1">
+              <p>
+                Self-hosted (probed): <span className="text-white/85">{selfHostedHealth.uiLabel}</span> — {selfHostedHealth.message}
+              </p>
+              <p>ElevenLabs: {engineStatus.elevenlabs.configured ? "API key present" : "ELEVENLABS_API_KEY not set"}</p>
+              <p>OpenAI presets: {engineStatus.openaiPresets.configured ? "OPENAI_API_KEY set" : "Preset preview needs OPENAI_API_KEY"}</p>
+            </div>
+          ) : engineStatus ? (
+            <div className="rounded-lg border border-white/10 bg-black/30 p-2 text-[11px] text-white/55 space-y-1">
+              <p>
+                Self-hosted (env only):{" "}
+                {engineStatus.selfHostedTts.configured
+                  ? "Env vars present — list request should include includeSelfHostedHealth=1 for probe."
+                  : engineStatus.selfHostedTts.enabledFlag
+                    ? "Missing SELF_HOSTED_TTS_BASE_URL"
+                    : "Set SELF_HOSTED_TTS_ENABLED=true and SELF_HOSTED_TTS_BASE_URL"}
+              </p>
+              <p>ElevenLabs: {engineStatus.elevenlabs.configured ? "API key present" : "ELEVENLABS_API_KEY not set"}</p>
+              <p>OpenAI presets: {engineStatus.openaiPresets.configured ? "OPENAI_API_KEY set" : "Preset preview needs OPENAI_API_KEY"}</p>
+            </div>
+          ) : null}
+          <div className="text-xs text-white/60">
+            Record 1–3 clips (aim for 30–45 sec each; max 45 sec per clip). When you are done reading a script, click{" "}
+            <span className="font-semibold text-cyan-200/90">Stop recording</span> — or wait for the clip to end
+            automatically. Quiet room, consistent mic distance.
+          </div>
           <label className="flex items-start gap-2">
             <input
               type="checkbox"
@@ -295,14 +486,24 @@ function VoiceTab({
             ))}
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            <button
-              type="button"
-              onClick={startRecording}
-              disabled={customRecording || customRecordings.length >= 3}
-              className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm disabled:opacity-50"
-            >
-              {customRecording ? "Recording…" : `Record clip ${customRecordings.length + 1}`}
-            </button>
+            {customRecording ? (
+              <button
+                type="button"
+                onClick={() => stopClipRecording()}
+                className="rounded-xl border border-amber-400/45 bg-amber-500/15 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/25"
+              >
+                Stop recording
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void startRecording()}
+                disabled={customRecordings.length >= 3}
+                className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm disabled:opacity-50"
+              >
+                {`Record clip ${customRecordings.length + 1}`}
+              </button>
+            )}
             <label className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm cursor-pointer hover:opacity-90">
               Upload MP3/WAV
               <input
@@ -429,18 +630,41 @@ function VoiceTab({
             })}
           </div>
 
-          <div className="flex items-center gap-2 mt-2">
-            <button
-              onClick={onSave}
-              disabled={!hasSelection}
-              className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-50"
-            >
-              Save Voice
-            </button>
-            {hasSelection ? (
-              <span className="text-xs text-white/50">
-                Selected: {selectedVoiceId} ({selectedVoiceProvider})
-              </span>
+          <div className="mt-2 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveVoiceToAgent()}
+                disabled={!hasSelection || attachStatus === "saving"}
+                className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-50"
+              >
+                {attachStatus === "saving" ? "Saving…" : "Save Voice"}
+              </button>
+              {hasSelection ? (
+                <span className="text-xs text-white/50">
+                  Selected: {selectedVoiceId} ({selectedVoiceProvider})
+                </span>
+              ) : null}
+            </div>
+            {attachStatus === "saving" ? (
+              <p className="text-xs text-white/55">Writing voice to this agent on the server…</p>
+            ) : null}
+            {attachStatus === "saved" ? (
+              <p
+                className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-xs leading-snug text-emerald-100/95"
+                role="status"
+              >
+                Voice assigned to{" "}
+                {agentDisplayName?.trim() ? (
+                  <span className="font-semibold text-emerald-50">“{agentDisplayName.trim()}”</span>
+                ) : (
+                  "this agent"
+                )}
+                . It is saved in your account; you can change tabs or leave this page.
+              </p>
+            ) : null}
+            {attachStatus === "failed" ? (
+              <p className="text-xs text-rose-300/90">Save did not complete — check the red error toast (top of screen).</p>
             ) : null}
           </div>
         </>
@@ -937,6 +1161,7 @@ function AgentsPageContent() {
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [status, setStatus] = useState<"draft" | "active" | "paused">("draft");
+  const [agentRuntimeType, setAgentRuntimeType] = useState<AgentRuntimeType>("general");
   const [agentAvatarImageUrl, setAgentAvatarImageUrl] = useState("");
   const [agentAvatarAltText, setAgentAvatarAltText] = useState("AI agent avatar");
   const [agentAvatarUploading, setAgentAvatarUploading] = useState(false);
@@ -983,6 +1208,7 @@ function AgentsPageContent() {
   const [testLog, setTestLog] = useState<Array<{ role: "user" | "assistant"; text: string }>>([
     { role: "assistant", text: "Pick or create an agent, then test it here." },
   ]);
+  const [runtimeDiag, setRuntimeDiag] = useState<RuntimeDiagnostics | null>(null);
 
   const [buildingKeyInput, setBuildingKeyInput] = useState("");
   const [buildingWorldId, setBuildingWorldId] = useState<string | null>(null);
@@ -1022,6 +1248,12 @@ function AgentsPageContent() {
     setDescription(item.description ?? "");
     setSystemPrompt(item.systemPrompt ?? "");
     setStatus((item.status ?? "draft") as "draft" | "active" | "paused");
+    setAgentRuntimeType(
+      resolveAgentRuntimeType({
+        agentRuntimeType: typeof item.agentRuntimeType === "string" ? item.agentRuntimeType : null,
+        name: item.name,
+      })
+    );
 
     const tools = item.toolsJson ?? {};
     setToolCrm(!!tools.crm);
@@ -1176,8 +1408,8 @@ function AgentsPageContent() {
     }
   }
 
-  async function saveAgent() {
-    if (!selectedId) return;
+  async function saveAgent(opts?: { context?: "voice" | "general" }): Promise<boolean> {
+    if (!selectedId) return false;
 
     const body: Record<string, unknown> = {
       name: name.trim(),
@@ -1195,6 +1427,7 @@ function AgentsPageContent() {
       industriesJson: industriesSelected.length > 0 ? stringifyIndustries(industriesSelected) : null,
       avatarImageUrl: agentAvatarImageUrl.trim() || null,
       avatarAltText: agentAvatarAltText.trim() || null,
+      agentRuntimeType,
     };
     if (llmApiKey.trim()) body.llmApiKey = llmApiKey.trim();
 
@@ -1207,10 +1440,16 @@ function AgentsPageContent() {
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       toast.error(j?.error ?? "Save failed. Try again.");
-      return;
+      return false;
     }
     await loadAgents();
-    toast.success("Saved. Your agent is stored in your account and will appear in the list.");
+    const voiceTab = opts?.context === "voice";
+    if (voiceTab && voiceId && voiceProvider) {
+      toast.success("Voice saved — this agent is set to use the selected voice for read-aloud and calls.");
+    } else {
+      toast.success("Saved. Your agent is stored in your account and will appear in the list.");
+    }
+    return true;
   }
 
   async function createBlankAgent() {
@@ -1257,6 +1496,7 @@ function AgentsPageContent() {
     setLlmEndpoint("");
     setLlmApiKey("");
     setModel("");
+    setAgentRuntimeType("general");
     await loadAgents();
   }
 
@@ -1455,6 +1695,34 @@ function AgentsPageContent() {
     if (selectedId) loadAgent(selectedId);
   }, [selectedId]);
 
+  useEffect(() => {
+    if (!selectedId) {
+      setRuntimeDiag(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/app/agents/${encodeURIComponent(selectedId)}/runtime-diagnostics`,
+          { credentials: "include" }
+        );
+        const j = (await r.json().catch(() => null)) as RuntimeDiagnostics | { error?: string } | null;
+        if (cancelled) return;
+        if (!j || typeof j !== "object" || "error" in j) {
+          setRuntimeDiag(null);
+          return;
+        }
+        setRuntimeDiag(j as RuntimeDiagnostics);
+      } catch {
+        if (!cancelled) setRuntimeDiag(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
   async function loadCollaborators() {
     if (!selectedId) return;
     try {
@@ -1529,6 +1797,9 @@ function AgentsPageContent() {
       </div>
 
       <div className="relative mx-auto max-w-[1400px] px-4 py-6">
+        <div className="mb-4">
+          <ActiveClientIndicator compact />
+        </div>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">AI Agents</h1>
@@ -1576,7 +1847,8 @@ function AgentsPageContent() {
               Collaborate
             </button>
             <button
-              onClick={saveAgent}
+              type="button"
+              onClick={() => void saveAgent({ context: "general" })}
               disabled={!selectedId}
               className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-50"
             >
@@ -1791,6 +2063,25 @@ function AgentsPageContent() {
                       className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none"
                       placeholder="What does this agent do?"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/60">Runtime type</label>
+                    <select
+                      value={agentRuntimeType}
+                      onChange={(e) => setAgentRuntimeType(e.target.value as AgentRuntimeType)}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none"
+                    >
+                      {AGENT_RUNTIME_TYPES.map((rt) => (
+                        <option key={rt} value={rt}>
+                          {RUNTIME_TYPE_LABELS[rt]}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-1 text-[10px] text-white/45">
+                      Executive administration prepends a dedicated system prompt (e.g. SKIPPER). Receptionist behavior
+                      only applies when this is set to Receptionist.
+                    </div>
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -2222,14 +2513,16 @@ function AgentsPageContent() {
                     <VoiceTab
                       selectedVoiceId={voiceId}
                       selectedVoiceProvider={voiceProvider}
+                      agentDisplayName={selectedAgent?.name ?? null}
                       onSelect={(id, provider) => {
                         setVoiceId(id);
                         setVoiceProvider(provider);
                       }}
-                      onSave={() => {
+                      onSave={async () => {
                         if (voiceId && voiceProvider && selectedId) {
-                          saveAgent();
+                          return saveAgent({ context: "voice" });
                         }
+                        return false;
                       }}
                       hasSelection={!!voiceId}
                     />
@@ -2354,7 +2647,8 @@ function AgentsPageContent() {
                             Generate Widget Key
                           </button>
                           <button
-                            onClick={saveAgent}
+                            type="button"
+                            onClick={() => void saveAgent({ context: "general" })}
                             disabled={!selectedId}
                             className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
                           >
@@ -2450,6 +2744,63 @@ function AgentsPageContent() {
                 <div className="mt-1 text-xs text-white/60">
                   Preview behavior before deploying. (Wire to real LLM endpoint next.)
                 </div>
+                {(agentRuntimeType === "executive_admin" || name.trim().toUpperCase() === "SKIPPER") ? (
+                  <div
+                    className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-2 text-[11px] leading-snug text-amber-50"
+                    role="status"
+                  >
+                    Test Chat uses lightweight SKIPPER runtime. Full orchestration runs in Executive Administration.
+                  </div>
+                ) : null}
+                {runtimeDiag?.capabilities ? (
+                  <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-2">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-white/50">
+                      Runtime capabilities
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(
+                        [
+                          ["executiveOrchestrator", "Executive Orchestrator"],
+                          ["analytics", "Analytics"],
+                          ["crm", "CRM"],
+                          ["bentley", "Bentley"],
+                          ["memory", "Memory"],
+                          ["voice", "Voice"],
+                          ["agentNetwork", "Agent network"],
+                        ] as const
+                      ).map(([key, label]) => {
+                        const st = runtimeDiag.capabilities[key];
+                        const cls =
+                          st === "connected"
+                            ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-100"
+                            : st === "partial"
+                              ? "border-amber-500/35 bg-amber-500/15 text-amber-100"
+                              : "border-rose-500/30 bg-rose-500/10 text-rose-100";
+                        return (
+                          <span
+                            key={key}
+                            className={cx("rounded-md border px-2 py-0.5 text-[10px] font-medium", cls)}
+                          >
+                            {label}: {st}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {runtimeDiag.capabilityNotes && runtimeDiag.capabilityNotes.length > 0 ? (
+                      <div className="mt-2 text-[10px] text-amber-100/90">{runtimeDiag.capabilityNotes[0]}</div>
+                    ) : null}
+                    {runtimeDiag.fallbackReason ? (
+                      <div className="mt-2 text-[10px] text-rose-200/90">Fallback: {runtimeDiag.fallbackReason}</div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {(agentRuntimeType === "executive_admin" || name.trim().toUpperCase() === "SKIPPER") &&
+                knowledgeItems.length === 0 ? (
+                  <div className="mt-3 rounded-lg border border-amber-400/35 bg-amber-500/10 px-2 py-2 text-[10px] text-amber-50">
+                    No knowledge items for this executive agent. The executive system prompt still applies; add PDFs,
+                    notes, or FAQs so answers stay grounded in your materials.
+                  </div>
+                ) : null}
               </div>
 
               <div className="max-h-[420px] space-y-2 overflow-auto p-3">

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 
 import { AuthGate } from "@/components/AuthGate";
 import { IdentityStrip } from "@/components/IdentityStrip";
+import { ActiveClientIndicator } from "@/components/client-context/ActiveClientIndicator";
 import { AgentHudPills } from "@/components/trust-records/AgentHudPills";
 import { buildStepFocus } from "@/components/smart-trust/AgentAssistPanel";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
@@ -20,7 +21,11 @@ import {
 } from "@/lib/trust-records-me-client";
 
 // Minimal shapes (avoid importing backend types into UI shell)
-type ClientMe = { clientId?: string | null };
+/** GET /api/clients/me returns `{ client: { id, ... } | null }` (workflow profile), not top-level `clientId`. */
+type ClientMeResponse = {
+  client?: { id?: string | null } | null;
+  clientId?: string | null;
+};
 
 type TrustRecordsMeResponse = {
   ok: true;
@@ -150,8 +155,11 @@ function TrustRecordsLayoutContent({ children }: { children: React.ReactNode }) 
 
     (async () => {
       // 1) Load CID (keep as-is)
-      const me = await safeGetJson<ClientMe>("/api/clients/me");
-      if (mounted && me.ok) setClientId(me.data.clientId ?? null);
+      const me = await safeGetJson<ClientMeResponse>("/api/clients/me");
+      if (mounted && me.ok) {
+        const id = me.data.client?.id ?? me.data.clientId ?? null;
+        setClientId(id != null ? String(id) : null);
+      }
       if (!mounted) return;
 
       // 2) If URL has trustId, bind it into server active context
@@ -297,6 +305,7 @@ function TrustRecordsLayoutContent({ children }: { children: React.ReactNode }) 
           isAuthenticated={authed}
           showWalletStatus={false}
         />
+        <ActiveClientIndicator compact />
         {authed ? (
           <TrustBindingCoherenceNotice
             enabled={authed}

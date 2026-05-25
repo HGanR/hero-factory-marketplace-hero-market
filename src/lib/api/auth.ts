@@ -1,13 +1,16 @@
 import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth";
+import { marketplaceUserIdFromSessionCookiePair } from "@/lib/auth";
 
+/**
+ * Marketplace session user id for API ownership (clients, Revenue OS hub, etc.).
+ * Prefers a valid platform-admin `admin-token` when present; otherwise `auth-token`.
+ */
 export async function getAuthedUserId(): Promise<number | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth-token")?.value ?? null;
-  if (!token) return null;
-  const payload = verifyToken(token);
-  const userId = payload?.userId;
-  return typeof userId === "number" ? userId : null;
+  return marketplaceUserIdFromSessionCookiePair(
+    cookieStore.get("auth-token")?.value ?? "",
+    cookieStore.get("admin-token")?.value ?? "",
+  );
 }
 
 

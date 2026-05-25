@@ -17,10 +17,12 @@ export type UpgradeRoiRow = {
   recommended: "before_listing" | "after_purchase" | "either";
 };
 
-const BASE_UPGRADES: Omit<UpgradeRoiRow, "estimatedCost" | "estimatedValueLift" | "roiPercent"> & {
+type BaseUpgradeDef = Pick<UpgradeRoiRow, "id" | "label" | "timing" | "recommended"> & {
   costMid: number;
   liftMid: number;
-}[] = [
+};
+
+const BASE_UPGRADES: BaseUpgradeDef[] = [
   {
     id: "kitchen",
     label: "Kitchen refresh (counters + fixtures)",

@@ -173,6 +173,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           ? body.avatarAltText.trim().slice(0, 160)
           : null;
     }
+    if (body && "agentRuntimeType" in body) {
+      const allowed = new Set([
+        "general",
+        "receptionist",
+        "executive_admin",
+        "revenue_operator",
+        "trust_advisor",
+        "concierge",
+      ]);
+      const v = typeof body.agentRuntimeType === "string" ? body.agentRuntimeType.trim().toLowerCase() : "";
+      updates.agentRuntimeType = v && allowed.has(v) ? v : null;
+    }
 
     if (Object.keys(updates).length > 0) {
       await db.update(aiAgents).set(updates as any).where(eq(aiAgents.id, id));

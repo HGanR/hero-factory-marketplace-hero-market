@@ -114,6 +114,16 @@ export async function POST(req: NextRequest) {
     const workspaceId = typeof body?.workspaceId === "string" && body.workspaceId.trim() ? body.workspaceId.trim() : null;
     const avatarImageUrl = typeof body?.avatarImageUrl === "string" && body.avatarImageUrl.trim() ? body.avatarImageUrl.trim() : null;
     const avatarAltText = typeof body?.avatarAltText === "string" && body.avatarAltText.trim() ? body.avatarAltText.trim().slice(0, 160) : null;
+    const allowedRt = new Set([
+      "general",
+      "receptionist",
+      "executive_admin",
+      "revenue_operator",
+      "trust_advisor",
+      "concierge",
+    ]);
+    const rawRt = typeof body?.agentRuntimeType === "string" ? body.agentRuntimeType.trim().toLowerCase() : "";
+    const agentRuntimeType = rawRt && allowedRt.has(rawRt) ? rawRt : null;
 
     const id = crypto.randomUUID();
 
@@ -132,6 +142,7 @@ export async function POST(req: NextRequest) {
       toolsJson,
       avatarImageUrl,
       avatarAltText,
+      agentRuntimeType,
     });
 
     return NextResponse.json({ id });

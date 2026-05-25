@@ -16,7 +16,7 @@ import {
 import { getBroadcastEventById } from "@/lib/meet/broadcast-event-store";
 import { getTimelineTemplateById } from "@/lib/meet/broadcast-timeline-templates";
 import { getBroadcastTimelinePreviewForSession } from "@/lib/meet/broadcast-timeline-store";
-import { toBroadcastCalendarLinkSummary } from "@/lib/meet/broadcast-calendar-sync";
+import { toBroadcastCalendarLinkSummary, type BroadcastCalendarLinkSummary } from "@/lib/meet/broadcast-calendar-sync";
 import { getBroadcastCalendarLinkByBroadcastEventId } from "@/lib/meet/broadcast-calendar-link-store";
 
 /**
@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
           status: string;
           timelineTemplateName: string | null;
           launchedFromEvent: boolean;
+          calendarLink: BroadcastCalendarLinkSummary | null;
         } | null = null;
         if (beId != null && Number.isFinite(Number(beId))) {
           const ev = await getBroadcastEventById(Number(beId), session.userId);

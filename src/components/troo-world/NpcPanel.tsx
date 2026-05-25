@@ -83,6 +83,7 @@ export default function NpcPanel({ worldId, isOpen, onClose }: NpcPanelProps) {
     guide: "#6b1c1c",
     voice_agent: "#1c3a6b",
     avatar: "#6b3a1c",
+    executive_admin: "#2a4a6b",
   };
 
   // Department badge colors

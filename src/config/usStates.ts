@@ -52,5 +52,6 @@ export const US_STATES = [
   { code: "WY", name: "Wyoming" },
 ] as const;
 
-
+/** US state / DC options for jurisdiction selectors (alias of {@link US_STATES}). */
+export const JURISDICTION_OPTIONS = US_STATES;
 

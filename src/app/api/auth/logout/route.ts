@@ -1,25 +1,21 @@
- import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const response = NextResponse.json({ success: true });
 
-  const secure = process.env.NODE_ENV === "production";
+  const base = sessionCookieBase(cookieHostFromRequest(request));
 
-  // Clear both marketplace + admin auth cookies
+  // Clear both marketplace + admin auth cookies (match login cookie domain/path)
   response.cookies.set("auth-token", "", {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
+    ...base,
     maxAge: 0,
-    path: "/",
   });
 
   response.cookies.set("admin-token", "", {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
+    ...base,
     maxAge: 0,
-    path: "/",
   });
 
   return response;

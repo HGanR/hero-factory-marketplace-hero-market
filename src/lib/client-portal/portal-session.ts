@@ -1,11 +1,11 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { ensureClientPortalTables } from "@/lib/db/client-portal-ensure";
 import { clientAccounts, clientPortalUsers } from "@/lib/db/schema";
 import type { ClientAccountRow } from "@/lib/revenue-os/client-hub-types";
 import { createClientPortalToken, type ClientPortalJwtPayload, verifyClientPortalToken } from "./portal-token";
-import { sessionCookieBase } from "@/lib/auth-cookie-options";
+import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
 
 export type PortalUserRow = typeof clientPortalUsers.$inferSelect;
 
@@ -44,13 +44,15 @@ export async function getClientPortalSession(): Promise<ClientPortalSessionState
 }
 
 export async function setClientPortalAuthCookie(jwt: string) {
-  const b = sessionCookieBase();
+  const h = await headers();
+  const b = sessionCookieBase(cookieHostFromRequest({ headers: h }));
   const store = await cookies();
   store.set("client-portal-token", jwt, { ...b, maxAge: 7 * 24 * 60 * 60, httpOnly: true });
 }
 
 export async function clearClientPortalAuthCookie() {
-  const b = sessionCookieBase();
+  const h = await headers();
+  const b = sessionCookieBase(cookieHostFromRequest({ headers: h }));
   const store = await cookies();
   store.set("client-portal-token", "", { ...b, maxAge: 0 });
 }

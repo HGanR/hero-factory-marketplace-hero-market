@@ -5,8 +5,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { aiAgents, clientAccounts, trusts } from "@/lib/db/schema";
+import { aiAgents, clientAccounts, clients, trusts } from "@/lib/db/schema";
 import { getAuthedUserId } from "@/lib/api/auth";
+import { CRM_ONLY_WORKSPACE_PREFIX } from "@/lib/smart-trust-platform-binding";
+import { parseRequestedServicesJson } from "@/lib/clients/requested-services";
 
 export async function GET(_request: NextRequest) {
   const userId = await getAuthedUserId();
@@ -17,6 +19,7 @@ export async function GET(_request: NextRequest) {
   const db = await getDb();
 
   try {
+    /** `trusts.clientId` is the CRM `clients.id` (UUID), not `client_accounts.id` — join the clients table. */
     const rows = await db
       .select({
         id: trusts.id,
@@ -27,14 +30,16 @@ export async function GET(_request: NextRequest) {
         workspaceStatus: trusts.workspaceStatus,
         createdAt: trusts.createdAt,
         updatedAt: trusts.updatedAt,
-        clientName: clientAccounts.name,
-        logoUrl: clientAccounts.logoUrl,
-        servicesJson: clientAccounts.servicesJson,
+        crmFirstName: clients.firstName,
+        crmLastName: clients.lastName,
+        crmEntityDisplayName: clients.entityDisplayName,
+        crmLogoDataUrl: clients.businessLogoDataUrl,
+        crmRequestedServicesJson: clients.requestedServicesJson,
       })
       .from(trusts)
       .leftJoin(
-        clientAccounts,
-        and(eq(clientAccounts.id, trusts.clientId), eq(clientAccounts.ownerUserId, userId)),
+        clients,
+        and(eq(clients.id, trusts.clientId), eq(clients.userId, userId)),
       )
       .where(eq(trusts.userId, userId))
       .orderBy(desc(trusts.updatedAt))
@@ -90,32 +95,72 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    const workspaces = rows.map((t: any) => ({
-      id: String(t.id),
-      name: t.name ?? "Untitled Workspace",
-      trustType: t.trustType ?? null,
-      jurisdictionState: t.jurisdictionState ?? null,
-      clientId: t.clientId ?? null,
-      clientName: t.clientName ?? null,
-      logoUrl: typeof t.logoUrl === "string" && t.logoUrl.trim() ? t.logoUrl : null,
+    const workspaces: Array<Record<string, unknown>> = rows.map((t: any) => {
+      const person = [t.crmFirstName, t.crmLastName].filter(Boolean).join(" ").trim();
+      const entity =
+        typeof t.crmEntityDisplayName === "string" && String(t.crmEntityDisplayName).trim()
+          ? String(t.crmEntityDisplayName).trim()
+          : null;
+      const crmLogo =
+        typeof t.crmLogoDataUrl === "string" && String(t.crmLogoDataUrl).trim()
+          ? String(t.crmLogoDataUrl).trim()
+          : null;
+      return {
+        kind: "trust" as const,
+        id: String(t.id),
+        name: t.name ?? "Untitled Workspace",
+        trustType: t.trustType ?? null,
+        jurisdictionState: t.jurisdictionState ?? null,
+        clientId: t.clientId ?? null,
+        clientName: entity || (person || null),
+        logoUrl: crmLogo,
       agentName: bestAgentByWorkspace.get(String(t.id))?.agentName ?? null,
       agentAvatarImageUrl: bestAgentByWorkspace.get(String(t.id))?.agentAvatarImageUrl ?? null,
-      requestedServices:
-        typeof t.servicesJson === "string"
-          ? (() => {
-              try {
-                const parsed = JSON.parse(t.servicesJson) as unknown;
-                if (!Array.isArray(parsed)) return [];
-                return parsed.map((x) => String(x ?? "").trim()).filter(Boolean);
-              } catch {
-                return [];
-              }
-            })()
-          : [],
-      workspaceStatus: t.workspaceStatus ?? null,
-      createdAt: t.createdAt ? new Date(t.createdAt as any).toISOString() : null,
-      updatedAt: t.updatedAt ? new Date(t.updatedAt as any).toISOString() : null,
-    }));
+      requestedServices: parseRequestedServicesJson(
+          typeof t.crmRequestedServicesJson === "string" ? t.crmRequestedServicesJson : null,
+        ),
+        workspaceStatus: t.workspaceStatus ?? null,
+        createdAt: t.createdAt ? new Date(t.createdAt as any).toISOString() : null,
+        updatedAt: t.updatedAt ? new Date(t.updatedAt as any).toISOString() : null,
+      };
+    });
+
+    const trustBoundCrmIds = new Set(
+      rows.map((r: { clientId?: string | null }) => String(r.clientId ?? "").trim()).filter(Boolean),
+    );
+    const crmOnly = await db
+      .select()
+      .from(clients)
+      .where(eq(clients.userId, userId))
+      .orderBy(desc(clients.updatedAt))
+      .limit(200);
+    for (const c of crmOnly) {
+      const cid = String(c.id);
+      if (trustBoundCrmIds.has(cid)) continue;
+      const person = [c.firstName, c.middleName, c.lastName].filter(Boolean).join(" ").trim() || "Unnamed";
+      const rowLogo =
+        typeof c.businessLogoDataUrl === "string" && String(c.businessLogoDataUrl).trim()
+          ? String(c.businessLogoDataUrl).trim()
+          : null;
+      workspaces.push({
+        kind: "crm_client" as const,
+        id: `${CRM_ONLY_WORKSPACE_PREFIX}${cid}`,
+        name: `Client file · ${person}`,
+        trustType: null,
+        jurisdictionState: null,
+        clientId: cid,
+        clientName: person,
+        logoUrl: rowLogo,
+        agentName: null,
+        agentAvatarImageUrl: null,
+        requestedServices: parseRequestedServicesJson(
+          typeof c.requestedServicesJson === "string" ? c.requestedServicesJson : null,
+        ),
+        workspaceStatus: "client_file" as const,
+        createdAt: c.createdAt ? new Date(c.createdAt as any).toISOString() : null,
+        updatedAt: c.updatedAt ? new Date(c.updatedAt as any).toISOString() : null,
+      });
+    }
 
     if (workspaces.length === 0 && fallbackRows?.length) {
       const seen = new Set<string>();
@@ -124,6 +169,7 @@ export async function GET(_request: NextRequest) {
         if (!id || seen.has(id)) continue;
         seen.add(id);
         workspaces.push({
+          kind: "hub_account" as const,
           id,
           name: r.name ?? "Workspace",
           trustType: null,

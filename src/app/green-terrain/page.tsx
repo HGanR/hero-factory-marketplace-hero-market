@@ -33,6 +33,7 @@ const CorporateBuilding = dynamic(() => import("@/components/green-terrain/Corpo
 const MeridianTower = dynamic(() => import("@/components/green-terrain/MeridianTower"), { ssr: false });
 const TroothhertzTower = dynamic(() => import("@/components/green-terrain/TroothhertzTower"), { ssr: false });
 const StadiumElyseum = dynamic(() => import("@/components/green-terrain/StadiumElyseum"), { ssr: false });
+const VeritasSchool = dynamic(() => import("@/components/green-terrain/VeritasSchool"), { ssr: false });
 
 // ─── Terrain helpers ──────────────────────────────────────────────────────────
 function fade(t: number) { return t * t * t * (t * (t * 6 - 15) + 10); }
@@ -390,6 +391,69 @@ function StadiumLabel({ position, isSelected, onSelect, onEnter }: {
   );
 }
 
+function VeritasLabel({ position, isSelected, onSelect }: {
+  position: [number, number, number];
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Html position={[position[0], position[1] + 18, position[2]]} center distanceFactor={60} zIndexRange={[50, 60]}>
+      <div style={{ fontFamily: "Georgia, serif", userSelect: "none", textAlign: "center" }}>
+        <div
+          onClick={() => { onSelect(); setOpen(o => !o); }}
+          style={{
+            background: isSelected ? "rgba(240,208,128,0.95)" : "linear-gradient(135deg,#1a0a00,#3d1f00)",
+            border: `2px solid ${isSelected ? "#ffa500" : "#c8a84b"}`,
+            borderRadius: 8,
+            padding: "6px 16px",
+            color: isSelected ? "#1a0a00" : "#f0d080",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
+            letterSpacing: 1,
+          }}
+        >
+          🏫 School of Veritas
+          <span style={{ marginLeft: 8, fontSize: 10, opacity: 0.7 }}>{open ? "▲" : "▼"}</span>
+        </div>
+        {open && (
+          <div style={{
+            marginTop: 6,
+            background: "rgba(26,10,0,0.97)",
+            border: "1px solid rgba(200,168,75,0.5)",
+            borderRadius: 10,
+            overflow: "hidden",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+            minWidth: 220,
+          }}>
+            <a
+              href="/veritas-3d/veritas-3d.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "10px 16px",
+                background: "linear-gradient(90deg,#3d1f00,#6b3a1a)",
+                border: "none",
+                color: "#f0d080",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                textAlign: "left",
+                textDecoration: "none",
+              }}
+            >🚪 Enter Building</a>
+          </div>
+        )}
+      </div>
+    </Html>
+  );
+}
+
 // ─── Plain labels and bridge HUDs (direction name + Enter) ────────────────────
 function PlainLabel({ position, name }: { position: [number, number, number]; name: string }) {
   return (
@@ -497,6 +561,7 @@ interface ICProps {
   meridianPos: [number,number,number];
   troothhertzPos: [number,number,number];
   stadiumPos: [number,number,number];
+  veritasPos: [number,number,number];
   isEditorMode: boolean;
   onSelectTree: (id: number | null) => void;
   onMoveTree: (id: number, pos: [number,number,number], saveHistory?: boolean) => void;
@@ -506,6 +571,7 @@ interface ICProps {
   onMoveMeridian: (pos: [number,number,number], saveHistory?: boolean) => void;
   onMoveTroothhertz: (pos: [number,number,number], saveHistory?: boolean) => void;
   onMoveStadium: (pos: [number,number,number], saveHistory?: boolean) => void;
+  onMoveVeritas: (pos: [number,number,number], saveHistory?: boolean) => void;
   orbitRef: React.RefObject<any>;
 }
 
@@ -522,6 +588,7 @@ function InteractionController(props: ICProps) {
     | { kind: "meridian" }
     | { kind: "troothhertz" }
     | { kind: "stadium" }
+    | { kind: "veritas" }
     | null
   >(null);
   const dragStartedRef = useRef(false);
@@ -633,6 +700,12 @@ function InteractionController(props: ICProps) {
         el.setPointerCapture(e.pointerId);
         return;
       }
+      if (hitBuilding(e, props.veritasPos, 18)) {
+        dragging.current = { kind: "veritas" };
+        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
+        el.setPointerCapture(e.pointerId);
+        return;
+      }
       props.onSelectTree(null);
       props.onSelectObject(null);
     };
@@ -656,6 +729,8 @@ function InteractionController(props: ICProps) {
         props.onMoveTroothhertz([x, 0, z], shouldSaveHistory);
       } else if (dragging.current.kind === "stadium") {
         props.onMoveStadium([x, 0, z], shouldSaveHistory);
+      } else if (dragging.current.kind === "veritas") {
+        props.onMoveVeritas([x, 0, z], shouldSaveHistory);
       }
     };
 
@@ -674,7 +749,7 @@ function InteractionController(props: ICProps) {
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
     };
-  }, [props.isEditorMode, props.trees, props.placedObjects, props.nexusPos, props.meridianPos, props.troothhertzPos, props.stadiumPos, camera, gl, props]);
+  }, [props.isEditorMode, props.trees, props.placedObjects, props.nexusPos, props.meridianPos, props.troothhertzPos, props.stadiumPos, props.veritasPos, camera, gl, props]);
 
   return null;
 }
@@ -825,10 +900,12 @@ interface SceneProps {
   troothhertzPos: [number,number,number];
   stadiumPos: [number,number,number];
   stadiumScale: number;
+  veritasPos: [number,number,number];
   nexusSelected: boolean;
   meridianSelected: boolean;
   troothhertzSelected: boolean;
   stadiumSelected: boolean;
+  veritasSelected: boolean;
   nexusElevatorFloor: number;
   meridianElevatorFloor: number;
   troothhertzElevatorFloor: number;
@@ -841,6 +918,7 @@ interface SceneProps {
   onSelectMeridian: () => void;
   onSelectTroothhertz: () => void;
   onSelectStadium: () => void;
+  onSelectVeritas: () => void;
   onViewNexusAgents: () => void;
   onEnterNexus: () => void;
   onViewMeridianAgents: () => void;
@@ -852,6 +930,7 @@ interface SceneProps {
   onMoveMeridian: (pos: [number,number,number], saveHistory?: boolean) => void;
   onMoveTroothhertz: (pos: [number,number,number], saveHistory?: boolean) => void;
   onMoveStadium: (pos: [number,number,number], saveHistory?: boolean) => void;
+  onMoveVeritas: (pos: [number,number,number], saveHistory?: boolean) => void;
   onAgentClick: (agent: AgentData) => void;
   wavingAgentId: string | null;
   cameraState: CameraState;
@@ -1039,6 +1118,16 @@ function Scene(props: SceneProps) {
         onSelect={props.onSelectStadium}
         onEnter={props.onEnterStadium}
       />
+      <VeritasSchool
+        position={props.veritasPos}
+        isSelected={props.veritasSelected}
+        onSelect={props.onSelectVeritas}
+      />
+      <VeritasLabel
+        position={props.veritasPos}
+        isSelected={props.veritasSelected}
+        onSelect={props.onSelectVeritas}
+      />
 
       {props.isEditorMode && (
         <InteractionController
@@ -1048,6 +1137,7 @@ function Scene(props: SceneProps) {
           meridianPos={props.meridianPos}
           troothhertzPos={props.troothhertzPos}
           stadiumPos={props.stadiumPos}
+          veritasPos={props.veritasPos}
           isEditorMode={props.isEditorMode}
           onSelectTree={props.onSelectTree}
           onMoveTree={props.onMoveTree}
@@ -1057,6 +1147,7 @@ function Scene(props: SceneProps) {
           onMoveMeridian={props.onMoveMeridian}
           onMoveTroothhertz={props.onMoveTroothhertz}
           onMoveStadium={props.onMoveStadium}
+          onMoveVeritas={props.onMoveVeritas}
           orbitRef={orbitRef}
         />
       )}
@@ -1229,6 +1320,7 @@ interface HistoryState {
   meridianPos: [number, number, number];
   troothhertzPos: [number, number, number];
   stadiumPos: [number, number, number];
+  veritasPos: [number, number, number];
 }
 
 const MAX_UNDO_HISTORY = 50;
@@ -1245,6 +1337,7 @@ function GreenTerrainPageContent() {
   const [troothhertzPos, setTroothhertzPos] = useState<[number,number,number]>([0, 0, -35]);
   const [stadiumPos, setStadiumPos] = useState<[number,number,number]>([0, 0, 60]);
   const [stadiumScale, setStadiumScale] = useState(1);
+  const [veritasPos, setVeritasPos] = useState<[number,number,number]>([-55, 0, 30]);
 
   // ─── Snap to Grid ───────────────────────────────────────────────────────────
   const [snapToGrid, setSnapToGrid] = useState(true);
@@ -1274,6 +1367,7 @@ function GreenTerrainPageContent() {
         meridianPos: [...meridianPos] as [number, number, number],
         troothhertzPos: [...troothhertzPos] as [number, number, number],
         stadiumPos: [...stadiumPos] as [number, number, number],
+        veritasPos: [...veritasPos] as [number, number, number],
       }];
       if (newHistory.length > MAX_UNDO_HISTORY) {
         return newHistory.slice(-MAX_UNDO_HISTORY);
@@ -1281,7 +1375,7 @@ function GreenTerrainPageContent() {
       return newHistory;
     });
     setRedoHistory([]);
-  }, [trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos]);
+  }, [trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
 
   const undo = useCallback(() => {
     if (undoHistory.length === 0) return;
@@ -1294,6 +1388,7 @@ function GreenTerrainPageContent() {
       meridianPos: [...meridianPos] as [number, number, number],
       troothhertzPos: [...troothhertzPos] as [number, number, number],
       stadiumPos: [...stadiumPos] as [number, number, number],
+      veritasPos: [...veritasPos] as [number, number, number],
     };
     
     const previousState = undoHistory[undoHistory.length - 1];
@@ -1306,9 +1401,10 @@ function GreenTerrainPageContent() {
     setMeridianPos(previousState.meridianPos);
     setTroothhertzPos(previousState.troothhertzPos);
     setStadiumPos(previousState.stadiumPos ?? [0, 0, 60]);
+    setVeritasPos(previousState.veritasPos ?? [-55, 0, 30]);
     
     setTimeout(() => { isUndoingRef.current = false; }, 0);
-  }, [undoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos]);
+  }, [undoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
 
   const redo = useCallback(() => {
     if (redoHistory.length === 0) return;
@@ -1321,6 +1417,7 @@ function GreenTerrainPageContent() {
       meridianPos: [...meridianPos] as [number, number, number],
       troothhertzPos: [...troothhertzPos] as [number, number, number],
       stadiumPos: [...stadiumPos] as [number, number, number],
+      veritasPos: [...veritasPos] as [number, number, number],
     };
     
     const nextState = redoHistory[redoHistory.length - 1];
@@ -1333,9 +1430,10 @@ function GreenTerrainPageContent() {
     setMeridianPos(nextState.meridianPos);
     setTroothhertzPos(nextState.troothhertzPos);
     setStadiumPos(nextState.stadiumPos ?? [0, 0, 60]);
+    setVeritasPos(nextState.veritasPos ?? [-55, 0, 30]);
     
     setTimeout(() => { isUndoingRef.current = false; }, 0);
-  }, [redoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos]);
+  }, [redoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
 
   // Load placements from database on mount so positions match what was saved
   useEffect(() => {
@@ -1365,6 +1463,9 @@ function GreenTerrainPageContent() {
               console.log("[GreenTerrain] Setting Stadium Elyseum position:", [p.posX, p.posY, p.posZ], "scale:", p.scale);
               setStadiumPos([p.posX, p.posY, p.posZ]);
               if (typeof p.scale === "number" && p.scale > 0) setStadiumScale(p.scale);
+            } else if (p.elementKey === "veritas-school") {
+              console.log("[GreenTerrain] Setting Veritas School position:", [p.posX, p.posY, p.posZ]);
+              setVeritasPos([p.posX, p.posY, p.posZ]);
             } else {
               // Check if it's an environment object (e.g., "street-0", "lake-2", etc.)
               const objectTypes = ["street", "sidewalk", "lake", "pond", "bench", "lightpost", "parkinglot"];
@@ -1400,6 +1501,7 @@ function GreenTerrainPageContent() {
   const [meridianSelected, setMeridianSelected] = useState(false);
   const [troothhertzSelected, setTroothhertzSelected] = useState(false);
   const [stadiumSelected, setStadiumSelected] = useState(false);
+  const [veritasSelected, setVeritasSelected] = useState(false);
   const [showNexusPanel, setShowNexusPanel] = useState(false);
   const [showMeridianPanel, setShowMeridianPanel] = useState(false);
   const [showTroothhertzPanel, setShowTroothhertzPanel] = useState(false);
@@ -1575,6 +1677,7 @@ function GreenTerrainPageContent() {
     setMeridianSelected(false);
     setTroothhertzSelected(false);
     setStadiumSelected(false);
+    setVeritasSelected(false);
     setCameraState("flying-out");
   }, []);
 
@@ -1615,13 +1718,15 @@ function GreenTerrainPageContent() {
     setNexusSelected(false);
     setMeridianSelected(false);
     setTroothhertzSelected(false);
+    setStadiumSelected(false);
+    setVeritasSelected(false);
     // Snap camera to the newly placed object
     setSnapToPosition(snappedPos);
   }, [placedObjects, saveToHistory, snapPosition]);
 
   const handleSelectTree = useCallback((id: number | null) => {
     setSelectedTreeId(id);
-    if (id !== null) { setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setSelectedObjectId(null); }
+    if (id !== null) { setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); setSelectedObjectId(null); }
   }, []);
 
   const handleMoveTree = useCallback((id: number, pos: [number,number,number], saveHistory = false) => {
@@ -1639,7 +1744,7 @@ function GreenTerrainPageContent() {
 
   const handleSelectObject = useCallback((id: string | null) => {
     setSelectedObjectId(id);
-    if (id !== null) { setSelectedTreeId(null); setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); }
+    if (id !== null) { setSelectedTreeId(null); setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); }
   }, []);
 
   const handleMoveObject = useCallback((id: string, pos: [number,number,number], saveHistory = false) => {
@@ -1668,6 +1773,8 @@ function GreenTerrainPageContent() {
     setNexusSelected(true);
     setMeridianSelected(false);
     setTroothhertzSelected(false);
+    setStadiumSelected(false);
+    setVeritasSelected(false);
     setSelectedTreeId(null);
     setSelectedObjectId(null);
     // Only show panel if NOT in editor mode
@@ -1681,6 +1788,7 @@ function GreenTerrainPageContent() {
     setNexusSelected(false);
     setTroothhertzSelected(false);
     setStadiumSelected(false);
+    setVeritasSelected(false);
     setSelectedTreeId(null);
     setSelectedObjectId(null);
     // Only show panel if NOT in editor mode
@@ -1694,6 +1802,7 @@ function GreenTerrainPageContent() {
     setNexusSelected(false);
     setMeridianSelected(false);
     setStadiumSelected(false);
+    setVeritasSelected(false);
     setSelectedTreeId(null);
     setSelectedObjectId(null);
     // Only show panel if NOT in editor mode
@@ -1707,6 +1816,17 @@ function GreenTerrainPageContent() {
     setNexusSelected(false);
     setMeridianSelected(false);
     setTroothhertzSelected(false);
+    setVeritasSelected(false);
+    setSelectedTreeId(null);
+    setSelectedObjectId(null);
+  }, []);
+
+  const handleSelectVeritas = useCallback(() => {
+    setVeritasSelected(true);
+    setNexusSelected(false);
+    setMeridianSelected(false);
+    setTroothhertzSelected(false);
+    setStadiumSelected(false);
     setSelectedTreeId(null);
     setSelectedObjectId(null);
   }, []);
@@ -1735,6 +1855,12 @@ function GreenTerrainPageContent() {
     setStadiumPos(snappedPos);
   }, [snapPosition, saveToHistory]);
 
+  const handleMoveVeritas = useCallback((pos: [number,number,number], saveHistory = false) => {
+    if (saveHistory) saveToHistory();
+    const snappedPos = snapPosition(pos);
+    setVeritasPos(snappedPos);
+  }, [snapPosition, saveToHistory]);
+
   // Arrow key movement step size (hold Shift for larger steps)
   const MOVE_STEP = 1;
   const MOVE_STEP_LARGE = 5;
@@ -1747,7 +1873,7 @@ function GreenTerrainPageContent() {
       }
       if (e.key === "Escape") {
         setSelectedTreeId(null); setSelectedObjectId(null);
-        setNexusSelected(false); setMeridianSelected(false); setTroothhertzSelected(false); setStadiumSelected(false); setStadiumSelected(false);
+        setNexusSelected(false); setMeridianSelected(false); setTroothhertzSelected(false); setStadiumSelected(false); setVeritasSelected(false);
         setShowNexusPanel(false); setShowMeridianPanel(false); setShowTroothhertzPanel(false);
       }
       if (e.key === "q" || e.key === "Q") handleRotateObject(-Math.PI / 8);
@@ -1794,6 +1920,15 @@ function GreenTerrainPageContent() {
           if (e.key === "ArrowRight") newPos = [x + step, y, z];
           handleMoveStadium(newPos, true);
         }
+        else if (veritasSelected) {
+          const [x, y, z] = veritasPos;
+          let newPos: [number, number, number] = [x, y, z];
+          if (e.key === "ArrowUp") newPos = [x, y, z - step];
+          if (e.key === "ArrowDown") newPos = [x, y, z + step];
+          if (e.key === "ArrowLeft") newPos = [x - step, y, z];
+          if (e.key === "ArrowRight") newPos = [x + step, y, z];
+          handleMoveVeritas(newPos, true);
+        }
       }
       
       // Undo: Ctrl+Z or Cmd+Z
@@ -1809,7 +1944,7 @@ function GreenTerrainPageContent() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedTreeId, selectedObjectId, stadiumSelected, stadiumPos, trees, placedObjects, handleDeleteTree, handleDeleteObject, handleRotateObject, handleMoveTree, handleMoveObject, handleMoveStadium, undo, redo]);
+  }, [selectedTreeId, selectedObjectId, stadiumSelected, stadiumPos, veritasSelected, veritasPos, trees, placedObjects, handleDeleteTree, handleDeleteObject, handleRotateObject, handleMoveTree, handleMoveObject, handleMoveStadium, handleMoveVeritas, undo, redo]);
 
   const selectedTree = trees.find(t => t.id === selectedTreeId) ?? null;
   const selectedObject = placedObjects.find(o => o.id === selectedObjectId) ?? null;
@@ -1834,10 +1969,12 @@ function GreenTerrainPageContent() {
           troothhertzPos={troothhertzPos}
           stadiumPos={stadiumPos}
           stadiumScale={stadiumScale}
+          veritasPos={veritasPos}
           nexusSelected={nexusSelected}
           meridianSelected={meridianSelected}
           troothhertzSelected={troothhertzSelected}
           stadiumSelected={stadiumSelected}
+          veritasSelected={veritasSelected}
           nexusElevatorFloor={nexusElevatorFloor}
           meridianElevatorFloor={meridianElevatorFloor}
           troothhertzElevatorFloor={troothhertzElevatorFloor}
@@ -1850,6 +1987,7 @@ function GreenTerrainPageContent() {
           onSelectMeridian={handleSelectMeridian}
           onSelectTroothhertz={handleSelectTroothhertz}
           onSelectStadium={handleSelectStadium}
+          onSelectVeritas={handleSelectVeritas}
           onViewNexusAgents={handleViewNexusAgents}
           onEnterNexus={handleEnterNexus}
           onViewMeridianAgents={handleViewMeridianAgents}
@@ -1863,6 +2001,7 @@ function GreenTerrainPageContent() {
           onMoveMeridian={handleMoveMeridian}
           onMoveTroothhertz={handleMoveTroothhertz}
           onMoveStadium={handleMoveStadium}
+          onMoveVeritas={handleMoveVeritas}
           cameraState={cameraState}
           buildingTarget={buildingTarget}
           plainTarget={plainTarget}
@@ -1976,6 +2115,7 @@ function GreenTerrainPageContent() {
         stadiumPosition={stadiumPos}
         stadiumScale={stadiumScale}
         onStadiumScaleChange={setStadiumScale}
+        veritasPosition={veritasPos}
         trees={trees}
         placedObjects={placedObjects}
         onPlaceObject={handlePlaceObject}
@@ -1999,7 +2139,7 @@ function GreenTerrainPageContent() {
           padding: "6px 14px", color: "rgba(255,255,255,0.85)",
           fontFamily: "system-ui, sans-serif", fontSize: 12,
         }}>
-          🌲 {trees.length} · 🏢 Nexus · 🏙️ Meridian · 📦 {placedObjects.length}
+          🌲 {trees.length} · 🏢 Nexus · 🏙️ Meridian · 🏫 Veritas · 📦 {placedObjects.length}
         </div>
 
         {/* First-person toggle (only in world view, not editor mode) */}

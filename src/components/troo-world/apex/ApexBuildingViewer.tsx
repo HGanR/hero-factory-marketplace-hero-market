@@ -126,7 +126,9 @@ export default function ApexBuildingViewer() {
     sun.position.set(30, 60, 30);
     sun.castShadow = true;
     scene.add(sun);
-    scene.add(new THREE.DirectionalLight(0xff8c00, 0.45).position.set(-20, 20, -20));
+    const fillLight = new THREE.DirectionalLight(0xff8c00, 0.45);
+    fillLight.position.set(-20, 20, -20);
+    scene.add(fillLight);
 
     const { cab, doorL, doorR } = buildApexScene(scene);
     elevCabRef.current = cab;

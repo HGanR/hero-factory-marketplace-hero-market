@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { AvatarState } from "@/wreck-room/lib/avatar/AvatarRenderer";
 
-// @ts-expect-error JS module from avatar library (Three + v3 studio)
 import { CartoonAvatarStudio } from "@/lib/avatar-library/src/core/v3/CartoonAvatarStudio.js";
 
 interface Props {

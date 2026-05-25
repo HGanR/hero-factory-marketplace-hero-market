@@ -24,6 +24,8 @@ import {
   smartTrustAssetToAccountAsset,
   upsertAccountAsset,
 } from "@/lib/accountAssets";
+import type { ParentCorpDraft } from "@/lib/company-wizard/types";
+import type { ReligiousOrgDraft } from "@/lib/religious-org/types";
 
 // shadcn/ui
 import { Button } from "@/components/ui/button";
@@ -88,7 +90,12 @@ import {
  * NOTE: This component provides a practitioner-friendly workflow UI. It is not legal advice.
  */
 
-type EntityType = "revocable_living_trust" | "foundation" | "family_office";
+type EntityType =
+  | "revocable_living_trust"
+  | "foundation"
+  | "family_office"
+  | "religious_organization"
+  | "company";
 
 type GoverningState =
   | "AL" | "AK" | "AZ" | "AR" | "CA" | "CO" | "CT" | "DE" | "FL" | "GA" | "HI" | "ID" | "IL" | "IN" | "IA" | "KS" | "KY" | "LA" | "ME" | "MD" | "MA" | "MI" | "MN" | "MS" | "MO" | "MT" | "NE" | "NV" | "NH" | "NJ" | "NM" | "NY" | "NC" | "ND" | "OH" | "OK" | "OR" | "PA" | "RI" | "SC" | "SD" | "TN" | "TX" | "UT" | "VT" | "VA" | "WA" | "WV" | "WI" | "WY";
@@ -178,7 +185,7 @@ type Asset = {
   titlingNotes?: string;
 };
 
-type DraftModel = {
+export type DraftModel = {
   draftId: string;
   entityType: EntityType | null;
   governingState: GoverningState | null;
@@ -253,6 +260,11 @@ type DraftModel = {
 
   // Attorney notes
   attorneyNotes: string;
+
+  /** Nested company (parent corp) wizard — persisted on draft when using Company flow */
+  companyDraft?: ParentCorpDraft | null;
+  /** Nested religious-organization wizard */
+  religiousOrgDraft?: ReligiousOrgDraft | null;
 };
 
 const defaultDraft = (): DraftModel => ({
@@ -766,7 +778,7 @@ function HomePage() {
   const createClientHref = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set("origin", "smart-trust");
-    sp.set("returnTo", "/smart-trust");
+    sp.set("returnTo", "/smart-trust/dashboard");
     return `/clients/new?${sp.toString()}`;
   }, []);
 
@@ -3781,7 +3793,7 @@ function WizardPage() {
               Sync Draft
             </Button>
             <Button className="rounded-2xl" variant="outline" asChild>
-              <a href="/clients/new?origin=smart-trust&returnTo=/smart-trust">Create Client Record</a>
+              <a href="/clients/new?origin=smart-trust&returnTo=/smart-trust/dashboard">Create Client Record</a>
             </Button>
             <Button
               className="rounded-2xl"
@@ -4981,9 +4993,10 @@ function getTaxHighlights(draft: DraftModel): { title: string; bullets: string[]
   ];
 }
 
-export function SmartTrustApp() {
+export function SmartTrustApp(props: { basename?: string } = {}) {
+  const basename = props.basename ?? "/smart-trust";
   return (
-    <Router basename="/smart-trust">
+    <Router basename={basename}>
       <AppShell>
         <Routes>
           <Route path="/" element={<HomePage />} />

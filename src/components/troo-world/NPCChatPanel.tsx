@@ -9,6 +9,38 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
+/** Minimal Web Speech API types (vendor-prefixed ctor; not always in TS `lib.dom`). */
+type NpcSpeechRecognitionResultList = {
+  readonly length: number;
+  [index: number]: { readonly length: number; [i: number]: { transcript: string } };
+};
+
+type NpcSpeechRecognitionEvent = {
+  readonly results: NpcSpeechRecognitionResultList;
+};
+
+type NpcSpeechRecognition = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  onresult: ((ev: NpcSpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+};
+
+type NpcSpeechRecognitionCtor = new () => NpcSpeechRecognition;
+
+function getNpcSpeechRecognitionCtor(): NpcSpeechRecognitionCtor | undefined {
+  if (typeof window === "undefined") return undefined;
+  const w = window as unknown as {
+    SpeechRecognition?: NpcSpeechRecognitionCtor;
+    webkitSpeechRecognition?: NpcSpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+}
+
 interface ChatMessage {
   role: "user" | "npc";
   content: string;
@@ -92,7 +124,7 @@ export default function NpcChatPanel({
   const [voiceMode, setVoiceMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<NpcSpeechRecognition | null>(null);
   
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -190,14 +222,13 @@ export default function NpcChatPanel({
 
   const startListening = useCallback(() => {
     if (!hasSpeechRecognition) return;
-    const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition || 
-               (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+    const SR = getNpcSpeechRecognitionCtor();
     if (!SR) return;
     const recognition = new SR();
     recognition.lang = "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: NpcSpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       setInput(transcript);
       setIsListening(false);

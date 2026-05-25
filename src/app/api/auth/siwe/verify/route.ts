@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recoverAddress, hashMessage } from "viem";
 import { createToken } from "@/lib/auth";
-import { sessionCookieBase } from "@/lib/auth-cookie-options";
+import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
 import { getDb } from "@/lib/db";
 import { marketplaceUsers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     });
 
     response.cookies.set("auth-token", token, {
-      ...sessionCookieBase(),
+      ...sessionCookieBase(cookieHostFromRequest(request)),
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 

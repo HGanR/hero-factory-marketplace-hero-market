@@ -6,7 +6,7 @@ import {
 import {
   Metaplex,
   keypairIdentity,
-  bundlrStorage,
+  irysStorage,
   toMetaplexFile,
 } from "@metaplex-foundation/js";
 
@@ -64,11 +64,11 @@ export class SolanaNFTService {
       this.metaplex = Metaplex.make(this.connection)
         .use(keypairIdentity(keypair))
         .use(
-          bundlrStorage({
+          irysStorage({
             address: this.network === "mainnet-beta" ? "https://node1.bundlr.network" : "https://devnet.bundlr.network",
             providerUrl: this.getRPCUrl(this.network),
             timeout: 60000,
-          })
+          }),
         );
     }
     return this.metaplex;

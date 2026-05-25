@@ -39,6 +39,7 @@ async function ensureDefaultWorld(db: Awaited<ReturnType<typeof getDb>>) {
     { worldId: DEFAULT_WORLD_ID, elementKey: "apex-tower", glbUrl: "procedural:apex", posX: "0", posY: "0", posZ: "0", scale: "1", rotY: "0" },
     { worldId: DEFAULT_WORLD_ID, elementKey: "harborview-tower", glbUrl: "procedural:harborview", posX: "-55", posY: "0", posZ: "-55", scale: "1", rotY: "0" },
     { worldId: DEFAULT_WORLD_ID, elementKey: "stadium-elyseum", glbUrl: "/models/world-assets/stadium-elyseum.glb", posX: "0", posY: "0", posZ: "60", scale: "1", rotY: "0" },
+    { worldId: DEFAULT_WORLD_ID, elementKey: "veritas-school", glbUrl: "procedural:veritas", posX: "-55", posY: "0", posZ: "30", scale: "1", rotY: "0" },
   ]);
 }
 

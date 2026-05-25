@@ -58,7 +58,13 @@ export async function POST(req: NextRequest) {
         )
       )
       .limit(1);
-    if (accRows.length > 0) brokerageAccount = accRows[0];
+    if (accRows.length > 0) {
+      const row = accRows[0];
+      brokerageAccount = {
+        institution: row.institution ?? undefined,
+        accountNumber: row.accountNumber ?? undefined,
+      };
+    }
   }
 
   let instrument: typeof trustAssetInstruments.$inferSelect | null = null;

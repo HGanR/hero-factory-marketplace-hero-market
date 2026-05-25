@@ -16,9 +16,14 @@ export interface BuildingTarget {
   lookAt: THREE.Vector3;
 }
 
+/** Cardinal plain fly-to uses the same camera target shape as buildings. */
+export type PlainTarget = BuildingTarget;
+
 interface CameraControllerProps {
   state: CameraState;
   buildingTarget: BuildingTarget | null;
+  /** When set (and buildingTarget is null), flying-in targets this plain viewpoint. */
+  plainTarget?: PlainTarget | null;
   onArrived: () => void;
   onExited: () => void;
   orbitRef: React.RefObject<any>;
@@ -33,6 +38,7 @@ const FLIGHT_DURATION = 1.8;
 export default function CameraController({
   state,
   buildingTarget,
+  plainTarget = null,
   onArrived,
   onExited,
   orbitRef,
@@ -68,7 +74,8 @@ export default function CameraController({
   };
 
   useEffect(() => {
-    if (state === "flying-in" && buildingTarget) {
+    const flyTarget = buildingTarget ?? plainTarget;
+    if (state === "flying-in" && flyTarget) {
       savedWorld.current = {
         pos: camera.position.clone(),
         lookAt: new THREE.Vector3(0, 0, 0),
@@ -80,8 +87,8 @@ export default function CameraController({
       flightStart.current = {
         fromPos: camera.position.clone(),
         fromLookAt: currentLookAt,
-        toPos: buildingTarget.position.clone(),
-        toLookAt: buildingTarget.lookAt.clone(),
+        toPos: flyTarget.position.clone(),
+        toLookAt: flyTarget.lookAt.clone(),
         elapsed: 0,
       };
 
@@ -102,7 +109,7 @@ export default function CameraController({
 
       if (orbitRef.current) orbitRef.current.enabled = false;
     }
-  }, [state, buildingTarget, camera, orbitRef]);
+  }, [state, buildingTarget, plainTarget, camera, orbitRef]);
 
   useFrame((_, delta) => {
     if (state !== "flying-in" && state !== "flying-out") return;
