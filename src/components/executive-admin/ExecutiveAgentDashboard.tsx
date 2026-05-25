@@ -2505,6 +2505,7 @@ export function ExecutiveAgentDashboard() {
     } else if (subject.id === "ai_agents") setDataPreset("ALL");
     else if (subject.id === "crm_intelligence" || subject.id === "trust_jarva") setDataPreset("EXECUTIVE_ADMIN");
     else if (subject.id === "troo_town") setDataPreset("ALL");
+    else if (subject.id === "neuro") setDataPreset("ALL");
     else if (subject.id === "command_center" || subject.id === "new_command") setDataPreset("ALL");
   }, [loadExecutiveInboxAdmin]);
 
@@ -2623,14 +2624,18 @@ export function ExecutiveAgentDashboard() {
                   ? "Stephon"
                   : activeSubjectId === "troo_town"
                     ? "Evaana Desk"
-                    : "Executive Administration"}
+                    : activeSubjectId === "neuro"
+                      ? "NEURO Network"
+                      : "Executive Administration"}
               </h1>
               <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-[#00b7ff]/65">
                 {activeSubjectId === "site_builder"
                   ? "Site Builder intelligence — Stephon operator conversations feed usability feedback for the engine (read-only, no autonomous product changes)."
                   : activeSubjectId === "troo_town"
                     ? "TROO TOWN desk — Evaana visitor conversations and Skipper-governed follow-ups only."
-                    : "Permissioned orchestration: reads run under policy; writes queue for approval and audit. Filters shape tool routing — they do not bypass controls."}
+                    : activeSubjectId === "neuro"
+                      ? "NEURO Network — Skipper answers from uploaded source documents with citations. Not legal, tax, or financial advice."
+                      : "Permissioned orchestration: reads run under policy; writes queue for approval and audit. Filters shape tool routing — they do not bypass controls."}
               </p>
             </div>
           </div>

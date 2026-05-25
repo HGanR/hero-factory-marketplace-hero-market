@@ -848,3 +848,89 @@ export const executiveOperationalTasks = mysqlTable("executive_operational_tasks
 });
 
 export type InsertOasisNpcRow = typeof oasisNpcs.$inferInsert;
+
+/** drizzle/0135_neuro_network.sql — governed source-backed knowledge for Skipper NEURO desk. */
+export const NEURO_ASSIGNED_AGENTS = ["JARVA", "ELEANOR", "MAANIA", "BENTLEY", "SKIPPER", "GENERAL"] as const;
+export const NEURO_SUBJECT_AREAS = [
+  "TRUST",
+  "ACCOUNTING",
+  "TAX",
+  "CONSUMER_LAW",
+  "FINANCIAL_READINESS",
+  "REAL_ESTATE",
+  "AI_REVENUE_OS",
+  "GENERAL",
+] as const;
+export const NEURO_SOURCE_TYPES = ["pdf", "doc", "docx", "txt", "markdown", "image", "other"] as const;
+export const NEURO_DOCUMENT_STATUSES = [
+  "uploaded",
+  "processing",
+  "indexed",
+  "failed",
+  "unsupported_for_text",
+] as const;
+
+export const neuroDocuments = mysqlTable("neuro_documents", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  fileName: varchar("fileName", { length: 500 }).notNull(),
+  mimeType: varchar("mimeType", { length: 191 }).notNull(),
+  sizeBytes: int("sizeBytes").notNull(),
+  storageUri: text("storageUri").notNull(),
+  assignedAgent: mysqlEnum("assignedAgent", NEURO_ASSIGNED_AGENTS).notNull().default("GENERAL"),
+  subjectArea: mysqlEnum("subjectArea", NEURO_SUBJECT_AREAS).notNull().default("GENERAL"),
+  sourceType: mysqlEnum("sourceType", NEURO_SOURCE_TYPES).notNull().default("other"),
+  status: mysqlEnum("status", NEURO_DOCUMENT_STATUSES).notNull().default("uploaded"),
+  statusMessage: text("statusMessage"),
+  extractedTextPreview: text("extractedTextPreview"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const neuroDocumentChunks = mysqlTable("neuro_document_chunks", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  documentId: varchar("documentId", { length: 36 }).notNull(),
+  chunkIndex: int("chunkIndex").notNull(),
+  pageNumber: int("pageNumber"),
+  sectionTitle: varchar("sectionTitle", { length: 500 }),
+  text: longtext("text").notNull(),
+  tokenEstimate: int("tokenEstimate").notNull().default(0),
+  citationLabel: varchar("citationLabel", { length: 500 }).notNull(),
+  sourceLocator: varchar("sourceLocator", { length: 500 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const neuroDocumentTags = mysqlTable("neuro_document_tags", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  documentId: varchar("documentId", { length: 36 }).notNull(),
+  tagKey: varchar("tagKey", { length: 120 }).notNull(),
+  tagValue: varchar("tagValue", { length: 500 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const neuroSourceCitations = mysqlTable("neuro_source_citations", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  documentId: varchar("documentId", { length: 36 }).notNull(),
+  chunkId: varchar("chunkId", { length: 36 }),
+  queryText: text("queryText").notNull(),
+  citationLabel: varchar("citationLabel", { length: 500 }).notNull(),
+  snippet: text("snippet").notNull(),
+  confidence: decimal("confidence", { precision: 5, scale: 4 }).notNull().default("0.0000"),
+  subjectArea: varchar("subjectArea", { length: 64 }),
+  assignedAgent: varchar("assignedAgent", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const neuroAccessLogs = mysqlTable("neuro_access_logs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  queryText: text("queryText"),
+  subjectArea: varchar("subjectArea", { length: 64 }),
+  assignedAgent: varchar("assignedAgent", { length: 64 }),
+  documentId: varchar("documentId", { length: 36 }),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});

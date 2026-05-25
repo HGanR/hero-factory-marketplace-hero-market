@@ -46,7 +46,8 @@ export type ExecutiveReadToolKey =
   | "getExecutiveInboxNewMessages"
   | "playExecutiveInboxAudioAttachment"
   | "getNewRegistrationsToday"
-  | "getNewRegistrationPhoneQueue";
+  | "getNewRegistrationPhoneQueue"
+  | "getNeuroSourceAnswer";
 
 const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   getPendingAccounts: "getPendingAccounts",
@@ -93,6 +94,7 @@ const READ_ALIASES: Record<string, ExecutiveReadToolKey> = {
   playExecutiveInboxAudioAttachment: "playExecutiveInboxAudioAttachment",
   getNewRegistrationsToday: "getNewRegistrationsToday",
   getNewRegistrationPhoneQueue: "getNewRegistrationPhoneQueue",
+  getNeuroSourceAnswer: "getNeuroSourceAnswer",
 };
 
 export function resolveExecutiveReadToolKey(name: string): ExecutiveReadToolKey | null {
@@ -280,6 +282,14 @@ export function pickExecutiveReadTools(
     out.add("getClientFulfillmentOperations");
   }
   if (/knowledge|kb|docs/.test(p)) out.add("getKnowledgeBaseSummary");
+  if (
+    /\bneuro\b|source.?backed|uploaded source|what do our.*sources say|trust law source|our sources say|open the source|cited passage/.test(
+      p
+    )
+  ) {
+    out.add("getNeuroSourceAnswer");
+  }
+  if (/\btrust\b.*\b(trustee|trust law|sources)\b/.test(p)) out.add("getNeuroSourceAnswer");
   if (
     /kpi|forecast|projected delay|operational health score|fulfillment velocity|workload balance|revision risk|approval delay forecast|risk alert|backlog forecast|bottleneck forecast|department overload/.test(
       p

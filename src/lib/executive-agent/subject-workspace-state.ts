@@ -12,6 +12,7 @@ export type SubjectWorkspaceKind =
   | "revenue_os"
   | "smart_trust"
   | "troo_town"
+  | "neuro"
   | "client"
   | "fulfillment_case";
 
@@ -157,6 +158,17 @@ export function resolveSubjectWorkspace(input: ResolveSubjectWorkspaceInput): Su
       clientId: null,
       orderId: null,
       label: "TROO TOWN · Evaana world desk",
+    };
+  }
+
+  if (input.subjectId === "neuro") {
+    return {
+      subjectId: input.subjectId,
+      workspaceKind: "neuro",
+      department: null,
+      clientId: null,
+      orderId: null,
+      label: "NEURO Network · source-backed knowledge",
     };
   }
 

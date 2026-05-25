@@ -20,6 +20,7 @@ import { ExecutiveThreadPanel } from "./ExecutiveThreadPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { TrooTownEvanaPanel } from "./TrooTownEvanaPanel";
 import { StephonSiteBuilderPanel } from "./StephonSiteBuilderPanel";
+import { ExecutiveNeuroPanel } from "./neuro/ExecutiveNeuroPanel";
 import {
   ExecutiveOperationsHudModule,
   type ExecutiveOperationsSidebarProps,
@@ -321,6 +322,7 @@ export function ExecutiveCommandHudContent(props: ExecutiveCommandHudContentProp
     default:
       if (props.activeSubjectId === "troo_town") return <TrooTownEvanaPanel embedded />;
       if (props.activeSubjectId === "site_builder") return <StephonSiteBuilderPanel embedded />;
+      if (props.activeSubjectId === "neuro") return <ExecutiveNeuroPanel embedded />;
       return <p className="text-xs text-slate-500">Module ready — select a related subject if content is empty.</p>;
   }
 }
