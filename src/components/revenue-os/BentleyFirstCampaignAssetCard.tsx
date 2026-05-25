@@ -10,6 +10,7 @@ import {
   focusKeyFromAnalysis,
   selectPrimaryPostingPlatform,
 } from "@/lib/revenue-os/bentley-first-campaign-asset";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { postingPlatformDisplayName } from "@/lib/revenue-os/bentley-posting-platforms";
 import {
   connectedSocialPlatformsSet,
@@ -118,7 +119,7 @@ export function BentleyFirstCampaignAssetCard({
   const launchHydrationLoggedRef = useRef(false);
   useEffect(() => {
     if (launchHydrationLoggedRef.current) return;
-    const cap = draft?.captionForPublish?.trim();
+    const cap = coerceTrimmedString(draft?.captionForPublish);
     if (!cap || !effectivePlatform) return;
     launchHydrationLoggedRef.current = true;
     bentleyContinuityLog("launch_card_hydrated", { platform: effectivePlatform, source: "first_campaign_draft" });
@@ -127,7 +128,7 @@ export function BentleyFirstCampaignAssetCard({
 
   const [caption, setCaption] = useState("");
   useEffect(() => {
-    if (draft?.captionForPublish) setCaption(draft.captionForPublish);
+    if (draft?.captionForPublish != null) setCaption(coerceTrimmedString(draft.captionForPublish));
   }, [draft?.captionForPublish]);
 
   const [hashtags, setHashtags] = useState("");
@@ -201,7 +202,7 @@ export function BentleyFirstCampaignAssetCard({
     };
   }, [matchingDraft?.campaignId, matchingDraft?.postId]);
 
-  const captionReady = caption.trim().length > 0;
+  const captionReady = coerceTrimmedString(caption).length > 0;
 
   const [preparing, setPreparing] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -483,7 +484,7 @@ export function BentleyFirstCampaignAssetCard({
   const connectHref = useMemo(() => {
     if (!effectivePlatform) return "";
     const qs = new URLSearchParams();
-    if (clientId.trim()) qs.set("clientId", clientId.trim());
+    if (coerceTrimmedString(clientId)) qs.set("clientId", coerceTrimmedString(clientId));
     qs.set("returnTo", oauthReturnTo);
     return `/api/social/oauth/${effectivePlatform}/start?${qs.toString()}`;
   }, [effectivePlatform, clientId, oauthReturnTo]);

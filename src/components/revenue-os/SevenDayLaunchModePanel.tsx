@@ -26,6 +26,7 @@ import {
   type RevenueOsLaunchAction,
 } from "@/lib/revenue-os/map-launch-day-to-actions";
 import { scrollToAiRevenueOsAnchor } from "@/lib/revenue-os/revenue-os-anchor-scroll";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import {
   LAUNCH_CYCLE_PROGRESS_STORAGE_KEY,
   LAUNCH_PROGRESS_UPDATED_EVENT,
@@ -448,8 +449,8 @@ export function SevenDayLaunchModePanel() {
       },
       trackingSnapshot: {
         signalMaterialKey: systemSignalsMaterialKey(systemSignals),
-        coreOfferNorm: sharedProfile.coreOffer.trim().replace(/\s+/g, " ").slice(0, 240),
-        audienceNorm: sharedProfile.targetAudience.trim().replace(/\s+/g, " ").slice(0, 240),
+        coreOfferNorm: coerceTrimmedString(sharedProfile.coreOffer).replace(/\s+/g, " ").slice(0, 240),
+        audienceNorm: coerceTrimmedString(sharedProfile.targetAudience).replace(/\s+/g, " ").slice(0, 240),
       },
     };
     saveLaunchCycleProgress(LAUNCH_CYCLE_PROGRESS_STORAGE_KEY, merged);

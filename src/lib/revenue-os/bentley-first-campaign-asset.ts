@@ -14,6 +14,10 @@ const LEVER_PLATFORM_PRIORITY: Record<FocusLeverKey, readonly SocialPlatform[]> 
   cac: ["linkedin", "facebook", "instagram", "tiktok", "pinterest", "snapchat"],
 };
 
+function ceStr(value: unknown): string {
+  return coerceTrimmedString(value);
+}
+
 /**
  * Pick one platform from posting intent: prefer connected + lever fit, else first matching lever order, else first in list.
  */
@@ -74,18 +78,26 @@ export function buildFirstCampaignDraft(
   res: RevenueOsAnalyzeResponse | null
 ): PlatformDraftParts {
   const hashtags =
-    ce?.fullPost?.hashtags?.length ? ce.fullPost.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ") : undefined;
+    ce?.fullPost?.hashtags?.length
+      ? ce.fullPost.hashtags
+          .map((h) => {
+            const tag = ceStr(h);
+            return tag ? (tag.startsWith("#") ? tag : `#${tag}`) : "";
+          })
+          .filter(Boolean)
+          .join(" ")
+      : undefined;
 
   const img =
-    ce?.fullPost?.visualPrompt?.trim() ||
-    ce?.imagePrompts?.[0]?.trim() ||
+    ceStr(ce?.fullPost?.visualPrompt) ||
+    ceStr(ce?.imagePrompts?.[0]) ||
     "";
 
   if (platform === "linkedin") {
     const postText =
-      ce?.fullPost?.caption?.trim() ||
-      ce?.captions?.authority?.trim() ||
-      ce?.captions?.hook?.trim() ||
+      ceStr(ce?.fullPost?.caption) ||
+      ceStr(ce?.captions?.authority) ||
+      ceStr(ce?.captions?.hook) ||
       fallbackBody(res, form);
     const preview: { label: string; body: string }[] = [{ label: "Post text", body: postText }];
     if (img) preview.push({ label: "Image / creative brief", body: img });
@@ -95,9 +107,9 @@ export function buildFirstCampaignDraft(
 
   if (platform === "instagram" || platform === "facebook") {
     const cap =
-      ce?.fullPost?.caption?.trim() ||
-      ce?.captions?.shortViral?.trim() ||
-      ce?.captions?.hook?.trim() ||
+      ceStr(ce?.fullPost?.caption) ||
+      ceStr(ce?.captions?.shortViral) ||
+      ceStr(ce?.captions?.hook) ||
       fallbackBody(res, form);
     const preview: { label: string; body: string }[] = [{ label: "Caption", body: cap }];
     if (img) preview.push({ label: "Image prompt", body: img });
@@ -107,16 +119,16 @@ export function buildFirstCampaignDraft(
 
   if (platform === "tiktok") {
     const hook =
-      ce?.hooks?.[0]?.trim() ||
-      ce?.captions?.hook?.trim() ||
-      ce?.captions?.shortViral?.trim() ||
+      ceStr(ce?.hooks?.[0]) ||
+      ceStr(ce?.captions?.hook) ||
+      ceStr(ce?.captions?.shortViral) ||
       "";
     const script =
-      ce?.fullPost?.content?.trim() ||
-      ce?.captions?.curiosity?.trim() ||
-      ce?.fullPost?.caption?.trim() ||
+      ceStr(ce?.fullPost?.content) ||
+      ceStr(ce?.captions?.curiosity) ||
+      ceStr(ce?.fullPost?.caption) ||
       fallbackBody(res, form);
-    const visual = img || `${form.imageStyle} style — ${form.contentTypeFocus}`;
+    const visual = img || `${ceStr(form.imageStyle) || "cinematic"} style — ${ceStr(form.contentTypeFocus) || "Full Post"}`;
     const preview: { label: string; body: string }[] = [
       { label: "Hook", body: hook || script.slice(0, 160) },
       { label: "Short script / body", body: script },
@@ -136,8 +148,8 @@ export function buildFirstCampaignDraft(
 
   /* pinterest, snapchat — treat like short caption + visual */
   const cap =
-    ce?.fullPost?.caption?.trim() ||
-    ce?.captions?.shortViral?.trim() ||
+    ceStr(ce?.fullPost?.caption) ||
+    ceStr(ce?.captions?.shortViral) ||
     fallbackBody(res, form);
   const preview: { label: string; body: string }[] = [{ label: "Caption", body: cap }];
   if (img) preview.push({ label: "Visual prompt", body: img });

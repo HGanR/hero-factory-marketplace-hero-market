@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import {
   CapitalPlanHintsBadge,
   FunnelRunCapitalHints,
@@ -84,8 +85,8 @@ export function DeploymentCenterPanel({
   const [runBusy, setRunBusy] = useState(false);
   const [runMsg, setRunMsg] = useState<string | null>(null);
 
-  const workspaceClient = clientId.trim();
-  const workspaceTrust = trustId.trim();
+  const workspaceClient = useMemo(() => coerceTrimmedString(clientId), [clientId]);
+  const workspaceTrust = useMemo(() => coerceTrimmedString(trustId), [trustId]);
 
   const load = useCallback(async () => {
     setError(null);

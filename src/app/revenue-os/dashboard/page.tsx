@@ -399,7 +399,7 @@ function RevenueOSDashboardInner() {
   useEffect(() => {
     bentleyAutorunKindRef.current = bentleyAutorunKind;
   }, [bentleyAutorunKind]);
-  const [userId, setUserId] = useState(() => getResolvedUserIdFromStorage());
+  const [userId, setUserId] = useState("demo-user");
   const [clientId, setClientId] = useState<string>("");
   const [trustId, setTrustId] = useState<string>("");
   const [snapshotSaving, setSnapshotSaving] = useState(false);
@@ -497,7 +497,7 @@ function RevenueOSDashboardInner() {
   }, []);
 
   useEffect(() => {
-    const cid = clientId.trim() || BENTLEY_SCOPE_DEFAULT_CLIENT;
+    const cid = coerceTrimmedString(clientId) || BENTLEY_SCOPE_DEFAULT_CLIENT;
     setBentleyStorageScope({ userId, clientId: cid });
   }, [userId, clientId]);
 
@@ -837,8 +837,8 @@ function RevenueOSDashboardInner() {
   );
 
   return (
+    <DashboardClientMountGate>
     <AiRevenueOsSharedStateProvider>
-      <DashboardClientMountGate>
       <Suspense fallback={null}>
         <BentleyAiRevenueOsScopeSync userId={userId} />
       </Suspense>
@@ -1580,8 +1580,8 @@ function RevenueOSDashboardInner() {
       )}
       </div>
       {!bentleyExecutionCampaignId ? <BentleyRevenueOsChat /> : null}
-      </DashboardClientMountGate>
     </AiRevenueOsSharedStateProvider>
+    </DashboardClientMountGate>
   );
 }
 

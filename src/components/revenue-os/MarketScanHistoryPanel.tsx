@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { NormalizedMarketScan } from "@/lib/revenue-os/market-scan-normalize";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 const ACCENT = "#00D1FF";
 
@@ -49,7 +50,8 @@ export function MarketScanHistoryPanel({
   const [loading, setLoading] = useState(true);
   const [runLoading, setRunLoading] = useState(false);
 
-  const workspaceClient = clientId.trim();
+  const workspaceClient = useMemo(() => coerceTrimmedString(clientId), [clientId]);
+  const industryText = useMemo(() => coerceTrimmedString(industry), [industry]);
 
   const loadList = useCallback(async () => {
     setListError(null);
@@ -110,9 +112,9 @@ export function MarketScanHistoryPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          industry,
-          geo: geo?.trim() || undefined,
-          offerType: offerType?.trim() || undefined,
+          industry: industryText,
+          geo: coerceTrimmedString(geo) || undefined,
+          offerType: coerceTrimmedString(offerType) || undefined,
           userId,
           clientId: workspaceClient || undefined,
         }),
@@ -153,7 +155,7 @@ export function MarketScanHistoryPanel({
         <button
           type="button"
           onClick={() => void runScan()}
-          disabled={runLoading || !industry.trim()}
+          disabled={runLoading || !industryText}
           className="px-4 py-2 rounded-xl text-sm font-medium text-black disabled:opacity-50"
           style={{ backgroundColor: ACCENT }}
         >

@@ -37,7 +37,7 @@ function researchHook(research: ResearchResult | null | undefined): string | und
     const w = research.whatPeopleWant.find((x) => String(x).trim().length > 3);
     if (w) return clamp(String(w), 140);
   }
-  if (research.marketOrService?.trim()) return clamp(research.marketOrService, 120);
+  if (coerceTrimmedString(research.marketOrService)) return clamp(research.marketOrService, 120);
   return undefined;
 }
 
