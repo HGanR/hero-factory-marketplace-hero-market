@@ -155,7 +155,6 @@ function pushPipelineProgress(
   );
   const detail: BentleyPipelineProgressDetail = {
     activePhase: null,
-    completedPhases,
     statusLine: "",
     ...partial,
     completedPhases: partial.completedPhases ?? completedPhases,
@@ -842,7 +841,14 @@ export async function runFullPipelineAction(
         failedPhase: phase,
         lastError: r.reason,
       });
-      return { ...r, milestones };
+      const pipelineFailed: BentleyFullPipelineResult = {
+        ok: r.ok,
+        status: r.status,
+        reason: r.reason,
+        workflow: r.workflow,
+        milestones,
+      };
+      return pipelineFailed;
     }
 
     const line = PIPELINE_STEP_SUCCESS_LINE[phase];
@@ -1045,7 +1051,9 @@ export async function fetchBentleyLaunchReadiness(
   }
   try {
     const r = await fetch(`/api/social/accounts?clientId=${encodeURIComponent(clientId.trim())}`);
-    const data = (await r.json()) as { accounts?: Array<{ platform?: string }> };
+    const data = (await r.json()) as {
+      accounts?: Array<{ platform?: string; platformCanonical?: SocialPlatform | null }>;
+    };
     if (!r.ok) {
       return {
         ready: false,
@@ -1053,7 +1061,11 @@ export async function fetchBentleyLaunchReadiness(
         message: "Could not load connected accounts. Try again after signing in.",
       };
     }
-    const connected = connectedSocialPlatformsSet(data.accounts ?? []);
+    const accountRows = (data.accounts ?? []).map((a) => ({
+      platform: typeof a.platform === "string" ? a.platform : "",
+      platformCanonical: a.platformCanonical,
+    }));
+    const connected = connectedSocialPlatformsSet(accountRows);
     const missingOAuthFor = uniq.filter((p) => !connected.has(p));
     return {
       ready: missingOAuthFor.length === 0,

@@ -8,6 +8,8 @@ import type { SocialPlatform } from "@/lib/social/config";
 export const BENTLEY_DASHBOARD_HANDOFF_VERSION = 2 as const;
 export const BENTLEY_DASHBOARD_HANDOFF_VERSION_LEGACY = 1 as const;
 
+export type BentleyDashboardAutoRunMode = "off" | "analysis_only" | "full_pipeline";
+
 export type BentleyDashboardHandoffPayload = {
   v: typeof BENTLEY_DASHBOARD_HANDOFF_VERSION | typeof BENTLEY_DASHBOARD_HANDOFF_VERSION_LEGACY;
   /** ISO timestamp when the handoff was built */
@@ -38,6 +40,11 @@ export type BentleyDashboardHandoffPayload = {
   notes: string;
   /** When true, dashboard may run analysis once after hydration */
   autoRunFullAnalysis: boolean;
+  /**
+   * What to autorun after handoff hydration. Prefer this over inferring from `autoRunFullAnalysis` alone.
+   * Legacy payloads omit this — consumers should use `resolveBentleyDashboardAutoRunMode`.
+   */
+  autoRunMode?: BentleyDashboardAutoRunMode;
 };
 
 export type BentleyDashboardHandoffEnvelope = {

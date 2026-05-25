@@ -2,13 +2,15 @@
  * Worker / UI gate: scheduled posts and approval metadata.
  */
 
+import { rawApprovalStatusKey } from "@/lib/revenue-os/publish-approval-utm";
+
 export type CanScheduledPostPublishArgs = {
   /** When true (server env), enforce approval metadata for SCHEDULED / RETRY_SCHEDULED. */
   requireApproval: boolean;
   utmParams: Record<string, string> | null | undefined;
+  /** When true on the parent campaign, worker may publish without per-post approval (still respects `requireApproval` otherwise). */
+  campaignAutopilotPublish?: boolean;
 };
-
-import { rawApprovalStatusKey } from "@/lib/revenue-os/publish-approval-utm";
 
 /**
  * Returns whether a due scheduled post may be claimed by the publish worker.
@@ -17,6 +19,13 @@ import { rawApprovalStatusKey } from "@/lib/revenue-os/publish-approval-utm";
 export function canScheduledPostPublishUnderApprovalMode(
   args: CanScheduledPostPublishArgs
 ): { ok: true } | { ok: false; reason: string } {
+  if (args.campaignAutopilotPublish && args.requireApproval) {
+    const rawReject = rawApprovalStatusKey(args.utmParams)?.toLowerCase().replace(/-/g, "_") ?? "";
+    if (rawReject === "rejected") {
+      return { ok: false, reason: "Post is marked rejected — clear or re-approve before publishing." };
+    }
+    return { ok: true };
+  }
   if (!args.requireApproval) {
     return { ok: true };
   }
@@ -37,8 +46,10 @@ export function canScheduledPostPublishUnderApprovalMode(
   return { ok: false, reason: "Unknown approval status — set to approved or not_required to publish." };
 }
 
-/** Read server-side flag (worker + API). */
+/** Read server-side flag (worker + API). `BENTLEY_REQUIRE_APPROVAL` is an alias for `BENTLEY_SCHEDULED_PUBLISH_REQUIRE_APPROVAL`. */
 export function readScheduledPublishRequireApprovalEnv(): boolean {
-  const v = process.env.BENTLEY_SCHEDULED_PUBLISH_REQUIRE_APPROVAL;
+  const v =
+    process.env.BENTLEY_SCHEDULED_PUBLISH_REQUIRE_APPROVAL?.trim() ||
+    process.env.BENTLEY_REQUIRE_APPROVAL?.trim();
   return v === "1" || v === "true" || v === "yes";
 }

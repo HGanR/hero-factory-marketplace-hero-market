@@ -14,6 +14,8 @@ export type BentleyContinuityPhase =
   | "pipeline_stage_transition"
   | "pipeline_resume"
   | "platform_connection_state_resolved"
+  | "campaign_persisted_db"
+  | "campaign_persist_db_failed"
   | "campaign_posts_created"
   | "campaign_posts_create_failed"
   | "campaign_posts_scheduled"

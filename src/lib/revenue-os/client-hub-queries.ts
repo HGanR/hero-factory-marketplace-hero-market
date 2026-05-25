@@ -173,6 +173,13 @@ function readCustomFieldStrings(customFields: unknown, keys: string[]): string |
   return null;
 }
 
+/** UUID from `CRM_REF:{uuid}` in `client_accounts.notes` (links hub account to CRM client file). */
+export function crmClientIdFromHubNotes(notes: string | null | undefined): string | null {
+  if (!notes || typeof notes !== "string") return null;
+  const m = notes.match(/CRM_REF:([0-9a-fA-F-]{36})/i);
+  return m?.[1] ?? null;
+}
+
 function parseRequestedServices(raw: unknown): string[] {
   if (!raw) return [];
   if (Array.isArray(raw)) {
@@ -332,6 +339,7 @@ export async function listClientsForUser(userId: number): Promise<ClientListItem
     return {
       id: c.id,
       name: c.name,
+      crmClientId: crmClientIdFromHubNotes(c.notes),
       status: c.status,
       workspaceId: c.workspaceId ?? null,
       logoUrl: typeof c.logoUrl === "string" && c.logoUrl.trim() ? c.logoUrl : null,
@@ -721,6 +729,7 @@ export async function getClientAnalyticsForClient(
       activeAgents: m.activeAgents,
       campaignsLaunched: m.campaignsLaunched,
       publishedPosts: m.publishedPosts,
+      bookings: m.bookings,
       lastActivityAt: m.lastActivityAt,
     },
   };

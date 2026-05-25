@@ -13,6 +13,8 @@ export type ClientHealthSnapshot = {
 export type ClientListItem = {
   id: string;
   name: string;
+  /** CRM `clients.id` when this hub row was linked via `CRM_REF:{uuid}` in notes (onboarding / dashboard client file). */
+  crmClientId: string | null;
   status: string;
   workspaceId: string | null;
   logoUrl: string | null;
@@ -218,6 +220,7 @@ export type ClientAnalyticsResponse = {
     activeAgents: number;
     campaignsLaunched: number;
     publishedPosts: number;
+    bookings: number;
     lastActivityAt: string | null;
   };
 };

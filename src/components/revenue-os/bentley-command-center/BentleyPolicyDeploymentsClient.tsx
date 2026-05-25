@@ -22,6 +22,7 @@ export function BentleyPolicyDeploymentsClient() {
   const [urlBanner, setUrlBanner] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!searchParams) return;
     const sid = searchParams.get("scenarioId")?.trim() ?? "";
     const rid = searchParams.get("rollbackPackageId")?.trim() ?? "";
     const pid = searchParams.get("rolloutPlanId")?.trim() ?? "";

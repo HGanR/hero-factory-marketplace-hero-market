@@ -2,7 +2,7 @@
  * Browser fetch for optimization memory API (panel + Bentley).
  */
 
-import type { RevenueOsOptimizationMemoryEntry, RevenueOsOptimizationMemorySummary } from "@/lib/revenue-os/post-optimization-memory-types";
+import type { RevenueOsOptimizationMemoryEntry, RevenueOsOptimizationMemorySummary, OptimizationMemoryGenerationSlice } from "@/lib/revenue-os/post-optimization-memory-types";
 
 export type RevenueOsOptimizationMemoryApiResponse = {
   summary: RevenueOsOptimizationMemorySummary;
@@ -40,6 +40,24 @@ export type RevenueOsOptimizationMemoryApiResponse = {
     };
   };
 };
+
+/** Maps API `generation` (lightweight client DTO) to the full slice used by batch routing / unified prompts. */
+export function apiGenerationToOptimizationMemorySlice(
+  g: RevenueOsOptimizationMemoryApiResponse["generation"] | null | undefined
+): OptimizationMemoryGenerationSlice | null {
+  if (!g) return null;
+  return {
+    schemaVersion: 1,
+    promptBlock: null,
+    injectedEntryIds: Array.isArray(g.injectedEntryIds) ? g.injectedEntryIds.map((x) => String(x)) : [],
+    hasEnoughData: Boolean(g.hasEnoughData),
+    promptWeightingSummary: typeof g.promptWeightingSummary === "string" ? g.promptWeightingSummary : undefined,
+    instagramPreferenceHint: g.instagramPreferenceHint ?? null,
+    measuredPlatformRoleHint: g.measuredPlatformRoleHint ?? null,
+    platformRoleRoutingHint: g.platformRoleRoutingHint ?? null,
+    platformRoleRoutingSummary: null,
+  };
+}
 
 export async function fetchRevenueOsOptimizationMemory(
   clientId: string | undefined,

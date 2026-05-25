@@ -41,6 +41,7 @@ export type MemoryCampaignPostRow = {
   scheduledAt: Date | null;
   status: string;
   caption?: string | null;
+  bentleyDraftJson?: Record<string, unknown> | null;
   assetId?: string | null;
   utmParams?: unknown;
   scheduledPublishMeta?: unknown;
@@ -139,6 +140,10 @@ export function createBentleySyncLaunchMemoryDb(initial: {
             scheduledAt: (row.scheduledAt as Date | null | undefined) ?? null,
             status: String(row.status ?? "DRAFT"),
             caption: row.caption != null ? String(row.caption) : null,
+            bentleyDraftJson:
+              row.bentleyDraftJson != null && typeof row.bentleyDraftJson === "object"
+                ? (row.bentleyDraftJson as Record<string, unknown>)
+                : null,
             assetId: row.assetId != null && String(row.assetId) ? String(row.assetId) : null,
             utmParams: row.utmParams,
             scheduledPublishMeta: row.scheduledPublishMeta,

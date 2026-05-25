@@ -133,7 +133,8 @@ function computeHighlights(rows: Omit<RichScenarioCompareRow, "highlights">[]): 
     }));
   }
 
-  const keys: Array<{ key: keyof Pick<RichScenarioCompareRow, "addedAutoActions" | "removedAutoActions" | "addedApprovals" | "removedApprovals"> | "changedNotifications" | "changedQueueStates" | "handoffVolumeDelta"; lowerIsBetter: boolean }> = [
+  type CompareMetricKey = keyof Omit<RichScenarioCompareRow, "highlights">;
+  const keys: Array<{ key: CompareMetricKey; lowerIsBetter: boolean }> = [
     { key: "addedAutoActions", lowerIsBetter: false },
     { key: "removedAutoActions", lowerIsBetter: false },
     { key: "addedApprovals", lowerIsBetter: true },
@@ -147,7 +148,7 @@ function computeHighlights(rows: Omit<RichScenarioCompareRow, "highlights">[]): 
     const highlights: Record<string, "best" | "worst" | "neutral"> = {};
     for (const { key, lowerIsBetter } of keys) {
       const vals = rows.map((x) => {
-        const v = x[key as keyof typeof row];
+        const v = x[key];
         if (v === null || v === undefined) return null;
         return typeof v === "number" ? v : Number(v);
       });
@@ -156,7 +157,7 @@ function computeHighlights(rows: Omit<RichScenarioCompareRow, "highlights">[]): 
         highlights[key] = "neutral";
         continue;
       }
-      const cur = row[key as keyof RichScenarioCompareRow];
+      const cur = row[key];
       const n = cur === null || cur === undefined ? null : typeof cur === "number" ? cur : Number(cur);
       if (n == null || !Number.isFinite(n)) {
         highlights[key] = "neutral";
@@ -202,8 +203,8 @@ function metricsForScenario(s: BentleyScenarioCompareInput["scenarios"][0]): Ben
     addedApprovals: addedAppr,
     reducedApprovals: reducedAppr,
     increasedRiskFlags: increasedRisk,
-    notificationDelta: notifDelta,
-    queueHeuristicDelta: queueDelta,
+    notificationDelta: notifDelta ?? null,
+    queueHeuristicDelta: queueDelta ?? null,
     handoffVolumeDelta: handoffVol,
     connectorBurdenScore,
     handoffAutomationDelta,
@@ -283,7 +284,7 @@ export function compareBentleyScenarios(input: BentleyScenarioCompareInput): Ben
       addedAutoActions: m.addedAutoActions,
       removedAutoActions: m.removedAutoActions,
       addedApprovals: m.addedApprovals,
-      removedApprovals: m.removedApprovals,
+      removedApprovals: m.reducedApprovals,
       changedNotifications: m.notificationDelta,
       changedQueueStates: m.queueHeuristicDelta,
       handoffVolumeDelta: m.handoffVolumeDelta,

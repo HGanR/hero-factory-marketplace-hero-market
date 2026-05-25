@@ -16,7 +16,7 @@ import { enforceRevenueOsApiAccess } from "@/lib/revenue-os-api-access";
 const PlanSchema = z.object({
   adSpend: z.number().min(0),
   channelMix: z
-    .record(z.number())
+    .record(z.string(), z.number())
     .optional()
     .default({ paid: 60, organic: 25, referral: 15 }),
   cac: z.number().min(0),
@@ -42,8 +42,9 @@ export async function POST(req: NextRequest) {
     const aov = parsed.aov ?? 0;
     const ltvCacRatio = cac > 0 ? ltv / cac : 0;
 
-    const totalMix = Object.values(channelMix).reduce((a, b) => a + b, 0) || 100;
-    const budgetAllocation = Object.entries(channelMix).map(([channel, pct]) => ({
+    const mixEntries = Object.entries(channelMix) as [string, number][];
+    const totalMix = mixEntries.reduce((sum, [, pct]) => sum + pct, 0) || 100;
+    const budgetAllocation = mixEntries.map(([channel, pct]) => ({
       channel,
       pct,
       spend: Math.round(adSpend * (pct / totalMix)),

@@ -4,6 +4,7 @@ import {
   mapLabelsToPostingPlatforms,
   postingPlatformDisplayName,
 } from "@/lib/revenue-os/bentley-posting-platforms";
+import { coercePlatformLabelStrings } from "@/lib/revenue-os/run-revenue-os-analysis";
 
 export type StrategyPostingAlignmentKind = "aligned" | "partial" | "none" | "no_compare";
 
@@ -32,7 +33,7 @@ export function computeStrategyPostingAlignment(
   platforms: string[],
   postingPlatforms: SocialPlatform[]
 ): StrategyPostingAlignment {
-  const trimmed = platforms.map((s) => s.trim()).filter(Boolean);
+  const trimmed = coercePlatformLabelStrings(platforms);
   const strategyOAuthIds = mapLabelsToPostingPlatforms(trimmed);
 
   if (strategyOAuthIds.length === 0) {
@@ -117,7 +118,7 @@ export function buildStrategyPostingNextAction(
   connectedAccounts: { platform: string }[]
 ): string {
   const posting = new Set(postingPlatforms);
-  const trimmed = platforms.map((s) => s.trim()).filter(Boolean);
+  const trimmed = coercePlatformLabelStrings(platforms);
 
   switch (alignment.kind) {
     case "no_compare":

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildBentleyPlatformPromptDefaults } from "@/lib/revenue-os/bentley-platform-prompt-templates";
 
 export const LongFormOutlineSchema = z
   .object({
@@ -7,6 +8,35 @@ export const LongFormOutlineSchema = z
     cta: z.string().min(1).catch(""),
   })
   .passthrough();
+
+/** Canonical social execution platforms for Bentley `platformPosts` + DB post rows. */
+export const BENTLEY_PLATFORM_POST_KEYS = ["instagram", "tiktok", "facebook", "reddit", "nextdoor"] as const;
+export type BentleyPlatformPostKey = (typeof BENTLEY_PLATFORM_POST_KEYS)[number];
+
+export const PlatformPostSlotSchema = z
+  .object({
+    caption: z.string().optional(),
+    hook: z.string().optional(),
+    cta: z.string().optional(),
+    promptText: z.string().optional(),
+    promptImage: z.string().optional(),
+    promptVideo: z.string().optional(),
+  })
+  .partial();
+
+export type PlatformPostSlot = z.infer<typeof PlatformPostSlotSchema>;
+
+export const PlatformPostsSchema = z
+  .object({
+    instagram: PlatformPostSlotSchema.optional(),
+    tiktok: PlatformPostSlotSchema.optional(),
+    facebook: PlatformPostSlotSchema.optional(),
+    reddit: PlatformPostSlotSchema.optional(),
+    nextdoor: PlatformPostSlotSchema.optional(),
+  })
+  .partial();
+
+export type PlatformPosts = z.infer<typeof PlatformPostsSchema>;
 
 export const CampaignResponseSchema = z
   .object({
@@ -20,10 +50,14 @@ export const CampaignResponseSchema = z
     objectionReplies: z.array(z.string()).catch([]),
     disclaimers: z.array(z.string()).catch([]),
     traceId: z.string().optional(),
+    platformPosts: PlatformPostsSchema.optional(),
   })
   .passthrough();
 
-export type CampaignResponse = z.infer<typeof CampaignResponseSchema>;
+export type CampaignResponse = z.infer<typeof CampaignResponseSchema> & {
+  /** Always populated after `parseCampaignResponse` (defaults merged with model output). */
+  platformPosts: Record<BentleyPlatformPostKey, PlatformPostSlot>;
+};
 export type LongFormOutline = z.infer<typeof LongFormOutlineSchema>;
 
 /** Content safety + compliance disclaimers appended to every campaign response. */
@@ -64,6 +98,35 @@ const PAD_HOOKS = [
 ];
 const PAD_OBJECTION = "Address directly with empathy and proof.";
 
+function mergePlatformPosts(
+  industry: string,
+  audience: string,
+  offer: string,
+  hooks: string[],
+  outlines: z.infer<typeof LongFormOutlineSchema>[],
+  incoming: PlatformPosts | undefined
+): Record<BentleyPlatformPostKey, PlatformPostSlot> {
+  const out = {} as Record<BentleyPlatformPostKey, PlatformPostSlot>;
+  for (let i = 0; i < BENTLEY_PLATFORM_POST_KEYS.length; i++) {
+    const k = BENTLEY_PLATFORM_POST_KEYS[i]!;
+    const hook = (hooks[i % hooks.length] ?? "").trim();
+    const cta = (outlines[i % outlines.length]?.cta ?? "").trim() || "Reply for details.";
+    const caption =
+      hook && offer ? `${hook}\n\n${offer}` : offer || hook || "Bentley campaign post";
+    const inc = incoming?.[k] ?? {};
+    const tmpl = buildBentleyPlatformPromptDefaults(k, { industry, audience, offer });
+    out[k] = {
+      caption: (inc.caption ?? "").trim() || caption,
+      hook: (inc.hook ?? "").trim() || hook,
+      cta: (inc.cta ?? "").trim() || cta,
+      promptText: (inc.promptText ?? "").trim() || tmpl.promptText,
+      promptImage: (inc.promptImage ?? "").trim() || tmpl.promptImage,
+      promptVideo: (inc.promptVideo ?? "").trim() || tmpl.promptVideo,
+    };
+  }
+  return out;
+}
+
 /**
  * Normalizes and validates parsed campaign JSON.
  * Enforces exact array lengths for UI reliability: 3 pillars, 10 hooks, 3 outlines, 5 objections.
@@ -86,15 +149,16 @@ export function parseCampaignResponse(raw: unknown): CampaignResponse {
     { title: `Real Results for ${audience}`, sections: ["Case study.", "What moved the needle.", "Key takeaways."], cta: "I can share the template." },
   ];
 
+  const messagePillars = exactArray(base.messagePillars ?? [], 3, PAD_MESSAGE_PILLARS);
+  const shortFormHooks = exactArray(base.shortFormHooks ?? [], 10, PAD_HOOKS);
+  const longFormOutlines = exactArray(outlines, 3, padOutlines);
+  const offer = (base.offerStatement || "").trim();
+
   return {
     ...base,
-    messagePillars: exactArray(
-      base.messagePillars ?? [],
-      3,
-      PAD_MESSAGE_PILLARS
-    ),
-    shortFormHooks: exactArray(base.shortFormHooks ?? [], 10, PAD_HOOKS),
-    longFormOutlines: exactArray(outlines, 3, padOutlines),
+    messagePillars,
+    shortFormHooks,
+    longFormOutlines,
     objectionReplies: exactArray(base.objectionReplies ?? [], 5, [
       PAD_OBJECTION,
       PAD_OBJECTION,
@@ -103,6 +167,14 @@ export function parseCampaignResponse(raw: unknown): CampaignResponse {
       PAD_OBJECTION,
     ]),
     disclaimers: (base.disclaimers ?? []).filter(Boolean),
+    platformPosts: mergePlatformPosts(
+      industry,
+      audience,
+      offer,
+      shortFormHooks,
+      longFormOutlines,
+      base.platformPosts
+    ),
   };
 }
 

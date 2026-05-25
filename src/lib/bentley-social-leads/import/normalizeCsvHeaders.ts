@@ -48,14 +48,12 @@ const FOLDED_TO_CANONICAL: Record<string, string> = {
   user: "authorHandle",
   handle: "authorHandle",
   user_handle: "authorHandle",
-  author_handle: "authorHandle",
   // comment
   text: "commentText",
   comment: "commentText",
   body: "commentText",
   message: "commentText",
   content: "commentText",
-  comment_text: "commentText",
   // source / post
   title: "sourceTitle",
   posttitle: "sourceTitle",
@@ -67,11 +65,8 @@ const FOLDED_TO_CANONICAL: Record<string, string> = {
   link: "sourceUrl",
   permalink: "sourceUrl",
   source_url: "sourceUrl",
-  sourceid: "sourceId",
   source_id: "sourceId",
-  postid: "postId",
   post_id: "postId",
-  parentid: "parentId",
   parent_id: "parentId",
   // time
   createdat: "publishedAt",

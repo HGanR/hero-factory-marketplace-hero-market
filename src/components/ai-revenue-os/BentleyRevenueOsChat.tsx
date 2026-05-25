@@ -164,7 +164,10 @@ import {
   isOptimizationMemoryIntent,
 } from "@/lib/revenue-os/bentley-optimization-memory-chat";
 import { derivePlatformRoleRouting } from "@/lib/revenue-os/platform-role-routing";
-import { fetchRevenueOsOptimizationMemory } from "@/lib/revenue-os/optimization-memory-client-fetch";
+import {
+  apiGenerationToOptimizationMemorySlice,
+  fetchRevenueOsOptimizationMemory,
+} from "@/lib/revenue-os/optimization-memory-client-fetch";
 import type { LaunchCycleEventRecord } from "@/lib/revenue-os/launch-progress-db";
 import type { RevenueOsLaunchCycleProgress } from "@/lib/revenue-os/launch-progress-types";
 import type { SocialPlatform } from "@/lib/social/config";
@@ -615,7 +618,7 @@ export function BentleyRevenueOsChat() {
             mediaBrief: wfCb.artifacts.mediaBriefText ?? undefined,
             launchPlan: planCb,
             platformRoleRouting: routingCb,
-            optimizationMemoryGeneration: memCb?.generation ?? null,
+            optimizationMemoryGeneration: apiGenerationToOptimizationMemorySlice(memCb?.generation),
           });
           if (typeof window !== "undefined" && pathname?.includes("/ai-revenue-os")) {
             scrollToAiRevenueOsAnchor("bentley-content-batch-routing");
@@ -682,7 +685,7 @@ export function BentleyRevenueOsChat() {
             mediaBrief: wfSched.artifacts.mediaBriefText ?? undefined,
             launchPlan: planSched,
             platformRoleRouting: routingSched,
-            optimizationMemoryGeneration: memSched?.generation ?? null,
+            optimizationMemoryGeneration: apiGenerationToOptimizationMemorySlice(memSched?.generation),
             systemSignals,
           });
           const tzHint =
@@ -770,7 +773,7 @@ export function BentleyRevenueOsChat() {
             mediaBrief: wfPub.artifacts.mediaBriefText ?? undefined,
             launchPlan: planPub,
             platformRoleRouting: routingPub,
-            optimizationMemoryGeneration: memPub?.generation ?? null,
+            optimizationMemoryGeneration: apiGenerationToOptimizationMemorySlice(memPub?.generation),
             systemSignals,
           });
           const tzPub =
@@ -941,7 +944,7 @@ export function BentleyRevenueOsChat() {
             mediaBrief: wfSeq.artifacts.mediaBriefText ?? undefined,
             launchPlan: planSeq,
             platformRoleRouting: routingSeq,
-            optimizationMemoryGeneration: memSeq?.generation ?? null,
+            optimizationMemoryGeneration: apiGenerationToOptimizationMemorySlice(memSeq?.generation),
             systemSignals,
           });
           if (typeof window !== "undefined" && pathname?.includes("/ai-revenue-os")) {
@@ -1269,7 +1272,10 @@ export function BentleyRevenueOsChat() {
 
         if (wantsRun || wantsOpen) {
           const autoRun = wantsRun;
-          const payload = buildBentleyDashboardPayload(snap, { autoRunFullAnalysis: autoRun });
+          const payload = buildBentleyDashboardPayload(snap, {
+            autoRunFullAnalysis: autoRun,
+            autoRunMode: autoRun ? "full_pipeline" : "off",
+          });
 
           if (!hasMinimumFieldsForDashboard(payload)) {
             return {

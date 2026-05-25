@@ -19,21 +19,22 @@ import {
   BENTLEY_UTM_UNIT_KEY,
 } from "@/lib/revenue-os/bentley-sync-launch-plan";
 import { BENTLEY_UTM_APPROVAL_STATUS } from "@/lib/revenue-os/publish-approval-utm";
+import { parseCampaignResponse } from "@/lib/revenue-os/campaign-schema";
 
 const CAMPAIGN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const USER_ID = "42";
 
 function minimalGeneration(postingPlatforms: string[], contentPlatforms: string[]) {
   return {
-    campaign: {
+    campaign: parseCampaignResponse({
       offerStatement: "Offer line",
       shortFormHooks: ["Hook A", "Hook B"],
       industry: "X",
       targetAudience: "Y",
-      messagePillars: [],
+      messagePillars: ["a", "b", "c"],
       longFormOutlines: [],
       objectionReplies: [],
-    },
+    }),
     platforms: contentPlatforms,
     postingPlatforms,
     syncedAt: new Date().toISOString(),
@@ -71,6 +72,8 @@ describe("syncBentleyCampaignPostsAndSchedule (memory DB)", () => {
     for (const p of posts) {
       expect(p.status).toMatch(/SCHEDULED|DRAFT/);
       expect(p.caption?.length).toBeGreaterThan(0);
+      expect(p.bentleyDraftJson && typeof p.bentleyDraftJson === "object").toBe(true);
+      expect(String((p.bentleyDraftJson as Record<string, unknown>).promptText ?? "").length).toBeGreaterThan(0);
       const u = p.utmParams as Record<string, string> | undefined;
       expect(u?.[BENTLEY_UTM_UNIT_KEY]?.length).toBeGreaterThan(0);
     }

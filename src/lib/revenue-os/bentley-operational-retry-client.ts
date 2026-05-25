@@ -9,7 +9,10 @@ import { bentleyScopedSessionKey } from "@/lib/revenue-os/bentley-storage-scope"
 import { BENTLEY_OPERATIONAL_MAX_RETRIES } from "@/lib/revenue-os/bentley-operational-blocker-resolution";
 import { syncBentleyLaunchApi } from "@/lib/revenue-os/revenue-os-pipeline-actions";
 
-export type BentleyOperationalRetryKind = "launch_sync" | "readiness_refresh";
+export type BentleyOperationalRetryKind =
+  | "launch_sync"
+  | "launch_sync_content360_platform"
+  | "readiness_refresh";
 
 function storageBase(kind: BentleyOperationalRetryKind, campaignId: string): string {
   return `bentley:op-retry:${kind}:${campaignId}`;
@@ -75,6 +78,40 @@ export async function retryBentleyLaunchSyncClient(campaignId: string): Promise<
       window.dispatchEvent(new CustomEvent("bentley-operational-readiness-refresh"));
     }
     return { ok: true, message: "Launch sync completed." };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Launch sync failed.";
+    return { ok: false, reason: "error", message: msg };
+  }
+}
+
+/**
+ * Admin-only: same idempotency contract as launch sync, but applies trusted Content360 platform-key scheduling meta.
+ * Requires platform admin session + configured platform env (enforced on POST /api/revenue-os/bentley/sync-launch).
+ */
+export async function retryBentleyLaunchSyncContent360PlatformClient(
+  campaignId: string
+): Promise<BentleyOperationalRetryResult> {
+  if (!recordBentleyOperationalRetryAttempt("launch_sync_content360_platform", campaignId)) {
+    return {
+      ok: false,
+      reason: "max_retries",
+      message: `Maximum ${BENTLEY_OPERATIONAL_MAX_RETRIES} Content360 platform launch sync retries — fix OAuth, approvals, or account binding, then try again later.`,
+    };
+  }
+  try {
+    await syncBentleyLaunchApi({
+      campaignId,
+      scheduleStrategy: "staggered",
+      staggerMinutes: 30,
+      publishRoute: "content360",
+      content360PlatformSchedule: true,
+    });
+    clearBentleyOperationalRetryCount("launch_sync_content360_platform", campaignId);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("bentley-workflow-updated"));
+      window.dispatchEvent(new CustomEvent("bentley-operational-readiness-refresh"));
+    }
+    return { ok: true, message: "Launch sync completed with Content360 platform scheduling." };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Launch sync failed.";
     return { ok: false, reason: "error", message: msg };

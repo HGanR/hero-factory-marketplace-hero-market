@@ -15,7 +15,7 @@ export function buildRollbackPackageSummaryCard(input: {
   return {
     id: "rollback_summary",
     title: input.name,
-    subtitle: `Type: ${input.rolloutType}`,
+    subtitle: `Type: ${input.rollbackType}`,
     detail: input.deltaSummary.slice(0, 600),
     families: input.affectedFamilies,
   };

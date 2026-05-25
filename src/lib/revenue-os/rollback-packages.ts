@@ -253,7 +253,7 @@ export async function buildBentleyRollbackPackage(input: {
     target: targetNorm,
   });
 
-  const typeFiltered = filterFamiliesByRollbackType(input.rolloutType, affectedPolicyFamilies);
+  const typeFiltered = filterFamiliesByRollbackType(input.rollbackType, affectedPolicyFamilies);
   const deltaSummary = summarizeDelta(deltaJson, typeFiltered);
   const riskLines = buildRiskLines(currentNorm, targetNorm, deltaJson);
   const recommendation = buildRecommendation(typeFiltered, riskLines);

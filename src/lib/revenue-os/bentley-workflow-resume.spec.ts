@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
-import { resumePipeline } from "@/lib/revenue-os/bentley-pipeline-resume";
+import { resumeDashboardPipelineWithLifecycle, resumePipeline } from "@/lib/revenue-os/bentley-pipeline-resume";
 import * as BentleyActionRunner from "@/lib/revenue-os/bentley-action-runner";
 import type { BentleyActionRunnerContext } from "@/lib/revenue-os/bentley-action-runner";
 import { bentleyContinuityLog } from "@/lib/revenue-os/bentley-continuity-log";
@@ -123,5 +123,34 @@ describe("resumePipeline", () => {
     });
     expect(BentleyActionRunner.createBentleyActionRunner).toHaveBeenCalledWith(ctx);
     expect(runFullPipeline).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("resumeDashboardPipelineWithLifecycle", () => {
+  const runFullLifecycle = jest.fn();
+  let createSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    runFullLifecycle.mockResolvedValue({ ok: true, stoppedAt: "complete" as const, workflow: defaultWorkflowState() });
+    createSpy = jest.spyOn(BentleyActionRunner, "createBentleyActionRunner").mockReturnValue({
+      runFullLifecycle,
+    } as unknown as ReturnType<typeof BentleyActionRunner.createBentleyActionRunner>);
+  });
+
+  afterEach(() => {
+    createSpy.mockRestore();
+  });
+
+  it("delegates to runFullLifecycle", async () => {
+    const ctx: BentleyActionRunnerContext = {
+      userId: "u1",
+      clientId: "c1",
+      getSnapshot: () => minimalSnapshot(),
+      applyPatch: jest.fn(),
+    };
+    const r = await resumeDashboardPipelineWithLifecycle(ctx);
+    expect(r.ok).toBe(true);
+    expect(runFullLifecycle).toHaveBeenCalledTimes(1);
   });
 });

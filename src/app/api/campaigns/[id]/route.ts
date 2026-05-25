@@ -69,18 +69,21 @@ export async function GET(
 
     const postAssetIds = [...new Set(postRows.map((p) => p.assetId).filter(Boolean) as string[])];
     const assetStorageById = new Map<string, string | null>();
+    const assetCreativeById = new Map<string, string | null>();
     const assetMetaById = new Map<string, unknown>();
     if (postAssetIds.length > 0) {
       const assetRows = await db
         .select({
           id: campaignAssets.id,
           storageUrl: campaignAssets.storageUrl,
+          creativeType: campaignAssets.creativeType,
           metadata: campaignAssets.metadata,
         })
         .from(campaignAssets)
         .where(and(eq(campaignAssets.campaignId, id), inArray(campaignAssets.id, postAssetIds)));
       for (const r of assetRows) {
         assetStorageById.set(r.id, r.storageUrl ?? null);
+        assetCreativeById.set(r.id, r.creativeType ?? null);
         assetMetaById.set(r.id, r.metadata ?? null);
       }
     }
@@ -128,18 +131,21 @@ export async function GET(
       reviewerRoleCounts,
       governanceEntitlements,
       governancePlanTierLabel,
+      bentleyAutopilotPublish: Boolean(access.campaign.bentleyAutopilotPublish),
       posts: postRows.map((p) => ({
         id: p.id,
         platform: p.platform,
         assetId: p.assetId,
         /** Hosted URL for preview / client when the viewer already has campaign access (same scope as publish). */
         assetStorageUrl: p.assetId ? assetStorageById.get(p.assetId) ?? null : null,
+        assetCreativeType: p.assetId ? assetCreativeById.get(p.assetId) ?? null : null,
         assetDurableBadge: p.assetId
           ? resolveAssetDurableBadge(assetStorageById.get(p.assetId) ?? null, assetMetaById.get(p.assetId))
           : null,
         scheduledAt: p.scheduledAt,
         status: p.status,
         caption: p.caption,
+        bentleyDraftJson: p.bentleyDraftJson ?? null,
         hashtags: p.hashtags,
         linkUrl: p.linkUrl,
         utmParams: p.utmParams,
@@ -160,6 +166,8 @@ export async function GET(
 }
 
 const PatchCampaignSchema = z.object({
+  /** Owner-only: bypass scheduled publish approval gate for this campaign (worker). */
+  bentleyAutopilotPublish: z.boolean().optional(),
   publishApprovalChain: z
     .object({
       steps: z.array(
@@ -198,7 +206,11 @@ export async function PATCH(
 
     const body = await req.json();
     const parsed = PatchCampaignSchema.parse(body);
-    if (parsed.publishApprovalChain === undefined && parsed.publishApprovalReportSchedule === undefined) {
+    if (
+      parsed.publishApprovalChain === undefined &&
+      parsed.publishApprovalReportSchedule === undefined &&
+      parsed.bentleyAutopilotPublish === undefined
+    ) {
       return governanceBadRequestResponse("No fields to update.", "NO_CHANGES");
     }
 
@@ -259,6 +271,9 @@ export async function PATCH(
       .set({
         ...(publishApprovalChainJson !== undefined ? { publishApprovalChainJson } : {}),
         ...(publishApprovalReportScheduleJson !== undefined ? { publishApprovalReportScheduleJson } : {}),
+        ...(parsed.bentleyAutopilotPublish !== undefined
+          ? { bentleyAutopilotPublish: parsed.bentleyAutopilotPublish }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(campaigns.id, id));
@@ -277,6 +292,9 @@ export async function PATCH(
       ok: true,
       ...(parsed.publishApprovalChain !== undefined ? { publishApprovalChain: outChain } : {}),
       ...(parsed.publishApprovalReportSchedule !== undefined ? { publishApprovalReportSchedule: outSchedule } : {}),
+      ...(parsed.bentleyAutopilotPublish !== undefined
+        ? { bentleyAutopilotPublish: parsed.bentleyAutopilotPublish }
+        : {}),
     });
   } catch (e) {
     if (e instanceof z.ZodError) {

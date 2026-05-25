@@ -45,6 +45,7 @@ describe("Bentley dashboard handoff continuity", () => {
     const env = parseBentleyDashboardPayload(raw);
     expect(env?.payload).toBeTruthy();
     expect(env!.payload.autoRunFullAnalysis).toBe(true);
+    expect(env!.payload.autoRunMode).toBe("full_pipeline");
     const merged = bentleySnapshotFromHandoffPayload(env!.payload);
     expect(merged.postingPlatforms).toContain("tiktok");
     expect(intakeComplete(merged)).toBe(true);

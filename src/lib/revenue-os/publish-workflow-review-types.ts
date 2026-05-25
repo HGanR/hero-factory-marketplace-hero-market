@@ -7,6 +7,15 @@ import type { PublishApprovalChainRequiredRole } from "@/lib/revenue-os/publish-
 import type { RevenueOsApprovalActorRole } from "@/lib/revenue-os/publish-approval-governance-types";
 import type { RevenueOsPublishApprovalStatus } from "@/lib/revenue-os/publish-approval-types";
 
+/** Debug-only SLA row shape attached in publish workflow review. */
+export type PublishApprovalStepSlaDebug = {
+  stepStartedAtIso?: string | null;
+  logicalAwaitingStepIndex?: number | null;
+  overdueAfterMs?: number | null;
+  slaReminderSentForLogicalStep?: string | number | null;
+  reminderEligible?: boolean;
+};
+
 export type RevenueOsPublishWorkflowRowStatus =
   | "draft"
   | "scheduled"
@@ -45,7 +54,7 @@ export type RevenueOsPublishWorkflowRow = {
   approvalStepOverdue?: boolean;
   approvalStepAgeMs?: number | null;
   approvalStepAgeShortLabel?: string | null;
-  approvalStepSlaDebug?: unknown;
+  approvalStepSlaDebug?: PublishApprovalStepSlaDebug | null;
 };
 
 export type RevenueOsPublishWorkflowSummary = {

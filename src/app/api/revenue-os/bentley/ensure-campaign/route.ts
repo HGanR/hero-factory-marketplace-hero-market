@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthedUserId } from "@/lib/api/auth";
 import { getDb } from "@/lib/db";
-import { CampaignResponseSchema } from "@/lib/revenue-os/campaign-schema";
+import { parseCampaignResponse } from "@/lib/revenue-os/campaign-schema";
 import { ensureCampaignFromBentley } from "@/lib/revenue-os/ensure-campaign-from-bentley";
 import { enforceRevenueOsApiAccess } from "@/lib/revenue-os-api-access";
 import { z } from "zod";
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const json = await req.json();
     const parsed = BodySchema.parse(json);
-    const campaign = CampaignResponseSchema.parse(parsed.campaign);
+    const campaign = parseCampaignResponse(parsed.campaign);
 
     const db = await getDb();
     const result = await ensureCampaignFromBentley(db, {

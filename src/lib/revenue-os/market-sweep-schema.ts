@@ -87,6 +87,12 @@ export type DistributionPlanItem = {
   rationale: string;
   platform: string;
   contentType: string;
+  /** Optional experiment / sweep cell key when persisting distribution queue rows. */
+  variantKey?: string;
+  hookType?: string;
+  publishPriority?: number;
+  targetFormat?: string;
+  ctaType?: string;
 };
 
 export type BentleyDistributionPlan = {
@@ -147,6 +153,14 @@ export type GrowthGuidance = {
   cadenceStaleCount?: number;
   cadenceRetestRecommendationCount?: number;
   cadenceNextSchedulerAction?: string;
+  /** Optional health / workspace highlights from sweep pipeline JSON. */
+  systemHealthScore?: number;
+  topUrgentWorkspace?: string;
+  topOpportunityWorkspace?: string;
+  operatorActionSummary?: string;
+  leadHandoffBacklogSummary?: string;
+  connectorGapSummary?: string;
+  publishFailureSummary?: string;
   bentleyCriticalExceptionCount?: number;
   bentleyTopEscalationLine?: string;
   bentleyOverdueAutomationSummary?: string;

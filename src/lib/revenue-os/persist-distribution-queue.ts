@@ -33,7 +33,13 @@ export async function persistDraftDistributionQueue(params: PersistDraftDistribu
     const insertBucket = async (items: DistributionPlanItem[], winningSource: string) => {
       for (const item of items) {
         const qid = crypto.randomUUID();
-        const variantId = params.variantIdsByKey?.[item.variantKey] ?? null;
+        const variantKeyForLabel = (item.variantKey?.trim() || item.platform || "variant").slice(0, 128);
+        const hookType = (item.hookType?.trim() || item.contentType || "hook").slice(0, 128);
+        const targetFormat = (item.targetFormat?.trim() || item.contentType).slice(0, 64);
+        const ctaType = (item.ctaType?.trim() || "none").slice(0, 64);
+        const publishPriority = item.publishPriority ?? 0;
+        const mapKey = item.variantKey?.trim() || variantKeyForLabel;
+        const variantId = params.variantIdsByKey?.[mapKey] ?? null;
         await db.insert(bentleyDistributionQueue).values({
           id: qid,
           userId: params.userId,
@@ -43,13 +49,13 @@ export async function persistDraftDistributionQueue(params: PersistDraftDistribu
           experimentVariantId: variantId,
           marketSweepSnapshotId: params.marketSweepSnapshotId,
           contentDeploymentId: null,
-          title: `${item.variantKey}: ${item.hookType}`.slice(0, 512),
+          title: `${variantKeyForLabel}: ${hookType}`.slice(0, 512),
           platform: item.platform.slice(0, 64),
           contentType: item.contentType.slice(0, 64),
           queueStatus: "draft",
           scheduledFor: null,
           publishedAt: null,
-          publishPriority: item.publishPriority,
+          publishPriority,
           winningSignalSource: winningSource.slice(0, 128),
           approvalStatus: "pending",
           publishAttemptCount: 0,
@@ -61,12 +67,12 @@ export async function persistDraftDistributionQueue(params: PersistDraftDistribu
           queueId: qid,
           targetPlatform: item.platform.slice(0, 64),
           targetProfileId: null,
-          targetFormat: item.targetFormat.slice(0, 64),
+          targetFormat,
           payloadJson: {
-            variantKey: item.variantKey,
-            hookType: item.hookType,
+            variantKey: variantKeyForLabel,
+            hookType,
             angle: item.angle,
-            ctaType: item.ctaType,
+            ctaType,
             rationale: item.rationale,
           },
           targetStatus: "draft",

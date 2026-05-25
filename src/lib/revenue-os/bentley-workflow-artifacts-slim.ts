@@ -6,7 +6,7 @@
 import type { ResearchResult } from "@/components/ai-revenue-os/ResearchAssistantSection";
 import type { TrendsResponse } from "@/lib/revenue-os/trends-schema";
 import type { ContentEngineOutput } from "@/lib/revenue-os/content-engine-types";
-import type { CampaignResponse } from "@/lib/revenue-os/campaign-schema";
+import { parseCampaignResponse, type CampaignResponse } from "@/lib/revenue-os/campaign-schema";
 import type { SynthesizePlanResult } from "@/lib/revenue-os/revenue-os-pipeline-actions";
 import type { BentleyContentBundleHandoff } from "@/lib/bentley-social-leads/handoff/contentBundleHandoffTypes";
 import type {
@@ -99,14 +99,12 @@ function slimMarketSweep(m: MarketSweepResult): MarketSweepResult {
       : undefined,
     nextAction: m.nextAction
       ? {
-          action: MAX_STR(m.nextAction.action, 64),
+          action: m.nextAction.action,
           reason: MAX_STR(m.nextAction.reason, 1200),
           priority: m.nextAction.priority,
         }
       : undefined,
-    contentGenerationMode: m.contentGenerationMode
-      ? MAX_STR(m.contentGenerationMode, 64)
-      : undefined,
+    contentGenerationMode: m.contentGenerationMode,
     growthGuidance: m.growthGuidance ? slimGrowthGuidance(m.growthGuidance) : undefined,
     intelligenceDiff: m.intelligenceDiff ? slimIntelligenceDiff(m.intelligenceDiff) : undefined,
     experimentPlan: m.experimentPlan ? slimExperimentPlan(m.experimentPlan) : undefined,
@@ -349,19 +347,38 @@ function slimContent(c: ContentEngineOutput): ContentEngineOutput {
 }
 
 function slimCampaign(c: CampaignResponse): CampaignResponse {
+  const src = c.platformPosts ? c : parseCampaignResponse(c as unknown);
+  const platformPosts = src.platformPosts
+    ? (Object.fromEntries(
+        Object.entries(c.platformPosts).map(([k, slot]) => [
+          k,
+          slot
+            ? {
+                caption: MAX_STR(slot.caption ?? "", 4000),
+                hook: MAX_STR(slot.hook ?? "", 800),
+                cta: MAX_STR(slot.cta ?? "", 2000),
+                promptText: MAX_STR(slot.promptText ?? "", 6000),
+                promptImage: MAX_STR(slot.promptImage ?? "", 6000),
+                promptVideo: MAX_STR(slot.promptVideo ?? "", 6000),
+              }
+            : slot,
+        ])
+      ) as CampaignResponse["platformPosts"])
+    : src.platformPosts;
   return {
-    ...c,
-    offerStatement: MAX_STR(c.offerStatement ?? "", 4000),
-    messagePillars: (c.messagePillars ?? []).slice(0, 12).map((x) => MAX_STR(String(x), 2000)),
-    shortFormHooks: (c.shortFormHooks ?? []).slice(0, 24).map((x) => MAX_STR(String(x), 800)),
-    objectionReplies: (c.objectionReplies ?? []).slice(0, 12).map((x) => MAX_STR(String(x), 2000)),
-    disclaimers: (c.disclaimers ?? []).slice(0, 20).map((x) => MAX_STR(String(x), 2000)),
-    longFormOutlines: (c.longFormOutlines ?? []).slice(0, 6).map((o) => ({
+    ...src,
+    offerStatement: MAX_STR(src.offerStatement ?? "", 4000),
+    messagePillars: (src.messagePillars ?? []).slice(0, 12).map((x) => MAX_STR(String(x), 2000)),
+    shortFormHooks: (src.shortFormHooks ?? []).slice(0, 24).map((x) => MAX_STR(String(x), 800)),
+    objectionReplies: (src.objectionReplies ?? []).slice(0, 12).map((x) => MAX_STR(String(x), 2000)),
+    disclaimers: (src.disclaimers ?? []).slice(0, 20).map((x) => MAX_STR(String(x), 2000)),
+    longFormOutlines: (src.longFormOutlines ?? []).slice(0, 6).map((o) => ({
       ...o,
       title: MAX_STR(o.title ?? "", 400),
       sections: (o.sections ?? []).slice(0, 20).map((x) => MAX_STR(String(x), 2000)),
       cta: MAX_STR(o.cta ?? "", 2000),
     })),
+    platformPosts,
   };
 }
 

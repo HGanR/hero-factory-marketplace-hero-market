@@ -23,6 +23,7 @@ import {
 } from "@/lib/revenue-os/social-studio-unified-readiness";
 import { campaignPosts, campaignAssets, socialAccounts, socialPostPlatformVariants, socialMediaAssets, campaignAuditEvents } from "@/lib/db/schema";
 import { persistPublishOutcomeDeploymentFeedback } from "@/lib/revenue-os/deployment-feedback-db";
+import { parseScheduledPublishMeta } from "@/lib/social/scheduled-publish-meta";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
@@ -309,13 +310,23 @@ export async function promoteFromSocialStudio(
     warnings.push(`Publish requires approval: ${approvalGate.reason}`);
   }
 
+  if (input.postMode === "publish_now") {
+    warnings.push(
+      "Content360 centralized (platform API key) publishing is not available from Social Studio publish-now. Use admin Launch Campaigns with platform schedule, or publish natively via your connected account.",
+    );
+  }
+
   const shouldTryPublish =
     input.postMode === "publish_now" &&
     isOwner &&
     approvalGate.ok &&
     readiness.publishNowReady &&
     Boolean(accountRow) &&
-    !readiness.manualOnlyPlatform;
+    !readiness.manualOnlyPlatform &&
+    !(
+      scheduledPublishMeta &&
+      parseScheduledPublishMeta(scheduledPublishMeta).publishRoute === "content360"
+    );
 
   if (input.postMode === "publish_now" && isOwner && !readiness.publishNowReady) {
     warnings.push("Direct publish is not available — check connection, hosted media, and capabilities. Saved as draft.");

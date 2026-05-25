@@ -26,6 +26,7 @@ import {
 import { loadWorkflowState, subscribeBentleyWorkflowCrossTab } from "@/lib/revenue-os/bentley-workflow";
 import { fetchRevenueOsDeploymentFeedback } from "@/lib/revenue-os/deployment-feedback-client-fetch";
 import { fetchRevenueOsOptimizationMemory } from "@/lib/revenue-os/optimization-memory-client-fetch";
+import type { OptimizationMemoryGenerationSlice } from "@/lib/revenue-os/post-optimization-memory-types";
 import { derivePlatformRoleRouting } from "@/lib/revenue-os/platform-role-routing";
 import { buildBatchCalendarSequencingForWorkflow } from "@/lib/revenue-os/bentley-batch-calendar-sequencing-chat";
 import { buildPublishApprovalGovernanceSummary } from "@/lib/revenue-os/build-publish-approval-governance-summary";
@@ -349,7 +350,19 @@ export function BentleyPublishWorkflowReviewPanel() {
         mediaBrief: wf.artifacts.mediaBriefText ?? undefined,
         launchPlan,
         platformRoleRouting: routing,
-        optimizationMemoryGeneration: mem?.generation ?? null,
+        optimizationMemoryGeneration: mem?.generation
+          ? ({
+              schemaVersion: 1,
+              promptBlock: null,
+              injectedEntryIds: mem.generation.injectedEntryIds,
+              hasEnoughData: mem.generation.hasEnoughData,
+              promptWeightingSummary: mem.generation.promptWeightingSummary,
+              instagramPreferenceHint: mem.generation.instagramPreferenceHint ?? null,
+              measuredPlatformRoleHint: mem.generation.measuredPlatformRoleHint ?? null,
+              platformRoleRoutingHint: mem.generation.platformRoleRoutingHint ?? null,
+              platformRoleRoutingSummary: null,
+            } satisfies OptimizationMemoryGenerationSlice)
+          : null,
         systemSignals,
       });
       const schedulePlan = buildSequenceSchedulePlan({
@@ -518,7 +531,9 @@ export function BentleyPublishWorkflowReviewPanel() {
 
       if (debug) {
         try {
-          const narrow = narrowPublishWorkflowDebugAuditFilters(rev.rows);
+          const narrow = narrowPublishWorkflowDebugAuditFilters(
+            rev.rows.map((row) => ({ id: row.postId, platform: row.platform }))
+          );
           const auditUrl = buildPublishWorkflowDebugApprovalAuditUrl({
             limit: 5,
             postId: narrow.postId,
@@ -668,9 +683,8 @@ export function BentleyPublishWorkflowReviewPanel() {
         error?: string;
         staleCause?: string;
         approvalDecision?: { outcome?: string; staleCause?: string };
-        error?: string;
       };
-      const stale = isStaleReviewConflictResponse(r.status, j);
+      const stale = isStaleReviewConflictResponse(r.status, j as unknown);
 
       if (debug) {
         if (r.ok) {

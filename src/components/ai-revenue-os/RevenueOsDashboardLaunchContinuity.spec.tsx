@@ -12,6 +12,7 @@ import { writeBentleySession } from "@/lib/revenue-os/bentley-storage-scope";
 import {
   BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY,
   REVENUE_OS_BENTLEY_APPLIED_FORM_KEY,
+  REVENUE_OS_DASHBOARD_USER_TOUCHED_KEY,
   bentleySnapshotFromDashboardForm,
   buildBentleyDashboardPayload,
   serializeBentleyDashboardHandoff,
@@ -386,5 +387,48 @@ describe("Revenue OS dashboard launch continuity (shared state + workflow sync)"
     });
 
     expect(campaignGen.current).toBe(true);
+  });
+
+  it("applies Bentley handoff even when dashboard-user-touched is stale (explicit open-dashboard wins)", async () => {
+    const formSeed = dashboardFormFixture();
+    const snap = bentleySnapshotFromDashboardForm(formSeed);
+    snap.businessName = "From Bentley Handoff Only";
+    writeBentleySession(REVENUE_OS_DASHBOARD_USER_TOUCHED_KEY, "1");
+    writeBentleySession(
+      BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY,
+      serializeBentleyDashboardHandoff({
+        payload: buildBentleyDashboardPayload(snap, { autoRunFullAnalysis: false }),
+      })
+    );
+
+    function Tree() {
+      const [form, setForm] = useState<RevenueOsDashboardFormValues>(emptyFormState());
+      const formRef = useRef(form);
+      formRef.current = form;
+      return (
+        <AiRevenueOsSharedStateProvider>
+          <BentleyDashboardBridge
+            setForm={setForm}
+            getDashboardFormForMerge={() => formRef.current}
+            onHydratedFromBentley={() => {}}
+            runAnalysisWithForm={async () => {}}
+          />
+          <span data-testid="biz-name">{form.businessName}</span>
+        </AiRevenueOsSharedStateProvider>
+      );
+    }
+
+    await act(async () => {
+      root.render(<Tree />);
+    });
+    await act(async () => {
+      await new Promise<void>((r) => {
+        window.setTimeout(r, 50);
+      });
+    });
+
+    const shown = container.querySelector("[data-testid=\"biz-name\"]")?.textContent ?? "";
+    expect(shown).toBe("From Bentley Handoff Only");
+    expect(sessionStorage.getItem(REVENUE_OS_DASHBOARD_USER_TOUCHED_KEY)).not.toBe("1");
   });
 });

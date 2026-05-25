@@ -11,7 +11,7 @@ import { getCampaignReviewerAccess } from "@/lib/revenue-os/get-campaign-reviewe
 import { applyCampaignPostPublishApprovalWrite } from "@/lib/revenue-os/apply-campaign-post-publish-approval-write";
 import type { PublishApprovalNotifyCtx } from "@/lib/revenue-os/apply-campaign-post-publish-approval-write";
 import { resolvePublishApprovalActor } from "@/lib/revenue-os/resolve-publish-approval-actor";
-import { mergeScheduledPublishMeta, parseScheduledPublishMeta } from "@/lib/social/scheduled-publish-meta";
+import { mergeRawScheduledPublishMeta, mergeScheduledPublishMeta, parseScheduledPublishMeta, stripServerWrittenScheduledPublishMetaForUserMerge } from "@/lib/social/scheduled-publish-meta";
 import { type PublishApprovalWriteOutcome } from "@/lib/revenue-os/publish-approval-patch-guard";
 import {
   createCampaignPublishApprovalChainAdvancedNotificationEvent,
@@ -21,14 +21,28 @@ import {
 import type { ResolvedPublishApprovalActor } from "@/lib/revenue-os/resolve-publish-approval-actor";
 
 import { enforceRevenueOsApiAccess } from "@/lib/revenue-os-api-access";
+
+const BentleyDraftPatchSchema = z
+  .object({
+    hook: z.string().optional(),
+    cta: z.string().optional(),
+    promptText: z.string().optional(),
+    promptImage: z.string().optional(),
+    promptVideo: z.string().optional(),
+  })
+  .partial();
+
 const PatchPostSchema = z.object({
   caption: z.string().optional(),
   hashtags: z.string().optional().nullable(),
   linkUrl: z.string().url().optional().or(z.literal("")).nullable(),
   utmParams: z.record(z.string(), z.string()).optional().nullable(),
   assetId: z.string().min(1).max(36).optional().nullable(),
+  bentleyDraftJson: BentleyDraftPatchSchema.nullable().optional(),
   /** When set, updates publish scheduling (DRAFT/SCHEDULED). Omit to leave unchanged. */
   scheduledAt: z.string().datetime().optional().nullable(),
+  /** When set, merges into `scheduled_publish_meta` (preserves unknown keys). */
+  publishRoute: z.enum(["native", "content360", "manual", "export_only"]).optional(),
   /** Audit only — defaults to manual_schedule for backwards compatibility. */
   scheduledPublishSourceHint: z.enum(["manual_schedule", "bentley_sequence_apply"]).optional(),
   /** Merged into utmParams — publish approval gate (additive). */
@@ -128,6 +142,18 @@ export async function PATCH(
               }),
             }
         : {};
+
+    const publishRoutePatch: { scheduledPublishMeta?: Record<string, unknown> } = {};
+    if (parsed.publishRoute !== undefined && parsed.scheduledAt !== null) {
+      const basis =
+        schedulePatch && "scheduledPublishMeta" in schedulePatch && schedulePatch.scheduledPublishMeta != null
+          ? schedulePatch.scheduledPublishMeta
+          : post.scheduledPublishMeta;
+      const merged = mergeRawScheduledPublishMeta(basis, {
+        publishRoute: parsed.publishRoute,
+      });
+      publishRoutePatch.scheduledPublishMeta = stripServerWrittenScheduledPublishMetaForUserMerge(merged);
+    }
 
     const prevUtm =
       post.utmParams && typeof post.utmParams === "object" && !Array.isArray(post.utmParams)
@@ -260,10 +286,26 @@ export async function PATCH(
       });
     }
 
+    let mergedBentleyDraft: Record<string, unknown> | null | undefined;
+    if (parsed.bentleyDraftJson !== undefined) {
+      if (parsed.bentleyDraftJson === null) {
+        mergedBentleyDraft = null;
+      } else {
+        const prev =
+          post.bentleyDraftJson &&
+          typeof post.bentleyDraftJson === "object" &&
+          !Array.isArray(post.bentleyDraftJson)
+            ? { ...(post.bentleyDraftJson as Record<string, unknown>) }
+            : {};
+        mergedBentleyDraft = { ...prev, ...parsed.bentleyDraftJson };
+      }
+    }
+
     await db
       .update(campaignPosts)
       .set({
         ...(parsed.caption !== undefined ? { caption: parsed.caption } : {}),
+        ...(mergedBentleyDraft !== undefined ? { bentleyDraftJson: mergedBentleyDraft } : {}),
         ...(parsed.hashtags !== undefined
           ? { hashtags: parsed.hashtags?.trim() || null }
           : {}),
@@ -271,6 +313,7 @@ export async function PATCH(
         ...(mergedUtm !== undefined ? { utmParams: mergedUtm } : {}),
         ...(parsed.assetId !== undefined ? { assetId: parsed.assetId } : {}),
         ...schedulePatch,
+        ...publishRoutePatch,
         updatedAt: new Date(),
       })
       .where(eq(campaignPosts.id, postId));

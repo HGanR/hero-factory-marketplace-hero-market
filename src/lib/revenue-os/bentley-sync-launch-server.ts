@@ -7,6 +7,7 @@ import type { MySql2Database } from "drizzle-orm/mysql2";
 import { eq, and } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 import type { BentleyGenerationPayload } from "@/lib/revenue-os/ensure-campaign-from-bentley";
+import { parseCampaignResponse } from "@/lib/revenue-os/campaign-schema";
 import { readBentleyAutoPostImagesEnv } from "@/lib/revenue-os/bentley-auto-post-image-env";
 import {
   buildBentleyPostImagePrompt,
@@ -16,8 +17,9 @@ import { maybeUpgradeBentleyCampaignAssetToDurableStorage } from "@/lib/revenue-
 import { readScheduledPublishRequireApprovalEnv } from "@/lib/revenue-os/publish-approval-gate";
 import { BENTLEY_UTM_APPROVAL_STATUS } from "@/lib/revenue-os/publish-approval-utm";
 import {
+  buildBentleyDraftForPlatform,
   buildBentleyUnitKey,
-  buildCaptionForSlot,
+  buildCaptionForPlatform,
   collectBentleyUnitKeysFromPosts,
   computeScheduledAt,
   resolveOauthPlatformsForBentleyLaunch,
@@ -25,6 +27,7 @@ import {
   BENTLEY_UTM_OPTIMIZATION_RUN_ID,
   type ScheduleStrategy,
 } from "@/lib/revenue-os/bentley-sync-launch-plan";
+import { mergeRawScheduledPublishMeta } from "@/lib/social/scheduled-publish-meta";
 
 export type SyncBentleyLaunchPostCreationMode = "scheduled" | "draft_unscheduled";
 
@@ -43,6 +46,11 @@ export type SyncBentleyLaunchInput = {
   postCreationMode?: SyncBentleyLaunchPostCreationMode;
   /** Stored in UTM for lineage; does not change `bentley_unit_key` (already unique per campaign id). */
   optimizationRunId?: string | null;
+  /**
+   * When true (only set from admin-gated sync-launch), scheduled posts use centralized
+   * `CONTENT360_API_KEY` at worker time (`content360PlatformScheduled` + trusted source meta).
+   */
+  content360PlatformSchedule?: boolean;
 };
 
 export type SyncBentleyLaunchResult = {
@@ -58,6 +66,25 @@ function parseGeneration(raw: unknown): BentleyGenerationPayload | null {
   const o = raw as Record<string, unknown>;
   if (!o.campaign || typeof o.campaign !== "object") return null;
   return raw as BentleyGenerationPayload;
+}
+
+function bentleySyncLaunchScheduledPublishMeta(
+  input: SyncBentleyLaunchInput,
+  slotPlatform: string,
+  isDraftVariant: boolean
+): Record<string, unknown> {
+  if (isDraftVariant) {
+    return { scheduledPublishSource: "bentley_optimization_variant" as const };
+  }
+  if (input.content360PlatformSchedule) {
+    return {
+      scheduledPublishSource: "bentley_sync_launch" as const,
+      publishRoute: "content360" as const,
+      content360PlatformScheduled: true,
+      targetPlatform: slotPlatform,
+    };
+  }
+  return { scheduledPublishSource: "bentley_sync_launch" as const };
 }
 
 export async function syncBentleyCampaignPostsAndSchedule(
@@ -81,6 +108,8 @@ export async function syncBentleyCampaignPostsAndSchedule(
   if (!gen) {
     throw new Error("Campaign has no Bentley generation payload — run campaign persistence first");
   }
+
+  const campaign = parseCampaignResponse(gen.campaign as unknown);
 
   const requireApproval =
     input.requireApprovalOverride !== undefined
@@ -111,7 +140,8 @@ export async function syncBentleyCampaignPostsAndSchedule(
     platform,
     slotIndex,
     unitKey: buildBentleyUnitKey(input.campaignId, platform, 0),
-    caption: buildCaptionForSlot(gen.campaign, slotIndex),
+    caption: buildCaptionForPlatform(platform, campaign),
+    bentleyDraftJson: buildBentleyDraftForPlatform(platform, campaign),
   }));
 
   // Dedupe: same platform should not duplicate unit keys — slot 0 only per platform
@@ -156,13 +186,23 @@ export async function syncBentleyCampaignPostsAndSchedule(
         const needsSchedule =
           creationMode === "scheduled" && row.status === "DRAFT" && row.scheduledAt == null;
         if (needsSchedule && scheduledAt) {
+          const nextMeta = mergeRawScheduledPublishMeta(row.scheduledPublishMeta, {
+            scheduledPublishSource: "bentley_sync_launch",
+            ...(input.content360PlatformSchedule
+              ? {
+                  publishRoute: "content360",
+                  content360PlatformScheduled: true,
+                  targetPlatform: String(row.platform ?? slot.platform),
+                }
+              : {}),
+          });
           await db
             .update(schema.campaignPosts)
             .set({
               scheduledAt,
               status: "SCHEDULED",
               utmParams: { ...((row.utmParams as Record<string, string>) ?? {}), ...utm },
-              scheduledPublishMeta: { scheduledPublishSource: "bentley_sync_launch" as const },
+              scheduledPublishMeta: nextMeta,
               updatedAt: new Date(),
             })
             .where(eq(schema.campaignPosts.id, row.id));
@@ -218,10 +258,9 @@ export async function syncBentleyCampaignPostsAndSchedule(
       scheduledAt,
       status: isDraftVariant ? "DRAFT" : "SCHEDULED",
       caption: slot.caption,
+      bentleyDraftJson: slot.bentleyDraftJson,
       utmParams: utm,
-      scheduledPublishMeta: isDraftVariant
-        ? { scheduledPublishSource: "bentley_optimization_variant" as const }
-        : { scheduledPublishSource: "bentley_sync_launch" },
+      scheduledPublishMeta: bentleySyncLaunchScheduledPublishMeta(input, slot.platform, isDraftVariant),
     });
     postIds.push(postId);
     created += 1;

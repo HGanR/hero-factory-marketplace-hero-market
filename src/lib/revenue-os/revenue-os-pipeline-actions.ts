@@ -284,11 +284,23 @@ export async function upgradeBentleyCampaignAssetsApi(input: { campaignId: strin
   };
 }
 
-export async function syncBentleyLaunchApi(input: {
-  campaignId: string;
-  scheduleStrategy: "immediate" | "staggered";
-  staggerMinutes?: number;
-}): Promise<{
+export type SyncBentleyLaunchApiInput =
+  | {
+      campaignId: string;
+      scheduleStrategy: "immediate" | "staggered";
+      staggerMinutes?: number;
+      content360PlatformSchedule?: false | undefined;
+    }
+  | {
+      campaignId: string;
+      /** Required with `content360PlatformSchedule: true` (also enforced by Zod on the server). */
+      scheduleStrategy: "staggered";
+      staggerMinutes?: number;
+      content360PlatformSchedule: true;
+      publishRoute: "content360";
+    };
+
+export async function syncBentleyLaunchApi(input: SyncBentleyLaunchApiInput): Promise<{
   ok: boolean;
   created: number;
   skipped: number;
@@ -296,15 +308,26 @@ export async function syncBentleyLaunchApi(input: {
   postIds: string[];
   requireApproval: boolean;
 }> {
+  const payload: Record<string, unknown> = {
+    campaignId: input.campaignId,
+    scheduleStrategy: input.scheduleStrategy,
+  };
+  if (input.staggerMinutes != null) {
+    payload.staggerMinutes = input.staggerMinutes;
+  }
+  if (
+    "content360PlatformSchedule" in input &&
+    input.content360PlatformSchedule === true
+  ) {
+    payload.content360PlatformSchedule = true;
+    payload.publishRoute = "content360";
+  }
+
   const res = await fetch("/api/revenue-os/bentley/sync-launch", {
     method: "POST",
     credentials: "include",
     headers: JSON_HEADERS,
-    body: JSON.stringify({
-      campaignId: input.campaignId,
-      scheduleStrategy: input.scheduleStrategy,
-      staggerMinutes: input.staggerMinutes,
-    }),
+    body: JSON.stringify(payload),
   });
   const data = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
