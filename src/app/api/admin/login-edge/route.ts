@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sessionCookieBase } from "@/lib/auth-cookie-options";
+import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
 import { signNpcAdminSessionTokens } from "@/lib/admin/admin-session-jwt";
 
 export const runtime = "edge";
@@ -67,13 +67,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const host = cookieHostFromRequest(request);
     response.cookies.set("admin-token", adminToken, {
-      ...sessionCookieBase(),
+      ...sessionCookieBase(host),
       maxAge: 60 * 60 * 24,
     });
 
     response.cookies.set("auth-token", userToken, {
-      ...sessionCookieBase(),
+      ...sessionCookieBase(host),
       maxAge: 60 * 60 * 24 * 7,
     });
 

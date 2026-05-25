@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
+import { getAdminApiDecoded } from "@/lib/admin/admin-api-request-auth";
 import { getDb } from "@/lib/db";
 import { marketplaceUsers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get("admin-token")?.value;
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const decoded = verifyToken(token);
-    if (!decoded?.isAdmin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!getAdminApiDecoded(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { userId } = await request.json();
     if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });

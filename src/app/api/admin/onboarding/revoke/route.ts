@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { entityOnboardings, adminLogs } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { verifyToken } from "@/lib/auth";
+import { getAdminApiDecoded } from "@/lib/admin/admin-api-request-auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get("admin-token")?.value;
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded?.isAdmin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!getAdminApiDecoded(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
     const onboardingId = Number(body?.onboardingId);

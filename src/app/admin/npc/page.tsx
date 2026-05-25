@@ -53,7 +53,7 @@ interface PersonalityState {
 interface NPCProfile {
   id: string;
   name: string;
-  role: "secretary" | "avatar" | "guide" | "voice_agent";
+  role: "secretary" | "avatar" | "guide" | "voice_agent" | "executive_admin";
   title?: string | null;
   avatarEmoji: string;
   greeting?: string | null;
@@ -110,6 +110,11 @@ const ROLE_INFO: Record<string, { emoji: string; description: string; defaultEmo
     emoji: "📞",
     description: "Answers phone calls, assignable to consultant websites. Twilio/SMS integration.",
     defaultEmoji: "📞",
+  },
+  executive_admin: {
+    emoji: "🎛️",
+    description: "Executive administration desk — analytics, CRM, cross-agent intelligence; not a generic receptionist.",
+    defaultEmoji: "🎛️",
   },
 };
 
