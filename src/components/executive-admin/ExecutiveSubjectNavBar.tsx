@@ -3,7 +3,7 @@
 import {
   BarChart3,
   Bot,
-  Brain,
+  Globe,
   LayoutDashboard,
   ListTodo,
   Mail,
@@ -31,8 +31,7 @@ const ICONS: Record<ExecutiveSubjectId, typeof LayoutDashboard> = {
   trust_jarva: Shield,
   revenue_os: TrendingUp,
   smart_trust: Shield,
-  troo_town: Sparkles,
-  neuro: Brain,
+  troo_town: Globe,
   settings: Settings,
   new_command: Sparkles,
 };
@@ -45,7 +44,7 @@ type Props = {
 export function ExecutiveSubjectNavBar({ activeSubjectId, onSelectSubject }: Props) {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-30 border-t border-[#00e5ff]/22 bg-[#030a12]/96 shadow-[0_-8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+      className="fixed bottom-0 left-0 right-0 z-30 border-t border-[#00A3FF]/22 bg-[#030a12]/96 shadow-[0_-8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl"
       aria-label="Executive desk subjects"
     >
       <div className="mx-auto max-w-[1920px] px-2 py-2 sm:px-4">
@@ -63,13 +62,13 @@ export function ExecutiveSubjectNavBar({ activeSubjectId, onSelectSubject }: Pro
                 onClick={() => onSelectSubject(subject)}
                 className={`group flex min-w-[4.5rem] shrink-0 flex-col items-center rounded-xl border px-2 py-2 transition sm:min-w-[5.5rem] sm:px-3 ${
                   active
-                    ? "border-[#00e5ff]/50 bg-[#00e5ff]/12 shadow-[0_0_20px_rgba(0,229,255,0.15)]"
-                    : "border-transparent bg-transparent hover:border-[#00e5ff]/20 hover:bg-[#050b13]/80"
+                    ? "border-[#00A3FF]/50 bg-[#00A3FF]/12 shadow-[0_0_20px_rgba(0,163,255,0.15)]"
+                    : "border-transparent bg-transparent hover:border-[#00A3FF]/20 hover:bg-[#000814]/80"
                 }`}
               >
-                <span className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-[#00e5ff]/25 bg-[#02070d]/90">
+                <span className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-[#00A3FF]/25 bg-[#00050A]/90">
                   <Icon
-                    className={`h-4 w-4 ${active ? "text-[#00e5ff]" : "text-slate-400 group-hover:text-[#00b7ff]"}`}
+                    className={`h-4 w-4 ${active ? "text-[#00A3FF]" : "text-slate-400 group-hover:text-[#00A3FF]"}`}
                     aria-hidden
                   />
                   {subject.taskBadge != null && subject.taskBadge > 0 ? (
@@ -80,7 +79,7 @@ export function ExecutiveSubjectNavBar({ activeSubjectId, onSelectSubject }: Pro
                 </span>
                 <span
                   className={`mt-1.5 max-w-[5.5rem] truncate text-center text-[8px] font-bold uppercase tracking-[0.12em] sm:text-[9px] ${
-                    active ? "text-[#00e5ff]" : "text-slate-500 group-hover:text-slate-300"
+                    active ? "text-[#00A3FF]" : "text-slate-500 group-hover:text-slate-300"
                   }`}
                 >
                   {subject.shortLabel}
@@ -93,7 +92,7 @@ export function ExecutiveSubjectNavBar({ activeSubjectId, onSelectSubject }: Pro
                 {primarySlot ? (
                   <span
                     className={`max-w-[5.5rem] truncate text-center text-[7px] uppercase tracking-[0.16em] ${
-                      active ? "text-[#00b7ff]/80" : "text-slate-600"
+                      active ? "text-[#00A3FF]/80" : "text-slate-600"
                     }`}
                   >
                     {primarySlot.domainLabel}

@@ -2,9 +2,10 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import type { ExecutivePresenceSnapshot } from "@/lib/executive-agent/executive-presence-types";
+import { ExecutiveCollapsibleTile } from "./ExecutiveCollapsibleTile";
 
 const URGENCY_STYLE: Record<string, string> = {
-  routine: "border-[#00e5ff]/25 text-[#00e5ff]/90",
+  routine: "border-[#00A3FF]/25 text-[#00A3FF]/90",
   elevated: "border-amber-400/35 text-amber-100",
   urgent: "border-orange-400/40 text-orange-100",
   critical: "border-rose-500/45 text-rose-100",
@@ -46,7 +47,7 @@ export function ExecutivePresencePanel({
 }: Props) {
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[#00e5ff]/15 bg-[#050b13]/70 p-4 text-xs text-slate-500">
+      <div className="rounded-2xl border border-[#00A3FF]/15 bg-[#000814]/70 p-4 text-xs text-slate-500">
         Loading executive presence…
       </div>
     );
@@ -67,7 +68,7 @@ export function ExecutivePresencePanel({
     <div className="space-y-3">
       <motion.div
         layout
-        className={`rounded-2xl border bg-[#050b13]/80 p-4 backdrop-blur-md ${urgencyClass}`}
+        className={`rounded-2xl border bg-[#000814]/80 p-4 backdrop-blur-md ${urgencyClass}`}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
@@ -116,11 +117,11 @@ export function ExecutivePresencePanel({
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, height: 0 }}
-            className="rounded-xl border border-[#00e5ff]/20 bg-slate-900/55 p-3"
+            className="rounded-xl border border-[#00A3FF]/20 bg-[#000814]/55 p-3"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#00e5ff]/70">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#00A3FF]/70">
                   {item.kind.replace(/_/g, " ")} · {item.severity}
                 </p>
                 <p className="mt-0.5 text-xs font-medium text-slate-100">{item.title}</p>
@@ -142,32 +143,34 @@ export function ExecutivePresencePanel({
       </AnimatePresence>
 
       {presence.activeEntities.length > 0 ? (
-        <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Active operational entities
-          </p>
+        <ExecutiveCollapsibleTile
+          title="Active operational entities"
+          subtitle={`${presence.activeEntities.length} entity${presence.activeEntities.length === 1 ? "" : "ies"} on desk`}
+          defaultCollapsed
+        >
           <ul className="flex flex-wrap gap-2">
             {presence.activeEntities.map((e) => (
               <li
                 key={e.id}
-                className="rounded-full border border-slate-600/50 px-2 py-1 text-[10px] text-slate-300"
+                className="rounded-full border border-[#00A3FF]/15 bg-[#00050A]/80 px-2 py-1 text-[10px] text-slate-300"
               >
                 <span className="font-medium text-white">{e.label}</span>
                 <span className="ml-1 opacity-60">· {e.status}</span>
               </li>
             ))}
-            <li className="rounded-full border border-dashed border-slate-600/40 px-2 py-1 text-[10px] text-slate-500">
+            <li className="rounded-full border border-dashed border-[#00A3FF]/20 px-2 py-1 text-[10px] text-slate-500">
               Jarva · TRUST desk
             </li>
           </ul>
-        </div>
+        </ExecutiveCollapsibleTile>
       ) : null}
 
       {presence.timeline.length > 0 ? (
-        <div className="rounded-xl border border-[#00e5ff]/12 bg-[#02070d]/60 p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00e5ff]/55">
-            Session timeline
-          </p>
+        <ExecutiveCollapsibleTile
+          title="Session timeline"
+          subtitle={`${presence.timeline.length} recent signal${presence.timeline.length === 1 ? "" : "s"}`}
+          defaultCollapsed
+        >
           <ul className="max-h-36 space-y-1 overflow-y-auto text-[11px]">
             {presence.timeline.map((t) => (
               <li
@@ -179,9 +182,104 @@ export function ExecutivePresencePanel({
               </li>
             ))}
           </ul>
-        </div>
+        </ExecutiveCollapsibleTile>
       ) : null}
     </div>
+  );
+}
+
+/** Collapsible sidebar tiles — posture, entities, timeline (matches other right-stack dropdowns). */
+export function ExecutivePresenceSidebarTiles({
+  presence,
+  loading,
+  error,
+}: Pick<Props, "presence" | "loading" | "error">) {
+  if (loading) {
+    return (
+      <ExecutiveCollapsibleTile title="Executive posture" subtitle="Loading…" defaultCollapsed>
+        <p className="text-xs text-slate-500">Loading executive presence…</p>
+      </ExecutiveCollapsibleTile>
+    );
+  }
+  if (error) {
+    return (
+      <ExecutiveCollapsibleTile title="Executive posture" subtitle="Unavailable" defaultCollapsed>
+        <p className="text-xs text-amber-100/90">{error}</p>
+      </ExecutiveCollapsibleTile>
+    );
+  }
+  if (!presence) return null;
+
+  const tone = TONE_LABEL[presence.toneMode] ?? presence.toneMode;
+  const urgencyClass = URGENCY_STYLE[presence.urgency] ?? URGENCY_STYLE.routine;
+
+  return (
+    <>
+      <ExecutiveCollapsibleTile
+        title="Executive posture"
+        subtitle={`Chief of Staff · ${tone}`}
+        defaultCollapsed
+        className={urgencyClass}
+      >
+        <div className="space-y-2 text-xs">
+          <p className="font-medium text-white">{presence.postureHeadline}</p>
+          <p className="text-slate-400">{presence.postureDetail.slice(0, 280)}</p>
+          <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-wide">
+            <span className="rounded-full border border-current/30 px-2 py-0.5">{presence.urgency}</span>
+            <span className="text-violet-300/80">{ORB_LABEL[presence.orbState] ?? presence.orbState}</span>
+            <span className="capitalize text-slate-500">{presence.emotion}</span>
+          </div>
+          {presence.activeIncidents.length > 0 ? (
+            <p className="text-[11px] text-rose-200/90">Active incident: {presence.activeIncidents[0]}</p>
+          ) : null}
+          {presence.topRecommendedAction ? (
+            <p className="text-[11px] text-emerald-200/90">
+              Top action: <span className="text-white">{presence.topRecommendedAction}</span>
+            </p>
+          ) : null}
+        </div>
+      </ExecutiveCollapsibleTile>
+
+      {presence.activeEntities.length > 0 ? (
+        <ExecutiveCollapsibleTile
+          title="Active operational entities"
+          subtitle={`${presence.activeEntities.length} entity${presence.activeEntities.length === 1 ? "" : "ies"} on desk`}
+          defaultCollapsed
+        >
+          <ul className="flex flex-wrap gap-2">
+            {presence.activeEntities.map((e) => (
+              <li
+                key={e.id}
+                className="rounded-full border border-[#00A3FF]/15 bg-[#00050A]/80 px-2 py-1 text-[10px] text-slate-300"
+              >
+                <span className="font-medium text-white">{e.label}</span>
+                <span className="ml-1 opacity-60">· {e.status}</span>
+              </li>
+            ))}
+          </ul>
+        </ExecutiveCollapsibleTile>
+      ) : null}
+
+      {presence.timeline.length > 0 ? (
+        <ExecutiveCollapsibleTile
+          title="Session timeline"
+          subtitle={`${presence.timeline.length} recent signal${presence.timeline.length === 1 ? "" : "s"}`}
+          defaultCollapsed
+        >
+          <ul className="max-h-36 space-y-1 overflow-y-auto text-[11px]">
+            {presence.timeline.map((t) => (
+              <li
+                key={t.id}
+                className={`border-b border-slate-800/80 py-1 ${t.deltaSinceLastSession ? "text-slate-200" : "text-slate-500"}`}
+              >
+                <span className="text-[9px] uppercase tracking-wide text-violet-400/70">{t.category}</span>
+                <span className="ml-2">{t.summary}</span>
+              </li>
+            ))}
+          </ul>
+        </ExecutiveCollapsibleTile>
+      ) : null}
+    </>
   );
 }
 

@@ -9,6 +9,8 @@ import { ExecutiveInterruptionPanel } from "./ExecutiveInterruptionPanel";
 import { ExecutiveCommandPromptSelector } from "./ExecutiveCommandPromptSelector";
 import { ExecutiveSkipperCommandStage } from "./ExecutiveSkipperCommandStage";
 import { ExecutiveCommandHudContent } from "./ExecutiveCommandHudContent";
+import { ExecutiveBentleyCampaignProvider } from "./ExecutiveBentleyCampaignProvider";
+import { tryExecutiveBentleyVoiceBridge } from "@/lib/revenue-os/executive-bentley-voice-bridge";
 import type { ExecutiveOrbCanvasProps } from "./ExecutiveOrbCanvas";
 import type { ExecutiveVoiceDiagnostics } from "./VoiceCommandDiagnosticsPanel";
 import {
@@ -60,6 +62,10 @@ import {
   type ExecutiveCommandPromptId,
 } from "@/lib/executive-agent/executive-command-prompts";
 import { executiveInboxUploadErrorMessage } from "@/lib/executive-inbox/executive-inbox-upload-errors";
+import {
+  normalizeExecutiveInboxUploadFile,
+  pickExecutiveInboxMediaRecorderMimeType,
+} from "@/lib/executive-inbox/executive-inbox-upload-mime";
 import { useExecutiveCinematicPresence } from "@/lib/executive-agent/executive-cinematic-presence";
 import {
   getExecutiveAudioPresence,
@@ -423,6 +429,7 @@ export function ExecutiveAgentDashboard() {
   const [activeSubjectId, setActiveSubjectId] = useState<ExecutiveSubjectId>("command_center");
   const [analyticsFocusSeq, setAnalyticsFocusSeq] = useState(0);
   const [activeCommandPromptId, setActiveCommandPromptId] = useState<ExecutiveCommandPromptId | null>(null);
+  const [bentleyCampaignModeActive, setBentleyCampaignModeActive] = useState(false);
   const [hudSummary, setHudSummary] = useState<string | null>(null);
   const [workspaceOrderId, setWorkspaceOrderId] = useState("");
   const [subjectSkipperContext, setSubjectSkipperContext] = useState<string | null>(null);
@@ -566,9 +573,8 @@ export function ExecutiveAgentDashboard() {
   };
   const [inboxPendingAttachments, setInboxPendingAttachments] = useState<InboxPendingAttachment[]>([]);
   const [inboxUploadError, setInboxUploadError] = useState<string | null>(null);
+  const [inboxUploadBusy, setInboxUploadBusy] = useState(false);
   const [inboxRecording, setInboxRecording] = useState(false);
-  const inboxFileInputRef = useRef<HTMLInputElement | null>(null);
-  const inboxZipInputRef = useRef<HTMLInputElement | null>(null);
   const inboxMrRef = useRef<MediaRecorder | null>(null);
   const inboxMrChunksRef = useRef<BlobPart[]>([]);
   const inboxMrStreamRef = useRef<MediaStream | null>(null);
@@ -1319,19 +1325,29 @@ export function ExecutiveAgentDashboard() {
   const uploadInboxFileFromInput = useCallback(
     async (file: File) => {
       setInboxUploadError(null);
-      const form = new FormData();
-      form.append("file", file);
-      const r = await fetch("/api/admin/executive-agent/inbox/upload", {
-        method: "POST",
-        body: form,
-        credentials: "include",
-      });
-      const j = (await r.json().catch(() => ({}))) as { attachment?: InboxPendingAttachment; error?: string };
-      if (r.ok && j.attachment) {
-        appendInboxUploaded(j.attachment);
-        return;
+      setInboxUploadBusy(true);
+      try {
+        const normalized = normalizeExecutiveInboxUploadFile(file);
+        const form = new FormData();
+        form.append("file", normalized);
+        const r = await fetch("/api/admin/executive-agent/inbox/upload", {
+          method: "POST",
+          body: form,
+          credentials: "include",
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          attachment?: InboxPendingAttachment;
+          error?: string;
+          message?: string;
+        };
+        if (r.ok && j.attachment) {
+          appendInboxUploaded(j.attachment);
+          return;
+        }
+        setInboxUploadError(executiveInboxUploadErrorMessage(j.error, j.message));
+      } finally {
+        setInboxUploadBusy(false);
       }
-      setInboxUploadError(executiveInboxUploadErrorMessage(j.error));
     },
     [appendInboxUploaded],
   );
@@ -1347,7 +1363,7 @@ export function ExecutiveAgentDashboard() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       inboxMrStreamRef.current = stream;
       inboxMrChunksRef.current = [];
-      const mime = pickMediaRecorderMimeType();
+      const mime = pickExecutiveInboxMediaRecorderMimeType();
       const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       inboxMrRef.current = mr;
       mr.ondataavailable = (ev) => {
@@ -1367,13 +1383,22 @@ export function ExecutiveAgentDashboard() {
           body: form,
           credentials: "include",
         });
-        const j = (await r.json().catch(() => ({}))) as { attachment?: InboxPendingAttachment };
-        if (r.ok && j.attachment) appendInboxUploaded(j.attachment);
+        const j = (await r.json().catch(() => ({}))) as {
+          attachment?: InboxPendingAttachment;
+          error?: string;
+          message?: string;
+        };
+        if (r.ok && j.attachment) {
+          appendInboxUploaded(j.attachment);
+        } else {
+          setInboxUploadError(executiveInboxUploadErrorMessage(j.error, j.message));
+        }
       };
       mr.start(250);
       setInboxRecording(true);
     } catch {
       setInboxRecording(false);
+      setInboxUploadError("Microphone permission is required to record a voice note.");
     }
   }, [appendInboxUploaded, inboxPendingAttachments.length, inboxRecording]);
 
@@ -1802,6 +1827,31 @@ export function ExecutiveAgentDashboard() {
       });
       const orchStarted = performance.now();
       try {
+        const bentleyLocal = tryExecutiveBentleyVoiceBridge(transcriptText);
+        if (bentleyLocal.handled) {
+          setActiveCommandPromptId("bentley_campaign");
+          setBentleyCampaignModeActive(true);
+          const answer = bentleyLocal.answer;
+          if (bentleyLocal.hudSummary) setHudSummary(bentleyLocal.hudSummary);
+          setTranscript(
+            (prev) => `${prev}\nExecutive: ${answer.slice(0, 800)}${answer.length > 800 ? "…" : ""}`,
+          );
+          mergeVoiceDiag({
+            orchestratorMs: Math.round(performance.now() - orchStarted),
+            lastResponse: answer,
+            voiceShortCircuit: "operational_query",
+          });
+          const speak = await speakExecutiveAnswer(answer, voiceSession?.clientConfig?.locale);
+          mergeVoiceDiag({
+            voiceProvider: speak.path,
+            ttsMs: speak.ms,
+            ...(speak.error ? { lastError: speak.error } : {}),
+          });
+          setActivityFeed((prev) => [`Voice — Bentley campaign intake`, ...prev].slice(0, 24));
+          setBusy(null);
+          return;
+        }
+
         const r = await fetch("/api/admin/executive-agent/voice/turn", {
           method: "POST",
           credentials: "include",
@@ -2502,10 +2552,13 @@ export function ExecutiveAgentDashboard() {
       setDataPreset("ALL");
       setActiveCommandPromptId("analytics");
       setAnalyticsFocusSeq((n) => n + 1);
+    } else if (subject.id === "revenue_os") {
+      setDataPreset("ALL");
+      setActiveCommandPromptId("bentley_campaign");
+      setBentleyCampaignModeActive(true);
     } else if (subject.id === "ai_agents") setDataPreset("ALL");
     else if (subject.id === "crm_intelligence" || subject.id === "trust_jarva") setDataPreset("EXECUTIVE_ADMIN");
     else if (subject.id === "troo_town") setDataPreset("ALL");
-    else if (subject.id === "neuro") setDataPreset("ALL");
     else if (subject.id === "command_center" || subject.id === "new_command") setDataPreset("ALL");
   }, [loadExecutiveInboxAdmin]);
 
@@ -2611,6 +2664,14 @@ export function ExecutiveAgentDashboard() {
                     : "Ready";
 
   return (
+    <ExecutiveBentleyCampaignProvider
+      adminUserId=""
+      clientId={clientIdTrim}
+      pendingApprovals={approvals.filter((a) => a.status === "pending").length}
+      content360Configured={summary?.bentleyBridge?.platform?.content360PlatformConfigured}
+      campaignModeActive={bentleyCampaignModeActive}
+      setCampaignModeActive={setBentleyCampaignModeActive}
+    >
     <div className="relative min-h-screen overflow-x-hidden bg-[#00050A] text-slate-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,163,255,0.07),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(0,183,255,0.05),transparent_48%)]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(0,163,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(0,163,255,0.035)_1px,transparent_1px)] bg-[size:28px_28px] opacity-50" />
@@ -2624,18 +2685,14 @@ export function ExecutiveAgentDashboard() {
                   ? "Stephon"
                   : activeSubjectId === "troo_town"
                     ? "Evaana Desk"
-                    : activeSubjectId === "neuro"
-                      ? "NEURO Network"
-                      : "Executive Administration"}
+                    : "Executive Administration"}
               </h1>
               <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-[#00b7ff]/65">
                 {activeSubjectId === "site_builder"
                   ? "Site Builder intelligence — Stephon operator conversations feed usability feedback for the engine (read-only, no autonomous product changes)."
                   : activeSubjectId === "troo_town"
                     ? "TROO TOWN desk — Evaana visitor conversations and Skipper-governed follow-ups only."
-                    : activeSubjectId === "neuro"
-                      ? "NEURO Network — Skipper answers from uploaded source documents with citations. Not legal, tax, or financial advice."
-                      : "Permissioned orchestration: reads run under policy; writes queue for approval and audit. Filters shape tool routing — they do not bypass controls."}
+                    : "Permissioned orchestration: reads run under policy; writes queue for approval and audit. Filters shape tool routing — they do not bypass controls."}
               </p>
             </div>
           </div>
@@ -2812,10 +2869,11 @@ export function ExecutiveAgentDashboard() {
               onChange={(e) => setInboxBody(e.target.value)}
             />
             <input
-              ref={inboxFileInputRef}
+              id="skipper-inbox-file"
               type="file"
-              className="hidden"
+              className="sr-only"
               accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,audio/*"
+              disabled={inboxUploadBusy || inboxPendingAttachments.length >= 5}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void uploadInboxFileFromInput(f);
@@ -2823,10 +2881,11 @@ export function ExecutiveAgentDashboard() {
               }}
             />
             <input
-              ref={inboxZipInputRef}
+              id="skipper-inbox-zip"
               type="file"
-              className="hidden"
+              className="sr-only"
               accept=".zip,application/zip,application/x-zip-compressed"
+              disabled={inboxUploadBusy || inboxPendingAttachments.length >= 5}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void uploadInboxFileFromInput(f);
@@ -2834,26 +2893,26 @@ export function ExecutiveAgentDashboard() {
               }}
             />
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => inboxZipInputRef.current?.click()}
-                disabled={inboxPendingAttachments.length >= 5}
-                className="rounded-lg border border-cyan-500/45 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-900/50 disabled:opacity-40"
+              <label
+                htmlFor="skipper-inbox-zip"
+                className={`cursor-pointer rounded-lg border border-cyan-500/45 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-900/50 ${
+                  inboxUploadBusy || inboxPendingAttachments.length >= 5 ? "pointer-events-none opacity-40" : ""
+                }`}
               >
-                Upload website project (.zip)
-              </button>
-              <button
-                type="button"
-                onClick={() => inboxFileInputRef.current?.click()}
-                disabled={inboxPendingAttachments.length >= 5}
-                className="rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+                {inboxUploadBusy ? "Uploading…" : "Upload website project (.zip)"}
+              </label>
+              <label
+                htmlFor="skipper-inbox-file"
+                className={`cursor-pointer rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 ${
+                  inboxUploadBusy || inboxPendingAttachments.length >= 5 ? "pointer-events-none opacity-40" : ""
+                }`}
               >
-                Attach file
-              </button>
+                {inboxUploadBusy ? "Uploading…" : "Attach file"}
+              </label>
               <button
                 type="button"
                 onClick={() => (inboxRecording ? stopInboxVoiceRecording() : void startInboxVoiceRecording())}
-                disabled={inboxPendingAttachments.length >= 5}
+                disabled={inboxUploadBusy || inboxPendingAttachments.length >= 5}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
                   inboxRecording
                     ? "border-rose-500/60 bg-rose-950/50 text-rose-200"
@@ -3096,7 +3155,7 @@ export function ExecutiveAgentDashboard() {
         ) : null}
 
         <div
-          className="mx-auto max-w-4xl space-y-4"
+          className="mx-auto max-w-7xl space-y-3"
           style={cinematic.commandFocusCssVars as CSSProperties}
         >
           <div
@@ -3228,6 +3287,10 @@ export function ExecutiveAgentDashboard() {
                   busy={busy !== null}
                   combinedSkipperWorkspaceContext={combinedSkipperWorkspaceContext}
                   operationsProps={operationsSidebarProps}
+                  bentleyCampaignHudProps={{
+                    pendingApprovals: approvals.filter((a) => a.status === "pending").length,
+                    content360Configured: summary?.bentleyBridge?.platform?.content360PlatformConfigured,
+                  }}
                   AGENT_DOMAIN_LABEL={AGENT_DOMAIN_LABEL}
                 />
               ) : null
@@ -3274,5 +3337,6 @@ export function ExecutiveAgentDashboard() {
 
       <ExecutiveSubjectNavBar activeSubjectId={activeSubjectId} onSelectSubject={applySubject} />
     </div>
+    </ExecutiveBentleyCampaignProvider>
   );
 }

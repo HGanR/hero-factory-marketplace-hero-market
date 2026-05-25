@@ -14,6 +14,7 @@ type Props = {
   threadId?: string | null;
   onSelectThread?: (threadId: string) => void;
   onDecisionRecorded?: () => void;
+  embedded?: boolean;
 };
 
 export function ExecutiveDecisionQueuePanel({
@@ -23,6 +24,7 @@ export function ExecutiveDecisionQueuePanel({
   threadId,
   onSelectThread,
   onDecisionRecorded,
+  embedded = false,
 }: Props) {
   const [bundle, setBundle] = useState<ExecutivePendingDecisionsDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -232,22 +234,40 @@ export function ExecutiveDecisionQueuePanel({
   );
 
   return (
-    <section className="mb-4 rounded-2xl border border-amber-500/20 bg-[#050b13]/88 p-4 backdrop-blur-md">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300/90">
-            Decision queue
-          </h2>
-          <p className="text-[9px] text-slate-600">Human-only — Skipper recommends, never decides</p>
+    <section
+      className={
+        embedded
+          ? ""
+          : "mb-4 rounded-2xl border border-amber-500/20 bg-[#050b13]/88 p-4 backdrop-blur-md"
+      }
+    >
+      {!embedded ? (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300/90">
+              Decision queue
+            </h2>
+            <p className="text-[9px] text-slate-600">Human-only — Skipper recommends, never decides</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90"
+          >
+            Refresh
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="text-[9px] uppercase text-cyan-400/90"
-        >
-          Refresh
-        </button>
-      </div>
+      ) : (
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-[9px] uppercase text-cyan-400/90"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
       {error ? <p className="mb-2 text-xs text-amber-200">{error}</p> : null}
       {loading && !bundle ? <p className="text-xs text-slate-500">Loading decisions…</p> : null}
       {bundle?.promotedCount ? (

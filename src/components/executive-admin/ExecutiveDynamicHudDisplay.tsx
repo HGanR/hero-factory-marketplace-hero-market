@@ -11,6 +11,8 @@ type Props = {
   children: ReactNode;
   hudTransition?: HudTransitionTokens;
   hudStyle?: Record<string, string | number>;
+  /** When true, HUD fills its parent height (orb-adjacent layout). */
+  fillHeight?: boolean;
 };
 
 export function ExecutiveDynamicHudDisplay({
@@ -19,6 +21,7 @@ export function ExecutiveDynamicHudDisplay({
   children,
   hudTransition,
   hudStyle,
+  fillHeight = false,
 }: Props) {
   const hasModule = activePromptId != null;
   const transition = hudTransition ?? {
@@ -33,9 +36,9 @@ export function ExecutiveDynamicHudDisplay({
 
   const header = (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#00A3FF]/90">Dynamic HUD</p>
-        <span className="rounded-full border border-[#00A3FF]/25 bg-[#00050A]/80 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-slate-400">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.28em] text-[#00A3FF]/90">Dynamic HUD</p>
+        <span className="max-w-[55%] truncate rounded-full border border-[#00A3FF]/25 bg-[#00050A]/80 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-slate-400">
           {hasModule ? executiveCommandPromptLabel(activePromptId) : "Standby"}
         </span>
       </div>
@@ -46,10 +49,10 @@ export function ExecutiveDynamicHudDisplay({
   );
 
   const emptyState = (
-    <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 text-center">
-      <div className="h-px w-24 bg-gradient-to-r from-transparent via-[#00A3FF]/50 to-transparent" />
-      <p className="text-[11px] uppercase tracking-[0.24em] text-[#00A3FF]/50">Awaiting command</p>
-      <p className="max-w-sm text-xs text-slate-500">Select a command prompt or speak to Skipper.</p>
+    <div className="flex min-h-0 flex-col items-center justify-center gap-2 overflow-hidden text-center">
+      <div className="h-px w-16 bg-gradient-to-r from-transparent via-[#00A3FF]/50 to-transparent md:w-24" />
+      <p className="text-[10px] uppercase tracking-[0.2em] text-[#00A3FF]/50 md:text-[11px] md:tracking-[0.24em]">Awaiting command</p>
+      <p className="max-w-full px-1 text-[10px] leading-snug text-slate-500 md:text-xs">Select a command prompt or speak to Skipper.</p>
     </div>
   );
 
@@ -62,6 +65,7 @@ export function ExecutiveDynamicHudDisplay({
       header={header}
       emptyState={emptyState}
       hasModule={hasModule}
+      fillHeight={fillHeight}
     >
       {children}
     </ExecutiveHudTransitionLayer>

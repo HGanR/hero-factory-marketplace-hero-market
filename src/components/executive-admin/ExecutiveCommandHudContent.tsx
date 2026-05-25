@@ -20,11 +20,7 @@ import { ExecutiveThreadPanel } from "./ExecutiveThreadPanel";
 import { ExecutiveSubjectAgentChatPanel } from "./ExecutiveSubjectAgentChatPanel";
 import { TrooTownEvanaPanel } from "./TrooTownEvanaPanel";
 import { StephonSiteBuilderPanel } from "./StephonSiteBuilderPanel";
-import { ExecutiveNeuroPanel } from "./neuro/ExecutiveNeuroPanel";
-import {
-  ExecutiveOperationsHudModule,
-  type ExecutiveOperationsSidebarProps,
-} from "./ExecutiveOperationsSidebar";
+import { ExecutiveBentleyCampaignHud } from "./ExecutiveBentleyCampaignHud";
 
 type DailyBriefingView = {
   headline?: string;
@@ -91,6 +87,10 @@ export type ExecutiveCommandHudContentProps = {
   busy: boolean;
   combinedSkipperWorkspaceContext: string | null;
   operationsProps: ExecutiveOperationsSidebarProps;
+  bentleyCampaignHudProps?: {
+    pendingApprovals?: number | null;
+    content360Configured?: boolean;
+  };
   AGENT_DOMAIN_LABEL: Record<ExecutiveAgentKey, string>;
 };
 
@@ -138,6 +138,13 @@ export function ExecutiveCommandHudContent(props: ExecutiveCommandHudContentProp
   }
 
   switch (activePromptId) {
+    case "bentley_campaign":
+      return (
+        <ExecutiveBentleyCampaignHud
+          pendingApprovals={props.bentleyCampaignHudProps?.pendingApprovals}
+          content360Configured={props.bentleyCampaignHudProps?.content360Configured}
+        />
+      );
     case "revenue_overview":
       return (
         <div className="grid grid-cols-1 gap-3">
@@ -320,9 +327,16 @@ export function ExecutiveCommandHudContent(props: ExecutiveCommandHudContentProp
         />
       );
     default:
+      if (props.activeSubjectId === "revenue_os") {
+        return (
+          <ExecutiveBentleyCampaignHud
+            pendingApprovals={props.bentleyCampaignHudProps?.pendingApprovals}
+            content360Configured={props.bentleyCampaignHudProps?.content360Configured}
+          />
+        );
+      }
       if (props.activeSubjectId === "troo_town") return <TrooTownEvanaPanel embedded />;
       if (props.activeSubjectId === "site_builder") return <StephonSiteBuilderPanel embedded />;
-      if (props.activeSubjectId === "neuro") return <ExecutiveNeuroPanel embedded />;
       return <p className="text-xs text-slate-500">Module ready — select a related subject if content is empty.</p>;
   }
 }

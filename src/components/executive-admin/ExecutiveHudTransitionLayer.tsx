@@ -14,6 +14,7 @@ type Props = {
   header: ReactNode;
   emptyState: ReactNode;
   hasModule: boolean;
+  fillHeight?: boolean;
 };
 
 export function ExecutiveHudTransitionLayer({
@@ -25,10 +26,11 @@ export function ExecutiveHudTransitionLayer({
   header,
   emptyState,
   hasModule,
+  fillHeight = false,
 }: Props) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border bg-[#000814]/85 backdrop-blur-md transition-[box-shadow,border-color] duration-500 ${hudTransitionClassNames(transition)}`}
+      className={`relative overflow-hidden rounded-2xl border bg-[#000814]/85 backdrop-blur-md transition-[box-shadow,border-color] duration-500 ${fillHeight ? "flex h-full min-h-0 w-full min-w-0 flex-col" : ""} ${hudTransitionClassNames(transition)}`}
       style={{
         ...style,
         borderColor: `rgba(0,163,255, calc(var(--hud-border-glow) * 0.55))`,
@@ -47,18 +49,22 @@ export function ExecutiveHudTransitionLayer({
           style={{ animation: "executive-hud-scan 1.8s ease-in-out infinite" }}
         />
       ) : null}
-      <div className="relative border-b border-[#00A3FF]/20 px-4 py-3">{header}</div>
+      <div className="relative shrink-0 border-b border-[#00A3FF]/20 px-3 py-2 md:px-4 md:py-3">{header}</div>
       {summary?.trim() ? (
         <motion.p
           key={summary.slice(0, 48)}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative border-b border-[#00A3FF]/10 px-4 py-2 text-sm leading-relaxed text-slate-200"
+          className="relative shrink-0 border-b border-[#00A3FF]/10 px-3 py-2 text-xs leading-relaxed text-slate-200 line-clamp-3 break-words md:px-4 md:text-sm"
         >
           {summary}
         </motion.p>
       ) : null}
-      <div className="relative max-h-[min(52vh,560px)] overflow-y-auto px-4 py-3">
+      <div
+        className={`relative min-h-0 overflow-x-hidden px-3 py-2 md:px-4 md:py-3 ${
+          fillHeight ? "flex flex-1 flex-col overflow-y-auto" : "max-h-[min(52vh,560px)] overflow-y-auto"
+        }`}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={promptKey ?? "standby"}
@@ -66,6 +72,7 @@ export function ExecutiveHudTransitionLayer({
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -6, filter: "blur(3px)" }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+            className="min-w-0 break-words [&_*]:max-w-full"
           >
             {hasModule ? children : emptyState}
           </motion.div>

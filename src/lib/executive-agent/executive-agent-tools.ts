@@ -928,27 +928,3 @@ export async function getNewRegistrationPhoneQueue(ctx: ExecutiveToolContext) {
     note: "Read one contact at a time via voice: next number, repeat number, skip, stop.",
   };
 }
-
-function inferNeuroSubjectFromPrompt(prompt: string) {
-  const p = prompt.toLowerCase();
-  if (/\btrust\b|\bjarva\b|\btrustee/.test(p)) return "TRUST" as const;
-  if (/\btax\b|\birs\b/.test(p)) return "TAX" as const;
-  if (/\baccounting\b|\beleanor\b/.test(p)) return "ACCOUNTING" as const;
-  if (/\bconsumer law\b/.test(p)) return "CONSUMER_LAW" as const;
-  if (/\bfinancial readiness\b/.test(p)) return "FINANCIAL_READINESS" as const;
-  if (/\breal estate\b|\bmaania\b/.test(p)) return "REAL_ESTATE" as const;
-  if (/\brevenue os\b|\bbentley\b/.test(p)) return "AI_REVENUE_OS" as const;
-  return null;
-}
-
-/** Read-only NEURO source answer — cites indexed uploads only; never fabricates citations. */
-export async function getNeuroSourceAnswer(ctx: ExecutiveToolContext, prompt?: string) {
-  const { getNeuroSourceAnswer: answer } = await import("@/lib/executive-agent/neuro/neuro-answer-service");
-  const query = (prompt ?? "").trim() || "executive knowledge";
-  const subjectArea = inferNeuroSubjectFromPrompt(query);
-  return answer(ctx.db, {
-    adminUserId: ctx.adminUserId,
-    query,
-    subjectArea,
-  });
-}

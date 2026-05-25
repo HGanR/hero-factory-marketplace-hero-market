@@ -20,6 +20,7 @@ import {
   type PendingClientsClaudeHandoffPublic,
 } from "@/lib/executive-agent/pending-clients-handoff";
 import { buildTimeAwareSkipperGreeting, isSimpleExecutiveGreeting } from "@/lib/executive-agent/executive-voice-phrases";
+import { composeExecutiveOrchestratorAnswer } from "@/lib/executive-agent/executive-orchestrator-answer";
 
 export type ExecutiveOrchestratorMode = "read" | "plan" | "write_request";
 
@@ -263,9 +264,6 @@ async function runReadTool(
       case "getNewRegistrationPhoneQueue":
         data = await Tools.getNewRegistrationPhoneQueue(ctx);
         break;
-      case "getNeuroSourceAnswer":
-        data = await Tools.getNeuroSourceAnswer(ctx, prompt);
-        break;
       default:
         return null;
     }
@@ -478,19 +476,12 @@ export async function runExecutiveOrchestrator(
     });
   }
 
-  const answerParts: string[] = [];
-  if (intentPlan.reasoningSummary.trim()) {
-    answerParts.push(intentPlan.reasoningSummary.trim());
-  }
-  answerParts.push("Executive summary (read-only tools).");
-  if (insights.length) {
-    answerParts.push(`Collected ${insights.length} insight blocks from the tool registry.`);
-  }
-  if (requiresApproval.length) {
-    answerParts.push(`${requiresApproval.length} proposal(s) queued for your approval.`);
-  } else if (dryRunWriteDetected) {
-    answerParts.push("Dry run: write proposal(s) were detected but not queued.");
-  }
+  const answer = composeExecutiveOrchestratorAnswer({
+    reasoningSummary: intentPlan.reasoningSummary,
+    insights: insights.map((i) => ({ title: i.title, detail: i.detail })),
+    requiresApprovalCount: requiresApproval.length,
+    dryRunWriteDetected,
+  });
 
   const proposedApprovalsCount = input.dryRun ? proposedWrites.length : requiresApproval.length;
 
@@ -504,7 +495,7 @@ export async function runExecutiveOrchestrator(
   });
 
   return {
-    answer: answerParts.join(" "),
+    answer,
     insights,
     recommendedActions,
     todos,
@@ -516,6 +507,7 @@ export async function runExecutiveOrchestrator(
       reasoningMode,
       confidence: intentPlan.confidence,
       proposedApprovalsCount,
+      insightBlockCount: insights.length,
     },
     suggestedMemoryItems,
   };
