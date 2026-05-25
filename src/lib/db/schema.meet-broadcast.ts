@@ -20,6 +20,8 @@ export const streamDestinations = mysqlTable("stream_destinations", {
   lastTestedAt: timestamp("last_tested_at"),
 });
 
+export type StreamDestinationRow = typeof streamDestinations.$inferSelect;
+
 export const meetBroadcastSessions = mysqlTable("meet_broadcast_sessions", {
   id: int("id").autoincrement().primaryKey(),
   roomId: varchar("room_id", { length: 256 }).notNull(),
@@ -116,6 +118,18 @@ export const meetBroadcastTimelineTemplates = mysqlTable("meet_broadcast_timelin
   isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Durable per-session operator timeline (`drizzle/0099_meet_broadcast_timeline_events.sql`). */
+export const meetBroadcastTimelineEvents = mysqlTable("meet_broadcast_timeline_events", {
+  id: int("id").autoincrement().primaryKey(),
+  broadcastSessionId: int("broadcast_session_id").notNull(),
+  userId: int("user_id").notNull(),
+  eventType: varchar("event_type", { length: 64 }).notNull(),
+  summary: varchar("summary", { length: 512 }).notNull(),
+  detailsJson: json("details_json").$type<Record<string, unknown> | null>(),
+  eventAt: timestamp("event_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const meetBroadcastEvents = mysqlTable("meet_broadcast_events", {

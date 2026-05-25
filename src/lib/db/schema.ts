@@ -1,5 +1,5 @@
 // src/lib/db/schema.ts
-import { mysqlEnum, mysqlTable, int, varchar, boolean, timestamp, text, decimal, date } from "drizzle-orm/mysql-core";
+import { mysqlEnum, mysqlTable, int, varchar, boolean, timestamp, text, longtext, decimal, date, json } from "drizzle-orm/mysql-core";
 
 // Re-export split runtime schemas so consumers can continue importing from "@/lib/db/schema".
 export * from "./schema.app-runtime";
@@ -7,6 +7,10 @@ export * from "./schema.client-portal";
 export * from "./schema.social-runtime";
 export * from "./schema.platform-extras";
 export * from "./schema.fulfillment";
+export * from "./schema.revenue-os-runtime";
+export * from "./schema.merch-revenue-ret";
+export * from "./schema.meet-broadcast";
+export * from "./schema.marketplace-extensions";
 
 export const marketplaceUsers = mysqlTable("marketplace_users", {
   id: int("id").autoincrement().primaryKey(),
@@ -17,6 +21,10 @@ export const marketplaceUsers = mysqlTable("marketplace_users", {
   isApproved: boolean("isApproved").default(false).notNull(),
   walletAddress: varchar("walletAddress", { length: 42 }),
   hasTokenAccess: boolean("hasTokenAccess").default(false).notNull(),
+  phone: varchar("phone", { length: 24 }),
+  smsConsent: boolean("smsConsent").default(false).notNull(),
+  revenueOsAccess: boolean("revenueOsAccess").default(true).notNull(),
+  lastActiveTrustId: varchar("lastActiveTrustId", { length: 36 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastLogin: timestamp("lastLogin"),
@@ -96,6 +104,19 @@ export const oasisWorldElements = mysqlTable("oasis_world_elements", {
   // Pricing (optional for legacy rows)
   price: decimal("price", { precision: 18, scale: 6 }).default("0").notNull(),
   currency: mysqlEnum("currency", ["TROO", "TROO_POO", "XRP", "SOL", "POL", "BTC", "ETH", "BNB", "USDC"]).default("TROO").notNull(),
+  manifestUri: text("manifestUri"),
+  isEnterable: boolean("isEnterable").default(false).notNull(),
+  hasDoor: boolean("hasDoor").default(false).notNull(),
+  hasGlass: boolean("hasGlass").default(false).notNull(),
+  tags: text("tags"),
+  assetBounds: text("assetBounds"),
+  defaultScale: decimal("defaultScale", { precision: 8, scale: 4 }),
+  colliderType: varchar("colliderType", { length: 24 }),
+  resolvedUrl: varchar("resolvedUrl", { length: 1024 }),
+  resolvedUrlUpdatedAt: timestamp("resolvedUrlUpdatedAt"),
+  isReady: boolean("isReady").default(true).notNull(),
+  lastVerifiedAt: timestamp("lastVerifiedAt"),
+  lastError: varchar("lastError", { length: 512 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -167,12 +188,13 @@ export const emailNotifications = mysqlTable("email_notifications", {
 // -----------------------------
 
 export const trusts = mysqlTable("trusts", {
-  id: varchar("id", { length: 36 }).primaryKey(), // UUID (string)
+  id: varchar("id", { length: 36 }).primaryKey(),
   userId: int("userId").notNull(),
   status: mysqlEnum("status", ["draft", "finalized", "signed", "recorded", "error"]).default("draft").notNull(),
   source: varchar("source", { length: 40 }),
-  // Optional onboarding/workspace fields (non-breaking; legacy trust-records flows can ignore these)
   clientId: varchar("clientId", { length: 36 }),
+  publicId: varchar("publicId", { length: 40 }),
+  publicIdIssuedAt: timestamp("publicIdIssuedAt"),
   name: varchar("name", { length: 255 }),
   trustType: mysqlEnum("trustType", [
     "revocable_living_trust",
@@ -180,9 +202,70 @@ export const trusts = mysqlTable("trusts", {
     "testamentary_trust",
     "special_purpose_trust",
   ]),
+  trustMode: mysqlEnum("trustMode", ["standard", "private_safe", "complex"]).default("standard").notNull(),
   jurisdictionState: varchar("jurisdictionState", { length: 10 }),
+  situsState: varchar("situsState", { length: 10 }),
   governingLawState: varchar("governingLawState", { length: 10 }),
+  executedAt: timestamp("executedAt"),
   workspaceStatus: mysqlEnum("workspaceStatus", ["draft", "in_review", "approved", "executed"]).default("draft"),
+  firmName: varchar("firmName", { length: 255 }),
+  firmAddress: text("firmAddress"),
+  firmPhone: varchar("firmPhone", { length: 80 }),
+  firmEmail: varchar("firmEmail", { length: 320 }),
+  governanceDocs: json("governanceDocs").$type<unknown[]>().notNull().$defaultFn(() => []),
+  constitutionSubtype: mysqlEnum("constitutionSubtype", [
+    "none",
+    "dao_token_voting",
+    "church",
+    "unincorporated_association",
+    "pma",
+  ])
+    .default("none")
+    .notNull(),
+  trustCategory: mysqlEnum("trustCategory", ["private", "charitable", "statutory"]).default("private").notNull(),
+  moduleType: mysqlEnum("moduleType", [
+    "revocable_living_trust",
+    "private_express_trust",
+    "irrevocable_trust",
+    "religious_foundation",
+    "family_office",
+    "parent_company",
+    "testamentary_trust",
+    "special_purpose_trust",
+  ])
+    .notNull()
+    .default("revocable_living_trust"),
+  formationMode: mysqlEnum("formationMode", ["express", "resulting", "constructive"]).default("express").notNull(),
+  commercialEnabled: boolean("commercialEnabled").default(false).notNull(),
+  governanceMode: mysqlEnum("governanceMode", ["simple", "complex"]).default("simple").notNull(),
+  governancePackage: mysqlEnum("governancePackage", [
+    "none",
+    "bylaws_standard",
+    "bylaws_foundation",
+    "bylaws_religious",
+    "bylaws_family_office",
+  ])
+    .default("none")
+    .notNull(),
+  sCorpEligible: boolean("sCorpEligible").default(false).notNull(),
+  trustSubtype: mysqlEnum("trustSubtype", ["standard", "grantor", "QSST", "ESBT"]).default("standard").notNull(),
+  irsElectionConfirmed: boolean("irsElectionConfirmed").default(false).notNull(),
+  taxonomySource: varchar("taxonomySource", { length: 50 }),
+  taxonomyInferredAt: timestamp("taxonomyInferredAt"),
+  complexTrustMode: boolean("complexTrustMode").default(false).notNull(),
+  express: boolean("express").default(false).notNull(),
+  jurisdictionStateCode: varchar("jurisdictionStateCode", { length: 2 }),
+  jurisdictionObjective: mysqlEnum("jurisdictionObjective", [
+    "ASSET_PROTECTION",
+    "STATE_TAX_MINIMIZATION",
+    "DIGITAL_ASSET_FIDUCIARY_ACCESS",
+  ]),
+  jurisdictionHasDigitalAssets: boolean("jurisdictionHasDigitalAssets"),
+  jurisdictionSelfSettled: boolean("jurisdictionSelfSettled"),
+  jurisdictionScoreSnapshot: int("jurisdictionScoreSnapshot"),
+  jurisdictionReasonsSnapshot: text("jurisdictionReasonsSnapshot"),
+  jurisdictionSelectedAt: timestamp("jurisdictionSelectedAt"),
+  jurisdictionSelectedByUserId: int("jurisdictionSelectedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -200,6 +283,8 @@ export const clients = mysqlTable("clients", {
   middleName: varchar("middleName", { length: 120 }),
   lastName: varchar("lastName", { length: 120 }).notNull(),
   suffix: varchar("suffix", { length: 40 }),
+  /** Salutation / prefix from intake (drizzle/0001_add_marketplace_phone.sql). */
+  title: varchar("title", { length: 80 }),
   dateOfBirth: date("dateOfBirth"),
 
   // Contact
@@ -217,6 +302,12 @@ export const clients = mysqlTable("clients", {
   // Metadata
   clientType: mysqlEnum("clientType", ["individual", "entity"]).default("individual").notNull(),
   status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
+  /** Business logo (data URL or https URL) — `LONGTEXT`; base64 previews exceed MySQL `TEXT` 64KB. */
+  businessLogoDataUrl: longtext("businessLogoDataUrl"),
+  /** Legal entity / business name when set on the new-client form. */
+  entityDisplayName: varchar("entityDisplayName", { length: 500 }),
+  /** JSON array of requested service labels from intake (`requested_services`). Source of truth vs hub `servicesJson`. */
+  requestedServicesJson: text("requested_services_json"),
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -248,6 +339,12 @@ export const trustParties = mysqlTable("trust_parties", {
   trustId: varchar("trustId", { length: 36 }).notNull(),
   role: mysqlEnum("role", ["grantor", "trustee"]).notNull(),
   displayName: varchar("displayName", { length: 255 }),
+  addressLine1: varchar("addressLine1", { length: 255 }),
+  addressLine2: varchar("addressLine2", { length: 255 }),
+  city: varchar("city", { length: 120 }),
+  state: varchar("state", { length: 40 }),
+  postalCode: varchar("postalCode", { length: 20 }),
+  country: varchar("country", { length: 2 }).default("US"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -509,6 +606,8 @@ export const consultantProfiles = mysqlTable("consultant_profiles", {
   userId: int("userId").primaryKey(),
   specialty: varchar("specialty", { length: 140 }).notNull(),
   note: text("note"),
+  /** Data URL or legacy HTTPS image for consultant headshot on /consultations (same idea as client `businessLogoDataUrl`). */
+  avatarUrl: longtext("avatarUrl"),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

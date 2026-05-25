@@ -243,6 +243,13 @@
     {
       "idx": 34,
       "version": "5",
+      "when": 1778850000000,
+      "tag": "0134_consultant_profile_avatar_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
       "when": 1778900000000,
       "tag": "0135_neuro_network",
       "breakpoints": true

@@ -163,7 +163,6 @@ export const widgetMessages = mysqlTable("widget_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-
 /** Agent plugin / widget turn memory (`agents-ensure.ts`). */
 export const agentConversationSessions = mysqlTable("agent_conversation_sessions", {
   sessionKey: varchar("sessionKey", { length: 128 }).primaryKey(),
@@ -171,6 +170,18 @@ export const agentConversationSessions = mysqlTable("agent_conversation_sessions
   userId: int("userId").notNull(),
   turnsJson: text("turnsJson").notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+/** See `drizzle/0011_add_developer_platform_tables.sql`. */
+export const developerApiKeys = mysqlTable("developer_api_keys", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  keyPrefix: varchar("keyPrefix", { length: 12 }).notNull(),
+  keyHash: varchar("keyHash", { length: 64 }).notNull(),
+  scopes: text("scopes"),
+  lastUsedAt: timestamp("lastUsedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export const developerWebhooks = mysqlTable("developer_webhooks", {

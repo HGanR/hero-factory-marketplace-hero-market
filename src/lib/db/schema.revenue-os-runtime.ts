@@ -1,4 +1,4 @@
-import { boolean, decimal, int, json, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, decimal, int, json, longtext, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 export const marketSources = mysqlTable("market_sources", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -378,6 +378,76 @@ export const bentleyPolicyScenarioRuns = mysqlTable("bentley_policy_scenario_run
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** See `drizzle/0072_bentley_policy_rollback.sql`. */
+export const bentleyPolicyRollbackPackages = mysqlTable("bentley_policy_rollback_packages", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 64 }).notNull().default(""),
+  sourceRolloutPlanId: varchar("source_rollout_plan_id", { length: 36 }),
+  sourceScenarioId: varchar("source_scenario_id", { length: 36 }),
+  rollbackType: varchar("rollback_type", { length: 32 }).notNull().default("blended"),
+  name: varchar("name", { length: 255 }).notNull().default(""),
+  currentPolicySnapshotJson: json("current_policy_snapshot_json").$type<Record<string, unknown> | null>(),
+  rollbackTargetSnapshotJson: json("rollback_target_snapshot_json").$type<Record<string, unknown> | null>(),
+  deltaJson: json("delta_json").$type<Record<string, unknown> | null>(),
+  rationaleJson: json("rationale_json").$type<Record<string, unknown> | null>(),
+  isSaved: boolean("is_saved").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const bentleyPolicyRollbackRuns = mysqlTable("bentley_policy_rollback_runs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  rollbackPackageId: varchar("rollback_package_id", { length: 36 }).notNull(),
+  runStatus: varchar("run_status", { length: 24 }).notNull().default("prepared"),
+  runSummaryJson: json("run_summary_json").$type<Record<string, unknown> | null>(),
+  reviewedByUserId: varchar("reviewed_by_user_id", { length: 64 }),
+  appliedAt: timestamp("applied_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** See `drizzle/0070_bentley_policy_rollout.sql` + `0071_bentley_policy_rollout_monitoring.sql`. */
+export const bentleyPolicyRolloutPlans = mysqlTable("bentley_policy_rollout_plans", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 64 }).notNull().default(""),
+  rolloutType: varchar("rollout_type", { length: 32 }).notNull().default("blended"),
+  sourceScenarioId: varchar("source_scenario_id", { length: 36 }),
+  name: varchar("name", { length: 255 }).notNull().default(""),
+  scopeJson: json("scope_json").$type<Record<string, unknown> | null>(),
+  rolloutStrategyJson: json("rollout_strategy_json").$type<Record<string, unknown> | null>(),
+  guardrailsJson: json("guardrails_json").$type<Record<string, unknown> | null>(),
+  rollbackPlanJson: json("rollback_plan_json").$type<Record<string, unknown> | null>(),
+  isSaved: boolean("is_saved").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const bentleyPolicyRolloutRuns = mysqlTable("bentley_policy_rollout_runs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  rolloutPlanId: varchar("rollout_plan_id", { length: 36 }).notNull(),
+  runStatus: varchar("run_status", { length: 24 }).notNull().default("planned"),
+  runSummaryJson: json("run_summary_json").$type<Record<string, unknown> | null>(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  activeStageIndex: int("active_stage_index"),
+  stageStatus: varchar("stage_status", { length: 32 }),
+  stageProgressJson: json("stage_progress_json").$type<Record<string, unknown> | null>(),
+  monitoringSummaryJson: json("monitoring_summary_json").$type<Record<string, unknown> | null>(),
+  recommendedAction: varchar("recommended_action", { length: 64 }),
+  rollbackTriggeredAt: timestamp("rollback_triggered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const bentleyPolicyRolloutStageChecks = mysqlTable("bentley_policy_rollout_stage_checks", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  rolloutRunId: varchar("rollout_run_id", { length: 36 }).notNull(),
+  stageIndex: int("stage_index").notNull().default(0),
+  checkStatus: varchar("check_status", { length: 24 }).notNull().default("healthy"),
+  observedMetricsJson: json("observed_metrics_json").$type<Record<string, unknown> | null>(),
+  triggerBreachesJson: json("trigger_breaches_json").$type<unknown[] | Record<string, unknown> | null>(),
+  successProgressJson: json("success_progress_json").$type<Record<string, unknown> | unknown[] | null>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const bentleyPolicyChangeSets = mysqlTable("bentley_policy_change_sets", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: varchar("user_id", { length: 64 }).notNull().default(""),
@@ -416,6 +486,87 @@ export const bentleyPolicyChangeSetRuns = mysqlTable("bentley_policy_change_set_
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** See `drizzle/0064_bentley_automation_policies.sql`. */
+export const bentleyAutomationPolicies = mysqlTable("bentley_automation_policies", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 64 }).notNull().default(""),
+  clientId: varchar("client_id", { length: 36 }).notNull().default(""),
+  trustId: varchar("trust_id", { length: 36 }).notNull().default(""),
+  policyType: varchar("policy_type", { length: 64 }).notNull().default("daily_operator_summary"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  scheduleJson: json("schedule_json").$type<Record<string, unknown> | null>(),
+  policyConfigJson: json("policy_config_json").$type<Record<string, unknown> | null>(),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const bentleyAutomationRuns = mysqlTable("bentley_automation_runs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  policyId: varchar("policy_id", { length: 36 }).notNull(),
+  runStatus: varchar("run_status", { length: 24 }).notNull().default("started"),
+  runSummaryJson: json("run_summary_json").$type<Record<string, unknown> | null>(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** See `drizzle/0066_bentley_autonomous_action_policies.sql`. */
+export const bentleyAutonomousActionPolicies = mysqlTable("bentley_autonomous_action_policies", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 64 }).notNull().default(""),
+  clientId: varchar("client_id", { length: 36 }).notNull().default(""),
+  trustId: varchar("trust_id", { length: 36 }).notNull().default(""),
+  actionType: varchar("action_type", { length: 64 }).notNull().default("auto_retry_failed_publish"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  requiresApprovalAboveSeverity: varchar("requires_approval_above_severity", { length: 24 })
+    .notNull()
+    .default("none"),
+  maxDailyExecutions: int("max_daily_executions"),
+  cooldownMinutes: int("cooldown_minutes"),
+  policyConfigJson: json("policy_config_json").$type<Record<string, unknown> | null>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const bentleyAutonomousActionRuns = mysqlTable("bentley_autonomous_action_runs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  policyId: varchar("policy_id", { length: 36 }).notNull(),
+  actionType: varchar("action_type", { length: 64 }).notNull().default(""),
+  runStatus: varchar("run_status", { length: 24 }).notNull().default("started"),
+  scopeJson: json("scope_json").$type<Record<string, unknown> | null>(),
+  decisionSummaryJson: json("decision_summary_json").$type<Record<string, unknown> | null>(),
+  executedCount: int("executed_count").notNull().default(0),
+  skippedCount: int("skipped_count").notNull().default(0),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** See `drizzle/0067_bentley_autonomous_approval_audit.sql` (request queue). */
+export const bentleyAutonomousApprovalRequests = mysqlTable("bentley_autonomous_approval_requests", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  autonomousRunId: varchar("autonomous_run_id", { length: 36 }),
+  userId: varchar("user_id", { length: 64 }).notNull().default(""),
+  clientId: varchar("client_id", { length: 36 }).notNull().default(""),
+  trustId: varchar("trust_id", { length: 36 }).notNull().default(""),
+  actionType: varchar("action_type", { length: 64 }).notNull().default(""),
+  approvalStatus: varchar("approval_status", { length: 24 }).notNull().default("pending"),
+  severity: varchar("severity", { length: 24 }).notNull().default("info"),
+  reason: text("reason"),
+  rationaleJson: json("rationale_json").$type<Record<string, unknown> | null>(),
+  decisionPayloadJson: json("decision_payload_json").$type<Record<string, unknown> | null>(),
+  targetIdsJson: json("target_ids_json").$type<unknown[] | Record<string, unknown> | null>(),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedByUserId: varchar("reviewed_by_user_id", { length: 64 }),
+  reviewNote: varchar("review_note", { length: 2000 }),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
 export type RevenueOsPostOptimizationMemoryRow = typeof revenueOsPostOptimizationMemory.$inferSelect;
 export type RevenueOsDeploymentFeedbackRow = typeof revenueOsDeploymentFeedback.$inferSelect;
 
@@ -439,6 +590,8 @@ export const bentleyOptimizationRuns = mysqlTable("bentley_optimization_runs", {
   improvementScore: decimal("improvement_score", { precision: 12, scale: 6 }),
   winningVariant: boolean("winning_variant"),
 });
+
+export type BentleyOptimizationRunRow = typeof bentleyOptimizationRuns.$inferSelect;
 
 /** See `drizzle/0067_bentley_autonomous_approval_audit.sql`. */
 export const bentleyAutonomousActionAudit = mysqlTable("bentley_autonomous_action_audit", {
@@ -466,7 +619,7 @@ export const clientAccounts = mysqlTable("client_accounts", {
   workspaceId: varchar("workspaceId", { length: 64 }),
   status: varchar("status", { length: 32 }).notNull().default("active"),
   notes: text("notes"),
-  logoUrl: text("logoUrl"),
+  logoUrl: longtext("logoUrl"),
   servicesJson: text("servicesJson"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

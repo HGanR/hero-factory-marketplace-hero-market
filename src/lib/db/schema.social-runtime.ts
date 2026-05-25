@@ -1,4 +1,4 @@
-import { boolean, int, json, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, index, int, json, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 export const campaigns = mysqlTable("campaigns", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -13,6 +13,8 @@ export const campaigns = mysqlTable("campaigns", {
   publishApprovalReportScheduleJson: json("publish_approval_report_schedule_json").$type<Record<string, unknown> | null>(),
   bentleyRunId: varchar("bentley_run_id", { length: 128 }),
   bentleyGenerationJson: json("bentley_generation_json").$type<Record<string, unknown> | null>(),
+  /** When true, scheduled publish worker may proceed without per-post approval while env gate is on. */
+  bentleyAutopilotPublish: boolean("bentley_autopilot_publish").notNull().default(false),
   derivedFromCampaignId: varchar("derived_from_campaign_id", { length: 36 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
@@ -36,6 +38,7 @@ export const campaignPosts = mysqlTable("campaign_posts", {
   scheduledAt: timestamp("scheduled_at"),
   status: varchar("status", { length: 24 }).notNull().default("DRAFT"),
   caption: text("caption"),
+  bentleyDraftJson: json("bentley_draft_json").$type<Record<string, unknown> | null>(),
   hashtags: varchar("hashtags", { length: 1000 }),
   linkUrl: varchar("link_url", { length: 512 }),
   utmParams: json("utm_params").$type<Record<string, unknown> | null>(),
@@ -323,6 +326,107 @@ export const socialEngagementRuleApplications = mysqlTable("social_engagement_ru
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Third-party publishing providers (e.g. Content360) scoped to a CRM client.
+ * Secrets live in `access_token_enc` / `refresh_token_enc` only — never returned by APIs.
+ */
+export const clientProviderConnections = mysqlTable(
+  "client_provider_connections",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 }).notNull(),
+    clientId: varchar("client_id", { length: 36 }).notNull(),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    accountName: varchar("account_name", { length: 200 }).notNull(),
+    externalAccountId: varchar("external_account_id", { length: 120 }),
+    accessTokenEnc: text("access_token_enc"),
+    refreshTokenEnc: text("refresh_token_enc"),
+    connectionStatus: varchar("connection_status", { length: 32 }).notNull().default("pending"),
+    lastVerifiedAt: timestamp("last_verified_at"),
+    metadataJson: json("metadata_json").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    clientIdIdx: index("client_provider_connections_client_id_idx").on(t.clientId),
+    userIdIdx: index("client_provider_connections_user_id_idx").on(t.userId),
+    providerIdx: index("client_provider_connections_provider_idx").on(t.provider),
+  }),
+);
+
+/**
+ * Content360 (and future providers) — weekly / multi-post batch metadata.
+ */
+export const providerPublishBatches = mysqlTable(
+  "provider_publish_batches",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 }).notNull(),
+    clientId: varchar("client_id", { length: 36 }).notNull(),
+    campaignId: varchar("campaign_id", { length: 36 }).notNull(),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    connectionId: varchar("connection_id", { length: 36 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("pending"),
+    totalPosts: int("total_posts").notNull(),
+    scheduledCount: int("scheduled_count").notNull().default(0),
+    failedCount: int("failed_count").notNull().default(0),
+    timezone: varchar("timezone", { length: 64 }).notNull(),
+    providerBatchId: varchar("provider_batch_id", { length: 120 }),
+    providerResponseJson: json("provider_response_json").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    clientIdIdx: index("provider_publish_batches_client_id_idx").on(t.clientId),
+    campaignIdIdx: index("provider_publish_batches_campaign_id_idx").on(t.campaignId),
+    statusIdx: index("provider_publish_batches_status_idx").on(t.status),
+  }),
+);
+
+/**
+ * Outbound provider scheduling jobs (Content360 Phase 1 — worker integration later).
+ */
+export const providerPublishJobs = mysqlTable(
+  "provider_publish_jobs",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 }).notNull(),
+    clientId: varchar("client_id", { length: 36 }).notNull(),
+    campaignId: varchar("campaign_id", { length: 36 }).notNull(),
+    campaignPostId: varchar("campaign_post_id", { length: 36 }).notNull(),
+    batchId: varchar("batch_id", { length: 36 }),
+    assetId: varchar("asset_id", { length: 36 }),
+    connectionId: varchar("connection_id", { length: 36 }).notNull(),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    targetPlatform: varchar("target_platform", { length: 48 }).notNull(),
+    caption: text("caption").notNull(),
+    hashtags: varchar("hashtags", { length: 1000 }),
+    scheduledAt: timestamp("scheduled_at").notNull(),
+    timezone: varchar("timezone", { length: 64 }).notNull(),
+    providerPayloadJson: json("provider_payload_json").$type<Record<string, unknown> | null>(),
+    providerResponseJson: json("provider_response_json").$type<Record<string, unknown> | null>(),
+    status: varchar("status", { length: 32 }).notNull().default("scheduled"),
+    errorMessage: text("error_message"),
+    attempts: int("attempts").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at"),
+    externalScheduleId: varchar("external_schedule_id", { length: 120 }),
+    externalPostId: varchar("external_post_id", { length: 120 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    clientIdIdx: index("provider_publish_jobs_client_id_idx").on(t.clientId),
+    userIdIdx: index("provider_publish_jobs_user_id_idx").on(t.userId),
+    providerIdx: index("provider_publish_jobs_provider_idx").on(t.provider),
+    campaignIdIdx: index("provider_publish_jobs_campaign_id_idx").on(t.campaignId),
+    campaignPostIdIdx: index("provider_publish_jobs_campaign_post_id_idx").on(t.campaignPostId),
+    batchIdIdx: index("provider_publish_jobs_batch_id_idx").on(t.batchId),
+    statusIdx: index("provider_publish_jobs_status_idx").on(t.status),
+    scheduledAtIdx: index("provider_publish_jobs_scheduled_at_idx").on(t.scheduledAt),
+    connectionIdIdx: index("provider_publish_jobs_connection_id_idx").on(t.connectionId),
+  }),
+);
+
 export type CampaignRow = typeof campaigns.$inferSelect;
 export type InsertCampaignRow = typeof campaigns.$inferInsert;
 export type CampaignPostRow = typeof campaignPosts.$inferSelect;
@@ -357,3 +461,9 @@ export type SocialEngagementAiSuggestionRow = typeof socialEngagementAiSuggestio
 export type SocialEngagementIngestErrorRow = typeof socialEngagementIngestErrors.$inferSelect;
 export type SocialEngagementRuleRow = typeof socialEngagementRules.$inferSelect;
 export type SocialEngagementRuleApplicationRow = typeof socialEngagementRuleApplications.$inferSelect;
+export type ClientProviderConnectionRow = typeof clientProviderConnections.$inferSelect;
+export type InsertClientProviderConnectionRow = typeof clientProviderConnections.$inferInsert;
+export type ProviderPublishBatchRow = typeof providerPublishBatches.$inferSelect;
+export type InsertProviderPublishBatchRow = typeof providerPublishBatches.$inferInsert;
+export type ProviderPublishJobRow = typeof providerPublishJobs.$inferSelect;
+export type InsertProviderPublishJobRow = typeof providerPublishJobs.$inferInsert;
