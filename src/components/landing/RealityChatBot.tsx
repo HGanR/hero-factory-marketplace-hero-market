@@ -12,6 +12,8 @@ import { X, Send, Calendar, Clock } from "lucide-react";
 import Image from "next/image";
 import { generateRealityResponse, getAppointmentOfferResponse } from "@/lib/npc/reality-knowledge";
 import { parseAppointmentDate } from "@/lib/parse-appointment-date";
+import { landingCtaMetadata, LANDING_HOME_SITE_EVENTS } from "@/lib/analytics/landing-site-event-metadata";
+import { trackSiteEvent } from "@/lib/analytics/site-analytics-client";
 
 interface Message {
   id: string;
@@ -129,7 +131,38 @@ function renderMessageContent(content: string): React.ReactNode {
               color: NEON_BLUE,
               textShadow: `0 0 8px ${NEON_BLUE}`,
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              void trackSiteEvent({
+                path: "/",
+                eventType: "button_click",
+                metadata: {
+                  ...landingCtaMetadata({
+                    eventName: LANDING_HOME_SITE_EVENTS.REALITY_JOIN_COMMUNITY_CLICK,
+                    source: "reality_chat",
+                    route: "/",
+                    label: "Join community (PayPal)",
+                    targetHref: COMMUNITY_JOIN_LINK,
+                  }),
+                },
+              });
+              void trackSiteEvent({
+                path: "/",
+                eventType: "outbound_paypal",
+                metadata: {
+                  ...landingCtaMetadata({
+                    eventName: LANDING_HOME_SITE_EVENTS.REALITY_PAYPAL_OUTBOUND,
+                    source: "reality_chat",
+                    route: "/",
+                    label: "Join community (PayPal)",
+                    targetHref: COMMUNITY_JOIN_LINK,
+                  }),
+                  destination: "paypal",
+                  offerName: "community",
+                  amountEstimate: "155",
+                },
+              });
+            }}
           >
             Join Community Here
           </a>
@@ -840,7 +873,21 @@ export default function RealityChatBot() {
       {/* Floating Avatar Button */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            void trackSiteEvent({
+              path: "/",
+              eventType: "agent_interaction",
+              metadata: {
+                ...landingCtaMetadata({
+                  eventName: LANDING_HOME_SITE_EVENTS.REALITY_WIDGET_OPEN,
+                  source: "landing_reality_widget",
+                  route: "/",
+                  label: "Open REALITY assistant",
+                }),
+              },
+            });
+            setIsOpen(true);
+          }}
           className="fixed bottom-6 right-6 z-50 group"
           aria-label="Open chat with REALITY"
         >

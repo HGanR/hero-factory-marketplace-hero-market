@@ -8,6 +8,8 @@ import {
   useTransform,
   useSpring,
 } from "framer-motion";
+import { landingCtaMetadata, LANDING_HOME_SITE_EVENTS } from "@/lib/analytics/landing-site-event-metadata";
+import { trackSiteEvent } from "@/lib/analytics/site-analytics-client";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -267,6 +269,73 @@ export function LandingHomeScrollSections() {
           <span className="font-medium text-slate-400">DEMOS</span> maps industry paths;{" "}
           <span className="font-medium text-slate-400">Welcome</span> holds community, Revenue OS, and
           consultations—entry stays in the header; nothing here competes with it.
+        </p>
+        <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+          <a
+            href="/mission-statement"
+            className="text-cyan-300/90 underline-offset-4 hover:text-cyan-200 hover:underline"
+            onClick={() =>
+              void trackSiteEvent({
+                path: "/",
+                eventType: "button_click",
+                metadata: {
+                  ...landingCtaMetadata({
+                    eventName: LANDING_HOME_SITE_EVENTS.SCROLL_MISSION_LINK,
+                    source: "landing_scroll_sections",
+                    route: "/",
+                    label: "Mission",
+                    targetHref: "/mission-statement",
+                  }),
+                },
+              })
+            }
+          >
+            Mission
+          </a>
+          <span className="text-slate-600">·</span>
+          <a
+            href="/mission-path"
+            className="text-cyan-300/90 underline-offset-4 hover:text-cyan-200 hover:underline"
+            onClick={() =>
+              void trackSiteEvent({
+                path: "/",
+                eventType: "button_click",
+                metadata: {
+                  ...landingCtaMetadata({
+                    eventName: LANDING_HOME_SITE_EVENTS.SCROLL_VISION_LINK,
+                    source: "landing_scroll_sections",
+                    route: "/",
+                    label: "Vision path",
+                    targetHref: "/mission-path",
+                  }),
+                },
+              })
+            }
+          >
+            Vision path
+          </a>
+          <span className="text-slate-600">·</span>
+          <a
+            href="/worlds"
+            className="text-cyan-300/90 underline-offset-4 hover:text-cyan-200 hover:underline"
+            onClick={() =>
+              void trackSiteEvent({
+                path: "/",
+                eventType: "button_click",
+                metadata: {
+                  ...landingCtaMetadata({
+                    eventName: LANDING_HOME_SITE_EVENTS.SCROLL_WORLDS_LINK,
+                    source: "landing_scroll_sections",
+                    route: "/",
+                    label: "Worlds",
+                    targetHref: "/worlds",
+                  }),
+                },
+              })
+            }
+          >
+            Worlds
+          </a>
         </p>
       </div>
     </div>
