@@ -5,18 +5,19 @@
 
 import { INDUSTRY_PROFILES } from "@/lib/revenue-os/industry-profiles";
 import type { BentleySnapshot } from "@/lib/revenue-os/bentley-orchestrator";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export const BENTLEY_CAMPAIGN_NOTES_MIN = 10;
 
 function effectiveIndustryLabel(s: BentleySnapshot): string {
   const fromProfile =
     s.industryKey != null ? (INDUSTRY_PROFILES[s.industryKey]?.label ?? "") : "";
-  return (s.contentIndustry ?? "").trim() || fromProfile.trim();
+  return coerceTrimmedString(s.contentIndustry) || coerceTrimmedString(fromProfile);
 }
 
 export function buildBaselineCampaignNotesFromIntake(s: BentleySnapshot): string {
-  const industry = effectiveIndustryLabel(s).trim() || "Not specified";
-  const audience = (s.targetAudience ?? "").trim() || "General audience";
+  const industry = effectiveIndustryLabel(s) || "Not specified";
+  const audience = coerceTrimmedString(s.targetAudience) || "General audience";
   const platforms = Array.isArray(s.platforms) ? s.platforms : [];
   const lines: string[] = [
     "## Campaign brief (auto-generated from guided intake)",
@@ -25,16 +26,16 @@ export function buildBaselineCampaignNotesFromIntake(s: BentleySnapshot): string
     "You can edit or append below — manual notes take priority when present.",
     "",
     `**Industry:** ${industry}`,
-    `**Business name:** ${(s.businessName ?? "").trim() || "—"}`,
+    `**Business name:** ${coerceTrimmedString(s.businessName) || "—"}`,
     `**Target audience:** ${audience}`,
-    `**Core offer:** ${(s.coreOffer ?? "").trim() || "—"}`,
-    `**Transformation / outcome:** ${(s.transformation ?? "").trim() || "—"}`,
+    `**Core offer:** ${coerceTrimmedString(s.coreOffer) || "—"}`,
+    `**Transformation / outcome:** ${coerceTrimmedString(s.transformation) || "—"}`,
     "",
     `**Content platforms (strategy):** ${platforms.length ? platforms.join(", ") : "—"}`,
     `**Posting platforms (OAuth intent):** ${s.postingPlatforms?.length ? s.postingPlatforms.join(", ") : "—"}`,
-    `**Tone:** ${(s.tone ?? "").trim() || "—"}`,
-    `**Content type:** ${(s.contentType ?? "").trim() || "—"}`,
-    `**Image style:** ${(s.imageStyle ?? "").trim() || "—"}`,
+    `**Tone:** ${coerceTrimmedString(s.tone) || "—"}`,
+    `**Content type:** ${coerceTrimmedString(s.contentType) || "—"}`,
+    `**Image style:** ${coerceTrimmedString(s.imageStyle) || "—"}`,
     "",
   ];
 
@@ -48,7 +49,7 @@ export function buildBaselineCampaignNotesFromIntake(s: BentleySnapshot): string
 
   lines.push(
     "**Direction for campaign:**",
-    `Position ${(s.businessName ?? "").trim() || "the brand"} in ${industry} for ${audience}, leading with ${(s.coreOffer ?? "").trim() || "the offer"} and the promised outcome: ${(s.transformation ?? "").trim() || "see transformation above"}.`,
+    `Position ${coerceTrimmedString(s.businessName) || "the brand"} in ${industry} for ${audience}, leading with ${coerceTrimmedString(s.coreOffer) || "the offer"} and the promised outcome: ${coerceTrimmedString(s.transformation) || "see transformation above"}.`,
     "",
     "_End of auto-generated brief._"
   );

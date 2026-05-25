@@ -14,6 +14,7 @@ import { effectiveIndustryLabelFromSnapshot } from "@/lib/revenue-os/bentley-sec
 import {
   BENTLEY_DASHBOARD_HANDOFF_VERSION,
   BENTLEY_DASHBOARD_HANDOFF_VERSION_LEGACY,
+  type BentleyDashboardAutoRunMode,
   type BentleyDashboardHandoffEnvelope,
   type BentleyDashboardHandoffPayload,
 } from "@/lib/revenue-os/bentley-dashboard-types";
@@ -24,16 +25,22 @@ import {
 import type { SocialPlatform } from "@/lib/social/config";
 import { RevenueOsAnalyzeRequestSchema } from "@/lib/validators/revenue-os";
 import {
+  coercePlatformLabelStrings,
   normalizeDashboardFormValues,
   type RevenueOsDashboardFormValues,
 } from "@/lib/revenue-os/run-revenue-os-analysis";
+import { coerceIndustryKey, coerceTrimmedString, dashboardIndustryHead, normalizeBentleyDashboardHandoffPayload } from "@/lib/revenue-os/bentley-string-coerce";
 import {
   readBentleySessionWithLegacyFallback,
   removeBentleySessionScopedAndLegacy,
 } from "@/lib/revenue-os/bentley-storage-scope";
 
 export const BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY = "revenue-os:bentley-handoff";
-/** Set when the user has edited the dashboard form this session — Bentley must not overwrite */
+/**
+ * Set when the user has edited the dashboard form this session.
+ * Blocks session-only restore from `REVENUE_OS_BENTLEY_APPLIED_FORM_KEY` when there is no fresh handoff.
+ * A parsed `BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY` handoff always clears this and merges (explicit open-dashboard).
+ */
 export const REVENUE_OS_DASHBOARD_USER_TOUCHED_KEY = "revenue-os:dashboard-user-touched";
 
 /** Call when Bentley writes a fresh dashboard handoff so hydration is not blocked by a prior edit session. */
@@ -54,10 +61,23 @@ export const REVENUE_OS_BENTLEY_APPLIED_FORM_KEY = "revenue-os:bentley-applied-f
  */
 export const REVENUE_OS_BENTLEY_AUTORUN_PENDING_KEY = "revenue-os:bentley-autorun-pending";
 /**
+ * Set by BentleyDashboardBridge when handoff requests full pipeline (research → … → analysis), not immediate `/analyze`.
+ * Consumed by dashboard `BentleyDashboardPipelineAutorun` after shared Bentley state is ready.
+ */
+export const REVENUE_OS_BENTLEY_AUTORUN_FULL_PIPELINE_KEY = "revenue-os:bentley-autorun-full-pipeline";
+/**
  * Session-only persistence for Bentley completion UI after refresh.
  * JSON: `{ status: 'complete' | 'failed', message?: string, at: number }`
  */
 export const REVENUE_OS_BENTLEY_ANALYSIS_SESSION_KEY = "revenue-os:bentley-analysis-session";
+
+const AUTO_RUN_MODES: readonly BentleyDashboardAutoRunMode[] = ["off", "analysis_only", "full_pipeline"];
+
+export function resolveBentleyDashboardAutoRunMode(p: BentleyDashboardHandoffPayload): BentleyDashboardAutoRunMode {
+  const m = p.autoRunMode;
+  if (m && AUTO_RUN_MODES.includes(m)) return m;
+  return p.autoRunFullAnalysis ? "full_pipeline" : "off";
+}
 
 function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
@@ -68,7 +88,7 @@ function roundMoney(n: number): number {
  */
 export function buildBentleyDashboardPayload(
   snap: BentleySnapshot,
-  opts?: { autoRunFullAnalysis?: boolean }
+  opts?: { autoRunFullAnalysis?: boolean; autoRunMode?: BentleyDashboardAutoRunMode }
 ): BentleyDashboardHandoffPayload {
   const industryLabel = effectiveIndustryLabelFromSnapshot(snap);
   const traffic = Math.max(0, Math.round(snap.traffic || 0));
@@ -87,15 +107,15 @@ export function buildBentleyDashboardPayload(
   return {
     v: BENTLEY_DASHBOARD_HANDOFF_VERSION,
     createdAt: new Date().toISOString(),
-    businessName: snap.businessName.trim() || "Your business",
+    businessName: coerceTrimmedString(snap.businessName) || "Your business",
     industryKey: snap.industryKey,
-    contentIndustry: snap.contentIndustry.trim(),
+    contentIndustry: coerceTrimmedString(snap.contentIndustry),
     businessType:
       industryLabel ||
       (snap.industryKey != null && snap.industryKey in INDUSTRY_PROFILES
         ? INDUSTRY_PROFILES[snap.industryKey].label
         : "Consulting"),
-    targetAudience: snap.targetAudience.trim() || "General audience",
+    targetAudience: coerceTrimmedString(snap.targetAudience) || "General audience",
     market: "USA",
     currentMonthlyRevenue,
     targetMonthlyRevenue,
@@ -105,41 +125,39 @@ export function buildBentleyDashboardPayload(
     avgOrderValue: aov,
     cac,
     ltv,
-    coreOffer: snap.coreOffer.trim(),
-    transformation: snap.transformation.trim(),
-    platforms: [...snap.platforms],
+    coreOffer: coerceTrimmedString(snap.coreOffer),
+    transformation: coerceTrimmedString(snap.transformation),
+    platforms: coercePlatformLabelStrings(snap.platforms),
     postingPlatforms: dedupePostingPlatforms(snap.postingPlatforms ?? []),
-    tone: snap.tone.trim() || "Professional",
-    contentTypeFocus: snap.contentType.trim() || "Full Post",
-    imageStyle: snap.imageStyle.trim() || "cinematic",
-    notes: snap.campaignNotes.trim(),
+    tone: coerceTrimmedString(snap.tone) || "Professional",
+    contentTypeFocus: coerceTrimmedString(snap.contentType) || "Full Post",
+    imageStyle: coerceTrimmedString(snap.imageStyle) || "cinematic",
+    notes: coerceTrimmedString(snap.campaignNotes),
     autoRunFullAnalysis: Boolean(opts?.autoRunFullAnalysis),
+    autoRunMode:
+      opts?.autoRunMode ?? (opts?.autoRunFullAnalysis ? "full_pipeline" : "off"),
   };
-}
-
-function coerceIndustryKeyFromPayload(k: string | null): IndustryKey | null {
-  if (!k) return null;
-  return k in INDUSTRY_PROFILES ? (k as IndustryKey) : null;
 }
 
 /** Reconstruct guided-intake snapshot from a dashboard handoff payload (resume / dashboard orchestration). */
 export function bentleySnapshotFromHandoffPayload(p: BentleyDashboardHandoffPayload): BentleySnapshot {
+  const n = normalizeBentleyDashboardHandoffPayload(p);
   return {
-    industryKey: coerceIndustryKeyFromPayload(p.industryKey),
-    contentIndustry: p.contentIndustry ?? "",
-    targetAudience: p.targetAudience ?? "",
-    traffic: typeof p.monthlyTraffic === "number" ? p.monthlyTraffic : 0,
-    conversionRate: typeof p.conversionRatePct === "number" ? p.conversionRatePct : 0,
-    aov: typeof p.avgOrderValue === "number" ? p.avgOrderValue : 0,
-    businessName: p.businessName ?? "",
-    coreOffer: p.coreOffer ?? "",
-    transformation: p.transformation ?? "",
-    platforms: Array.isArray(p.platforms) ? [...p.platforms] : [],
-    tone: p.tone ?? "",
-    contentType: p.contentTypeFocus ?? "",
-    imageStyle: p.imageStyle ?? "",
-    campaignNotes: p.notes ?? "",
-    postingPlatforms: dedupePostingPlatforms(p.postingPlatforms ?? []),
+    industryKey: coerceIndustryKey(n.industryKey),
+    contentIndustry: n.contentIndustry,
+    targetAudience: n.targetAudience,
+    traffic: n.monthlyTraffic,
+    conversionRate: n.conversionRatePct,
+    aov: n.avgOrderValue,
+    businessName: n.businessName,
+    coreOffer: n.coreOffer,
+    transformation: n.transformation,
+    platforms: n.platforms,
+    tone: n.tone,
+    contentType: n.contentTypeFocus,
+    imageStyle: n.imageStyle,
+    campaignNotes: n.notes,
+    postingPlatforms: dedupePostingPlatforms(n.postingPlatforms ?? []),
   };
 }
 
@@ -149,8 +167,9 @@ export function bentleySnapshotFromHandoffPayload(p: BentleyDashboardHandoffPayl
  */
 export function bentleySnapshotPatchFromPersistedDashboardForm(form: RevenueOsDashboardFormValues): Partial<BentleySnapshot> {
   const base = bentleySnapshotFromDashboardForm(form);
-  const head = form.businessType.split("/")[0]?.trim() ?? "";
-  const industryGuess = parseIndustryKey(form.businessType) ?? parseIndustryKey(head) ?? null;
+  const f = normalizeDashboardFormValues(form);
+  const head = dashboardIndustryHead(f.businessType);
+  const industryGuess = parseIndustryKey(f.businessType) ?? parseIndustryKey(head) ?? null;
   return {
     ...base,
     industryKey: industryGuess,
@@ -159,22 +178,23 @@ export function bentleySnapshotPatchFromPersistedDashboardForm(form: RevenueOsDa
 
 /** Maps live dashboard form state into a Bentley snapshot (Revenue OS dashboard ↔ chat / workflow). */
 export function bentleySnapshotFromDashboardForm(form: RevenueOsDashboardFormValues): BentleySnapshot {
+  const f = normalizeDashboardFormValues(form);
   return {
     industryKey: null,
-    contentIndustry: form.businessType.trim(),
-    targetAudience: form.targetAudience.trim(),
-    traffic: typeof form.monthlyTraffic === "number" ? form.monthlyTraffic : 0,
-    conversionRate: typeof form.conversionRatePct === "number" ? form.conversionRatePct : 0,
-    aov: typeof form.avgOrderValue === "number" ? form.avgOrderValue : 0,
-    businessName: form.businessName.trim(),
-    coreOffer: form.coreOffer.trim(),
-    transformation: form.transformation.trim(),
-    platforms: Array.isArray(form.platforms) ? [...form.platforms] : [],
-    postingPlatforms: dedupePostingPlatforms(form.postingPlatforms ?? []),
-    tone: form.tone.trim(),
-    contentType: form.contentTypeFocus.trim(),
-    imageStyle: form.imageStyle.trim(),
-    campaignNotes: form.notes.trim(),
+    contentIndustry: f.businessType,
+    targetAudience: f.targetAudience,
+    traffic: f.monthlyTraffic,
+    conversionRate: f.conversionRatePct,
+    aov: f.avgOrderValue,
+    businessName: f.businessName,
+    coreOffer: f.coreOffer,
+    transformation: f.transformation,
+    platforms: f.platforms,
+    postingPlatforms: dedupePostingPlatforms(f.postingPlatforms ?? []),
+    tone: f.tone,
+    contentType: f.contentTypeFocus,
+    imageStyle: f.imageStyle,
+    campaignNotes: f.notes,
   };
 }
 
@@ -241,22 +261,22 @@ export function dashboardFormPatchFromBentleySnapshot(snap: BentleySnapshot): Pa
   const businessType =
     snap.industryKey != null && snap.industryKey in INDUSTRY_PROFILES
       ? INDUSTRY_PROFILES[snap.industryKey as IndustryKey].label
-      : snap.contentIndustry.trim();
+      : coerceTrimmedString(snap.contentIndustry);
   return {
-    businessName: snap.businessName.trim(),
+    businessName: coerceTrimmedString(snap.businessName),
     businessType,
-    targetAudience: snap.targetAudience.trim(),
+    targetAudience: coerceTrimmedString(snap.targetAudience),
     monthlyTraffic: snap.traffic,
     conversionRatePct: snap.conversionRate,
     avgOrderValue: snap.aov,
-    coreOffer: snap.coreOffer.trim(),
-    transformation: snap.transformation.trim(),
-    platforms: Array.isArray(snap.platforms) ? [...snap.platforms] : [],
+    coreOffer: coerceTrimmedString(snap.coreOffer),
+    transformation: coerceTrimmedString(snap.transformation),
+    platforms: coercePlatformLabelStrings(snap.platforms),
     postingPlatforms: dedupePostingPlatforms(snap.postingPlatforms ?? []),
-    tone: snap.tone.trim(),
-    contentTypeFocus: snap.contentType.trim(),
-    imageStyle: snap.imageStyle.trim(),
-    notes: snap.campaignNotes.trim(),
+    tone: coerceTrimmedString(snap.tone),
+    contentTypeFocus: coerceTrimmedString(snap.contentType),
+    imageStyle: coerceTrimmedString(snap.imageStyle),
+    notes: coerceTrimmedString(snap.campaignNotes),
   };
 }
 
@@ -264,7 +284,16 @@ function postingPlatformsEqual(a: SocialPlatform[], b: SocialPlatform[]): boolea
   return JSON.stringify(dedupePostingPlatforms(a)) === JSON.stringify(dedupePostingPlatforms(b));
 }
 
-/** Applies only fields that differ so mirror does not churn when snapshot already matches the form. */
+/**
+ * Applies only fields that differ so mirror does not churn when snapshot already matches the form.
+ *
+ * **Traffic / conversion / AOV:** Guided intake treats `0` as “not collected yet”. After a dashboard
+ * handoff, `BentleyDashboardMirrorToForm` can run before `BentleyDashboardSharedStateSync` pushes the
+ * merged form back into shared state — so we must **not** push snapshot zeros onto a form that already
+ * has handoff defaults (e.g. monthly traffic 8000).
+ *
+ * **Notes:** Do not replace a non-empty dashboard `notes` with an empty snapshot (same stale-snapshot case).
+ */
 export function dashboardFormPatchFromBentleySnapshotIfDiff(
   snap: BentleySnapshot,
   form: RevenueOsDashboardFormValues
@@ -274,11 +303,23 @@ export function dashboardFormPatchFromBentleySnapshotIfDiff(
   if (want.businessName !== undefined && want.businessName !== form.businessName) out.businessName = want.businessName;
   if (want.businessType !== undefined && want.businessType !== form.businessType) out.businessType = want.businessType;
   if (want.targetAudience !== undefined && want.targetAudience !== form.targetAudience) out.targetAudience = want.targetAudience;
-  if (want.monthlyTraffic !== undefined && want.monthlyTraffic !== form.monthlyTraffic) out.monthlyTraffic = want.monthlyTraffic;
-  if (want.conversionRatePct !== undefined && want.conversionRatePct !== form.conversionRatePct) {
+  if (
+    snap.traffic > 0 &&
+    want.monthlyTraffic !== undefined &&
+    want.monthlyTraffic !== form.monthlyTraffic
+  ) {
+    out.monthlyTraffic = want.monthlyTraffic;
+  }
+  if (
+    snap.conversionRate > 0 &&
+    want.conversionRatePct !== undefined &&
+    want.conversionRatePct !== form.conversionRatePct
+  ) {
     out.conversionRatePct = want.conversionRatePct;
   }
-  if (want.avgOrderValue !== undefined && want.avgOrderValue !== form.avgOrderValue) out.avgOrderValue = want.avgOrderValue;
+  if (snap.aov > 0 && want.avgOrderValue !== undefined && want.avgOrderValue !== form.avgOrderValue) {
+    out.avgOrderValue = want.avgOrderValue;
+  }
   if (want.coreOffer !== undefined && want.coreOffer !== form.coreOffer) out.coreOffer = want.coreOffer;
   if (want.transformation !== undefined && want.transformation !== form.transformation) out.transformation = want.transformation;
   if (want.platforms !== undefined && JSON.stringify(want.platforms) !== JSON.stringify(form.platforms)) {
@@ -292,7 +333,13 @@ export function dashboardFormPatchFromBentleySnapshotIfDiff(
     out.contentTypeFocus = want.contentTypeFocus;
   }
   if (want.imageStyle !== undefined && want.imageStyle !== form.imageStyle) out.imageStyle = want.imageStyle;
-  if (want.notes !== undefined && want.notes !== form.notes) out.notes = want.notes;
+  if (want.notes !== undefined && want.notes !== form.notes) {
+    const wantTrim = coerceTrimmedString(want.notes);
+    const formTrim = coerceTrimmedString(form.notes);
+    if (wantTrim.length > 0 || formTrim.length === 0) {
+      out.notes = want.notes;
+    }
+  }
   return out;
 }
 
@@ -310,6 +357,11 @@ export function parseBentleyDashboardPayload(raw: string): BentleyDashboardHando
     if (v !== BENTLEY_DASHBOARD_HANDOFF_VERSION_LEGACY && v !== BENTLEY_DASHBOARD_HANDOFF_VERSION) {
       return null;
     }
+    const mode = env.payload.autoRunMode;
+    if (mode != null && !AUTO_RUN_MODES.includes(mode)) {
+      delete (env.payload as { autoRunMode?: unknown }).autoRunMode;
+    }
+    env.payload = normalizeBentleyDashboardHandoffPayload(env.payload);
     return env;
   } catch {
     return null;
@@ -326,9 +378,10 @@ export function postingPlatformsFromHandoffPayload(p: BentleyDashboardHandoffPay
 
 /** Minimum to show a useful dashboard (hydration) — narrative industry + business identity */
 export function hasMinimumFieldsForDashboard(p: BentleyDashboardHandoffPayload): boolean {
+  const n = normalizeBentleyDashboardHandoffPayload(p);
   return (
-    (p.businessType.trim().length >= 2 || p.contentIndustry.trim().length >= 2) &&
-    p.businessName.trim().length >= 1
+    (n.businessType.length >= 2 || n.contentIndustry.length >= 2) &&
+    n.businessName.length >= 1
   );
 }
 
@@ -342,19 +395,20 @@ export function hasMinimumFieldsForFullAnalysis(p: BentleyDashboardHandoffPayloa
   ok: false;
   missing: string[];
 } {
+  const n = normalizeBentleyDashboardHandoffPayload(p);
   const profile = {
     userId: "bentley-validation",
-    businessName: p.businessName,
-    businessType: p.businessType,
-    market: p.market,
-    currentMonthlyRevenue: p.currentMonthlyRevenue,
-    targetMonthlyRevenue: p.targetMonthlyRevenue,
-    avgOrderValue: p.avgOrderValue,
-    grossMarginPct: p.grossMarginPct,
-    monthlyTraffic: Math.round(p.monthlyTraffic),
-    conversionRatePct: p.conversionRatePct,
-    cac: p.cac,
-    ltv: p.ltv,
+    businessName: n.businessName,
+    businessType: n.businessType,
+    market: n.market,
+    currentMonthlyRevenue: n.currentMonthlyRevenue,
+    targetMonthlyRevenue: n.targetMonthlyRevenue,
+    avgOrderValue: n.avgOrderValue,
+    grossMarginPct: n.grossMarginPct,
+    monthlyTraffic: Math.round(n.monthlyTraffic),
+    conversionRatePct: n.conversionRatePct,
+    cac: n.cac,
+    ltv: n.ltv,
   };
   const parsed = RevenueOsAnalyzeRequestSchema.safeParse({ profile });
   if (parsed.success) return { ok: true };
@@ -410,26 +464,27 @@ export function payloadToDashboardFormState(p: BentleyDashboardHandoffPayload): 
   imageStyle: string;
   notes: string;
 } {
+  const n = normalizeBentleyDashboardHandoffPayload(p);
   return {
-    businessName: p.businessName,
-    businessType: p.businessType,
-    targetAudience: p.targetAudience,
-    market: p.market,
-    currentMonthlyRevenue: p.currentMonthlyRevenue,
-    targetMonthlyRevenue: p.targetMonthlyRevenue,
-    avgOrderValue: p.avgOrderValue,
-    grossMarginPct: p.grossMarginPct,
-    monthlyTraffic: p.monthlyTraffic,
-    conversionRatePct: p.conversionRatePct,
-    cac: p.cac,
-    ltv: p.ltv,
-    coreOffer: p.coreOffer,
-    transformation: p.transformation,
-    platforms: [...p.platforms],
-    postingPlatforms: postingPlatformsFromHandoffPayload(p),
-    tone: p.tone,
-    contentTypeFocus: p.contentTypeFocus,
-    imageStyle: p.imageStyle,
-    notes: p.notes,
+    businessName: n.businessName,
+    businessType: n.businessType,
+    targetAudience: n.targetAudience,
+    market: n.market,
+    currentMonthlyRevenue: n.currentMonthlyRevenue,
+    targetMonthlyRevenue: n.targetMonthlyRevenue,
+    avgOrderValue: n.avgOrderValue,
+    grossMarginPct: n.grossMarginPct,
+    monthlyTraffic: n.monthlyTraffic,
+    conversionRatePct: n.conversionRatePct,
+    cac: n.cac,
+    ltv: n.ltv,
+    coreOffer: n.coreOffer,
+    transformation: n.transformation,
+    platforms: n.platforms,
+    postingPlatforms: postingPlatformsFromHandoffPayload(n),
+    tone: n.tone,
+    contentTypeFocus: n.contentTypeFocus,
+    imageStyle: n.imageStyle,
+    notes: n.notes,
   };
 }

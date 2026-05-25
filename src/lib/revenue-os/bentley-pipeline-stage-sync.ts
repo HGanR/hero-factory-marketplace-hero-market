@@ -17,6 +17,7 @@ import { loadWorkflowState, type BentleyWorkflowState } from "@/lib/revenue-os/b
 import type { CampaignResponse } from "@/lib/revenue-os/campaign-schema";
 import type { ContentEngineOutput } from "@/lib/revenue-os/content-engine-types";
 import { bentleyContinuityLog } from "@/lib/revenue-os/bentley-continuity-log";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export function buildLaunchPrefillFromArtifacts(
   snap: BentleySnapshot,
@@ -29,10 +30,9 @@ export function buildLaunchPrefillFromArtifacts(
     "";
   const hooks = (campaign?.shortFormHooks ?? []).slice(0, 8).join("\n");
   const cta = campaign?.longFormOutlines?.[0]?.cta?.trim() || campaign?.offerStatement?.trim() || "";
+  const businessName = coerceTrimmedString(snap.businessName);
   return {
-    campaignName: snap.businessName.trim()
-      ? `${snap.businessName.trim()} — launch`
-      : "Campaign launch",
+    campaignName: businessName ? `${businessName} — launch` : "Campaign launch",
     caption,
     hooks,
     cta,

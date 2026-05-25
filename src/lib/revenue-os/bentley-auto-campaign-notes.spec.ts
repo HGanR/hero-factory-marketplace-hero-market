@@ -38,6 +38,20 @@ describe("buildBaselineCampaignNotesFromIntake", () => {
     expect(text).toContain("Acme Co");
     expect(text).toContain("SMB owners");
   });
+
+  it("tolerates numeric snapshot string fields from corrupt session JSON", () => {
+    const text = buildBaselineCampaignNotesFromIntake(
+      fullStructuredSnapshot({
+        businessName: 404 as unknown as string,
+        coreOffer: 505 as unknown as string,
+        contentIndustry: 606 as unknown as string,
+        industryKey: null,
+      }),
+    );
+    expect(text).toContain("404");
+    expect(text).toContain("505");
+    expect(text).toContain("606");
+  });
 });
 
 describe("structuredGuidedIntakeCompleteForCampaign + workflow phase", () => {

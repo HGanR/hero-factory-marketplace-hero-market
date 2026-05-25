@@ -5,11 +5,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BentleyPipelineAmbientStatusForDashboard } from "@/components/ai-revenue-os/BentleyPipelineAmbientStatus";
 import { BentleyDashboardBridge, clearBentleyPreparedBadge, markRevenueOsDashboardUserTouched, readBentleyPreparedBadge } from "@/components/revenue-os/BentleyDashboardBridge";
+import { BentleyDashboardPipelineAutorun } from "@/components/revenue-os/BentleyDashboardPipelineAutorun";
 import { BentleyDashboardWorkflowPanel } from "@/components/revenue-os/BentleyDashboardWorkflowPanel";
 import { BentleyOptimizationInsightsPanel } from "@/components/revenue-os/BentleyOptimizationInsightsPanel";
 import {
   appendDashboardTrendsToFormNotes,
   EMPTY_DASHBOARD_CONTEXT,
+  coercePlatformLabelStrings,
   normalizeDashboardFormValues,
   runRevenueOsFullAnalysis,
   type RevenueOsDashboardFormValues,
@@ -27,6 +29,7 @@ import { OfferLadderPanel } from "@/components/revenue-os/OfferLadderPanel";
 import { CampaignLaunchSectionFromBentleySnapshot } from "@/components/ai-revenue-os/CampaignLaunchSection";
 import { BentleyLaunchReadinessSummary } from "@/components/revenue-os/BentleyLaunchReadinessSummary";
 import { BentleyRunObservabilityDebugPanel } from "@/components/revenue-os/BentleyRunObservabilityDebugPanel";
+import { ActiveClientIndicator } from "@/components/client-context/ActiveClientIndicator";
 import {
   AiRevenueOsSharedStateProvider,
   useAiRevenueOsBentleyActions,
@@ -88,10 +91,38 @@ import { BentleyFirstCampaignAssetCard } from "@/components/revenue-os/BentleyFi
 import type { ContentEngineOutput } from "@/lib/revenue-os/content-engine-types";
 import { readCachedContentEngineOutput } from "@/lib/revenue-os/content-engine-cache";
 import { scrollToFirstCampaignAssetCard } from "@/lib/revenue-os/bentley-first-campaign-ui";
-import { scrollDashboardHashIntoView } from "@/lib/revenue-os/bentley-scroll";
+import {
+  dashboardIndustryHead,
+  dashboardIndustryOfferType,
+} from "@/lib/revenue-os/bentley-string-coerce";
+import { loadWorkflowState } from "@/lib/revenue-os/bentley-workflow";
+import { BentleyCampaignOutputTile } from "@/components/revenue-os/BentleyCampaignOutputTile";
 import { useInvalidateSocialAccounts, useSocialAccounts } from "@/hooks/useSocialAccounts";
 
 const ACCENT = "#00D1FF";
+
+/** In-page hash scroll for dashboard sections — kept local so mount effects never depend on a missing import. */
+function scrollDashboardHashIntoView(): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const raw = (window.location.hash || "").replace(/^#/, "").trim();
+  if (!raw) return;
+  const key = raw === "launch-campaigns" ? "campaign-launch" : raw;
+  window.setTimeout(() => {
+    try {
+      const byId = document.getElementById(key);
+      if (byId) {
+        byId.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      const bySection =
+        document.querySelector<HTMLElement>(`[data-bentley-section="${raw}"]`) ??
+        document.querySelector<HTMLElement>(`[data-bentley-section="${key}"]`);
+      bySection?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      /* ignore scroll failures (extensions / missing targets) */
+    }
+  }, 80);
+}
 
 const btn3dGold =
   "relative px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 active:translate-y-[2px] active:shadow-none text-black border border-cyan-600 shadow-[0_4px_0_#06b6d4,0_6px_12px_rgba(0,0,0,0.4)] hover:shadow-[0_5px_0_#06b6d4,0_8px_16px_rgba(0,0,0,0.5)] hover:-translate-y-0.5";
@@ -285,7 +316,15 @@ function NumField({
   );
 }
 
-type BentleyCompletionPhase = "idle" | "prepared" | "running" | "complete" | "failed";
+type BentleyCompletionPhase =
+  | "idle"
+  | "prepared"
+  | "running"
+  | "pipeline_running"
+  | "complete"
+  | "failed";
+
+type BentleyDashboardAutorunKind = null | "analysis" | "pipeline";
 
 function TextAreaField({
   label,
@@ -330,7 +369,13 @@ function RevenueOSDashboardInner() {
   const [hydratedFromBentley, setHydratedFromBentley] = useState(false);
   const [bentleyPreparedBadge, setBentleyPreparedBadge] = useState(false);
   const [bentleyCompletionPhase, setBentleyCompletionPhase] = useState<BentleyCompletionPhase>("idle");
+  const [bentleyAutorunKind, setBentleyAutorunKind] = useState<BentleyDashboardAutorunKind>(null);
   const [bentleyRunError, setBentleyRunError] = useState<string | null>(null);
+  const [bentleyExecutionCampaignId, setBentleyExecutionCampaignId] = useState<string | null>(null);
+  const bentleyAutorunKindRef = useRef<BentleyDashboardAutorunKind>(null);
+  useEffect(() => {
+    bentleyAutorunKindRef.current = bentleyAutorunKind;
+  }, [bentleyAutorunKind]);
   const [userId, setUserId] = useState(() => getResolvedUserIdFromStorage());
   const [clientId, setClientId] = useState<string>("");
   const [trustId, setTrustId] = useState<string>("");
@@ -372,11 +417,21 @@ function RevenueOSDashboardInner() {
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    scrollDashboardHashIntoView();
+    try {
+      scrollDashboardHashIntoView();
+    } catch {
+      /* non-blocking */
+    }
   }, [pathname]);
 
   useEffect(() => {
-    const onHash = () => scrollDashboardHashIntoView();
+    const onHash = () => {
+      try {
+        scrollDashboardHashIntoView();
+      } catch {
+        /* non-blocking */
+      }
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -516,7 +571,11 @@ function RevenueOSDashboardInner() {
   );
 
   const dashboardIndustryLine = useMemo(
-    () => form.businessType.split("/")[0]?.trim() || form.businessType,
+    () => dashboardIndustryHead(form.businessType) || "Consulting",
+    [form.businessType]
+  );
+  const dashboardOfferTypeLine = useMemo(
+    () => dashboardIndustryOfferType(form.businessType),
     [form.businessType]
   );
 
@@ -530,7 +589,8 @@ function RevenueOSDashboardInner() {
   );
 
   const dashboardContentPlatformId = useMemo(() => {
-    const first = form.platforms[0];
+    const labels = coercePlatformLabelStrings(form.platforms);
+    const first = labels[0];
     if (!first) return "instagram";
     const id = normalizeStrategyLabelToContentPlatformId(first);
     return isContentPlatformChipId(id) ? id : "instagram";
@@ -643,14 +703,54 @@ function RevenueOSDashboardInner() {
     if (v) setBentleyPreparedBadge(true);
     if (v) {
       setBentleyCompletionPhase((prev) =>
-        prev === "complete" || prev === "failed" || prev === "running" ? prev : "prepared"
+        prev === "complete" ||
+        prev === "failed" ||
+        prev === "running" ||
+        prev === "pipeline_running"
+          ? prev
+          : "prepared"
       );
     }
   }, []);
 
-  const onBentleyAutorunScheduledCb = useCallback(() => {
-    setBentleyCompletionPhase("running");
+  const onBentleyAutorunScheduledCb = useCallback((detail: { mode: "analysis" | "pipeline" }) => {
+    setBentleyAutorunKind(detail.mode === "pipeline" ? "pipeline" : "analysis");
+    setBentleyCompletionPhase(detail.mode === "pipeline" ? "pipeline_running" : "running");
     setBentleyRunError(null);
+  }, []);
+
+  const onPipelineAutorunFinished = useCallback((ok: boolean, reason?: string) => {
+    if (ok) {
+      setBentleyCompletionPhase("complete");
+      setBentleyRunError(null);
+      if (bentleyAutorunKindRef.current === "pipeline") {
+        try {
+          const cid = loadWorkflowState().artifacts.bentleyDbCampaignId?.trim();
+          if (cid) setBentleyExecutionCampaignId(cid);
+        } catch {
+          /* ignore */
+        }
+      }
+      try {
+        writeBentleySession(
+          REVENUE_OS_BENTLEY_ANALYSIS_SESSION_KEY,
+          JSON.stringify({ status: "complete", at: Date.now() })
+        );
+      } catch {
+        // ignore
+      }
+    } else {
+      setBentleyCompletionPhase("failed");
+      setBentleyRunError(reason ?? "Pipeline failed");
+      try {
+        writeBentleySession(
+          REVENUE_OS_BENTLEY_ANALYSIS_SESSION_KEY,
+          JSON.stringify({ status: "failed", message: reason ?? "Pipeline failed", at: Date.now() })
+        );
+      } catch {
+        // ignore
+      }
+    }
   }, []);
 
   async function saveSnapshot() {
@@ -726,9 +826,35 @@ function RevenueOSDashboardInner() {
         onBentleyAutorunScheduled={onBentleyAutorunScheduledCb}
         runAnalysisWithForm={runAnalysisWithForm}
       />
+      <BentleyDashboardPipelineAutorun
+        hydratedFromBentley={hydratedFromBentley}
+        userId={userId}
+        clientId={clientId}
+        trustId={trustId}
+        onFinished={onPipelineAutorunFinished}
+      />
       <BentleyDashboardMirrorToForm formRef={formRef} applySyncPatch={applySyncPatchFromBentleyMirror} />
       <div className="min-h-screen text-white px-6 py-10 bg-slate-950">
+      {bentleyExecutionCampaignId ? (
+        <div className="max-w-6xl mx-auto space-y-4 py-4">
+          <ActiveClientIndicator compact />
+          <p className="text-sm text-slate-300 max-w-2xl">
+            Bentley finished the full pipeline, persisted your campaign, and synced scheduled posts. Use the tile
+            below for prompts, uploads, timing, and publish — or open the full dashboard from the tile header.
+          </p>
+          <BentleyCampaignOutputTile
+            campaignId={bentleyExecutionCampaignId}
+            clientId={clientId}
+            onShowFullDashboard={() => setBentleyExecutionCampaignId(null)}
+            onGenerateNew={() => setBentleyExecutionCampaignId(null)}
+          />
+        </div>
+      ) : (
+      <>
       <div className="max-w-6xl mx-auto">
+        <div className="mb-4">
+          <ActiveClientIndicator compact />
+        </div>
         <BentleyPipelineAmbientStatusForDashboard />
         <BentleyDashboardWorkflowPanel />
         <BentleyOptimizationInsightsPanel />
@@ -755,15 +881,28 @@ function RevenueOSDashboardInner() {
                     Full Analysis running…
                   </p>
                 )}
+                {bentleyCompletionPhase === "pipeline_running" && (
+                  <p className="flex items-center gap-2 font-medium text-cyan-200">
+                    <span
+                      className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-cyan-400"
+                      aria-hidden
+                    />
+                    Revenue OS pipeline running (research through analysis)…
+                  </p>
+                )}
                 {bentleyCompletionPhase === "complete" && (
                   <>
                     <p className="font-medium text-cyan-100/95">
-                      Bentley prepared this dashboard and completed Full Analysis.
+                      {bentleyAutorunKind === "pipeline"
+                        ? "Bentley completed the full Revenue OS pipeline, including analysis."
+                        : "Bentley prepared this dashboard and completed Full Analysis."}
                     </p>
                     <p className="text-xs text-slate-400">
-                      {res
-                        ? "Start with your analysis output — lever gaps and targets — before moving downstream."
-                        : "Your completion status was restored; charts from the last run are not in memory."}
+                      {bentleyAutorunKind === "pipeline"
+                        ? "Review workflow panels and lever targets below; open Run Analysis if you want to refresh charts in this session."
+                        : res
+                          ? "Start with your analysis output — lever gaps and targets — before moving downstream."
+                          : "Your completion status was restored; charts from the last run are not in memory."}
                     </p>
                     {res ? (
                       <p className="text-xs text-slate-300/95 mt-1.5 border-l border-cyan-500/35 pl-2.5 leading-snug">
@@ -777,7 +916,11 @@ function RevenueOSDashboardInner() {
                 )}
                 {bentleyCompletionPhase === "failed" && (
                   <>
-                    <p className="font-medium text-amber-200/95">Bentley couldn’t complete Full Analysis</p>
+                    <p className="font-medium text-amber-200/95">
+                      {bentleyAutorunKind === "pipeline"
+                        ? "Bentley couldn’t complete the Revenue OS pipeline"
+                        : "Bentley couldn’t complete Full Analysis"}
+                    </p>
                     {bentleyRunError ? (
                       <p className="text-xs text-amber-100/80 break-words">{bentleyRunError}</p>
                     ) : (
@@ -796,6 +939,7 @@ function RevenueOSDashboardInner() {
                   setBentleyPreparedBadge(false);
                   setHydratedFromBentley(false);
                   setBentleyCompletionPhase("idle");
+                  setBentleyAutorunKind(null);
                   setBentleyRunError(null);
                 }}
                 className="shrink-0 text-xs text-cyan-400/80 hover:text-cyan-300 underline"
@@ -1015,10 +1159,9 @@ function RevenueOSDashboardInner() {
                 value={form.platforms.join(", ")}
                 onChange={(v) =>
                   patchForm({
-                    platforms: v
-                      .split(/[,;]+/)
-                      .map((s) => s.trim())
-                      .filter(Boolean),
+                    platforms: coercePlatformLabelStrings(
+                      v.split(/[,;]+/).map((s) => (typeof s === "string" ? s : String(s)))
+                    ),
                   })
                 }
               />
@@ -1077,7 +1220,7 @@ function RevenueOSDashboardInner() {
         <div className="mt-10">
           <OfferLadderPanel
             profile={offerLadderProfile}
-            industry={form.businessType.split("/")[0]?.trim() || undefined}
+            industry={dashboardIndustryLine || undefined}
             clientId={clientId}
             trustId={trustId}
           />
@@ -1087,7 +1230,7 @@ function RevenueOSDashboardInner() {
           userId={userId}
           clientId={clientId}
           trustId={trustId}
-          industry={form.businessType.split("/")[0]?.trim() || "Consulting"}
+          industry={dashboardIndustryLine}
           createWithMetrics={{
             traffic: form.monthlyTraffic,
             conversionRatePct: form.conversionRatePct,
@@ -1271,15 +1414,15 @@ function RevenueOSDashboardInner() {
             </div>
 
             <BenchmarkComparisonPanel
-              industry={form.businessType.split("/")[0]?.trim() || "Consulting"}
+              industry={dashboardIndustryLine}
               yourConversionPct={res.levers.conversionRatePct.current}
               yourCac={res.levers.cac.current}
             />
 
             <MarketScanHistoryPanel
-              industry={form.businessType.split("/")[0]?.trim() || "Consulting"}
+              industry={dashboardIndustryLine}
               geo={form.market}
-              offerType={form.businessType.split("/")[1]?.trim()}
+              offerType={dashboardOfferTypeLine}
               userId={userId}
               clientId={clientId}
             />
@@ -1408,8 +1551,10 @@ function RevenueOSDashboardInner() {
         <DeploymentCenterPanel userId={userId} clientId={clientId} trustId={trustId} />
       </div>
       <BentleyRunObservabilityDebugPanel />
+      </>
+      )}
       </div>
-      <BentleyRevenueOsChat />
+      {!bentleyExecutionCampaignId ? <BentleyRevenueOsChat /> : null}
     </AiRevenueOsSharedStateProvider>
   );
 }

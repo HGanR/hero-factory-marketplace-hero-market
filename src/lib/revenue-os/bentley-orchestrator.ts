@@ -8,6 +8,7 @@ import { INDUSTRY_OPTIONS, INDUSTRY_PROFILES } from "@/lib/revenue-os/industry-p
 import type { ClientReadinessAnswers } from "@/components/ai-revenue-os/ClientReadinessQuestionnaire";
 import type { SocialPlatform } from "@/lib/social/config";
 import { parsePostingPlatformsFromUserText } from "@/lib/revenue-os/bentley-posting-platforms";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import type { BentleyFieldKey, BentleySectionId, BentleyWorkflowPhase, BentleyChecklistId } from "./bentley-flow-types";
 import { parsePercentFromUserText } from "./percent-input";
 
@@ -168,7 +169,7 @@ export interface BentleySnapshot {
 
 export function industryResolved(s: BentleySnapshot): boolean {
   if (s.industryKey != null) return true;
-  return (s.contentIndustry?.trim().length ?? 0) > 0;
+  return coerceTrimmedString(s.contentIndustry).length > 0;
 }
 
 function isSkipMessage(text: string): boolean {
@@ -183,8 +184,8 @@ function isSkipMessage(text: string): boolean {
 }
 
 /** Enhanced match to canonical industry keys */
-export function parseIndustryKey(text: string): IndustryKey | null {
-  const t = text.trim().toLowerCase();
+export function parseIndustryKey(text: unknown): IndustryKey | null {
+  const t = coerceTrimmedString(text).toLowerCase();
   if (!t) return null;
   const collapse = (s: string) => s.replace(/[\s_-]+/g, " ").trim();
 
@@ -317,7 +318,7 @@ function optionalFieldSatisfied(s: BentleySnapshot, key: BentleyFieldKey): boole
     case "campaignNotes":
       return (
         structuredGuidedIntakeCompleteForCampaign(s) ||
-        (s.campaignNotes?.trim().length ?? 0) > 0 ||
+        coerceTrimmedString(s.campaignNotes).length > 0 ||
         s.skipCampaignNotes === true ||
         ack(s, "campaignNotes")
       );
@@ -331,13 +332,13 @@ function requiredFieldSatisfied(s: BentleySnapshot, key: BentleyFieldKey): boole
     case "industryKey":
       return industryResolved(s);
     case "targetAudience":
-      return (s.targetAudience?.trim().length ?? 0) > 0;
+      return coerceTrimmedString(s.targetAudience).length > 0;
     case "businessName":
-      return (s.businessName ?? "").trim().length > 0;
+      return coerceTrimmedString(s.businessName).length > 0;
     case "coreOffer":
-      return (s.coreOffer ?? "").trim().length > 0;
+      return coerceTrimmedString(s.coreOffer).length > 0;
     case "transformation":
-      return (s.transformation ?? "").trim().length > 0;
+      return coerceTrimmedString(s.transformation).length > 0;
     case "postingPlatforms":
       return Array.isArray(s.postingPlatforms) && s.postingPlatforms.length > 0;
     case "platforms":
@@ -398,7 +399,7 @@ export function effectiveIntakeReadyForAutomation(s: BentleySnapshot): boolean {
 
 /** Intake = industry + audience */
 export function intakeComplete(s: BentleySnapshot): boolean {
-  return industryResolved(s) && (s.targetAudience?.trim().length ?? 0) > 0;
+  return industryResolved(s) && coerceTrimmedString(s.targetAudience).length > 0;
 }
 
 /** Revenue optional block complete */

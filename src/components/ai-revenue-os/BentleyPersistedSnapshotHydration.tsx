@@ -13,7 +13,7 @@ import {
 } from "@/lib/revenue-os/bentley-storage-scope";
 import { isRevenueOsDashboardFormValues } from "@/lib/revenue-os/run-revenue-os-analysis";
 import { readCanonicalBentleySnapshot } from "@/lib/revenue-os/bentley-canonical-snapshot";
-import type { BentleySnapshot } from "@/lib/revenue-os/bentley-orchestrator";
+import { sanitizeBentleySnapshotFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
 import { useAiRevenueOsBentleyActions } from "./AiRevenueOsSharedState";
 
 /**
@@ -39,8 +39,7 @@ export function BentleyPersistedSnapshotHydration() {
 
     const canonical = readCanonicalBentleySnapshot();
     if (canonical) {
-      const patch = JSON.parse(JSON.stringify(canonical)) as Partial<BentleySnapshot>;
-      applyBentleyPatch(patch);
+      applyBentleyPatch(sanitizeBentleySnapshotFromStorage(canonical));
       bentleyContinuityLog("dashboard_hydrated", { source: "canonical_snapshot", path: pathname });
     }
 

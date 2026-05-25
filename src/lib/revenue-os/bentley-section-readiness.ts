@@ -21,6 +21,7 @@ import type { BentleyWorkflowState } from "@/lib/revenue-os/bentley-workflow";
 import { getFirstIncompleteWorkflowPhase } from "@/lib/revenue-os/bentley-workflow";
 import { pipelinePhaseLabel } from "@/lib/revenue-os/bentley-pipeline-progress";
 import type { AdvanceBentleyPipelineStageResult } from "@/lib/revenue-os/bentley-pipeline-deployment-handoff";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export type AiRevenueSectionKey = "research" | "trends" | "contentEngine" | "campaign";
 
@@ -35,7 +36,7 @@ export type SectionReadiness = {
 export function effectiveIndustryLabelFromSnapshot(s: BentleySnapshot): string {
   const fromProfile =
     s.industryKey != null ? (INDUSTRY_PROFILES[s.industryKey]?.label ?? "") : "";
-  return (s.contentIndustry ?? "").trim() || fromProfile.trim();
+  return coerceTrimmedString(s.contentIndustry) || coerceTrimmedString(fromProfile);
 }
 
 function milestoneNarrativeForChecklist(id: BentleyChecklistId): string {
@@ -54,7 +55,7 @@ function milestoneNarrativeForChecklist(id: BentleyChecklistId): string {
 export function getSectionReadiness(s: BentleySnapshot): Record<AiRevenueSectionKey, SectionReadiness> {
   const industryText = effectiveIndustryLabelFromSnapshot(s);
   const hasIndustry = industryText.length >= 2;
-  const hasAudience = (s.targetAudience?.trim().length ?? 0) >= 2;
+  const hasAudience = coerceTrimmedString(s.targetAudience).length >= 2;
 
   const research: SectionReadiness = hasIndustry
     ? {
@@ -84,10 +85,10 @@ export function getSectionReadiness(s: BentleySnapshot): Record<AiRevenueSection
 
   const contentReady =
     industryResolved(s) &&
-    (s.businessName ?? "").trim().length > 0 &&
-    (s.targetAudience ?? "").trim().length > 0 &&
-    (s.coreOffer ?? "").trim().length > 0 &&
-    (s.transformation ?? "").trim().length > 0 &&
+    coerceTrimmedString(s.businessName).length > 0 &&
+    coerceTrimmedString(s.targetAudience).length > 0 &&
+    coerceTrimmedString(s.coreOffer).length > 0 &&
+    coerceTrimmedString(s.transformation).length > 0 &&
     (s.platforms?.length ?? 0) > 0;
 
   const contentEngine: SectionReadiness = contentReady
@@ -103,17 +104,18 @@ export function getSectionReadiness(s: BentleySnapshot): Record<AiRevenueSection
       };
 
   const structuredReady = structuredGuidedIntakeCompleteForCampaign(s);
+  const notesLen = coerceTrimmedString(s.campaignNotes).length;
   const canCampaign =
     industryResolved(s) &&
     (structuredReady ||
-      s.campaignNotes.trim().length >= BENTLEY_CAMPAIGN_NOTES_MIN ||
+      notesLen >= BENTLEY_CAMPAIGN_NOTES_MIN ||
       s.skipCampaignNotes === true);
 
   const campaign: SectionReadiness = canCampaign
     ? {
         status: "ready",
         summary:
-          s.campaignNotes.trim().length >= BENTLEY_CAMPAIGN_NOTES_MIN
+          notesLen >= BENTLEY_CAMPAIGN_NOTES_MIN
             ? "Campaign generator has industry and sufficient notes."
             : structuredReady
               ? "Guided intake is complete — campaign notes can be auto-built from your answers; add more in Notes anytime."
@@ -140,7 +142,7 @@ export function formatOptionalRemainingLine(s: BentleySnapshot): string {
   if (
     !fieldSatisfied(s, "campaignNotes") &&
     !s.skipCampaignNotes &&
-    (s.campaignNotes?.trim().length ?? 0) < BENTLEY_CAMPAIGN_NOTES_MIN
+    (coerceTrimmedString(s.campaignNotes).length) < BENTLEY_CAMPAIGN_NOTES_MIN
   )
     opt.push("notes");
   if (opt.length === 0) return "Optional refinements are either filled or skipped.";

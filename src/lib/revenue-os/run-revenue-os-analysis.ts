@@ -1,6 +1,7 @@
 import type { SocialPlatform } from "@/lib/social/config";
 import { bentleyJsonPostHeaders } from "@/lib/revenue-os/bentley-request-correlation";
 import { dedupePostingPlatforms, isOauthConnectablePlatform } from "@/lib/revenue-os/bentley-posting-platforms";
+import { coerceFiniteNumber, coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { buildTrendsPatternsBlockForAnalysis, type TrendsContext } from "@/lib/revenue-os/notes-engine";
 import type { TrendsResponse } from "@/lib/revenue-os/trends-schema";
 import { RevenueOsAnalyzeRequestSchema } from "@/lib/validators/revenue-os";
@@ -77,7 +78,8 @@ export function isRevenueOsDashboardFormValues(x: unknown): x is RevenueOsDashbo
   const ctx =
     (o.coreOffer === undefined || typeof o.coreOffer === "string") &&
     (o.transformation === undefined || typeof o.transformation === "string") &&
-    (o.platforms === undefined || Array.isArray(o.platforms)) &&
+    (o.platforms === undefined ||
+      (Array.isArray(o.platforms) && o.platforms.every((x) => typeof x === "string"))) &&
     (o.postingPlatforms === undefined ||
       (Array.isArray(o.postingPlatforms) &&
         o.postingPlatforms.every((x) => typeof x === "string" && isOauthConnectablePlatform(x)))) &&
@@ -88,22 +90,84 @@ export function isRevenueOsDashboardFormValues(x: unknown): x is RevenueOsDashbo
   return Boolean(ctx);
 }
 
+/**
+ * Coerce corrupt sessionStorage dashboard form JSON (numbers where strings expected).
+ * Prefer this over strict `isRevenueOsDashboardFormValues` when restoring from session.
+ */
+export function coerceRevenueOsDashboardFormFromStorage(raw: unknown): RevenueOsDashboardFormValues | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (o.businessName === undefined && o.businessType === undefined) return null;
+  return normalizeDashboardFormValues({
+    businessName: coerceTrimmedString(o.businessName),
+    businessType: coerceTrimmedString(o.businessType, "Consulting"),
+    targetAudience: coerceTrimmedString(o.targetAudience),
+    market: coerceTrimmedString(o.market, "USA"),
+    currentMonthlyRevenue: coerceFiniteNumber(o.currentMonthlyRevenue),
+    targetMonthlyRevenue: coerceFiniteNumber(o.targetMonthlyRevenue),
+    avgOrderValue: coerceFiniteNumber(o.avgOrderValue),
+    grossMarginPct: coerceFiniteNumber(o.grossMarginPct, 70),
+    monthlyTraffic: coerceFiniteNumber(o.monthlyTraffic),
+    conversionRatePct: coerceFiniteNumber(o.conversionRatePct),
+    cac: coerceFiniteNumber(o.cac),
+    ltv: coerceFiniteNumber(o.ltv),
+    coreOffer: coerceTrimmedString(o.coreOffer),
+    transformation: coerceTrimmedString(o.transformation),
+    platforms: coercePlatformLabelStrings(o.platforms),
+    postingPlatforms: Array.isArray(o.postingPlatforms)
+      ? (o.postingPlatforms.filter((x) => typeof x === "string") as SocialPlatform[])
+      : [],
+    tone: coerceTrimmedString(o.tone),
+    contentTypeFocus: coerceTrimmedString(o.contentTypeFocus),
+    imageStyle: coerceTrimmedString(o.imageStyle),
+    notes: coerceTrimmedString(o.notes),
+  });
+}
+
+/** Coerce Bentley / session JSON platform labels to trimmed strings (skips non-scalars). */
+export function coercePlatformLabelStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const x of value) {
+    if (typeof x === "string") {
+      const t = x.trim();
+      if (t) out.push(t);
+    } else if (typeof x === "number" || typeof x === "boolean") {
+      const t = String(x).trim();
+      if (t) out.push(t);
+    }
+  }
+  return out;
+}
+
 /** Merge legacy session snapshots that omit context fields. */
 export function normalizeDashboardFormValues(o: RevenueOsDashboardFormValues): RevenueOsDashboardFormValues {
   return {
     ...o,
-    coreOffer: typeof o.coreOffer === "string" ? o.coreOffer : "",
-    transformation: typeof o.transformation === "string" ? o.transformation : "",
-    platforms: Array.isArray(o.platforms) ? o.platforms.filter((x) => typeof x === "string") : [],
+    businessName: coerceTrimmedString(o.businessName),
+    businessType: coerceTrimmedString(o.businessType),
+    targetAudience: coerceTrimmedString(o.targetAudience),
+    market: coerceTrimmedString(o.market, "USA"),
+    currentMonthlyRevenue: coerceFiniteNumber(o.currentMonthlyRevenue),
+    targetMonthlyRevenue: coerceFiniteNumber(o.targetMonthlyRevenue),
+    avgOrderValue: coerceFiniteNumber(o.avgOrderValue),
+    grossMarginPct: coerceFiniteNumber(o.grossMarginPct),
+    monthlyTraffic: coerceFiniteNumber(o.monthlyTraffic),
+    conversionRatePct: coerceFiniteNumber(o.conversionRatePct),
+    cac: coerceFiniteNumber(o.cac),
+    ltv: coerceFiniteNumber(o.ltv),
+    coreOffer: coerceTrimmedString(o.coreOffer),
+    transformation: coerceTrimmedString(o.transformation),
+    platforms: coercePlatformLabelStrings(o.platforms),
     postingPlatforms: dedupePostingPlatforms(
       Array.isArray(o.postingPlatforms)
         ? (o.postingPlatforms.filter((x) => typeof x === "string") as SocialPlatform[])
         : []
     ),
-    tone: typeof o.tone === "string" ? o.tone : "",
-    contentTypeFocus: typeof o.contentTypeFocus === "string" ? o.contentTypeFocus : "",
-    imageStyle: typeof o.imageStyle === "string" ? o.imageStyle : "",
-    notes: typeof o.notes === "string" ? o.notes : "",
+    tone: coerceTrimmedString(o.tone),
+    contentTypeFocus: coerceTrimmedString(o.contentTypeFocus),
+    imageStyle: coerceTrimmedString(o.imageStyle),
+    notes: coerceTrimmedString(o.notes),
   };
 }
 
@@ -126,9 +190,10 @@ export function appendDashboardTrendsToFormNotes(
   };
   const block = buildTrendsPatternsBlockForAnalysis(ctx);
   if (!block) return form;
-  const n = form.notes.trim();
+  const safe = normalizeDashboardFormValues(form);
+  const n = safe.notes;
   const combined = (n ? `${n}\n\n` : "") + block;
-  return normalizeDashboardFormValues({ ...form, notes: combined.slice(0, NOTES_MAX) });
+  return normalizeDashboardFormValues({ ...safe, notes: combined.slice(0, NOTES_MAX) });
 }
 
 /**
@@ -139,16 +204,17 @@ export function buildRevenueOsAnalysisContextPayload(form: RevenueOsDashboardFor
   notes?: string;
   constraints?: Record<string, unknown>;
 } {
+  const f = normalizeDashboardFormValues(form);
   const bentley = {
-    targetAudience: form.targetAudience.trim(),
-    coreOffer: form.coreOffer.trim(),
-    transformation: form.transformation.trim(),
-    platforms: form.platforms,
-    postingPlatforms: form.postingPlatforms,
-    tone: form.tone.trim(),
-    contentTypeFocus: form.contentTypeFocus.trim(),
-    imageStyle: form.imageStyle.trim(),
-    campaignNotes: form.notes.trim(),
+    targetAudience: f.targetAudience,
+    coreOffer: f.coreOffer,
+    transformation: f.transformation,
+    platforms: f.platforms,
+    postingPlatforms: f.postingPlatforms,
+    tone: f.tone,
+    contentTypeFocus: f.contentTypeFocus,
+    imageStyle: f.imageStyle,
+    campaignNotes: f.notes,
   };
 
   const hasStructured = Object.entries(bentley).some(([k, v]) => {

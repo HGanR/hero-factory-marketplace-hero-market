@@ -23,6 +23,8 @@ import {
 } from "@/components/ai-revenue-os/ClientReadinessQuestionnaire";
 import type { SocialPlatform } from "@/lib/social/config";
 import { dedupePostingPlatforms } from "@/lib/revenue-os/bentley-posting-platforms";
+import { coercePlatformLabelStrings } from "@/lib/revenue-os/run-revenue-os-analysis";
+import { coerceTrimmedString, sanitizeBentleySnapshotFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
 import type {
   BentleyLaunchPrefill,
   BentleyOptionalAck,
@@ -379,7 +381,7 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
   const [launchPrefill, setLaunchPrefill] = useState<BentleyLaunchPrefill | undefined>(undefined);
 
   const industry = industryKey != null ? (INDUSTRY_PROFILES[industryKey]?.label ?? "") : "";
-  const effectiveIndustryLabel = contentIndustry.trim() || industry.trim();
+  const effectiveIndustryLabel = coerceTrimmedString(contentIndustry) || coerceTrimmedString(industry);
 
   useEffect(() => {
     setBentleyMeta((m) => ({
@@ -389,7 +391,7 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
         ...(traffic > 0 ? { traffic: true } : {}),
         ...(conversionRate > 0 ? { conversion: true } : {}),
         ...(aov > 0 ? { aov: true } : {}),
-        ...(campaignNotes.trim().length > 0 ? { campaignNotes: true } : {}),
+        ...(coerceTrimmedString(campaignNotes).length > 0 ? { campaignNotes: true } : {}),
         ...(tone !== "Professional" ? { tone: true } : {}),
         ...(contentType !== "Full Post" ? { contentType: true } : {}),
         ...(imageStyle !== "cinematic" ? { imageStyle: true } : {}),
@@ -523,20 +525,20 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
     const s = snapshotStateRef.current;
     return {
       industryKey: s.industryKey,
-      contentIndustry: s.contentIndustry.trim(),
-      targetAudience: s.questionnaireAnswers.targetAudience?.trim() ?? "",
+      contentIndustry: coerceTrimmedString(s.contentIndustry),
+      targetAudience: coerceTrimmedString(s.questionnaireAnswers.targetAudience),
       traffic: s.traffic,
       conversionRate: s.conversionRate,
       aov: s.aov,
-      businessName: s.businessName.trim(),
-      coreOffer: s.coreOffer.trim(),
-      transformation: s.transformation.trim(),
-      platforms: s.questionnaireAnswers.socialPlatforms ?? [],
+      businessName: coerceTrimmedString(s.businessName),
+      coreOffer: coerceTrimmedString(s.coreOffer),
+      transformation: coerceTrimmedString(s.transformation),
+      platforms: coercePlatformLabelStrings(s.questionnaireAnswers.socialPlatforms),
       postingPlatforms: dedupePostingPlatforms(s.postingPlatforms),
-      tone: s.tone,
-      contentType: s.contentType,
-      imageStyle: s.imageStyle,
-      campaignNotes: s.campaignNotes.trim(),
+      tone: coerceTrimmedString(s.tone, "Professional"),
+      contentType: coerceTrimmedString(s.contentType, "Full Post"),
+      imageStyle: coerceTrimmedString(s.imageStyle, "cinematic"),
+      campaignNotes: coerceTrimmedString(s.campaignNotes),
       skipTraffic: s.bentleyMeta.skipTraffic,
       skipConversion: s.bentleyMeta.skipConversion,
       skipAov: s.bentleyMeta.skipAov,
@@ -602,7 +604,7 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
       const snap = getBentleySnapshot();
       if (!structuredGuidedIntakeCompleteForCampaign(snap)) return;
       if (snap.skipCampaignNotes) return;
-      if (snap.campaignNotes.trim().length > 0) return;
+      if (coerceTrimmedString(snap.campaignNotes).length > 0) return;
       const baseline = buildBaselineCampaignNotesFromIntake(snap);
       setCampaignNotes(baseline);
       bentleyContinuityLog("campaign_brief_generated", { source: "baseline_intake", length: baseline.length });
@@ -622,22 +624,25 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
         }
       }
       if (patch.contentIndustry !== undefined && (patch.industryKey === undefined || patch.industryKey === null)) {
-        f.setContentIndustry(patch.contentIndustry);
+        f.setContentIndustry(coerceTrimmedString(patch.contentIndustry));
       }
       if (patch.targetAudience !== undefined) {
-        f.setQuestionnaireAnswers((prev) => ({ ...prev, targetAudience: patch.targetAudience ?? "" }));
+        f.setQuestionnaireAnswers((prev) => ({
+          ...prev,
+          targetAudience: coerceTrimmedString(patch.targetAudience),
+        }));
       }
       if (patch.traffic !== undefined) f.setTraffic(patch.traffic);
       if (patch.conversionRate !== undefined) f.setConversionRate(patch.conversionRate);
       if (patch.aov !== undefined) f.setAov(patch.aov);
-      if (patch.businessName !== undefined) f.setBusinessName(patch.businessName);
-      if (patch.coreOffer !== undefined) f.setCoreOffer(patch.coreOffer);
-      if (patch.transformation !== undefined) f.setTransformation(patch.transformation);
+      if (patch.businessName !== undefined) f.setBusinessName(coerceTrimmedString(patch.businessName));
+      if (patch.coreOffer !== undefined) f.setCoreOffer(coerceTrimmedString(patch.coreOffer));
+      if (patch.transformation !== undefined) f.setTransformation(coerceTrimmedString(patch.transformation));
       if (patch.postingPlatforms !== undefined) {
         f.setPostingPlatforms(dedupePostingPlatforms(patch.postingPlatforms ?? []));
       }
       if (patch.platforms !== undefined) {
-        const plats = patch.platforms ?? [];
+        const plats = coercePlatformLabelStrings(patch.platforms);
         f.setQuestionnaireAnswers((prev) => ({ ...prev, socialPlatforms: plats }));
         const first = plats[0];
         if (first) {
@@ -645,10 +650,10 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
           if (pid) f.setContentPlatformId(pid);
         }
       }
-      if (patch.tone !== undefined) f.setTone(patch.tone);
-      if (patch.contentType !== undefined) f.setContentType(patch.contentType);
-      if (patch.imageStyle !== undefined) f.setImageStyle(patch.imageStyle);
-      if (patch.campaignNotes !== undefined) f.setCampaignNotes(patch.campaignNotes);
+      if (patch.tone !== undefined) f.setTone(coerceTrimmedString(patch.tone, "Professional"));
+      if (patch.contentType !== undefined) f.setContentType(coerceTrimmedString(patch.contentType, "Full Post"));
+      if (patch.imageStyle !== undefined) f.setImageStyle(coerceTrimmedString(patch.imageStyle, "cinematic"));
+      if (patch.campaignNotes !== undefined) f.setCampaignNotes(coerceTrimmedString(patch.campaignNotes));
 
       if (patch.pipeline !== undefined) {
         f.setPipeline((prev) => mergePipelineStages(prev, patch.pipeline));
@@ -673,7 +678,13 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
       });
 
       if (questionnairePatch) {
-        f.setQuestionnaireAnswers((prev) => ({ ...prev, ...questionnairePatch }));
+        f.setQuestionnaireAnswers((prev) => ({
+          ...prev,
+          ...questionnairePatch,
+          ...(questionnairePatch.targetAudience !== undefined
+            ? { targetAudience: coerceTrimmedString(questionnairePatch.targetAudience) }
+            : {}),
+        }));
       }
     },
     []
@@ -797,7 +808,7 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
       contentIndustry,
       setContentIndustry,
       effectiveIndustryLabel,
-      targetAudience: questionnaireAnswers.targetAudience?.trim() ?? "",
+      targetAudience: coerceTrimmedString(questionnaireAnswers.targetAudience),
       setTargetAudience,
       platforms: questionnaireAnswers.socialPlatforms ?? [],
       setPlatforms,

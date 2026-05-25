@@ -4,6 +4,7 @@
 
 import type { BentleySnapshot } from "@/lib/revenue-os/bentley-orchestrator";
 import type { BentleyWorkflowArtifacts } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 type NotesInput = { snapshot: BentleySnapshot } & BentleyWorkflowArtifacts;
 
@@ -24,7 +25,7 @@ export function buildBentleyNotesPayload(input: NotesInput): string {
   const snap = input.snapshot;
   const parts: string[] = [];
 
-  const baseNotes = (snap.campaignNotes ?? "").trim();
+  const baseNotes = coerceTrimmedString(snap.campaignNotes);
   if (baseNotes) {
     parts.push(section("Operator notes (from AI Revenue OS)", baseNotes));
   }

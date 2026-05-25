@@ -3,6 +3,7 @@ import type { ContentEngineOutput } from "@/lib/revenue-os/content-engine-types"
 import type { FocusLeverKey } from "@/lib/revenue-os/analysis-derivations";
 import { computePrimaryFocusLever, firstPlanRecommendation } from "@/lib/revenue-os/analysis-derivations";
 import type { RevenueOsDashboardFormValues } from "@/lib/revenue-os/run-revenue-os-analysis";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import type { RevenueOsAnalyzeResponse } from "@/lib/validators/revenue-os";
 
 /** Prefer platforms aligned with lever when choosing a primary target (connected first). */
@@ -44,14 +45,14 @@ function fallbackBody(
   form: RevenueOsDashboardFormValues
 ): string {
   const planLine = res ? firstPlanRecommendation(res) : null;
-  const notes = form.notes.trim();
-  const core = form.coreOffer.trim();
+  const notes = coerceTrimmedString(form.notes);
+  const core = coerceTrimmedString(form.coreOffer);
   const parts: string[] = [];
   if (planLine) parts.push(planLine);
   if (core) parts.push(`Offer: ${core}`);
   if (notes) parts.push(notes.slice(0, 1200));
   if (parts.length > 0) return parts.join("\n\n");
-  return `${form.businessName}: ${form.targetAudience.slice(0, 200)}`;
+  return `${coerceTrimmedString(form.businessName)}: ${coerceTrimmedString(form.targetAudience).slice(0, 200)}`;
 }
 
 export type PlatformDraftParts = {

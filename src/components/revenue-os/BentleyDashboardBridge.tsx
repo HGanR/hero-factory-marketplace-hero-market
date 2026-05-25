@@ -3,13 +3,16 @@
 import { useEffect, useRef } from "react";
 import {
   BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY,
+  clearDashboardUserTouchedForIncomingBentleyHandoff,
   enrichDashboardFormNotesFromWorkflow,
   hasMinimumFieldsForFullAnalysis,
   hydrateBentleySnapshotFromHandoffPayload,
   parseBentleyDashboardPayload,
   payloadToDashboardFormState,
+  resolveBentleyDashboardAutoRunMode,
   REVENUE_OS_BENTLEY_ANALYSIS_SESSION_KEY,
   REVENUE_OS_BENTLEY_APPLIED_FORM_KEY,
+  REVENUE_OS_BENTLEY_AUTORUN_FULL_PIPELINE_KEY,
   REVENUE_OS_BENTLEY_AUTORUN_PENDING_KEY,
   REVENUE_OS_BENTLEY_PREPARED_BADGE_KEY,
   REVENUE_OS_DASHBOARD_USER_TOUCHED_KEY,
@@ -23,10 +26,12 @@ import {
   writeBentleySession,
 } from "@/lib/revenue-os/bentley-storage-scope";
 import {
+  coerceRevenueOsDashboardFormFromStorage,
   isRevenueOsDashboardFormValues,
   normalizeDashboardFormValues,
   type RevenueOsDashboardFormValues,
 } from "@/lib/revenue-os/run-revenue-os-analysis";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 type Props = {
   setForm: React.Dispatch<React.SetStateAction<RevenueOsDashboardFormValues>>;
@@ -37,8 +42,8 @@ type Props = {
    */
   getDashboardFormForMerge: () => RevenueOsDashboardFormValues;
   onHydratedFromBentley: (hydrated: boolean) => void;
-  /** Fired synchronously when Bentley scheduled a one-time autorun (before the queued run). */
-  onBentleyAutorunScheduled?: () => void;
+  /** Fired synchronously when Bentley scheduled a one-time autorun (before the queued run or pipeline). */
+  onBentleyAutorunScheduled?: (detail: { mode: "analysis" | "pipeline" }) => void;
   /** Run analysis with an explicit form snapshot (post-handoff merge) */
   runAnalysisWithForm: (form: RevenueOsDashboardFormValues) => Promise<void>;
 };
@@ -69,12 +74,6 @@ export function BentleyDashboardBridge({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (readBentleySessionWithLegacyFallback(REVENUE_OS_DASHBOARD_USER_TOUCHED_KEY) === "1") {
-      removeBentleySessionScopedAndLegacy(BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY);
-      bentleyContinuityLog("dashboard_hydrated", { skipped: "user_touched" });
-      return;
-    }
-
     let rawHandoff = readBentleySessionWithLegacyFallback(BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY);
     if (!rawHandoff) {
       const found = findSessionValueByKeyPrefix(BENTLEY_DASHBOARD_HANDOFF_STORAGE_KEY);
@@ -85,6 +84,9 @@ export function BentleyDashboardBridge({
     }
 
     if (rawHandoff) {
+      // Explicit chat → dashboard handoff must win over a stale "user edited form" flag from a prior visit.
+      clearDashboardUserTouchedForIncomingBentleyHandoff();
+
       const env = parseBentleyDashboardPayload(rawHandoff);
       if (!env) {
         bentleyContinuityLog("dashboard_hydrated", { error: "handoff_parse_failed" });
@@ -97,7 +99,7 @@ export function BentleyDashboardBridge({
       const merged = normalizeDashboardFormValues({
         ...baseline,
         ...partial,
-        notes: intelSnap.campaignNotes,
+        notes: coerceTrimmedString(intelSnap.campaignNotes),
       });
       try {
         writeBentleySession(REVENUE_OS_BENTLEY_APPLIED_FORM_KEY, JSON.stringify(merged));
@@ -108,24 +110,39 @@ export function BentleyDashboardBridge({
 
       setFormRef.current(merged);
 
-      if (env.payload.autoRunFullAnalysis && !autoRunConsumedRef.current) {
+      const autoRunMode = resolveBentleyDashboardAutoRunMode(env.payload);
+      if (autoRunMode !== "off" && !autoRunConsumedRef.current) {
         const fullOk = hasMinimumFieldsForFullAnalysis(env.payload);
         if (fullOk.ok) {
           autoRunConsumedRef.current = true;
-          try {
-            writeBentleySession(REVENUE_OS_BENTLEY_AUTORUN_PENDING_KEY, "1");
-          } catch {
-            // ignore
+          if (autoRunMode === "full_pipeline") {
+            try {
+              writeBentleySession(REVENUE_OS_BENTLEY_AUTORUN_FULL_PIPELINE_KEY, "1");
+            } catch {
+              // ignore
+            }
+            bentleyContinuityLog("autorun_requested", {
+              businessName: merged.businessName,
+              mode: "full_pipeline",
+            });
+            onAutorunRef.current?.({ mode: "pipeline" });
+          } else if (autoRunMode === "analysis_only") {
+            try {
+              writeBentleySession(REVENUE_OS_BENTLEY_AUTORUN_PENDING_KEY, "1");
+            } catch {
+              // ignore
+            }
+            bentleyContinuityLog("autorun_requested", { businessName: merged.businessName, mode: "analysis_only" });
+            onAutorunRef.current?.({ mode: "analysis" });
+            queueMicrotask(() => {
+              void runRef.current(merged);
+            });
           }
-          bentleyContinuityLog("autorun_requested", { businessName: merged.businessName });
-          onAutorunRef.current?.();
-          queueMicrotask(() => {
-            void runRef.current(merged);
-          });
         } else {
           bentleyContinuityLog("autorun_requested", {
             skipped: "insufficient_handoff_for_full_analysis",
             businessName: merged.businessName,
+            mode: autoRunMode,
           });
         }
       }
@@ -136,19 +153,28 @@ export function BentleyDashboardBridge({
       return;
     }
 
+    if (readBentleySessionWithLegacyFallback(REVENUE_OS_DASHBOARD_USER_TOUCHED_KEY) === "1") {
+      bentleyContinuityLog("dashboard_hydrated", { skipped: "user_touched_no_handoff" });
+      return;
+    }
+
     const rawApplied = readBentleySessionWithLegacyFallback(REVENUE_OS_BENTLEY_APPLIED_FORM_KEY);
     if (!rawApplied) return;
     try {
       const parsed = JSON.parse(rawApplied) as unknown;
-      if (!isRevenueOsDashboardFormValues(parsed)) {
-        removeBentleySessionScopedAndLegacy(REVENUE_OS_BENTLEY_APPLIED_FORM_KEY);
-        return;
+      const coerced = coerceRevenueOsDashboardFormFromStorage(parsed);
+      if (!coerced) {
+        if (!isRevenueOsDashboardFormValues(parsed)) {
+          removeBentleySessionScopedAndLegacy(REVENUE_OS_BENTLEY_APPLIED_FORM_KEY);
+          return;
+        }
       }
+      const formRestore = coerced ?? normalizeDashboardFormValues(parsed as RevenueOsDashboardFormValues);
       setFormRef.current((prev) =>
-        enrichDashboardFormNotesFromWorkflow(normalizeDashboardFormValues({ ...prev, ...parsed })),
+        enrichDashboardFormNotesFromWorkflow(normalizeDashboardFormValues({ ...prev, ...formRestore })),
       );
       onHydratedRef.current(true);
-      bentleyContinuityLog("dashboard_hydrated", { source: "bentley-applied-form-restore", businessName: parsed.businessName });
+      bentleyContinuityLog("dashboard_hydrated", { source: "bentley-applied-form-restore", businessName: formRestore.businessName });
     } catch {
       removeBentleySessionScopedAndLegacy(REVENUE_OS_BENTLEY_APPLIED_FORM_KEY);
     }
@@ -171,6 +197,7 @@ export function clearBentleyPreparedBadge(): void {
   removeBentleySessionScopedAndLegacy(REVENUE_OS_BENTLEY_APPLIED_FORM_KEY);
   removeBentleySessionScopedAndLegacy(REVENUE_OS_BENTLEY_ANALYSIS_SESSION_KEY);
   removeBentleySessionScopedAndLegacy(REVENUE_OS_BENTLEY_AUTORUN_PENDING_KEY);
+  removeBentleySessionScopedAndLegacy(REVENUE_OS_BENTLEY_AUTORUN_FULL_PIPELINE_KEY);
 }
 
 export function readBentleyPreparedBadge(): boolean {

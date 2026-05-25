@@ -9,6 +9,7 @@
 
 import type { BentleySnapshot } from "@/lib/revenue-os/bentley-orchestrator";
 import { bentleyScopedSessionKey } from "@/lib/revenue-os/bentley-storage-scope";
+import { sanitizeBentleySnapshotFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
 
 export const BENTLEY_CANONICAL_SNAPSHOT_KEY = "revenue-os:bentley-canonical-snapshot-v1";
 
@@ -21,7 +22,7 @@ function parse(raw: string | null): BentleySnapshot | null {
   try {
     const j = JSON.parse(raw) as Envelope;
     if (j.v !== CANONICAL_VERSION || !j.snapshot || typeof j.snapshot !== "object") return null;
-    return j.snapshot;
+    return sanitizeBentleySnapshotFromStorage(j.snapshot) as BentleySnapshot;
   } catch {
     return null;
   }
