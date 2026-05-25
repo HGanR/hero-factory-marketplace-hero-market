@@ -3,6 +3,8 @@
  * Hash is browser-safe (no Node `crypto`) so client panels can wrap briefs.
  */
 
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
+
 export const CAMPAIGN_BRIEF_BEGIN = "---BEGIN_AI_REVENUE_OS_CAMPAIGN_BRIEF---";
 export const CAMPAIGN_BRIEF_END = "---END_AI_REVENUE_OS_CAMPAIGN_BRIEF---";
 
@@ -19,7 +21,7 @@ function hash10(s: string): string {
 
 /** Wrap brief content with markers + content hash for dedupe checks. */
 export function wrapCampaignBriefWithMarkers(briefBody: string): string {
-  const body = briefBody.trim();
+  const body = coerceTrimmedString(briefBody);
   if (!body) return "";
   const h = hash10(body);
   return [
@@ -54,10 +56,11 @@ export function notesContainCampaignBriefMarker(text: string): boolean {
 
 export function appendCampaignBriefIfMissing(fullNotes: string, briefBody: string): string {
   const wrapped = wrapCampaignBriefWithMarkers(briefBody);
-  if (!wrapped) return fullNotes;
-  const h = hash10(briefBody.trim());
-  if (fullNotes.includes(`fingerprint:${h}`)) return fullNotes;
-  const base = fullNotes.trimEnd();
+  if (!wrapped) return coerceTrimmedString(fullNotes);
+  const h = hash10(coerceTrimmedString(briefBody));
+  const notes = coerceTrimmedString(fullNotes);
+  if (notes.includes(`fingerprint:${h}`)) return notes;
+  const base = notes.trimEnd();
   return base ? `${base}\n\n${wrapped}` : wrapped;
 }
 

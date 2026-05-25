@@ -14,6 +14,7 @@ import {
 import { isRevenueOsDashboardFormValues } from "@/lib/revenue-os/run-revenue-os-analysis";
 import { readCanonicalBentleySnapshot } from "@/lib/revenue-os/bentley-canonical-snapshot";
 import { sanitizeBentleySnapshotFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
+import { repairCorruptBentleyPersistedSession } from "@/lib/revenue-os/bentley-session-repair";
 import { useAiRevenueOsBentleyActions } from "./AiRevenueOsSharedState";
 
 /**
@@ -36,6 +37,8 @@ export function BentleyPersistedSnapshotHydration() {
     const onAiPage = pathname?.startsWith("/ai-revenue-os") ?? false;
     if (!onDashboard && !onAiPage) return;
     if (didHydrateRef.current) return;
+
+    repairCorruptBentleyPersistedSession();
 
     const canonical = readCanonicalBentleySnapshot();
     if (canonical) {

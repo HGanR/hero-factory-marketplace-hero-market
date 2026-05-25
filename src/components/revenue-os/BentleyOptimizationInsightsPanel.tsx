@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { loadWorkflowState, subscribeBentleyWorkflowCrossTab } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { BENTLEY_PIPELINE_PROGRESS_EVENT } from "@/lib/revenue-os/bentley-pipeline-progress";
 import type { BentleyOptimizationResult } from "@/lib/revenue-os/bentley-optimization";
 
@@ -37,7 +38,7 @@ export function BentleyOptimizationInsightsPanel() {
 
   const refresh = useCallback(async () => {
     const wf = loadWorkflowState();
-    const cid = wf.artifacts.bentleyDbCampaignId?.trim() ?? null;
+    const cid = coerceTrimmedString(wf.artifacts.bentleyDbCampaignId) || null;
     setCampaignId(cid);
     if (!cid) {
       setLatest(null);

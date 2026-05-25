@@ -11,6 +11,7 @@ import {
   type BentleySnapshot,
 } from "@/lib/revenue-os/bentley-orchestrator";
 import type { BentleyWorkflowPhaseId, BentleyWorkflowState } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export const BENTLEY_OPERATOR_STAGE_IDS = [
   "intake",
@@ -231,7 +232,7 @@ export function buildBentleyOperatorPipelineModel(args: {
       label: "Continue",
       dispatchOpenBentley: true,
     };
-  } else if (blockedIdx != null || workflow.lastError?.trim()) {
+  } else if (blockedIdx != null || coerceTrimmedString(workflow.lastError)) {
     cta = {
       kind: "run_next_stage",
       label: "Run next stage",

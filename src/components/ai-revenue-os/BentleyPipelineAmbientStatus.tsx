@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
@@ -23,8 +23,10 @@ import {
   loadWorkflowState,
   subscribeBentleyWorkflowCrossTab,
   workflowShowsResumeablePartialRun,
+  defaultWorkflowState,
   type BentleyWorkflowState,
 } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { useAiRevenueOsBentleyActions, useAiRevenueOsSnapshotSignature } from "./AiRevenueOsSharedState";
 
 function canResumeWorkflow(wf: BentleyWorkflowState): boolean {
@@ -38,7 +40,7 @@ function shouldShowAmbient(
   resumeEligible: boolean
 ): boolean {
   if (detail?.mode === "running" || detail?.mode === "failed") return true;
-  if (wf.lastFailedPhase != null || (wf.lastError?.trim() ?? "")) return true;
+  if (wf.lastFailedPhase != null || coerceTrimmedString(wf.lastError)) return true;
   if (resumeEligible && canResumeWorkflow(wf)) return true;
   return false;
 }
@@ -59,7 +61,7 @@ function formatAmbientHeadline(
     const base = `Failed at ${pipelinePhaseLabel(wf.lastFailedPhase)}`;
     return resumable ? `${base} · Resume` : base;
   }
-  if (wf.lastError?.trim()) {
+  if (coerceTrimmedString(wf.lastError)) {
     return resumable ? "Pipeline error · Resume" : "Pipeline error";
   }
   const next = getFirstIncompleteWorkflowPhase(wf);
@@ -78,11 +80,18 @@ type InnerProps = {
 
 function BentleyPipelineAmbientInner({ variant, resumeEligible }: InnerProps) {
   const router = useRouter();
-  const [wf, setWf] = useState<BentleyWorkflowState>(() => loadWorkflowState());
+  const [wf, setWf] = useState<BentleyWorkflowState>(defaultWorkflowState);
   const [detail, setDetail] = useState<BentleyPipelineProgressDetail | null>(null);
-  const [lockHeld, setLockHeld] = useState(() => isRunLockHeld());
+  const [lockHeld, setLockHeld] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const refresh = useCallback(() => setWf(loadWorkflowState()), []);
+
+  useLayoutEffect(() => {
+    refresh();
+    setLockHeld(isRunLockHeld());
+    setSessionReady(true);
+  }, [refresh]);
 
   useEffect(() => {
     refresh();
@@ -136,7 +145,7 @@ function BentleyPipelineAmbientInner({ variant, resumeEligible }: InnerProps) {
     router.push(`/ai-revenue-os?${BENTLEY_RESUME_PIPELINE_QUERY}=1`);
   };
 
-  if (!visible) return null;
+  if (!sessionReady || !visible) return null;
 
   const shell =
     variant === "page"

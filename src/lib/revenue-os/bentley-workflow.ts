@@ -11,6 +11,7 @@ import type { MarketSweepResult } from "@/lib/revenue-os/market-sweep-schema";
 import type { BentleyContentBundleHandoff } from "@/lib/bentley-social-leads/handoff/contentBundleHandoffTypes";
 import { slimLifecycleProgress, type BentleyLifecycleProgress } from "@/lib/revenue-os/bentley-lifecycle";
 import { slimWorkflowArtifacts } from "@/lib/revenue-os/bentley-workflow-artifacts-slim";
+import { coerceTrimmedString, sanitizeBentleyWorkflowStateFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
 import { notifyBentleyWorkflowPersist } from "@/lib/revenue-os/bentley-run-observability";
 import {
   bentleyScopedSessionKey,
@@ -140,12 +141,7 @@ export function loadWorkflowState(): BentleyWorkflowState {
     if (!j || typeof j !== "object") return defaultWorkflowState();
     return {
       ...defaultWorkflowState(),
-      ...j,
-      completed: j.completed ?? {},
-      artifacts: j.artifacts ?? {},
-      lifecycle: j.lifecycle ?? {},
-      lastFailedPhase: j.lastFailedPhase ?? null,
-      updatedAt: typeof j.updatedAt === "number" ? j.updatedAt : Date.now(),
+      ...sanitizeBentleyWorkflowStateFromStorage(j),
     };
   } catch {
     return defaultWorkflowState();
@@ -261,7 +257,7 @@ export function getFirstIncompleteWorkflowPhase(state: BentleyWorkflowState): Be
  */
 export function workflowShowsResumeablePartialRun(state: BentleyWorkflowState): boolean {
   if (state.lastFailedPhase != null) return true;
-  if ((state.lastError?.trim() ?? "").length > 0) return true;
+  if (coerceTrimmedString(state.lastError).length > 0) return true;
   const next = getFirstIncompleteWorkflowPhase(state);
   if (!next || next === "dashboard" || next === "launch_ready") return false;
   const ni = PHASE_ORDER.indexOf(next);

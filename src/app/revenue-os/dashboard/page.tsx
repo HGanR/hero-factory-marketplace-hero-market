@@ -92,6 +92,7 @@ import type { ContentEngineOutput } from "@/lib/revenue-os/content-engine-types"
 import { readCachedContentEngineOutput } from "@/lib/revenue-os/content-engine-cache";
 import { scrollToFirstCampaignAssetCard } from "@/lib/revenue-os/bentley-first-campaign-ui";
 import {
+  coerceTrimmedString,
   dashboardIndustryHead,
   dashboardIndustryOfferType,
 } from "@/lib/revenue-os/bentley-string-coerce";
@@ -726,7 +727,7 @@ function RevenueOSDashboardInner() {
       setBentleyRunError(null);
       if (bentleyAutorunKindRef.current === "pipeline") {
         try {
-          const cid = loadWorkflowState().artifacts.bentleyDbCampaignId?.trim();
+          const cid = coerceTrimmedString(loadWorkflowState().artifacts.bentleyDbCampaignId);
           if (cid) setBentleyExecutionCampaignId(cid);
         } catch {
           /* ignore */

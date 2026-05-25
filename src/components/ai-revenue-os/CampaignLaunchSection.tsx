@@ -32,6 +32,7 @@ import {
   getCampaignPostLaunchPresentation,
 } from "@/lib/social/campaign-launch-readiness";
 import { describeBentleyCampaignArtifactForLaunch } from "@/lib/revenue-os/bentley-operator-pipeline-model";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { loadWorkflowState, subscribeBentleyWorkflowCrossTab } from "@/lib/revenue-os/bentley-workflow";
 
 const GOLD = "#D4AF37";
@@ -348,10 +349,10 @@ export function CampaignLaunchSection({
       describeBentleyCampaignArtifactForLaunch({
         campaignGenerated: campaignGenerated === true,
         hasLaunchPrefillBody: Boolean(
-          launchPrefill?.caption?.trim() ||
-            launchPrefill?.hooks?.trim() ||
-            launchPrefill?.cta?.trim() ||
-            launchPrefill?.campaignName?.trim()
+          coerceTrimmedString(launchPrefill?.caption) ||
+            coerceTrimmedString(launchPrefill?.hooks) ||
+            coerceTrimmedString(launchPrefill?.cta) ||
+            coerceTrimmedString(launchPrefill?.campaignName)
         ),
         workflow: wfState,
       }),

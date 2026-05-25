@@ -7,6 +7,7 @@ import type { BentleyWorkflowState } from "@/lib/revenue-os/bentley-workflow";
 import type { ResearchResult } from "@/components/ai-revenue-os/ResearchAssistantSection";
 import type { TrendsResponse } from "@/lib/revenue-os/trends-schema";
 import type { RevenueOsSystemSignals } from "@/lib/revenue-os/revenue-os-system-signals-types";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export type DeriveSystemSignalsContext = {
   trends: TrendsResponse | null | undefined;
@@ -30,11 +31,11 @@ export function deriveSystemSignals(ctx: DeriveSystemSignalsContext): RevenueOsS
   const { trends, research, workflow: wf, snapshot: snap } = ctx;
   const out: RevenueOsSystemSignals = {};
 
-  const audience = (snap.targetAudience ?? "").trim();
-  const core = (snap.coreOffer ?? "").trim();
-  const transform = (snap.transformation ?? "").trim();
-  const notes = (snap.campaignNotes ?? "").trim();
-  const biz = (snap.businessName ?? "").trim();
+  const audience = coerceTrimmedString(snap.targetAudience);
+  const core = coerceTrimmedString(snap.coreOffer);
+  const transform = coerceTrimmedString(snap.transformation);
+  const notes = coerceTrimmedString(snap.campaignNotes);
+  const biz = coerceTrimmedString(snap.businessName);
 
   // --- Opportunity ---
   let opp = 0;
@@ -85,7 +86,7 @@ export function deriveSystemSignals(ctx: DeriveSystemSignalsContext): RevenueOsS
 
   // --- Execution gap (high = more gap / risk) ---
   const hasRichInputs =
-    core.length >= 10 && audience.length >= 6 && (biz.length >= 2 || (snap.contentIndustry ?? "").trim().length >= 2);
+    core.length >= 10 && audience.length >= 6 && (biz.length >= 2 || coerceTrimmedString(snap.contentIndustry).length >= 2);
   const campaignDone = Boolean(wf.completed.campaign_generation || wf.artifacts.campaign);
   const contentDone = Boolean(wf.artifacts.contentEngine);
   let gap = 15;

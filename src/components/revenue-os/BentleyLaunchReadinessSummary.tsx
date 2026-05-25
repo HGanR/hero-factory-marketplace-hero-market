@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Check, Circle, AlertCircle } from "lucide-react";
 import type { SocialPlatform } from "@/lib/social/config";
 import type { ContentEngineOutput } from "@/lib/revenue-os/content-engine-types";
@@ -13,6 +13,7 @@ import { BENTLEY_PIPELINE_PROGRESS_EVENT } from "@/lib/revenue-os/bentley-pipeli
 import {
   loadWorkflowState,
   subscribeBentleyWorkflowCrossTab,
+  defaultWorkflowState,
   type BentleyWorkflowState,
 } from "@/lib/revenue-os/bentley-workflow";
 import {
@@ -64,10 +65,16 @@ export function BentleyLaunchReadinessSummary({
   analysis,
   contentEngineOutput,
 }: Props) {
-  const [wf, setWf] = useState<BentleyWorkflowState>(() => loadWorkflowState());
+  const [wf, setWf] = useState<BentleyWorkflowState>(defaultWorkflowState);
   const [draftTick, setDraftTick] = useState(0);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const refresh = useCallback(() => setWf(loadWorkflowState()), []);
+
+  useLayoutEffect(() => {
+    refresh();
+    setSessionReady(true);
+  }, [refresh]);
 
   useEffect(() => {
     refresh();

@@ -12,6 +12,7 @@ import {
 } from "@/lib/revenue-os/build-seven-day-launch-plan";
 import { mapLaunchDayToActions, summarizeLaunchDayActionsForDebug } from "@/lib/revenue-os/map-launch-day-to-actions";
 import { loadWorkflowState } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import type {
   BentleyAutonomyLifecycleBand,
   BentleyAutonomyReadinessReport,
@@ -249,7 +250,7 @@ export function BentleyRunObservabilityDebugPanel() {
           <div className="text-amber-300/90 mb-1.5">Internal — session observability</div>
           <div className="mb-2 border-b border-white/10 pb-2 space-y-1 text-slate-400">
             <div className="text-amber-200/80">Launch sync / workflow drift</div>
-            {launchMismatch.loadingPosts && launchMismatch.workflow.artifacts.bentleyDbCampaignId?.trim() ? (
+            {launchMismatch.loadingPosts && coerceTrimmedString(launchMismatch.workflow.artifacts.bentleyDbCampaignId) ? (
               <div className="text-slate-500">Loading campaign post count (GET /api/campaigns)…</div>
             ) : null}
             {launchMismatch.operationalBlockers.length > 0 ? (

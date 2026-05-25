@@ -12,6 +12,7 @@ import {
   type BentleyOperationalIssueCode,
 } from "@/lib/revenue-os/bentley-operational-blockers";
 import type { BentleyWorkflowPhaseId, BentleyWorkflowState } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export type AutonomyAreaStatus = "ok" | "blocked" | "unknown" | "waiting";
 
@@ -274,15 +275,15 @@ export function computeBentleyAutonomyReadiness(input: BentleyAutonomyReadinessI
         `Last failure at **${wf.lastFailedPhase}** — use Resume or re-run that step; check session workflow storage.`
       )
     );
-  } else if (wf.lastError?.trim()) {
-    areas.push(area("pipeline", "blocked", `Workflow error recorded: ${wf.lastError.slice(0, 200)}`));
+  } else if (coerceTrimmedString(wf.lastError)) {
+    areas.push(area("pipeline", "blocked", `Workflow error recorded: ${coerceTrimmedString(wf.lastError).slice(0, 200)}`));
   } else {
     areas.push(area("pipeline", "ok", "No failed phase flag on workflow state."));
   }
 
   // 3 Campaign DB
-  const dbId = wf.artifacts.bentleyDbCampaignId?.trim();
-  const persistErr = wf.artifacts.campaignPersistenceError?.trim();
+  const dbId = coerceTrimmedString(wf.artifacts.bentleyDbCampaignId);
+  const persistErr = coerceTrimmedString(wf.artifacts.campaignPersistenceError);
   if (dbId) {
     areas.push(area("campaign_persistence", "ok", `Campaign persisted (**${dbId.slice(0, 8)}…**).`));
   } else if (srv?.campaignCount != null && srv.campaignCount > 0) {
@@ -301,7 +302,7 @@ export function computeBentleyAutonomyReadiness(input: BentleyAutonomyReadinessI
   }
 
   // 4 Posts / sync-launch
-  const synced = wf.artifacts.bentleyLaunchSyncedAt?.trim();
+  const synced = coerceTrimmedString(wf.artifacts.bentleyLaunchSyncedAt);
   if (synced) {
     areas.push(area("post_sync", "ok", `Launch sync recorded at **${synced.slice(0, 19)}Z**.`));
   } else if (srv?.postsForLatestCampaign != null && srv.postsForLatestCampaign > 0) {

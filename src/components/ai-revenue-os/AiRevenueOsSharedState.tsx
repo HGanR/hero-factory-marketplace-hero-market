@@ -24,7 +24,7 @@ import {
 import type { SocialPlatform } from "@/lib/social/config";
 import { dedupePostingPlatforms } from "@/lib/revenue-os/bentley-posting-platforms";
 import { coercePlatformLabelStrings } from "@/lib/revenue-os/run-revenue-os-analysis";
-import { coerceTrimmedString, sanitizeBentleySnapshotFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
+import { coerceTrimmedString, sanitizeBentleyLaunchPrefillFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
 import type {
   BentleyLaunchPrefill,
   BentleyOptionalAck,
@@ -659,7 +659,8 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
         f.setPipeline((prev) => mergePipelineStages(prev, patch.pipeline));
       }
       if (patch.launchPrefill !== undefined) {
-        f.setLaunchPrefill((prev) => ({ ...prev, ...patch.launchPrefill }));
+        const sanitized = sanitizeBentleyLaunchPrefillFromStorage(patch.launchPrefill);
+        f.setLaunchPrefill(sanitized);
       }
 
       f.setBentleyMeta((m) => {

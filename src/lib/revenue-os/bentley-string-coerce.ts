@@ -1,9 +1,10 @@
 import { INDUSTRY_PROFILES, type IndustryKey } from "@/lib/revenue-os/industry-profiles";
 import { dedupePostingPlatforms } from "@/lib/revenue-os/bentley-posting-platforms";
-import type { BentleySnapshot } from "@/lib/revenue-os/bentley-orchestrator";
+import type { BentleyLaunchPrefill, BentleySnapshot } from "@/lib/revenue-os/bentley-orchestrator";
 import { coercePlatformLabelStrings } from "@/lib/revenue-os/run-revenue-os-analysis";
 import type { SocialPlatform } from "@/lib/social/config";
 import type { BentleyDashboardHandoffPayload } from "@/lib/revenue-os/bentley-dashboard-types";
+import type { BentleyWorkflowArtifacts, BentleyWorkflowState } from "@/lib/revenue-os/bentley-workflow";
 
 /** Safe string for Bentley handoff / snapshot fields (session JSON may store numbers). */
 export function coerceTrimmedString(value: unknown, fallback = ""): string {
@@ -50,6 +51,71 @@ export function coerceIndustryKey(value: unknown): IndustryKey | null {
 function coercePostingPlatforms(value: unknown): SocialPlatform[] {
   if (!Array.isArray(value)) return [];
   return dedupePostingPlatforms(value.filter((x) => typeof x === "string") as SocialPlatform[]);
+}
+
+/** Coerce launch prefill strings from persisted snapshot JSON. */
+export function sanitizeBentleyLaunchPrefillFromStorage(raw: unknown): BentleyLaunchPrefill | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const out: BentleyLaunchPrefill = {
+    campaignName: coerceTrimmedString(o.campaignName),
+    caption: coerceTrimmedString(o.caption),
+    hooks: coerceTrimmedString(o.hooks),
+    cta: coerceTrimmedString(o.cta),
+    platformsLabel: coerceTrimmedString(o.platformsLabel),
+  };
+  if (
+    !out.campaignName &&
+    !out.caption &&
+    !out.hooks &&
+    !out.cta &&
+    !out.platformsLabel
+  ) {
+    return undefined;
+  }
+  return out;
+}
+
+function coerceOptionalWorkflowString(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const s = coerceTrimmedString(value);
+  return s || null;
+}
+
+/** Coerce string artifact fields on workflow state loaded from sessionStorage. */
+export function sanitizeBentleyWorkflowStateFromStorage(raw: Partial<BentleyWorkflowState>): BentleyWorkflowState {
+  const artifacts: BentleyWorkflowArtifacts = { ...(raw.artifacts ?? {}) };
+  if (artifacts.bentleyDbCampaignId !== undefined) {
+    artifacts.bentleyDbCampaignId = coerceOptionalWorkflowString(artifacts.bentleyDbCampaignId) ?? null;
+  }
+  if (artifacts.bentleyLaunchSyncedAt !== undefined) {
+    artifacts.bentleyLaunchSyncedAt = coerceOptionalWorkflowString(artifacts.bentleyLaunchSyncedAt) ?? null;
+  }
+  if (artifacts.campaignPersistenceError !== undefined) {
+    artifacts.campaignPersistenceError = coerceOptionalWorkflowString(artifacts.campaignPersistenceError) ?? null;
+  }
+  if (artifacts.mediaBriefText !== undefined) {
+    artifacts.mediaBriefText = coerceOptionalWorkflowString(artifacts.mediaBriefText) ?? null;
+  }
+
+  const lastErrorRaw = raw.lastError;
+  const lastError =
+    lastErrorRaw === undefined
+      ? null
+      : lastErrorRaw === null
+        ? null
+        : coerceTrimmedString(lastErrorRaw) || null;
+
+  return {
+    currentPhase: raw.currentPhase ?? "intake",
+    completed: raw.completed ?? {},
+    artifacts,
+    lifecycle: raw.lifecycle ?? {},
+    lastError,
+    lastFailedPhase: raw.lastFailedPhase ?? null,
+    updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
+  } as BentleyWorkflowState;
 }
 
 /** Normalize persisted / parsed handoff payload before `.trim()` or schema validation. */
@@ -116,8 +182,8 @@ export function sanitizeBentleySnapshotFromStorage(raw: Partial<BentleySnapshot>
   if ("pipeline" in raw && raw.pipeline && typeof raw.pipeline === "object") {
     out.pipeline = raw.pipeline;
   }
-  if ("launchPrefill" in raw && raw.launchPrefill && typeof raw.launchPrefill === "object") {
-    out.launchPrefill = raw.launchPrefill;
+  if ("launchPrefill" in raw) {
+    out.launchPrefill = sanitizeBentleyLaunchPrefillFromStorage(raw.launchPrefill);
   }
   return out;
 }

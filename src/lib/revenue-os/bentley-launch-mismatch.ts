@@ -4,14 +4,15 @@
 
 import type { BentleyWorkflowState } from "@/lib/revenue-os/bentley-workflow";
 import { getFirstIncompleteWorkflowPhase } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export function detectBentleyLaunchMismatches(
   wf: BentleyWorkflowState,
   opts?: { campaignPostCount?: number }
 ): string[] {
   const issues: string[] = [];
-  const cid = wf.artifacts.bentleyDbCampaignId?.trim();
-  const synced = wf.artifacts.bentleyLaunchSyncedAt?.trim();
+  const cid = coerceTrimmedString(wf.artifacts.bentleyDbCampaignId);
+  const synced = coerceTrimmedString(wf.artifacts.bentleyLaunchSyncedAt);
   const next = getFirstIncompleteWorkflowPhase(wf);
   const postCount = opts?.campaignPostCount;
 
@@ -29,7 +30,7 @@ export function detectBentleyLaunchMismatches(
     issues.push("launch_sync_without_db_campaign_id");
   }
 
-  const err = wf.lastError?.trim();
+  const err = coerceTrimmedString(wf.lastError);
   if (
     err &&
     (err.includes("Launch sync returned no campaign posts") ||

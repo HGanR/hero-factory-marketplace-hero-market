@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { bentleyContinuityLog } from "@/lib/revenue-os/bentley-continuity-log";
 import { detectBentleyLaunchMismatches } from "@/lib/revenue-os/bentley-launch-mismatch";
 import { bentleyLaunchMismatchLines, type BentleyLaunchMismatchLine } from "@/lib/revenue-os/bentley-launch-mismatch-copy";
@@ -10,8 +10,10 @@ import { getBentleyStorageScope } from "@/lib/revenue-os/bentley-storage-scope";
 import {
   loadWorkflowState,
   subscribeBentleyWorkflowCrossTab,
+  defaultWorkflowState,
   type BentleyWorkflowState,
 } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 /** Dedupes continuity logs when multiple components mount the same hook (dashboard + obs panel). */
 let lastContinuityMismatchKey = "";
@@ -43,16 +45,22 @@ export function useBentleyLaunchMismatchStatus(): {
   /** Re-runs autonomy-readiness fetch (e.g. after operator fixes OAuth or capped refresh). */
   refreshOperationalBlockers: () => void;
 } {
-  const [wf, setWf] = useState<BentleyWorkflowState>(() => loadWorkflowState());
+  const [wf, setWf] = useState<BentleyWorkflowState>(defaultWorkflowState);
   const [postCount, setPostCount] = useState<number | undefined>(undefined);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [operationalBlockers, setOperationalBlockers] = useState<BentleyOperationalBlockerRow[]>([]);
   const [loadingOperational, setLoadingOperational] = useState(false);
   const [operationalRefreshTick, setOperationalRefreshTick] = useState(0);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const refreshWf = useCallback(() => {
     setWf(loadWorkflowState());
   }, []);
+
+  useLayoutEffect(() => {
+    refreshWf();
+    setSessionReady(true);
+  }, [refreshWf]);
 
   const refreshOperationalBlockers = useCallback(() => {
     setOperationalRefreshTick((t) => t + 1);
@@ -82,7 +90,7 @@ export function useBentleyLaunchMismatchStatus(): {
     return () => window.removeEventListener("bentley-operational-readiness-refresh", onRefresh);
   }, [refreshOperationalBlockers]);
 
-  const cid = wf.artifacts.bentleyDbCampaignId?.trim();
+  const cid = sessionReady ? coerceTrimmedString(wf.artifacts.bentleyDbCampaignId) || undefined : undefined;
 
   useEffect(() => {
     if (!cid) {
@@ -105,7 +113,7 @@ export function useBentleyLaunchMismatchStatus(): {
   }, [cid, wf.updatedAt]);
 
   useEffect(() => {
-    const clientId = getBentleyStorageScope()?.clientId?.trim() ?? "";
+    const clientId = coerceTrimmedString(getBentleyStorageScope()?.clientId) || "";
     if (!cid || !clientId) {
       setOperationalBlockers([]);
       setLoadingOperational(false);

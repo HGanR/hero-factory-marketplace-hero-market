@@ -13,8 +13,11 @@ import {
   dashboardIndustryHead,
   dashboardIndustryOfferType,
   normalizeBentleyDashboardHandoffPayload,
+  sanitizeBentleyLaunchPrefillFromStorage,
   sanitizeBentleySnapshotFromStorage,
+  sanitizeBentleyWorkflowStateFromStorage,
 } from "@/lib/revenue-os/bentley-string-coerce";
+import { detectBentleyLaunchMismatches } from "@/lib/revenue-os/bentley-launch-mismatch";
 
 test("coerceTrimmedString handles non-string values before trim", () => {
   assert.equal(coerceTrimmedString(42), "42");
@@ -98,4 +101,49 @@ test("dashboardIndustryHead splits numeric businessType safely", () => {
   assert.equal(dashboardIndustryHead("Consulting / Advisory"), "Consulting");
   assert.equal(dashboardIndustryOfferType("Consulting / Advisory"), "Advisory");
   assert.equal(dashboardIndustryOfferType(99), undefined);
+});
+
+test("sanitizeBentleyWorkflowStateFromStorage coerces numeric artifact strings", () => {
+  const wf = sanitizeBentleyWorkflowStateFromStorage({
+    lastError: 500 as unknown as string,
+    artifacts: {
+      bentleyDbCampaignId: 12345 as unknown as string,
+      bentleyLaunchSyncedAt: 20240518 as unknown as string,
+    },
+  });
+  assert.equal(wf.lastError, "500");
+  assert.equal(wf.artifacts.bentleyDbCampaignId, "12345");
+  assert.equal(wf.artifacts.bentleyLaunchSyncedAt, "20240518");
+});
+
+test("sanitizeBentleyLaunchPrefillFromStorage coerces numeric prefill fields", () => {
+  const prefill = sanitizeBentleyLaunchPrefillFromStorage({
+    campaignName: 99 as unknown as string,
+    caption: 101 as unknown as string,
+  });
+  assert.equal(prefill?.campaignName, "99");
+  assert.equal(prefill?.caption, "101");
+});
+
+test("sanitizeBentleySnapshotFromStorage sanitizes launchPrefill", () => {
+  const patch = sanitizeBentleySnapshotFromStorage({
+    launchPrefill: { caption: 777 as unknown as string, hooks: "hook" },
+  });
+  assert.equal(patch.launchPrefill?.caption, "777");
+  assert.equal(patch.launchPrefill?.hooks, "hook");
+});
+
+test("detectBentleyLaunchMismatches tolerates numeric workflow artifact strings", () => {
+  const issues = detectBentleyLaunchMismatches({
+    currentPhase: "launch_ready",
+    completed: {},
+    artifacts: {
+      bentleyDbCampaignId: 42 as unknown as string,
+      bentleyLaunchSyncedAt: null,
+    },
+    lastError: 500 as unknown as string,
+    lastFailedPhase: null,
+    updatedAt: Date.now(),
+  });
+  assert.ok(Array.isArray(issues));
 });

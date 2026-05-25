@@ -1,5 +1,6 @@
 import type { SocialPlatform } from "@/lib/social/config";
 import type { BentleyLaunchPrefill, BentleySnapshot } from "@/lib/revenue-os/bentley-orchestrator";
+import { coerceTrimmedString, sanitizeBentleyLaunchPrefillFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
 
 /**
  * Maps a Bentley snapshot (from context or `readCanonicalBentleySnapshot`) into Campaign Launch props.
@@ -10,7 +11,7 @@ export function bentleySnapshotToCampaignLaunchPrefillBridge(snap: BentleySnapsh
   campaignGenerated: boolean;
 } {
   return {
-    launchPrefill: snap.launchPrefill,
+    launchPrefill: sanitizeBentleyLaunchPrefillFromStorage(snap.launchPrefill),
     campaignGenerated: snap.pipeline?.campaignGenerated === true,
   };
 }
@@ -46,8 +47,9 @@ export function nextNewCampaignNameAfterLaunchPrefill(
   prevNewCampaignName: string
 ): string {
   if (!campaignGenerated || !launchPrefill) return prevNewCampaignName;
-  if (!launchPrefill.campaignName?.trim()) return prevNewCampaignName;
-  return prevNewCampaignName.trim() || launchPrefill.campaignName.trim();
+  const name = coerceTrimmedString(launchPrefill.campaignName);
+  if (!name) return prevNewCampaignName;
+  return coerceTrimmedString(prevNewCampaignName) || name;
 }
 
 /** Mirrors CampaignLaunchSection prefill for image description (must stay in sync with the component effect). */
@@ -57,10 +59,10 @@ export function nextDescriptionAfterLaunchPrefill(
   prevDescription: string
 ): string {
   if (!campaignGenerated || !launchPrefill) return prevDescription;
-  if (prevDescription.trim()) return prevDescription;
-  const cap = launchPrefill.caption?.trim();
-  const hooks = launchPrefill.hooks?.trim();
-  const cta = launchPrefill.cta?.trim();
+  if (coerceTrimmedString(prevDescription)) return prevDescription;
+  const cap = coerceTrimmedString(launchPrefill.caption);
+  const hooks = coerceTrimmedString(launchPrefill.hooks);
+  const cta = coerceTrimmedString(launchPrefill.cta);
   if (!cap && !hooks && !cta) return prevDescription;
   return [cap, hooks, cta].filter(Boolean).join("\n\n");
 }

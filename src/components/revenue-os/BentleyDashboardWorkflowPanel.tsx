@@ -9,6 +9,7 @@ import {
   saveWorkflowState,
   type BentleyWorkflowPhaseId,
 } from "@/lib/revenue-os/bentley-workflow";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import {
   BENTLEY_LIFECYCLE_STAGE_ORDER,
   type BentleyLifecycleStageId,
@@ -58,7 +59,7 @@ export function BentleyDashboardWorkflowPanel() {
     operationalBlockers,
     loadingOperational,
   } = useBentleyLaunchMismatchStatus();
-  const campaignId = wf.artifacts.bentleyDbCampaignId?.trim();
+  const campaignId = coerceTrimmedString(wf.artifacts.bentleyDbCampaignId) || undefined;
 
   useEffect(() => {
     const s = loadWorkflowState();
@@ -68,7 +69,7 @@ export function BentleyDashboardWorkflowPanel() {
   }, []);
 
   const next = getFirstIncompleteWorkflowPhase(wf);
-  const err = wf.lastError?.trim();
+  const err = coerceTrimmedString(wf.lastError);
   const lc = wf.lifecycle ?? {};
   const lifecycleRows = BENTLEY_LIFECYCLE_STAGE_ORDER.map((id) => {
     const r = lc[id] as BentleyLifecycleStageRecord | undefined;
@@ -113,7 +114,7 @@ export function BentleyDashboardWorkflowPanel() {
           aria-label="Launch sync health"
         >
           <p className="font-semibold text-amber-200/95">Launch sync — attention needed</p>
-          {launchMismatchLoading && wf.artifacts.bentleyDbCampaignId?.trim() ? (
+          {launchMismatchLoading && coerceTrimmedString(wf.artifacts.bentleyDbCampaignId) ? (
             <p className="mt-1 text-[10px] text-amber-200/75">Refreshing campaign post count…</p>
           ) : null}
           <ul className="mt-1.5 list-disc space-y-1 pl-4 text-amber-100/90">

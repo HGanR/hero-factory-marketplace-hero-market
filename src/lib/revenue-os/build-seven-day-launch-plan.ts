@@ -17,6 +17,7 @@ import type {
 } from "@/lib/revenue-os/launch-mode-types";
 import type { RevenueOsSystemSignals } from "@/lib/revenue-os/revenue-os-system-signals-types";
 import type { TrendsResponse } from "@/lib/revenue-os/trends-schema";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 function clamp(s: string, max: number): string {
   const t = s.trim();
@@ -50,6 +51,11 @@ function workflowCampaignReady(wf: BentleyWorkflowState | null | undefined): boo
   return Boolean(wf.completed?.campaign_generation || wf.artifacts?.campaign);
 }
 
+function profileStr(profile: RevenueOsLaunchSharedProfile, key: keyof RevenueOsLaunchSharedProfile): string {
+  if (key === "postingPlatforms") return "";
+  return coerceTrimmedString(profile[key]);
+}
+
 export function computeLaunchModeReadiness(
   systemSignals: RevenueOsSystemSignals,
   profile: RevenueOsLaunchSharedProfile
@@ -58,6 +64,10 @@ export function computeLaunchModeReadiness(
   const strengths: string[] = [];
   const diag = buildSystemSignalDiagnosticSummary(systemSignals);
   strengths.push(...diag.opportunities.slice(0, 4));
+
+  const businessName = profileStr(profile, "businessName");
+  const coreOffer = profileStr(profile, "coreOffer");
+  const targetAudience = profileStr(profile, "targetAudience");
 
   const { opportunityScore, offerStrengthScore, trafficReadinessScore, executionGapScore, capitalReadinessScore } =
     systemSignals;
@@ -82,9 +92,9 @@ export function computeLaunchModeReadiness(
     blockers.push("Execution gap is still wide (target ≤ 55) — complete content → campaign → deployment sequence.");
   }
 
-  if (!profile.businessName.trim()) blockers.push("Add a business name in guided intake.");
-  if (profile.coreOffer.trim().length < 12) blockers.push("Strengthen core offer text (needs a clearer promise).");
-  if (profile.targetAudience.trim().length < 10) blockers.push("Define target audience so messaging and channels match.");
+  if (!businessName) blockers.push("Add a business name in guided intake.");
+  if (coreOffer.length < 12) blockers.push("Strengthen core offer text (needs a clearer promise).");
+  if (targetAudience.length < 10) blockers.push("Define target audience so messaging and channels match.");
 
   if (capitalReadinessScore !== undefined && capitalReadinessScore < 30) {
     blockers.push("Capital layer is very light — keep paid scale conservative until unit economics are documented.");
@@ -92,9 +102,9 @@ export function computeLaunchModeReadiness(
 
   const isReady =
     shouldSuggestSevenDayLaunch(systemSignals) &&
-    profile.businessName.trim().length >= 2 &&
-    profile.coreOffer.trim().length >= 12 &&
-    profile.targetAudience.trim().length >= 10;
+    businessName.length >= 2 &&
+    coreOffer.length >= 12 &&
+    targetAudience.length >= 10;
 
   if (isReady && strengths.length === 0) {
     strengths.push("Five-system scores are in the launch-ready band.");
@@ -256,15 +266,15 @@ export function buildSevenDayLaunchPlan(args: {
   const resHook = researchHook(researchResult ?? undefined);
   const launchAngle = trendA ?? resHook;
 
-  const primaryOffer = [sharedProfile.coreOffer.trim(), sharedProfile.transformation.trim()]
+  const primaryOffer = [profileStr(sharedProfile, "coreOffer"), profileStr(sharedProfile, "transformation")]
     .filter(Boolean)
     .join(" → ")
     .slice(0, 220) || undefined;
-  const targetAudience = sharedProfile.targetAudience.trim() || undefined;
+  const targetAudience = profileStr(sharedProfile, "targetAudience") || undefined;
 
-  const industryBit = sharedProfile.industry.trim();
+  const industryBit = profileStr(sharedProfile, "industry");
   const summaryParts: string[] = [
-    `${sharedProfile.businessName.trim() || "Your business"} — 7-day launch sprint`,
+    `${profileStr(sharedProfile, "businessName") || "Your business"} — 7-day launch sprint`,
     industryBit ? `Industry focus: ${clamp(industryBit, 80)}.` : "",
     readiness.isReady
       ? "Signals show you’re in a launch-ready band: execute the week linearly — clarify, create, deploy, then read results."

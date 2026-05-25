@@ -25,11 +25,14 @@ export function buildLaunchPrefillFromArtifacts(
   content?: ContentEngineOutput | null
 ): BentleyLaunchPrefill {
   const caption =
-    content?.fullPost?.caption?.trim() ||
-    campaign?.offerStatement?.trim() ||
+    coerceTrimmedString(content?.fullPost?.caption) ||
+    coerceTrimmedString(campaign?.offerStatement) ||
     "";
   const hooks = (campaign?.shortFormHooks ?? []).slice(0, 8).join("\n");
-  const cta = campaign?.longFormOutlines?.[0]?.cta?.trim() || campaign?.offerStatement?.trim() || "";
+  const cta =
+    coerceTrimmedString(campaign?.longFormOutlines?.[0]?.cta) ||
+    coerceTrimmedString(campaign?.offerStatement) ||
+    "";
   const businessName = coerceTrimmedString(snap.businessName);
   return {
     campaignName: businessName ? `${businessName} — launch` : "Campaign launch",
@@ -48,7 +51,10 @@ export function derivePipelineStagesFromWorkflowState(
   wf: BentleyWorkflowState
 ): BentleyPipelineStageState {
   const ce = wf.artifacts.contentEngine;
-  const hasContent = Boolean(ce && (ce.fullPost?.caption?.trim() || (ce.hooks?.length ?? 0) > 0));
+  const hasContent = Boolean(
+    ce &&
+      (coerceTrimmedString(ce.fullPost?.caption) || (ce.hooks?.length ?? 0) > 0)
+  );
   return mergePipelineStages(snap.pipeline, {
     intakeComplete: Boolean(wf.completed.intake),
     analysisComplete: Boolean(wf.completed.analysis && wf.artifacts.analysisComplete),
