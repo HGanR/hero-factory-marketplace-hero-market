@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { mysql2ConnectionOptionsFromUrl } from "@/lib/db/mysql2-connection-options";
 
 let cachedConnection: mysql.Connection | null = null;
 
@@ -14,7 +15,7 @@ export const getConnection = async () => {
       cachedConnection = null;
     }
   }
-  const conn = await mysql.createConnection(process.env.DATABASE_URL);
+  const conn = await mysql.createConnection(mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL));
   cachedConnection = conn;
   return conn;
 };

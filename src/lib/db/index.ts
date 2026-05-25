@@ -1,6 +1,7 @@
 // src/lib/db/index.ts
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
+import { mysql2ConnectionOptionsFromUrl } from "@/lib/db/mysql2-connection-options";
 
 // For serverless environments (Vercel), we need to create a new connection for each request
 // Connection pooling doesn't work well in serverless functions
@@ -26,7 +27,9 @@ const getConnection = async () => {
   }
   
   try {
-    const connection = await mysql.createConnection(process.env.DATABASE_URL);
+    const connection = await mysql.createConnection(
+      mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL),
+    );
     cachedConnection = connection;
     return connection;
   } catch (error) {
