@@ -263,6 +263,9 @@ async function runReadTool(
       case "getNewRegistrationPhoneQueue":
         data = await Tools.getNewRegistrationPhoneQueue(ctx);
         break;
+      case "getNeuroSourceAnswer":
+        data = await Tools.getNeuroSourceAnswer(ctx, prompt);
+        break;
       default:
         return null;
     }

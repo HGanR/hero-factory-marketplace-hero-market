@@ -3,6 +3,7 @@
 import {
   BarChart3,
   Bot,
+  Brain,
   LayoutDashboard,
   ListTodo,
   Mail,
@@ -30,6 +31,8 @@ const ICONS: Record<ExecutiveSubjectId, typeof LayoutDashboard> = {
   trust_jarva: Shield,
   revenue_os: TrendingUp,
   smart_trust: Shield,
+  troo_town: Sparkles,
+  neuro: Brain,
   settings: Settings,
   new_command: Sparkles,
 };
