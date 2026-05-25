@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UI_COPY } from "@/config/uiCopy";
 import { US_STATES } from "@/config/usStates";
+import { ArrowLeft } from "lucide-react";
+import { CLIENT_SERVICE_OPTIONS } from "@/lib/clients/clients-create-payload";
 
 type Client = {
   id: string;
@@ -31,6 +33,9 @@ type Client = {
     postalCode: string;
     country: string;
   };
+  existingEntityName?: string | null;
+  logoUrl?: string | null;
+  requestedServices?: string[];
 };
 
 type TrustListItem = {
@@ -57,10 +62,11 @@ function formatLongDate(d: Date): string {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export default function ClientProfilePage({ params }: { params: { clientId: string } }) {
+export default function ClientProfilePage() {
+  const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const clientId = String(params.clientId || "");
+  const clientId = String((params?.clientId as string) || "");
 
   const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -74,15 +80,28 @@ export default function ClientProfilePage({ params }: { params: { clientId: stri
   const [trustName, setTrustName] = useState<string>("");
   const [createErr, setCreateErr] = useState<string | null>(null);
 
+  const [servicesDraft, setServicesDraft] = useState<string[]>([]);
+  const [servicesSaving, setServicesSaving] = useState(false);
+  const [servicesSaveErr, setServicesSaveErr] = useState<string | null>(null);
+  const servicesSectionRef = useRef<HTMLDivElement | null>(null);
+
   const showCreatedBanner = (searchParams?.get("created") ?? null) === "1";
+  const openServicesSection = (searchParams?.get("services") ?? null) === "1";
 
   useEffect(() => {
+    if (!clientId) {
+      setError("Invalid client link.");
+      setStatus("error");
+      return;
+    }
     let cancelled = false;
     (async () => {
       setStatus("loading");
       setError(null);
       try {
-        const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}`);
+        const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+          credentials: "include",
+        });
         if (!res.ok) throw new Error((await res.text().catch(() => "")) || `Failed (${res.status})`);
         const data = await res.json();
         if (cancelled) return;
@@ -100,10 +119,13 @@ export default function ClientProfilePage({ params }: { params: { clientId: stri
   }, [clientId]);
 
   useEffect(() => {
+    if (!clientId) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}/trusts`);
+        const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}/trusts`, {
+          credentials: "include",
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
@@ -116,6 +138,19 @@ export default function ClientProfilePage({ params }: { params: { clientId: stri
       cancelled = true;
     };
   }, [clientId]);
+
+  useEffect(() => {
+    if (!client) return;
+    setServicesDraft(Array.isArray(client.requestedServices) ? [...client.requestedServices] : []);
+  }, [client]);
+
+  useEffect(() => {
+    if (!openServicesSection || status !== "loaded") return;
+    const t = window.setTimeout(() => {
+      servicesSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [openServicesSection, status]);
 
   const fullName = useMemo(() => {
     return client ? formatFullName(client) : "";
@@ -152,6 +187,7 @@ export default function ClientProfilePage({ params }: { params: { clientId: stri
       try {
         const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}/trusts`, {
           method: "POST",
+          credentials: "include",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             trust_type: trustType,
@@ -171,8 +207,59 @@ export default function ClientProfilePage({ params }: { params: { clientId: stri
     });
   }
 
+  async function saveRequestedServices() {
+    if (!clientId) return;
+    setServicesSaveErr(null);
+    setServicesSaving(true);
+    try {
+      const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ requested_services: servicesDraft }),
+      });
+      const raw = await res.text().catch(() => "");
+      if (!res.ok) {
+        let msg = raw || `Failed (${res.status})`;
+        try {
+          const j = JSON.parse(raw) as { error?: string };
+          if (typeof j?.error === "string" && j.error.trim()) msg = j.error.trim();
+        } catch {
+          /* */
+        }
+        throw new Error(msg);
+      }
+      let data: { requestedServices?: string[] } = {};
+      try {
+        data = raw ? (JSON.parse(raw) as { requestedServices?: string[] }) : {};
+      } catch {
+        data = {};
+      }
+      const next = Array.isArray(data.requestedServices) ? data.requestedServices : servicesDraft;
+      setClient((prev) => (prev ? { ...prev, requestedServices: next } : null));
+      setServicesDraft([...next]);
+    } catch (e: unknown) {
+      setServicesSaveErr(String((e as { message?: string })?.message || e || "Save failed"));
+    } finally {
+      setServicesSaving(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl p-6 space-y-6">
+      <div className="space-y-2">
+        <Link
+          href="/dashboard"
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary hover:underline underline-offset-4"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+          Back to dashboard
+        </Link>
+        <p className="text-xs text-muted-foreground max-w-prose">
+          Use the header workspace selector on the dashboard, then pick the trust linked to this client to update the
+          micro terminal.
+        </p>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-2xl font-semibold">Client</div>
@@ -210,6 +297,27 @@ export default function ClientProfilePage({ params }: { params: { clientId: stri
               <CardTitle>Client Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {client.existingEntityName?.trim() || client.logoUrl?.trim() ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
+                  {client.logoUrl?.trim() ? (
+                    <div className="shrink-0">
+                      <div className="text-sm text-muted-foreground mb-1.5">Business logo</div>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- data URL or user-uploaded URL from CRM */}
+                      <img
+                        src={client.logoUrl.trim()}
+                        alt={client.existingEntityName?.trim() || "Client logo"}
+                        className="h-20 w-auto max-w-[200px] rounded-lg border border-border bg-muted/30 object-contain p-1"
+                      />
+                    </div>
+                  ) : null}
+                  {client.existingEntityName?.trim() ? (
+                    <div>
+                      <div className="text-sm text-muted-foreground">Entity / business name</div>
+                      <div className="font-medium">{client.existingEntityName.trim()}</div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <div className="text-sm text-muted-foreground">Name</div>
@@ -235,6 +343,52 @@ export default function ClientProfilePage({ params }: { params: { clientId: stri
               </div>
             </CardContent>
           </Card>
+
+          <div ref={servicesSectionRef} id="client-requested-services">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader>
+                <CardTitle>Requested services</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Toggle each service (multi-select). Updates sync to the dashboard Micro Terminal for this client.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Requested services">
+                  {CLIENT_SERVICE_OPTIONS.map((label) => {
+                    const selected = servicesDraft.includes(label);
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={selected}
+                        onClick={() =>
+                          setServicesDraft((prev) =>
+                            prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label],
+                          )
+                        }
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          selected
+                            ? "border-primary/70 bg-primary/10 text-foreground shadow-sm"
+                            : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {servicesSaveErr ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {servicesSaveErr}
+                  </p>
+                ) : null}
+                <Button type="button" onClick={() => void saveRequestedServices()} disabled={servicesSaving}>
+                  {servicesSaving ? "Saving…" : "Save services"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card className="rounded-2xl shadow-sm">
             <CardHeader>

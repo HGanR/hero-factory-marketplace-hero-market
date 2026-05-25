@@ -17,6 +17,7 @@ import { DashboardProgressHUD } from "@/components/dashboard/DashboardProgressHU
 import { DashboardAIGuide } from "@/components/dashboard/DashboardAIGuide";
 import { WorkspaceSelector } from "@/components/dashboard/WorkspaceSelector";
 import { DashboardMicroTerminal } from "@/components/dashboard/DashboardMicroTerminal";
+import { ActiveClientIndicator } from "@/components/client-context/ActiveClientIndicator";
 
 const ELECTRIC_BLUE = "#00D1FF";
 
@@ -362,7 +363,7 @@ export default function DashboardPage() {
 
       {/* Header */}
       <header
-        className="relative z-10 border-b border-white/[0.08] backdrop-blur-xl"
+        className="relative z-30 border-b border-white/[0.08] backdrop-blur-xl"
         style={{
           background: "rgba(10, 14, 26, 0.6)",
           boxShadow: "0 1px 0 rgba(0,209,255,0.06), 0 1px 0 rgba(139,92,246,0.04)",
@@ -445,6 +446,12 @@ export default function DashboardPage() {
             )}
 
             <Link
+              href="/dashboard/executive-inbox"
+              className="rounded-full border border-cyan-500/40 px-4 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10"
+            >
+              Executive Inbox
+            </Link>
+            <Link
               href="/"
               className="rounded-full border px-4 py-2 text-sm focus:ring-2 focus:ring-cyan-300 focus:outline-none"
               style={{ borderColor: "transparent" }}
@@ -462,7 +469,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main id="main-content" className="relative z-10 max-w-7xl mx-auto">
+      <main id="main-content" className="relative z-0 max-w-7xl mx-auto">
         {/* Token Gate Warning */}
         {isWalletConnected && onPolygon && !isCheckingTokens && !passesTokenGate && (
           <section className="px-6 mt-6" role="alert">
@@ -483,7 +490,8 @@ export default function DashboardPage() {
           </section>
         )}
 
-        <section className="px-6 mt-6" aria-label="Client workspace micro terminal (binds to header workspace selector)">
+        <section className="px-6 mt-6 space-y-3" aria-label="Client workspace micro terminal (binds to header workspace selector)">
+          <ActiveClientIndicator compact />
           <DashboardMicroTerminal />
         </section>
 

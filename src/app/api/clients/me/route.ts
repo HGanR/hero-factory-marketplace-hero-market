@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
 import { getDb } from "@/lib/db";
 import { workflowClientProfiles } from "@/lib/db/schema";
-import { verifyToken } from "@/lib/auth";
+import { getAuthedUserId } from "@/lib/api/auth";
 import { allocateClientId } from "@/lib/sequences";
-
-async function getAuthedUserId(): Promise<number | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth-token")?.value ?? null;
-  if (!token) return null;
-  const payload = verifyToken(token);
-  const userId = payload?.userId;
-  return typeof userId === "number" ? userId : null;
-}
 
 export async function GET(request: NextRequest) {
   const userId = await getAuthedUserId();
