@@ -103,96 +103,145 @@
     {
       "idx": 14,
       "version": "5",
+      "when": 1777800000000,
+      "tag": "0115_add_client_requested_services",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1777810000000,
+      "tag": "0116_campaign_posts_bentley_draft_json",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1777820000000,
+      "tag": "0117_campaign_posts_bentley_draft_json_alter",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1777830000000,
+      "tag": "0118_campaigns_bentley_autopilot_publish",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1777840000000,
+      "tag": "0119_campaigns_bentley_autopilot_publish_alter",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1777850000000,
+      "tag": "0120_client_provider_connections_provider_publish_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1777860000000,
+      "tag": "0121_provider_publish_batches_batch_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
       "when": 1777900000000,
       "tag": "0122_executive_agent_audit_and_approvals",
       "breakpoints": true
     },
     {
-      "idx": 15,
+      "idx": 22,
       "version": "5",
       "when": 1777900000001,
       "tag": "0123_executive_agent_voice",
       "breakpoints": true
     },
     {
-      "idx": 16,
+      "idx": 23,
       "version": "5",
       "when": 1777900000002,
       "tag": "0124_executive_agent_memory_briefing",
       "breakpoints": true
     },
     {
-      "idx": 17,
+      "idx": 24,
       "version": "5",
       "when": 1778000000000,
       "tag": "0125_executive_agent_routines",
       "breakpoints": true
     },
     {
-      "idx": 18,
+      "idx": 25,
       "version": "5",
       "when": 1778100000000,
       "tag": "0126_executive_analytics_knowledge_inbox",
       "breakpoints": true
     },
     {
-      "idx": 19,
+      "idx": 26,
       "version": "5",
       "when": 1778150000000,
       "tag": "0127_skipper_executive_admin_npc_role",
       "breakpoints": true
     },
     {
-      "idx": 20,
+      "idx": 27,
       "version": "5",
       "when": 1778200000000,
       "tag": "0127_skipper_controlled_learning",
       "breakpoints": true
     },
     {
-      "idx": 21,
+      "idx": 28,
       "version": "5",
       "when": 1778300000000,
       "tag": "0128_executive_department_messages_attachments",
       "breakpoints": true
     },
     {
-      "idx": 22,
+      "idx": 29,
       "version": "5",
       "when": 1778400000000,
       "tag": "0129_site_builder_fulfillment",
       "breakpoints": true
     },
     {
-      "idx": 23,
+      "idx": 30,
       "version": "5",
       "when": 1778500000000,
       "tag": "0130_fulfillment_client_delivery",
       "breakpoints": true
     },
     {
-      "idx": 24,
+      "idx": 31,
       "version": "5",
       "when": 1778600000000,
       "tag": "0131_executive_operational_threads",
       "breakpoints": true
     },
     {
-      "idx": 25,
+      "idx": 32,
       "version": "5",
       "when": 1778700000000,
       "tag": "0132_executive_operational_decisions",
       "breakpoints": true
     },
     {
-      "idx": 26,
+      "idx": 33,
       "version": "5",
       "when": 1778800000000,
       "tag": "0133_executive_operational_tasks",
       "breakpoints": true
     },
     {
-      "idx": 27,
+      "idx": 34,
       "version": "5",
       "when": 1778900000000,
       "tag": "0135_neuro_network",
