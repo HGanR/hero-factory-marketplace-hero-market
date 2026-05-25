@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 const ACCENT = "#00D1FF";
 
@@ -112,14 +113,14 @@ export function ClientReadinessQuestionnaire({
   };
 
   const hasAnyAnswers =
-    answers.targetAudience.trim().length > 0 ||
+    coerceTrimmedString(answers.targetAudience).length > 0 ||
     answers.advertisingMethods.length > 0 ||
     answers.socialPresence !== "moderate" ||
     answers.socialPlatforms.length > 0 ||
     answers.hasLandingPage ||
     answers.hasEmailSequence ||
     answers.weakestFunnelStage !== "undefined" ||
-    answers.notes.trim().length > 0;
+    coerceTrimmedString(answers.notes).length > 0;
 
   return (
     <div

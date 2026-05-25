@@ -39,6 +39,7 @@ import {
   CampaignIntelligenceNotesPanel,
   isBentleyPipelineNotesBlob,
 } from "@/components/ai-revenue-os/CampaignIntelligenceNotesPanel";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 const ACCENT = "#00D1FF";
 const NOTES_MIN_LENGTH = 10;
@@ -134,6 +135,10 @@ export function CampaignFromNotesSection({
     : shared.isProviderActive
       ? shared.setCampaignNotes
       : setLocalNotes;
+
+  const industryText = coerceTrimmedString(industry);
+  const targetAudienceText = coerceTrimmedString(targetAudience);
+  const notesText = coerceTrimmedString(notes);
   const [result, setResult] = useState<CampaignResponse | null>(null);
   const [mediaBriefLoading, setMediaBriefLoading] = useState(false);
   const [compiledMediaBrief, setCompiledMediaBrief] = useState<string>("");
@@ -159,7 +164,7 @@ export function CampaignFromNotesSection({
 
   useEffect(() => {
     if (!shared.isProviderActive || canonicalNotes) return;
-    if (initialNotes && initialNotes.length >= NOTES_MIN_LENGTH && !shared.campaignNotes.trim()) {
+    if (initialNotes && initialNotes.length >= NOTES_MIN_LENGTH && !coerceTrimmedString(shared.campaignNotes)) {
       shared.setCampaignNotes(initialNotes);
     }
   }, [initialNotes, shared.isProviderActive, shared.campaignNotes, shared.setCampaignNotes, canonicalNotes]);
@@ -198,7 +203,7 @@ export function CampaignFromNotesSection({
   }, [shared.isProviderActive, bentleyActions, snapshotSig]);
 
   const showIntelligencePanel =
-    shared.isProviderActive && isBentleyPipelineNotesBlob(notes) && notes.trim().length >= NOTES_MIN_LENGTH;
+    shared.isProviderActive && isBentleyPipelineNotesBlob(notesText) && notesText.length >= NOTES_MIN_LENGTH;
 
   useEffect(() => {
     if (!isBentleyPipelineNotesBlob(notes)) setRawNotesEditor(false);
@@ -226,15 +231,15 @@ export function CampaignFromNotesSection({
     setCompiledMediaBrief("");
     try {
       const brief = await runCompileMediaBriefApi({
-        industry: (industry || result?.industry || "").trim() || "General",
-        targetAudience: targetAudience || result?.targetAudience || "general audience",
+        industry: industryText || coerceTrimmedString(result?.industry) || "General",
+        targetAudience: targetAudienceText || result?.targetAudience || "general audience",
         offerStatement: result?.offerStatement,
         messagePillars: result?.messagePillars,
         shortFormHooks: result?.shortFormHooks,
         campaignAngles: campaignAngles.length ? campaignAngles : undefined,
         objectionReplies: result?.objectionReplies,
         longFormOutlines: result?.longFormOutlines,
-        notes: notes.slice(0, 1000),
+        notes: notesText.slice(0, 1000),
       });
       setCompiledMediaBrief(brief);
     } catch (e) {
@@ -256,8 +261,8 @@ export function CampaignFromNotesSection({
   };
 
   const runGenerate = async () => {
-    const trimmedIndustry = industry.trim();
-    const trimmedNotes = notes.trim();
+    const trimmedIndustry = industryText;
+    const trimmedNotes = notesText;
     let notesForApi = trimmedNotes;
     if (trimmedNotes.length < NOTES_MIN_LENGTH && snapshotGuidedForCampaign) {
       try {
@@ -279,7 +284,7 @@ export function CampaignFromNotesSection({
         useBentleyIntel && hasWorkflowHandoff ? getWorkflowBentleyHandoffForGeneration() : {};
       const data = await runCampaignFromNotes({
         industry: trimmedIndustry,
-        targetAudience: targetAudience.trim() || "general audience",
+        targetAudience: targetAudienceText || "general audience",
         notes: notesForApi,
         ...bentley,
         ...(useBentleyIntel === false ? { useBentleyIntelligence: false } : {}),
@@ -293,21 +298,21 @@ export function CampaignFromNotesSection({
   };
 
   const canRun =
-    industry.trim().length >= 2 &&
-    (notes.trim().length >= NOTES_MIN_LENGTH || snapshotGuidedForCampaign);
+    industryText.length >= 2 &&
+    (notesText.length >= NOTES_MIN_LENGTH || snapshotGuidedForCampaign);
 
   const runIndustryCrawl = async () => {
-    const ind = industry.trim();
+    const ind = industryText;
     if (ind.length < 2) return;
     setCrawlLoading(true);
     setCrawlError(null);
     try {
       const { notesBlock } = await runCampaignNotesCrawlApi({
         industry: ind,
-        targetAudience: targetAudience.trim() || "general audience",
+        targetAudience: targetAudienceText || "general audience",
       });
-      const sep = notes.trim() ? "\n\n---\n\n" : "";
-      setNotes(`${notes.trim()}${sep}${notesBlock}`.trim());
+      const sep = notesText ? "\n\n---\n\n" : "";
+      setNotes(`${notesText}${sep}${notesBlock}`.trim());
     } catch (e) {
       setCrawlError(e instanceof Error ? e.message : "Crawl failed");
     } finally {
@@ -355,7 +360,7 @@ export function CampaignFromNotesSection({
               <button
                 type="button"
                 onClick={() => void runIndustryCrawl()}
-                disabled={crawlLoading || industry.trim().length < 2}
+                disabled={crawlLoading || industryText.length < 2}
                 className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-cyan-500/50 text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {crawlLoading ? (

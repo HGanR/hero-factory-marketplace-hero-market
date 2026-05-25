@@ -33,7 +33,8 @@ export function buildBentleyNotesPayload(input: NotesInput): string {
   const r = input.research;
   if (r) {
     const chunks: string[] = [];
-    if (r.marketOrService?.trim()) chunks.push(`**Market / service:** ${r.marketOrService.trim()}`);
+    const marketOrService = coerceTrimmedString(r.marketOrService);
+    if (marketOrService) chunks.push(`**Market / service:** ${marketOrService}`);
     chunks.push(bullets("**What people want**", r.whatPeopleWant));
     chunks.push(bullets("**Marketing tips**", r.marketingTips));
     if (r.commentsBySource?.length) {
@@ -49,9 +50,10 @@ export function buildBentleyNotesPayload(input: NotesInput): string {
   const t = input.trends;
   if (t?.items?.length) {
     const lines = t.items.slice(0, 20).map((it, i) => {
-      const sum = (it.summary ?? it.whyTrending ?? "").trim();
+      const sum = coerceTrimmedString(it.summary ?? it.whyTrending);
       const one = sum.length > 220 ? `${sum.slice(0, 220)}…` : sum;
-      return `${i + 1}. [${it.platform ?? "?"}] ${(it.title ?? "").trim()}${one ? ` — ${one}` : ""}`;
+      const title = coerceTrimmedString(it.title);
+      return `${i + 1}. [${it.platform ?? "?"}] ${title}${one ? ` — ${one}` : ""}`;
     });
     let block = lines.join("\n");
     if (t.campaignAngles?.length) {
@@ -64,8 +66,10 @@ export function buildBentleyNotesPayload(input: NotesInput): string {
   }
 
   const syn = input.synthesis;
-  if (syn?.consultantPlan?.trim() || syn?.campaignBrief?.trim()) {
-    const block = [syn.consultantPlan?.trim(), syn.campaignBrief?.trim()].filter(Boolean).join("\n\n");
+  const consultantPlan = coerceTrimmedString(syn?.consultantPlan);
+  const campaignBrief = coerceTrimmedString(syn?.campaignBrief);
+  if (consultantPlan || campaignBrief) {
+    const block = [consultantPlan, campaignBrief].filter(Boolean).join("\n\n");
     if (block) parts.push(section("Synthesis / plan", block));
   }
 
@@ -76,7 +80,8 @@ export function buildBentleyNotesPayload(input: NotesInput): string {
     chunks.push(bullets("**Viral hooks**", ms.viralHooks));
     chunks.push(bullets("**Pain points**", ms.painPoints));
     chunks.push(bullets("**Buying signals**", ms.buyingSignals));
-    if (ms.realSignalsSummary?.trim()) chunks.push(ms.realSignalsSummary.trim());
+    const realSignalsSummary = coerceTrimmedString(ms.realSignalsSummary);
+    if (realSignalsSummary) chunks.push(realSignalsSummary);
     if (ms.nextAction?.action) {
       chunks.push(`**Next action:** ${ms.nextAction.action} — ${ms.nextAction.reason}`);
     }
@@ -86,7 +91,7 @@ export function buildBentleyNotesPayload(input: NotesInput): string {
 
   const ce = input.contentEngine;
   if (ce) {
-    const cap = ce.fullPost?.caption?.trim();
+    const cap = coerceTrimmedString(ce.fullPost?.caption);
     const hooks = (ce.hooks ?? []).slice(0, 16).map((h) => `- ${String(h).trim()}`);
     const chunks: string[] = [];
     if (cap) chunks.push(`**Draft caption:**\n${cap}`);

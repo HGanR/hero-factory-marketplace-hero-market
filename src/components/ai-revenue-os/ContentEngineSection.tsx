@@ -26,6 +26,7 @@ import type { RevenueOsDashboardFormValues } from "@/lib/revenue-os/run-revenue-
 import type { ContentEngineOutput } from "@/lib/revenue-os/content-engine-types";
 import { writeCachedContentEngineOutput } from "@/lib/revenue-os/content-engine-cache";
 import { runViralContent } from "@/lib/revenue-os/run-viral-content";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { ContentDeployPanel } from "@/components/ai-revenue-os/ContentDeployPanel";
 import { BENTLEY_SET_CLONE_VARIANT_EVENT } from "@/components/ai-revenue-os/VariantOptimizationPanel";
 import { loadWorkflowState, subscribeBentleyWorkflowCrossTab } from "@/lib/revenue-os/bentley-workflow";
@@ -152,7 +153,7 @@ export function ContentEngineSection({
   };
 
   const useShared = shared.isProviderActive && !isDashboardCanonical;
-  const campaignNotesForUnified = useShared ? shared.campaignNotes?.trim() ?? "" : "";
+  const campaignNotesForUnified = useShared ? coerceTrimmedString(shared.campaignNotes) : "";
 
   const [lb, setLb] = useState(defaultBusinessName);
   const [li, setLi] = useState(defaultIndustry);

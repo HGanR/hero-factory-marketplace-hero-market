@@ -406,7 +406,6 @@ function RevenueOSDashboardInner() {
   });
 
   const formMergeBaselineRef = useRef(form);
-  formMergeBaselineRef.current = form;
 
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
@@ -563,7 +562,9 @@ function RevenueOSDashboardInner() {
   }, []);
 
   const formRef = useRef<RevenueOsDashboardFormValues | null>(null);
-  formRef.current = form;
+  const safeForm = useMemo(() => normalizeDashboardFormValues(form), [form]);
+  formRef.current = safeForm;
+  formMergeBaselineRef.current = safeForm;
 
   const onDashboardCanonicalNotesChange = useCallback(
     (value: string) => patchForm({ notes: value }),
@@ -571,12 +572,12 @@ function RevenueOSDashboardInner() {
   );
 
   const dashboardIndustryLine = useMemo(
-    () => dashboardIndustryHead(form.businessType) || "Consulting",
-    [form.businessType]
+    () => dashboardIndustryHead(safeForm.businessType) || "Consulting",
+    [safeForm.businessType]
   );
   const dashboardOfferTypeLine = useMemo(
-    () => dashboardIndustryOfferType(form.businessType),
-    [form.businessType]
+    () => dashboardIndustryOfferType(safeForm.businessType),
+    [safeForm.businessType]
   );
 
   const onDashboardIndustryChange = useCallback(
@@ -790,8 +791,8 @@ function RevenueOSDashboardInner() {
   const offerLadderProfile = useMemo(
     () => ({
       userId,
-      businessName: form.businessName,
-      businessType: form.businessType,
+      businessName: safeForm.businessName,
+      businessType: safeForm.businessType,
       currentMonthlyRevenue: form.currentMonthlyRevenue,
       targetMonthlyRevenue: form.targetMonthlyRevenue,
       avgOrderValue: form.avgOrderValue,
@@ -818,7 +819,7 @@ function RevenueOSDashboardInner() {
         <BentleyAiRevenueOsScopeSync userId={userId} />
       </Suspense>
       <BentleyPersistedSnapshotHydration />
-      <BentleyDashboardFormSyncWithPipeline form={form} />
+      <BentleyDashboardFormSyncWithPipeline form={safeForm} />
       <BentleyDashboardBridge
         setForm={setForm}
         getDashboardFormForMerge={() => formMergeBaselineRef.current}
@@ -1063,22 +1064,22 @@ function RevenueOSDashboardInner() {
           <Card title="Business">
             <Field
               label="Business Name"
-              value={form.businessName}
+              value={safeForm.businessName}
               onChange={(v) => patchForm({ businessName: v })}
             />
             <Field
               label="Business Type / Industry"
-              value={form.businessType}
+              value={safeForm.businessType}
               onChange={(v) => patchForm({ businessType: v })}
             />
             <Field
               label="Target Audience"
-              value={form.targetAudience}
+              value={safeForm.targetAudience}
               onChange={(v) => patchForm({ targetAudience: v })}
             />
             <Field
               label="Market"
-              value={form.market}
+              value={safeForm.market}
               onChange={(v) => patchForm({ market: v })}
             />
           </Card>
@@ -1145,12 +1146,12 @@ function RevenueOSDashboardInner() {
             <div className="grid md:grid-cols-2 gap-x-6 gap-y-0">
               <Field
                 label="Core offer"
-                value={form.coreOffer}
+                value={safeForm.coreOffer}
                 onChange={(v) => patchForm({ coreOffer: v })}
               />
               <Field
                 label="Transformation / outcome"
-                value={form.transformation}
+                value={safeForm.transformation}
                 onChange={(v) => patchForm({ transformation: v })}
               />
               <Field
@@ -1200,17 +1201,17 @@ function RevenueOSDashboardInner() {
                   connectedAccounts={socialAccounts}
                 />
               </div>
-              <Field label="Tone" value={form.tone} onChange={(v) => patchForm({ tone: v })} />
+              <Field label="Tone" value={safeForm.tone} onChange={(v) => patchForm({ tone: v })} />
               <Field
                 label="Content type focus"
-                value={form.contentTypeFocus}
+                value={safeForm.contentTypeFocus}
                 onChange={(v) => patchForm({ contentTypeFocus: v })}
               />
-              <Field label="Image style" value={form.imageStyle} onChange={(v) => patchForm({ imageStyle: v })} />
+              <Field label="Image style" value={safeForm.imageStyle} onChange={(v) => patchForm({ imageStyle: v })} />
             </div>
             <TextAreaField
               label="Campaign / intake notes"
-              value={form.notes}
+              value={safeForm.notes}
               onChange={(v) => patchForm({ notes: v })}
               rows={4}
             />
@@ -1266,14 +1267,14 @@ function RevenueOSDashboardInner() {
         <div className="mt-10 space-y-10">
           <TrendsLibrarySection
             defaultIndustry={dashboardIndustryLine}
-            defaultTargetAudience={form.targetAudience}
+            defaultTargetAudience={safeForm.targetAudience}
             clientId={clientId}
             trustId={trustId}
             compact
             onTrendsResult={setTrendsResult}
             canonicalDashboardFields={{
               industry: dashboardIndustryLine,
-              targetAudience: form.targetAudience,
+              targetAudience: safeForm.targetAudience,
               onIndustryChange: onDashboardIndustryChange,
               onTargetAudienceChange: onDashboardTargetAudienceChange,
             }}
@@ -1282,19 +1283,19 @@ function RevenueOSDashboardInner() {
           <IntelligenceAccelerationPanel
             onApplyBrief={(brief) =>
               patchForm({
-                notes: appendCampaignBriefIfMissing(form.notes, brief),
+                notes: appendCampaignBriefIfMissing(safeForm.notes, brief),
               })
             }
           />
           <ContentEngineSection
-            defaultBusinessName={form.businessName}
+            defaultBusinessName={safeForm.businessName}
             defaultIndustry={dashboardIndustryLine}
-            defaultTargetAudience={form.targetAudience}
-            defaultCoreOffer={form.coreOffer}
-            defaultTransformation={form.transformation}
-            defaultTone={form.tone || "Professional"}
-            defaultContentTypeFocus={form.contentTypeFocus || "Full Post"}
-            defaultImageStyle={form.imageStyle || "cinematic"}
+            defaultTargetAudience={safeForm.targetAudience}
+            defaultCoreOffer={safeForm.coreOffer}
+            defaultTransformation={safeForm.transformation}
+            defaultTone={safeForm.tone || "Professional"}
+            defaultContentTypeFocus={safeForm.contentTypeFocus || "Full Post"}
+            defaultImageStyle={safeForm.imageStyle || "cinematic"}
             defaultContentPlatformId={dashboardContentPlatformId}
             defaultPlatforms={form.platforms}
             compact
@@ -1336,7 +1337,7 @@ function RevenueOSDashboardInner() {
           {res && form.postingPlatforms.length > 0 && (
             <BentleyFirstCampaignAssetCard
               res={res}
-              form={form}
+              form={safeForm}
               postingPlatforms={form.postingPlatforms}
               connectedAccounts={socialAccounts}
               contentEngineOutput={contentEngineOutput}
@@ -1346,26 +1347,26 @@ function RevenueOSDashboardInner() {
           )}
           <CampaignFromNotesSection
             defaultIndustry={dashboardIndustryLine}
-            defaultTargetAudience={form.targetAudience}
+            defaultTargetAudience={safeForm.targetAudience}
             compact
             canonicalNotes={{
-              value: form.notes,
+              value: safeForm.notes,
               onChange: onDashboardCanonicalNotesChange,
             }}
             canonicalIndustryAudience={{
               industry: dashboardIndustryLine,
               onIndustryChange: onDashboardIndustryChange,
-              targetAudience: form.targetAudience,
+              targetAudience: safeForm.targetAudience,
               onTargetAudienceChange: onDashboardTargetAudienceChange,
             }}
             contextForNotes={{
               industry: dashboardIndustryLine,
-              targetAudience: form.targetAudience,
+              targetAudience: safeForm.targetAudience,
               form: {
                 industry: dashboardIndustryLine,
-                targetAudience: form.targetAudience,
-                market: form.market,
-                businessName: form.businessName,
+                targetAudience: safeForm.targetAudience,
+                market: safeForm.market,
+                businessName: safeForm.businessName,
                 currentMonthlyRevenue: form.currentMonthlyRevenue,
                 targetMonthlyRevenue: form.targetMonthlyRevenue,
                 avgOrderValue: form.avgOrderValue,
@@ -1421,7 +1422,7 @@ function RevenueOSDashboardInner() {
 
             <MarketScanHistoryPanel
               industry={dashboardIndustryLine}
-              geo={form.market}
+              geo={safeForm.market}
               offerType={dashboardOfferTypeLine}
               userId={userId}
               clientId={clientId}

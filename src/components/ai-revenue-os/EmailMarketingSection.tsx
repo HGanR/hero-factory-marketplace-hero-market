@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Copy, Download, Mail, Search } from "lucide-react";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 const ACCENT = "#00D1FF";
 
@@ -70,7 +71,7 @@ function downloadEmailsCsv(emails: string[], baseName: string) {
 }
 
 export function EmailMarketingSection({ industry = "" }: Props) {
-  const normalizedIndustry = industry.trim() || "hairstylist";
+  const normalizedIndustry = coerceTrimmedString(industry) || "hairstylist";
   const [copiedQuery, setCopiedQuery] = useState(false);
   const [copiedEmails, setCopiedEmails] = useState(false);
   const [rawData, setRawData] = useState("");

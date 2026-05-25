@@ -26,6 +26,7 @@ import type {
   ContentBlueprint,
 } from "@/lib/revenue-os/trends-schema";
 import { runTrends as runTrendsApi } from "@/lib/revenue-os/run-trends";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { loadWorkflowState, subscribeBentleyWorkflowCrossTab } from "@/lib/revenue-os/bentley-workflow";
 import {
   clearWorkflowBentleyHandoff,
@@ -130,6 +131,9 @@ function TrendsLibrarySectionInner({
     ? canonicalDashboardFields.onTargetAudienceChange
     : setLocalTargetAudience;
 
+  const industryText = coerceTrimmedString(industry);
+  const targetAudienceText = coerceTrimmedString(targetAudience);
+
   useEffect(() => {
     if (canonicalDashboardFields) return;
     if (!defaultIndustry) return;
@@ -180,7 +184,7 @@ function TrendsLibrarySectionInner({
   const hasWorkflowHandoff = Boolean(workflowHandoff);
 
   const runTrends = async () => {
-    const trimmedIndustry = industry.trim();
+    const trimmedIndustry = industryText;
     if (!trimmedIndustry) return;
 
     setLoading(true);
@@ -192,7 +196,7 @@ function TrendsLibrarySectionInner({
         useBentleyIntel && hasWorkflowHandoff ? getWorkflowBentleyHandoffForGeneration() : {};
       const data = await runTrendsApi({
         industry: trimmedIndustry,
-        targetAudience: targetAudience.trim() || "general audience",
+        targetAudience: targetAudienceText || "general audience",
         clientId,
         trustId,
         ...bentley,
@@ -224,7 +228,7 @@ function TrendsLibrarySectionInner({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          offerName: industry.trim() || "AI Revenue OS",
+          offerName: industryText || "AI Revenue OS",
           platform: bundlePlatform,
           durationSec: bundleDuration,
           voice: "authoritative",
@@ -316,7 +320,7 @@ function TrendsLibrarySectionInner({
               Client industry
             </label>
             <input
-              value={industry}
+              value={industryText}
               onChange={(e) => setIndustry(e.target.value)}
               placeholder="e.g. B2B SaaS, fitness coaching, e-commerce skincare"
               className="w-full p-4 rounded-xl bg-slate-800/50 border-2 border-[#00D1FF]/50 text-white placeholder-gray-500 focus:outline-none focus:border-[#00D1FF]"
@@ -327,7 +331,7 @@ function TrendsLibrarySectionInner({
               Target audience
             </label>
             <input
-              value={targetAudience}
+              value={targetAudienceText}
               onChange={(e) => setTargetAudience(e.target.value)}
               placeholder="e.g. SMB owners, Gen Z fitness enthusiasts, skincare-conscious women 25-40"
               className="w-full p-4 rounded-xl bg-slate-800/50 border-2 border-[#00D1FF]/50 text-white placeholder-gray-500 focus:outline-none focus:border-[#00D1FF]"
@@ -335,7 +339,7 @@ function TrendsLibrarySectionInner({
           </div>
           <button
             onClick={runTrends}
-            disabled={loading || !industry.trim()}
+            disabled={loading || !industryText}
             className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-black disabled:opacity-60 disabled:cursor-not-allowed transition-all"
             style={{
               background:

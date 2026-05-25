@@ -66,4 +66,22 @@ describe("buildBentleyNotesPayload", () => {
     expect(out).toContain("Market intelligence sweep");
     expect(out).toContain("Topic A");
   });
+
+  it("tolerates numeric artifact string fields from corrupt workflow JSON", () => {
+    const snapshot = { campaignNotes: 42 as unknown as string } as BentleySnapshot;
+    const out = buildBentleyNotesPayload({
+      snapshot,
+      trends: {
+        items: [{ title: 99 as unknown as string, platform: "tiktok", summary: 100 as unknown as string, url: "" }],
+        campaignAngles: [],
+      },
+      synthesis: {
+        consultantPlan: 200 as unknown as string,
+        campaignBrief: undefined,
+      },
+    });
+    expect(out).toContain("99");
+    expect(out).toContain("100");
+    expect(out).toContain("200");
+  });
 });
