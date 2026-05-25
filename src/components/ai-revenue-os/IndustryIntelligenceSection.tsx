@@ -4,6 +4,7 @@ import { ClientReadinessQuestionnaire } from "@/components/ai-revenue-os/ClientR
 import { RevenueSimulationBlock } from "@/components/ai-revenue-os/RevenueSimulationBlock";
 import { BenchmarkComparisonPanel } from "@/components/revenue-os/BenchmarkComparisonPanel";
 import { useAiRevenueOsProfile, useAiRevenueOsRevenueInputs } from "@/components/ai-revenue-os/AiRevenueOsSharedState";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export type IndustryIntelligenceSectionProps = {
   /** Reserved for scroll/anchor sync with parent accordion */
@@ -14,7 +15,7 @@ export function IndustryIntelligenceSection({ anchorOnParent: _anchorOnParent }:
   const { effectiveIndustryLabel, questionnaireAnswers, setQuestionnaireAnswers } = useAiRevenueOsProfile();
   const { traffic, setTraffic, conversionRate, setConversionRate, aov, setAov } = useAiRevenueOsRevenueInputs();
 
-  const industry = effectiveIndustryLabel.trim() || "General";
+  const industry = coerceTrimmedString(effectiveIndustryLabel) || "General";
   const yourCac = 0;
 
   return (
