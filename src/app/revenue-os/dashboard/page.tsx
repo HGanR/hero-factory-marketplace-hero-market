@@ -837,8 +837,8 @@ function RevenueOSDashboardInner() {
   );
 
   return (
-    <DashboardClientMountGate>
     <AiRevenueOsSharedStateProvider>
+      <DashboardClientMountGate>
       <Suspense fallback={null}>
         <BentleyAiRevenueOsScopeSync userId={userId} />
       </Suspense>
@@ -1580,8 +1580,8 @@ function RevenueOSDashboardInner() {
       )}
       </div>
       {!bentleyExecutionCampaignId ? <BentleyRevenueOsChat /> : null}
+      </DashboardClientMountGate>
     </AiRevenueOsSharedStateProvider>
-    </DashboardClientMountGate>
   );
 }
 

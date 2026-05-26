@@ -30,6 +30,7 @@ import { enrichSystemSignalsFromFeedback } from "@/lib/revenue-os/derive-system-
 import { fetchRevenueOsDeploymentFeedback } from "@/lib/revenue-os/deployment-feedback-client-fetch";
 import { getBentleyStorageScope } from "@/lib/revenue-os/bentley-storage-scope";
 import { parseIndustryKey } from "@/lib/revenue-os/bentley-orchestrator";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import type { IndustryKey } from "@/lib/revenue-os/industry-profiles";
 import type { TrendsResponse } from "@/lib/revenue-os/trends-schema";
 import type { ResearchResult } from "@/components/ai-revenue-os/ResearchAssistantSection";
@@ -198,20 +199,20 @@ export function AiRevenueOsPipeline({ omitContentEngineBentleyMarker = false }: 
 
         setConsultantPlan(parsed.consultantPlan ?? "");
         setCampaignBrief(parsed.campaignBrief ?? "");
-        const ind = parsed.industry ?? trends.industry ?? "";
-        const aud = parsed.targetAudience ?? trends.targetAudience ?? "";
+        const ind = coerceTrimmedString(parsed.industry ?? trends.industry);
+        const aud = coerceTrimmedString(parsed.targetAudience ?? trends.targetAudience);
         setPipelineIndustry(ind);
         setPipelineTargetAudience(aud);
         setCampaignAngles(parsed.campaignAngles ?? trends.campaignAngles ?? []);
         // Defer shared-context updates so synthesis completion does not synchronously cascade
         // profile → Research/Trends consumers in the same commit (Firefox: "too much recursion").
         startTransition(() => {
-          if (ind.trim()) {
+          if (ind) {
             const key = parseIndustryKey(ind);
             if (key) setIk(key);
             else {
               setIk(null);
-              setCi(ind.trim());
+              setCi(ind);
             }
           }
           if (aud) setTa(aud);

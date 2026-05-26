@@ -1,3 +1,5 @@
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
+
 /** Nextdoor-style neighborhood posts: keep uploads small for reliability. */
 export const BENTLEY_NEXTDOOR_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -17,7 +19,7 @@ export function validateBentleyCampaignAssetUpload(input: {
   platform: string;
   file: Pick<File, "size" | "type" | "name">;
 }): BentleyAssetUploadValidation {
-  const p = input.platform.trim().toLowerCase();
+  const p = coerceTrimmedString(input.platform).toLowerCase();
   const { file } = input;
 
   if (p === "nextdoor" && file.size > BENTLEY_NEXTDOOR_MAX_UPLOAD_BYTES) {

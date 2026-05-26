@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { buildBentleyPlatformPromptDefaults } from "@/lib/revenue-os/bentley-platform-prompt-templates";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 export const LongFormOutlineSchema = z
   .object({
@@ -13,14 +14,19 @@ export const LongFormOutlineSchema = z
 export const BENTLEY_PLATFORM_POST_KEYS = ["instagram", "tiktok", "facebook", "reddit", "nextdoor"] as const;
 export type BentleyPlatformPostKey = (typeof BENTLEY_PLATFORM_POST_KEYS)[number];
 
+const optionalCoercedPostField = z
+  .union([z.string(), z.number(), z.boolean()])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : coerceTrimmedString(v) || undefined));
+
 export const PlatformPostSlotSchema = z
   .object({
-    caption: z.string().optional(),
-    hook: z.string().optional(),
-    cta: z.string().optional(),
-    promptText: z.string().optional(),
-    promptImage: z.string().optional(),
-    promptVideo: z.string().optional(),
+    caption: optionalCoercedPostField,
+    hook: optionalCoercedPostField,
+    cta: optionalCoercedPostField,
+    promptText: optionalCoercedPostField,
+    promptImage: optionalCoercedPostField,
+    promptVideo: optionalCoercedPostField,
   })
   .partial();
 
@@ -98,6 +104,66 @@ const PAD_HOOKS = [
 ];
 const PAD_OBJECTION = "Address directly with empathy and proof.";
 
+const PLATFORM_POST_STRING_FIELDS = [
+  "caption",
+  "hook",
+  "cta",
+  "promptText",
+  "promptImage",
+  "promptVideo",
+] as const;
+
+/** Coerce workflow / session JSON scalars before Zod (numeric caption/hook must not reach `.trim()`). */
+function normalizeCampaignResponseRaw(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = { ...(raw as Record<string, unknown>) };
+
+  for (const key of ["industry", "targetAudience", "offerStatement"] as const) {
+    if (key in o && o[key] != null) o[key] = coerceTrimmedString(o[key]);
+  }
+
+  const coerceStringArray = (arr: unknown): string[] | undefined => {
+    if (!Array.isArray(arr)) return undefined;
+    return arr.map((x) => coerceTrimmedString(x)).filter(Boolean);
+  };
+
+  if ("messagePillars" in o) o.messagePillars = coerceStringArray(o.messagePillars) ?? [];
+  if ("shortFormHooks" in o) o.shortFormHooks = coerceStringArray(o.shortFormHooks) ?? [];
+  if ("objectionReplies" in o) o.objectionReplies = coerceStringArray(o.objectionReplies) ?? [];
+  if ("disclaimers" in o) o.disclaimers = coerceStringArray(o.disclaimers) ?? [];
+
+  if (o.platformPosts && typeof o.platformPosts === "object" && !Array.isArray(o.platformPosts)) {
+    const pp = o.platformPosts as Record<string, unknown>;
+    const next: Record<string, Record<string, string>> = {};
+    for (const [plat, slot] of Object.entries(pp)) {
+      if (!slot || typeof slot !== "object" || Array.isArray(slot)) continue;
+      const s = slot as Record<string, unknown>;
+      const row: Record<string, string> = {};
+      for (const field of PLATFORM_POST_STRING_FIELDS) {
+        if (s[field] == null) continue;
+        const t = coerceTrimmedString(s[field]);
+        if (t) row[field] = t;
+      }
+      if (Object.keys(row).length) next[plat] = row;
+    }
+    o.platformPosts = next;
+  }
+
+  if (Array.isArray(o.longFormOutlines)) {
+    o.longFormOutlines = o.longFormOutlines.map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return item;
+      const row = item as Record<string, unknown>;
+      return {
+        ...row,
+        title: coerceTrimmedString(row.title) || "Untitled",
+        cta: coerceTrimmedString(row.cta),
+      };
+    });
+  }
+
+  return JSON.parse(JSON.stringify(o)) as unknown;
+}
+
 function mergePlatformPosts(
   industry: string,
   audience: string,
@@ -109,19 +175,19 @@ function mergePlatformPosts(
   const out = {} as Record<BentleyPlatformPostKey, PlatformPostSlot>;
   for (let i = 0; i < BENTLEY_PLATFORM_POST_KEYS.length; i++) {
     const k = BENTLEY_PLATFORM_POST_KEYS[i]!;
-    const hook = (hooks[i % hooks.length] ?? "").trim();
-    const cta = (outlines[i % outlines.length]?.cta ?? "").trim() || "Reply for details.";
+    const hook = coerceTrimmedString(hooks[i % hooks.length]);
+    const cta = coerceTrimmedString(outlines[i % outlines.length]?.cta) || "Reply for details.";
     const caption =
       hook && offer ? `${hook}\n\n${offer}` : offer || hook || "Bentley campaign post";
     const inc = incoming?.[k] ?? {};
     const tmpl = buildBentleyPlatformPromptDefaults(k, { industry, audience, offer });
     out[k] = {
-      caption: (inc.caption ?? "").trim() || caption,
-      hook: (inc.hook ?? "").trim() || hook,
-      cta: (inc.cta ?? "").trim() || cta,
-      promptText: (inc.promptText ?? "").trim() || tmpl.promptText,
-      promptImage: (inc.promptImage ?? "").trim() || tmpl.promptImage,
-      promptVideo: (inc.promptVideo ?? "").trim() || tmpl.promptVideo,
+      caption: coerceTrimmedString(inc.caption) || caption,
+      hook: coerceTrimmedString(inc.hook) || hook,
+      cta: coerceTrimmedString(inc.cta) || cta,
+      promptText: coerceTrimmedString(inc.promptText) || tmpl.promptText,
+      promptImage: coerceTrimmedString(inc.promptImage) || tmpl.promptImage,
+      promptVideo: coerceTrimmedString(inc.promptVideo) || tmpl.promptVideo,
     };
   }
   return out;
@@ -132,17 +198,17 @@ function mergePlatformPosts(
  * Enforces exact array lengths for UI reliability: 3 pillars, 10 hooks, 3 outlines, 5 objections.
  */
 export function parseCampaignResponse(raw: unknown): CampaignResponse {
-  const base = CampaignResponseSchema.parse(raw);
+  const base = CampaignResponseSchema.parse(normalizeCampaignResponseRaw(raw));
   const outlines = (base.longFormOutlines ?? [])
     .filter((o): o is z.infer<typeof LongFormOutlineSchema> => Boolean(o))
     .map((o) => ({
-      title: (o.title || "").trim() || "Untitled",
+      title: coerceTrimmedString(o.title) || "Untitled",
       sections: Array.isArray(o.sections) ? o.sections.filter(Boolean) : [],
-      cta: (o.cta || "").trim(),
+      cta: coerceTrimmedString(o.cta),
     }));
 
-  const industry = (base.industry || "").trim() || "the industry";
-  const audience = (base.targetAudience || "").trim() || "your audience";
+  const industry = coerceTrimmedString(base.industry) || "the industry";
+  const audience = coerceTrimmedString(base.targetAudience) || "your audience";
   const padOutlines: LongFormOutline[] = [
     { title: `How to Get Started in ${industry}`, sections: ["Define outcome.", "Choose one channel.", "Ship and iterate."], cta: "Grab the free checklist." },
     { title: `Top Mistakes to Avoid`, sections: ["Quitting too early.", "Wrong metrics.", "No system."], cta: "Comment 'PLAN' for the roadmap." },
@@ -152,7 +218,7 @@ export function parseCampaignResponse(raw: unknown): CampaignResponse {
   const messagePillars = exactArray(base.messagePillars ?? [], 3, PAD_MESSAGE_PILLARS);
   const shortFormHooks = exactArray(base.shortFormHooks ?? [], 10, PAD_HOOKS);
   const longFormOutlines = exactArray(outlines, 3, padOutlines);
-  const offer = (base.offerStatement || "").trim();
+  const offer = coerceTrimmedString(base.offerStatement);
 
   return {
     ...base,
