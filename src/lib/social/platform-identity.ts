@@ -94,9 +94,9 @@ export function normalizeStrategyLabelToOauthPostingPlatform(label: string): Soc
  * Used for connection checks vs `postingPlatforms` and OAuth routes.
  */
 export function normalizeAccountPlatformToSocialPlatform(
-  raw: string | null | undefined
+  raw: string | null | undefined | unknown
 ): SocialPlatform | null {
-  const s = raw?.trim().toLowerCase();
+  const s = (typeof raw === "string" ? raw : String(raw ?? "")).trim().toLowerCase();
   if (!s) return null;
   if (isSocialPlatformString(s)) return s;
   if (s.includes("instagram") || s === "ig") return "instagram";

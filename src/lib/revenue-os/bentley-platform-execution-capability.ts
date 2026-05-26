@@ -15,8 +15,8 @@ export type BentleyExecutionCapability = "auto_publish" | "manual_oauth" | "expo
  * - `manual_oauth`: OAuth-capable id in product surface but adapter not implemented (e.g. TikTok).
  * - `export_only`: No automated publish path in Hero (Reddit, Nextdoor, unknown strings).
  */
-export function getBentleyPlatformExecutionCapability(platform: string): BentleyExecutionCapability {
-  const low = platform.trim().toLowerCase();
+export function getBentleyPlatformExecutionCapability(platform: unknown): BentleyExecutionCapability {
+  const low = typeof platform === "string" ? platform.trim().toLowerCase() : String(platform ?? "").trim().toLowerCase();
   if (low === "reddit" || low === "nextdoor") return "export_only";
   if (AUTO_PUBLISH_PLATFORM_IDS.has(low)) return "auto_publish";
   if (MANUAL_OAUTH_NO_ADAPTER.has(low)) return "manual_oauth";

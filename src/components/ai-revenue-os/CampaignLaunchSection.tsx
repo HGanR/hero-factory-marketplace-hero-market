@@ -240,7 +240,13 @@ export function CampaignLaunchSection({
       const r = await fetch(`/api/campaigns/${id}`);
       if (!r.ok) throw new Error("Failed to load campaign");
       const j = await r.json();
-      setSelectedCampaign(j);
+      const posts = (Array.isArray(j.posts) ? j.posts : []).map((p: Post) => ({
+        ...p,
+        id: coerceTrimmedString(p.id),
+        platform: coerceTrimmedString(p.platform),
+        caption: p.caption == null ? null : coerceTrimmedString(p.caption),
+      }));
+      setSelectedCampaign({ ...j, name: coerceTrimmedString(j.name), posts });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {

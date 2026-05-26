@@ -2,6 +2,7 @@
  * Parse / merge Bentley publish approval fields in utmParams (string values only).
  */
 
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import type { PublishApprovalChainRequiredRole } from "@/lib/revenue-os/publish-approval-chain";
 import type { RevenueOsPublishApprovalStatus } from "@/lib/revenue-os/publish-approval-types";
 
@@ -116,9 +117,24 @@ export function setPublishApprovalChainProgressKeys(
   out[BENTLEY_UTM_APPROVAL_CHAIN_REQUIRED_ROLE] = args.requiredRole;
 }
 
-function normStatus(raw: string | null | undefined): RevenueOsPublishApprovalStatus | null {
-  if (!raw?.trim()) return null;
-  const s = raw.trim().toLowerCase().replace(/-/g, "_");
+function utmStr(v: unknown): string {
+  return coerceTrimmedString(v);
+}
+
+function normalizeUtmInput(utm: Record<string, string> | null | undefined): Record<string, string> {
+  if (!utm || typeof utm !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(utm)) {
+    if (v == null) continue;
+    out[k] = utmStr(v);
+  }
+  return out;
+}
+
+function normStatus(raw: unknown): RevenueOsPublishApprovalStatus | null {
+  const trimmed = utmStr(raw);
+  if (!trimmed) return null;
+  const s = trimmed.toLowerCase().replace(/-/g, "_");
   if (s === "notrequired" || s === "not_required") return "not_required";
   if (s === "pending" || s === "pending_approval") return "pending_approval";
   if (s === "approved") return "approved";
@@ -137,14 +153,13 @@ export function rawApprovalStatusKey(utm: Record<string, string> | null | undefi
 export function parsePublishApprovalFromUtm(
   utm: Record<string, string> | null | undefined
 ): ParsedPublishApprovalUtm {
-  const u = utm ?? {};
+  const u = normalizeUtmInput(utm);
   const rawKey = u[BENTLEY_UTM_APPROVAL_STATUS] ?? u["bentley_approval_status"];
-  const st = normStatus(rawKey) ?? (rawKey?.trim() ? "pending_approval" : "not_required");
-  const approvedAt = (u[BENTLEY_UTM_APPROVED_AT] ?? u["bentley_approved_at"] ?? "").trim() || null;
-  const approvedBy = (u[BENTLEY_UTM_APPROVED_BY] ?? u["bentley_approved_by"] ?? "").trim() || null;
-  const approvalReason = (u[BENTLEY_UTM_APPROVAL_REASON] ?? u["bentley_approval_reason"] ?? "").trim() || null;
-  const decidedAtRaw =
-    (u[BENTLEY_UTM_APPROVAL_DECIDED_AT] ?? u["bentley_approval_decided_at"] ?? "").trim() || null;
+  const st = normStatus(rawKey) ?? (utmStr(rawKey) ? "pending_approval" : "not_required");
+  const approvedAt = utmStr(u[BENTLEY_UTM_APPROVED_AT] ?? u["bentley_approved_at"]) || null;
+  const approvedBy = utmStr(u[BENTLEY_UTM_APPROVED_BY] ?? u["bentley_approved_by"]) || null;
+  const approvalReason = utmStr(u[BENTLEY_UTM_APPROVAL_REASON] ?? u["bentley_approval_reason"]) || null;
+  const decidedAtRaw = utmStr(u[BENTLEY_UTM_APPROVAL_DECIDED_AT] ?? u["bentley_approval_decided_at"]) || null;
   const decidedAt = decidedAtRaw || approvedAt;
   const decidedByUserId = parseDecidedByUserId(
     u[BENTLEY_UTM_APPROVAL_BY_USER_ID] ?? u["bentley_approval_by_user_id"]
@@ -152,25 +167,21 @@ export function parsePublishApprovalFromUtm(
   const actorRole = parseActorRoleRaw(
     u[BENTLEY_UTM_APPROVAL_ACTOR_ROLE] ?? u["bentley_approval_actor_role"]
   );
-  const stepRaw =
-    u[BENTLEY_UTM_APPROVAL_CHAIN_STEP] ?? u["bentley_approval_chain_step"] ?? "";
-  const totalRaw =
-    u[BENTLEY_UTM_APPROVAL_CHAIN_TOTAL] ?? u["bentley_approval_chain_total"] ?? "";
-  const roleRaw =
-    u[BENTLEY_UTM_APPROVAL_CHAIN_REQUIRED_ROLE] ?? u["bentley_approval_chain_required_role"] ?? "";
-  const hasChainKeys = Boolean(stepRaw.trim() && totalRaw.trim() && roleRaw.trim());
+  const stepRaw = utmStr(u[BENTLEY_UTM_APPROVAL_CHAIN_STEP] ?? u["bentley_approval_chain_step"]);
+  const totalRaw = utmStr(u[BENTLEY_UTM_APPROVAL_CHAIN_TOTAL] ?? u["bentley_approval_chain_total"]);
+  const roleRaw = utmStr(
+    u[BENTLEY_UTM_APPROVAL_CHAIN_REQUIRED_ROLE] ?? u["bentley_approval_chain_required_role"]
+  );
+  const hasChainKeys = Boolean(stepRaw && totalRaw && roleRaw);
   const currentApprovalStepIndex = hasChainKeys ? parsePositiveInt(stepRaw) : null;
   const totalApprovalSteps = hasChainKeys ? parsePositiveInt(totalRaw) : null;
   const currentApprovalRequiredRole = hasChainKeys ? parseChainRequiredRoleRaw(roleRaw) : null;
   const approvalStepStartedAt =
-    (u[BENTLEY_UTM_APPROVAL_STEP_STARTED_AT] ?? u["bentley_approval_step_started_at"] ?? "").trim() || null;
-  const reminderStepRaw =
-    u[BENTLEY_UTM_APPROVAL_STEP_SLA_REMINDER_FOR_STEP] ??
-    u["bentley_approval_step_sla_reminder_for_step"] ??
-    "";
-  const slaReminderSentForLogicalStep = reminderStepRaw.trim()
-    ? parsePositiveInt(reminderStepRaw.trim())
-    : null;
+    utmStr(u[BENTLEY_UTM_APPROVAL_STEP_STARTED_AT] ?? u["bentley_approval_step_started_at"]) || null;
+  const reminderStepRaw = utmStr(
+    u[BENTLEY_UTM_APPROVAL_STEP_SLA_REMINDER_FOR_STEP] ?? u["bentley_approval_step_sla_reminder_for_step"]
+  );
+  const slaReminderSentForLogicalStep = reminderStepRaw ? parsePositiveInt(reminderStepRaw) : null;
   return {
     status: st,
     approvedAt,

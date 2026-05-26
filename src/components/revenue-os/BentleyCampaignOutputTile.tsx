@@ -14,6 +14,16 @@ import { rawApprovalStatusKey } from "@/lib/revenue-os/publish-approval-utm";
 import { ianaWallTimeToUtcIso } from "@/lib/revenue-os/iana-wall-time-to-utc";
 import { parseScheduledPublishMeta, type PublishRoute } from "@/lib/social/scheduled-publish-meta";
 import { syncBentleyLaunchApi } from "@/lib/revenue-os/revenue-os-pipeline-actions";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
+
+function asPlatformSlug(value: unknown, fallback = "instagram"): string {
+  const s = coerceTrimmedString(value).toLowerCase();
+  return s || fallback;
+}
+
+function asTrimmedString(value: unknown, fallback = ""): string {
+  return coerceTrimmedString(value, fallback);
+}
 
 type BentleyDraft = {
   hook?: string;
@@ -172,8 +182,8 @@ function eachCalendarDayYmd(startYmd: string, endYmd: string): string[] {
   return out;
 }
 
-function platformHeading(p: string): string {
-  const low = p.trim().toLowerCase();
+function platformHeading(p: unknown): string {
+  const low = asPlatformSlug(p, "");
   if (isOauthConnectablePlatform(low)) return postingPlatformDisplayName(low);
   return low ? low.charAt(0).toUpperCase() + low.slice(1) : "Platform";
 }
@@ -448,11 +458,17 @@ export function BentleyCampaignOutputTile({
       if (!r.ok) {
         throw new Error(typeof j?.message === "string" ? j.message : j?.error ?? "Failed to load campaign");
       }
-      setData(j);
+      const posts = (j.posts ?? []).map((p) => ({
+        ...p,
+        id: asTrimmedString(p.id),
+        platform: asPlatformSlug(p.platform),
+        caption: p.caption == null ? null : asTrimmedString(p.caption),
+      }));
+      setData({ ...j, name: asTrimmedString(j.name), posts });
       setAutopilot(Boolean(j.bentleyAutopilotPublish));
       const cap: Record<string, string> = {};
       const sch: Record<string, string> = {};
-      for (const p of j.posts ?? []) {
+      for (const p of posts) {
         cap[p.id] = p.caption ?? "";
         sch[p.id] = toDatetimeLocalValue(p.scheduledAt);
       }
@@ -461,10 +477,10 @@ export function BentleyCampaignOutputTile({
       const tz0 = defaultTimeZone();
       const tgt: Record<string, string> = {};
       const tz: Record<string, string> = {};
-      for (const p of j.posts ?? []) {
+      for (const p of posts) {
         const m = parseScheduledPublishMeta(p.scheduledPublishMeta);
-        tgt[p.id] = (m.targetPlatform ?? p.platform ?? "").trim().toLowerCase() || "instagram";
-        tz[p.id] = (m.timezone ?? "").trim() || tz0;
+        tgt[p.id] = asPlatformSlug(m.targetPlatform ?? p.platform);
+        tz[p.id] = asTrimmedString(m.timezone) || tz0;
       }
       setC360TargetByPost(tgt);
       setC360TzByPost(tz);
@@ -533,7 +549,7 @@ export function BentleyCampaignOutputTile({
   const platformList = useMemo(() => {
     const posts = data?.posts ?? [];
     const s = new Set<string>();
-    for (const p of posts) s.add(p.platform.trim().toLowerCase());
+    for (const p of posts) s.add(asPlatformSlug(p.platform, ""));
     return [...s].sort((a, b) => a.localeCompare(b)).map(platformHeading).join(", ") || "—";
   }, [data?.posts]);
 
@@ -541,7 +557,7 @@ export function BentleyCampaignOutputTile({
     const posts = data?.posts ?? [];
     const m = new Map<string, CampaignDetailPost[]>();
     for (const p of posts) {
-      const k = p.platform.trim().toLowerCase();
+      const k = asPlatformSlug(p.platform, "");
       const arr = m.get(k) ?? [];
       arr.push(p);
       m.set(k, arr);
@@ -613,7 +629,7 @@ export function BentleyCampaignOutputTile({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("platform", post.platform.trim().toLowerCase());
+      fd.append("platform", asPlatformSlug(post.platform));
       fd.append("postId", post.id);
       const r = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/assets`, {
         method: "POST",
@@ -782,7 +798,7 @@ export function BentleyCampaignOutputTile({
           connectionId: conn,
           scheduledAt: iso,
           timezone: (c360TzByPost[post.id] ?? defaultTimeZone()).trim(),
-          targetPlatform: (c360TargetByPost[post.id] ?? post.platform).trim().toLowerCase(),
+          targetPlatform: asPlatformSlug(c360TargetByPost[post.id] ?? post.platform),
           caption: captions[post.id] ?? post.caption ?? "",
           hashtags: post.hashtags ?? null,
           assetId: post.assetId,
@@ -894,7 +910,7 @@ export function BentleyCampaignOutputTile({
       if (weeklyPlan.error && !w.length) w.push(weeklyPlan.error);
       return w;
     }
-    const missingMedia = weeklyPlan.items.filter((x) => !x.post.assetId?.trim()).length;
+    const missingMedia = weeklyPlan.items.filter((x) => !asTrimmedString(x.post.assetId)).length;
     if (missingMedia) {
       w.push(
         `${missingMedia} slot(s) are missing media (no asset). Content360 or downstream review may reject them.`,
@@ -980,7 +996,7 @@ export function BentleyCampaignOutputTile({
   };
 
   const retryLatestBatchFailedPosts = async () => {
-    const bid = (lastBatchSend?.batchId || latestCampaignBatch?.id || "").trim();
+    const bid = asTrimmedString(lastBatchSend?.batchId || latestCampaignBatch?.id);
     const cid = clientId.trim();
     if (!bid || !cid) return;
     setC360ConnectBusy(true);
@@ -1004,7 +1020,7 @@ export function BentleyCampaignOutputTile({
   };
 
   const cancelLatestBatch = async () => {
-    const bid = (lastBatchSend?.batchId || latestCampaignBatch?.id || "").trim();
+    const bid = asTrimmedString(lastBatchSend?.batchId || latestCampaignBatch?.id);
     const cid = clientId.trim();
     if (!bid || !cid) return;
     if (
@@ -1061,7 +1077,9 @@ export function BentleyCampaignOutputTile({
         <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-sm">
           <div className="min-w-0 space-y-1">
             <div className="text-xs text-slate-500 uppercase tracking-wide">Campaign</div>
-            <div className="font-semibold text-cyan-100 truncate">{data?.name?.trim() || "Untitled campaign"}</div>
+            <div className="font-semibold text-cyan-100 truncate">
+              {asTrimmedString(data?.name) || "Untitled campaign"}
+            </div>
           </div>
           <div className="min-w-0 space-y-1">
             <div className="text-xs text-slate-500 uppercase tracking-wide">Platforms</div>
@@ -1793,7 +1811,7 @@ export function BentleyCampaignOutputTile({
                                       <span>Target platform</span>
                                       <select
                                         className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-slate-100"
-                                        value={c360TargetByPost[post.id] ?? post.platform.trim().toLowerCase()}
+                                        value={c360TargetByPost[post.id] ?? asPlatformSlug(post.platform)}
                                         onChange={(e) =>
                                           setC360TargetByPost((prev) => ({ ...prev, [post.id]: e.target.value }))
                                         }

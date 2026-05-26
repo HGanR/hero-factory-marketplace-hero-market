@@ -39,4 +39,18 @@ describe("parsePublishApprovalFromUtm governance fields", () => {
     expect(p.approvalStepStartedAt).toBe("2026-02-01T08:00:00.000Z");
     expect(p.slaReminderSentForLogicalStep).toBe(0);
   });
+
+  it("coerces numeric UTM values from JSON (no .trim crash)", () => {
+    const p = parsePublishApprovalFromUtm({
+      bentley_approval_status: 1 as unknown as string,
+      bentley_approval_by_user_id: 42 as unknown as string,
+      bentley_approval_chain_step: 0 as unknown as string,
+      bentley_approval_chain_total: 2 as unknown as string,
+      bentley_approval_chain_required_role: "approver",
+    });
+    expect(p.status).toBe("pending_approval");
+    expect(p.decidedByUserId).toBe(42);
+    expect(p.currentApprovalStepIndex).toBe(0);
+    expect(p.totalApprovalSteps).toBe(2);
+  });
 });
