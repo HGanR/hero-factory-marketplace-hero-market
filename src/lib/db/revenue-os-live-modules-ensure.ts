@@ -130,6 +130,29 @@ export async function ensureRevenueOsLiveModuleTables(): Promise<void> {
   );
 
   await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS revenue_os_monthly_snapshots (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      client_id VARCHAR(36) NOT NULL DEFAULT '',
+      trust_id VARCHAR(36) NOT NULL DEFAULT '',
+      month VARCHAR(7) NOT NULL,
+      traffic INT NOT NULL,
+      conversion_rate_pct DECIMAL(6,3) NOT NULL,
+      avg_order_value DECIMAL(18,2) NOT NULL,
+      revenue DECIMAL(18,2) NOT NULL,
+      cac DECIMAL(18,2) NOT NULL,
+      ltv DECIMAL(18,2) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY snap_user_workspace_month_uidx (user_id, client_id, trust_id, month),
+      KEY snap_user_idx (user_id),
+      KEY snap_client_idx (client_id),
+      KEY snap_trust_idx (trust_id),
+      KEY snap_month_idx (month)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS revenue_os_funnel_deployment_runs (
       id VARCHAR(36) PRIMARY KEY,
       funnel_id VARCHAR(36) NOT NULL,

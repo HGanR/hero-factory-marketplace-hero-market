@@ -959,6 +959,7 @@ export const revenueOsFunnels = mysqlTable("revenue_os_funnels", {
   trustId: varchar("trust_id", { length: 36 }).notNull().default(""),
   name: varchar("name", { length: 200 }).notNull(),
   status: varchar("status", { length: 24 }).notNull().default("DRAFT"),
+  crossModuleContext: json("cross_module_context").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
@@ -982,6 +983,7 @@ export const revenueOsMessageSequences = mysqlTable("revenue_os_message_sequence
   channel: varchar("channel", { length: 24 }).notNull(),
   name: varchar("name", { length: 200 }).notNull(),
   status: varchar("status", { length: 24 }).notNull().default("DRAFT"),
+  crossModuleContext: json("cross_module_context").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });

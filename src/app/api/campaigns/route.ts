@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getAuthedUserId } from "@/lib/api/auth";
 import { getDb } from "@/lib/db";
+import { ensureCampaignSchemaColumns } from "@/lib/db/campaigns-ensure";
 import { campaignReviewerAssignments, campaigns } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import crypto from "crypto";
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
     const clientId = resolved.clientId;
 
     const id = crypto.randomUUID();
+    await ensureCampaignSchemaColumns();
     const db = await getDb();
     await db.insert(campaigns).values({
       id,
@@ -91,6 +93,7 @@ export async function GET(req: NextRequest) {
     const clientIdFilter = clientIdParamPresent ? (searchParams.get("clientId") ?? "").trim() : null;
     const status = searchParams.get("status")?.trim();
 
+    await ensureCampaignSchemaColumns();
     const db = await getDb();
     const cookieStore = await cookies();
     const adminSession = Boolean(cookieStore.get("admin-token")?.value?.trim());

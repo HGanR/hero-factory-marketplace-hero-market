@@ -54,3 +54,5 @@ export const getDb = async () => {
   return drizzle(conn);
 };
 
+export { withDbTimeout } from "@/lib/db/db-timeout";
+

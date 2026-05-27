@@ -1,6 +1,12 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { ensureCrmTables } from "@/lib/db/crm-ensure";
+import { ensureClientTableColumnsOnce } from "@/lib/db/clients-ensure";
+
+/** CRM `clients` branding / trust columns used by Client Hub file + logo flows. */
+export async function ensureClientFileColumns() {
+  await ensureClientTableColumnsOnce();
+}
 
 /**
  * Creates `client_accounts` and adds `clientId` columns used by the Revenue OS Client Hub.

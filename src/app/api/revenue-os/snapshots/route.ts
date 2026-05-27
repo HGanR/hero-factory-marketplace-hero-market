@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { ensureRevenueOsLiveModuleTables } from "@/lib/db/revenue-os-live-modules-ensure";
 import { revenueOsMonthlySnapshots } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -21,6 +22,7 @@ export async function GET(req: Request) {
     const trustId = searchParams.get("trustId")?.trim() || "";
     const limit = Math.min(Number(searchParams.get("limit")) || 12, 24);
 
+    await ensureRevenueOsLiveModuleTables();
     const db = await getDb();
     const conditions = [
       eq(revenueOsMonthlySnapshots.userId, userId),
