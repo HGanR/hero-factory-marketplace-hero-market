@@ -8,6 +8,7 @@ import type { DeploymentFeedbackSignalsInput } from "@/lib/revenue-os/derive-sys
 import type { RevenueOsOptimizationMemorySummary } from "@/lib/revenue-os/post-optimization-memory-types";
 import type { MetricSyncContextLike } from "@/lib/revenue-os/platform-evidence-weighting";
 import type { RevenueOsSystemSignals } from "@/lib/revenue-os/revenue-os-system-signals-types";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import type { ComparableConfidence } from "@/lib/revenue-os/cross-platform-performance-normalization";
 
 export type RevenueOsPlatformRole =
@@ -47,10 +48,15 @@ export type DerivePlatformRoleRoutingArgs = {
   systemSignals?: RevenueOsSystemSignals | null;
 };
 
-function capPlat(p: string): string {
-  const t = p.trim();
+function capPlat(p: unknown): string {
+  const t = coerceTrimmedString(p);
   if (!t) return t;
   return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+}
+
+function platKey(p: unknown): string | null {
+  const t = coerceTrimmedString(p).toLowerCase();
+  return t || null;
 }
 
 function mapComparableToRoleConfidence(c: ComparableConfidence | undefined): "high" | "medium" | "low" {
@@ -76,14 +82,8 @@ export function derivePlatformRoleRouting(args: DerivePlatformRoleRoutingArgs): 
   const sig = args.signalsInput;
   const confidenceNotes: string[] = [];
 
-  const attPlat =
-    rollup?.bestAttentionPlatform?.trim().toLowerCase() ||
-    mem?.measuredStrongestAttentionPlatform?.trim().toLowerCase() ||
-    null;
-  const engPlat =
-    rollup?.bestEngagementPlatform?.trim().toLowerCase() ||
-    mem?.measuredStrongestEngagementPlatform?.trim().toLowerCase() ||
-    null;
+  const attPlat = platKey(rollup?.bestAttentionPlatform) || platKey(mem?.measuredStrongestAttentionPlatform);
+  const engPlat = platKey(rollup?.bestEngagementPlatform) || platKey(mem?.measuredStrongestEngagementPlatform);
 
   const cmpConf = rollup?.comparisonConfidence ?? mem?.crossPlatformComparisonConfidence;
   const roleConfFromCmp = mapComparableToRoleConfidence(cmpConf);
@@ -142,7 +142,7 @@ export function derivePlatformRoleRouting(args: DerivePlatformRoleRoutingArgs): 
   } else if (rollup && rollup.bestPublishedPlatform && publishStabilityOk(rollup)) {
     authority = {
       role: "authority",
-      preferredPlatform: rollup.bestPublishedPlatform.trim().toLowerCase(),
+      preferredPlatform: platKey(rollup.bestPublishedPlatform),
       confidence: "low",
       reason: `**${capPlat(rollup.bestPublishedPlatform)}** has **stable publish success** — operational fit for authority plays while measured conversation signals catch up.`,
       evidenceBasis: "publish_only",
@@ -164,9 +164,9 @@ export function derivePlatformRoleRouting(args: DerivePlatformRoleRoutingArgs): 
   let lead_capture: RevenueOsPlatformRoleRecommendation;
   if (leadCount >= 1) {
     const plat =
-      sig?.bestMeasuredPlatform?.trim().toLowerCase() ||
-      rollup?.bestMeasuredPlatform?.trim().toLowerCase() ||
-      rollup?.bestEngagementPlatform?.trim().toLowerCase() ||
+      platKey(sig?.bestMeasuredPlatform) ||
+      platKey(rollup?.bestMeasuredPlatform) ||
+      platKey(rollup?.bestEngagementPlatform) ||
       null;
     lead_capture = {
       role: "lead_capture",
@@ -199,7 +199,7 @@ export function derivePlatformRoleRouting(args: DerivePlatformRoleRoutingArgs): 
   }
 
   /** Distribution: operational throughput. */
-  const distPlat = rollup?.bestPublishedPlatform?.trim().toLowerCase() || null;
+  const distPlat = platKey(rollup?.bestPublishedPlatform);
   const distribution_support: RevenueOsPlatformRoleRecommendation =
     distPlat && rollup && rollup.publishedCount >= 1
       ? {

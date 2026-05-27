@@ -2,11 +2,13 @@
  * Consistent client shapes for campaign post copy fields (avoid mixing "" and undefined).
  */
 
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
+
 /** Empty / whitespace-only → null; preserves null; undefined stays undefined (omit key). */
 export function normalizeHashtagsField(v: string | undefined | null): string | null | undefined {
   if (v === undefined) return undefined;
   if (v === null) return null;
-  const t = v.trim();
+  const t = coerceTrimmedString(v);
   return t === "" ? null : t;
 }
 
@@ -14,7 +16,7 @@ export function normalizeHashtagsField(v: string | undefined | null): string | n
 export function normalizeLinkUrlField(v: string | undefined | null): string | null | undefined {
   if (v === undefined) return undefined;
   if (v === null) return null;
-  const t = v.trim();
+  const t = coerceTrimmedString(v);
   return t === "" ? null : t;
 }
 
@@ -23,9 +25,9 @@ export function normalizeUtmParamsField(
 ): Record<string, string> | null | undefined {
   if (v === undefined) return undefined;
   if (v === null) return null;
-  const entries = Object.entries(v).filter(([, val]) => val.trim() !== "");
+  const entries = Object.entries(v).filter(([, val]) => coerceTrimmedString(val) !== "");
   if (entries.length === 0) return null;
-  return Object.fromEntries(entries.map(([k, val]) => [k, val.trim()]));
+  return Object.fromEntries(entries.map(([k, val]) => [k, coerceTrimmedString(val)]));
 }
 
 export type PatchPostCopyInput = {

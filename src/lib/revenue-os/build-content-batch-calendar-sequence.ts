@@ -15,6 +15,7 @@ import type {
 import type { RevenueOsLaunchModePlan } from "@/lib/revenue-os/launch-mode-types";
 import type { RevenueOsPlatformRoleRoutingSummary } from "@/lib/revenue-os/platform-role-routing";
 import type { RevenueOsSystemSignals } from "@/lib/revenue-os/revenue-os-system-signals-types";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { buildPlatformHintsForContentRole } from "@/lib/revenue-os/route-generated-content-into-batches";
 
 export type BuildContentBatchCalendarSequenceArgs = {
@@ -24,8 +25,8 @@ export type BuildContentBatchCalendarSequenceArgs = {
   systemSignals?: RevenueOsSystemSignals | null;
 };
 
-function capPlat(p: string): string {
-  const t = p.trim();
+function capPlat(p: unknown): string {
+  const t = coerceTrimmedString(p);
   if (!t) return t;
   return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
 }
@@ -68,7 +69,7 @@ function preferredPlatformsForRole(
   const seen = new Set<string>();
   const out: string[] = [];
   for (const p of merged) {
-    const k = p.trim().toLowerCase();
+    const k = coerceTrimmedString(p).toLowerCase();
     if (!k || seen.has(k)) continue;
     seen.add(k);
     out.push(capPlat(p));

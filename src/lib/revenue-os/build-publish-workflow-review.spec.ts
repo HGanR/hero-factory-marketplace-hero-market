@@ -461,4 +461,22 @@ describe("buildPublishWorkflowReview approval chain row fields", () => {
     expect(r.approvalStepAgeShortLabel).toBeTruthy();
     expect(r.approvalStepSlaDebug?.logicalAwaitingStepIndex).toBe(0);
   });
+
+  it("does not throw when caption or platform are numeric (session/API JSON)", () => {
+    const summary = buildPublishWorkflowReview({
+      posts: [
+        {
+          id: "n",
+          platform: 42 as unknown as string,
+          status: "SCHEDULED",
+          scheduledAt: "2025-07-01T12:00:00.000Z",
+          caption: 9001 as unknown as string,
+          utmParams: {},
+        },
+      ],
+      socialAccounts: [],
+    });
+    expect(summary.rows[0]?.bodyPreview).toBe("9001");
+    expect(summary.rows[0]?.platform).toBe(42);
+  });
 });

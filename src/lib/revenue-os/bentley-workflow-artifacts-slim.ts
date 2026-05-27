@@ -21,7 +21,10 @@ import type {
 import type { LeadSignalSummary } from "@/lib/revenue-os/lead-signal-summary";
 import type { BentleyWorkflowArtifacts } from "@/lib/revenue-os/bentley-workflow";
 
-const MAX_STR = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n)}…`);
+const MAX_STR = (s: unknown, n: number) => {
+  const t = String(s ?? "");
+  return t.length <= n ? t : `${t.slice(0, n)}…`;
+};
 
 function slimResearch(r: ResearchResult): ResearchResult {
   return {
@@ -347,10 +350,10 @@ function slimContent(c: ContentEngineOutput): ContentEngineOutput {
 }
 
 function slimCampaign(c: CampaignResponse): CampaignResponse {
-  const src = c.platformPosts ? c : parseCampaignResponse(c as unknown);
+  const src = parseCampaignResponse(c as unknown);
   const platformPosts = src.platformPosts
     ? (Object.fromEntries(
-        Object.entries(c.platformPosts).map(([k, slot]) => [
+        Object.entries(src.platformPosts).map(([k, slot]) => [
           k,
           slot
             ? {

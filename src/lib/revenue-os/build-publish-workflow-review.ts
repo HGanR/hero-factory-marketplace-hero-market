@@ -18,6 +18,7 @@ import {
 } from "@/lib/revenue-os/publish-approval-chain";
 import { resolveEffectiveApprovalStatus } from "@/lib/revenue-os/build-publish-approval-summary";
 import { buildPublishApprovalStepSlaRowView } from "@/lib/revenue-os/publish-approval-step-sla";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { parsePublishApprovalFromUtm } from "@/lib/revenue-os/publish-approval-utm";
 import type {
   RevenueOsPublishWorkflowRow,
@@ -125,15 +126,17 @@ function parseSuggested(utm: Record<string, string> | null | undefined): string 
 }
 
 function titleFromCaption(caption: string | null | undefined): string | undefined {
-  if (!caption?.trim()) return undefined;
-  const line = caption.split(/\n+/)[0]?.trim() ?? "";
+  const cap = coerceTrimmedString(caption);
+  if (!cap) return undefined;
+  const line = cap.split(/\n+/)[0]?.trim() ?? "";
   if (!line) return undefined;
   return line.slice(0, 120);
 }
 
 function bodyPreviewFromCaption(caption: string | null | undefined): string {
-  if (!caption?.trim()) return "—";
-  const t = caption.trim().replace(/\s+/g, " ");
+  const cap = coerceTrimmedString(caption);
+  if (!cap) return "—";
+  const t = cap.replace(/\s+/g, " ");
   return t.length > 160 ? `${t.slice(0, 157)}…` : t;
 }
 
@@ -213,8 +216,9 @@ export function buildPublishWorkflowReview(args: BuildPublishWorkflowReviewArgs)
     if (st === "failed") {
       row.hasConflict = true;
       row.conflictSeverity = "blocking";
-      row.conflictReason = p.errorMessage?.trim()
-        ? `Publish failed: ${p.errorMessage.trim().slice(0, 200)}`
+      const errMsg = coerceTrimmedString(p.errorMessage);
+      row.conflictReason = errMsg
+        ? `Publish failed: ${errMsg.slice(0, 200)}`
         : "Publish failed — review in Launch Campaigns.";
     } else if ((st === "scheduled" || st === "retry_scheduled") && !hasOAuth) {
       row.hasConflict = true;
@@ -241,7 +245,7 @@ export function buildPublishWorkflowReview(args: BuildPublishWorkflowReviewArgs)
     row.hasApprovalIdentity = parsedAp.decidedByUserId != null;
     row.approvalIdentitySessionOnly =
       parsedAp.decidedByUserId == null &&
-      Boolean(parsedAp.approvedBy?.trim()) &&
+      Boolean(coerceTrimmedString(parsedAp.approvedBy)) &&
       (row.approvalStatus === "approved" || row.approvalStatus === "rejected");
 
     let currentApprovalStepIndex: number | null = null;
@@ -295,7 +299,7 @@ export function buildPublishWorkflowReview(args: BuildPublishWorkflowReviewArgs)
     if (!iso) return null;
     const t = new Date(iso).getTime();
     if (!Number.isFinite(t)) return null;
-    return `${platform.trim().toLowerCase()}|${Math.floor(t / 60000)}`;
+    return `${coerceTrimmedString(platform).toLowerCase()}|${Math.floor(t / 60000)}`;
   };
 
   const bucket = new Map<string, string[]>();

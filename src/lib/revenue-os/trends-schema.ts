@@ -175,8 +175,8 @@ export function parseTrendsResponse(raw: unknown): TrendsResponse {
     );
     const tags = clampArray((it.tags ?? []).filter(Boolean), 3, 8);
 
-    const whyTrending = (it.whyTrending || "").trim();
-    const summary = (it.summary || "").trim();
+    const whyTrending = String(it.whyTrending ?? "").trim();
+    const summary = String(it.summary ?? "").trim();
 
     return {
       ...it,

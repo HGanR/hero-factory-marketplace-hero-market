@@ -1,3 +1,4 @@
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { normalizeAccountPlatformToSocialPlatform } from "@/lib/social/platform-identity";
 
 type Acc = {
@@ -19,7 +20,7 @@ type Acc = {
 export function labelSocialStudioAccountOption(account: Acc, targetPlatform: string): string {
   const want = normalizeAccountPlatformToSocialPlatform(targetPlatform);
   const have = normalizeAccountPlatformToSocialPlatform(account.platform);
-  const name = account.displayName?.trim() || account.id.slice(0, 8);
+  const name = coerceTrimmedString(account.displayName) || account.id.slice(0, 8);
   const base = `${account.platform} · ${name}`;
   if (account.status === "expired") return `${base} — token expired, reconnect`;
   if (want && have && want !== have) return `${base} — wrong network for ${targetPlatform}`;

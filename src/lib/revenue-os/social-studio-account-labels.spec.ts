@@ -25,4 +25,9 @@ describe("social-studio-account-labels", () => {
     const f = filterSocialStudioAccountsForTarget(list, "linkedin");
     expect(f).toHaveLength(1);
   });
+
+  it("coerces numeric displayName without throwing", () => {
+    const s = labelSocialStudioAccountOption(a({ displayName: 42 as unknown as string }), "linkedin");
+    expect(s).toContain("42");
+  });
 });

@@ -11,6 +11,7 @@ import type { MarketSweepResult } from "@/lib/revenue-os/market-sweep-schema";
 import type { BentleyContentBundleHandoff } from "@/lib/bentley-social-leads/handoff/contentBundleHandoffTypes";
 import { slimLifecycleProgress, type BentleyLifecycleProgress } from "@/lib/revenue-os/bentley-lifecycle";
 import { slimWorkflowArtifacts } from "@/lib/revenue-os/bentley-workflow-artifacts-slim";
+import { parseCampaignResponse } from "@/lib/revenue-os/campaign-schema";
 import { coerceTrimmedString, sanitizeBentleyWorkflowStateFromStorage } from "@/lib/revenue-os/bentley-string-coerce";
 import { notifyBentleyWorkflowPersist } from "@/lib/revenue-os/bentley-run-observability";
 import {
@@ -139,10 +140,25 @@ export function loadWorkflowState(): BentleyWorkflowState {
     if (!raw) return defaultWorkflowState();
     const j = JSON.parse(raw) as Partial<BentleyWorkflowState>;
     if (!j || typeof j !== "object") return defaultWorkflowState();
-    return {
+    const state = {
       ...defaultWorkflowState(),
       ...sanitizeBentleyWorkflowStateFromStorage(j),
     };
+    if (state.artifacts.campaign) {
+      try {
+        state.artifacts.campaign = parseCampaignResponse(state.artifacts.campaign);
+      } catch {
+        state.artifacts.campaign = null;
+      }
+    }
+    if (state.artifacts.bentleySliContentHandoff?.handoffId != null) {
+      const hid = coerceTrimmedString(state.artifacts.bentleySliContentHandoff.handoffId);
+      state.artifacts.bentleySliContentHandoff = {
+        ...state.artifacts.bentleySliContentHandoff,
+        handoffId: hid || undefined,
+      };
+    }
+    return state;
   } catch {
     return defaultWorkflowState();
   }

@@ -91,12 +91,11 @@ function formatHintForQueue(
   hints: Array<{ platform: string; format: string; reason: string }> | undefined
 ): string | undefined {
   if (!hints?.length) return undefined;
-  const low = queuePlatform.trim().toLowerCase();
-  const m = hints.find(
-    (h) =>
-      low.includes(h.platform.trim().toLowerCase()) ||
-      h.platform.trim().toLowerCase().includes(low)
-  );
+  const low = String(queuePlatform ?? "").trim().toLowerCase();
+  const m = hints.find((h) => {
+    const hp = String(h.platform ?? "").trim().toLowerCase();
+    return low.includes(hp) || hp.includes(low);
+  });
   return m?.format ?? hints[0]?.format;
 }
 

@@ -8,6 +8,7 @@ import {
   recommendBentleySocialStudioPromote,
 } from "@/lib/revenue-os/bentley-social-studio-hints";
 import { normalizeAccountPlatformToSocialPlatform } from "@/lib/social/platform-identity";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { BENTLEY_UI_REQUIRE_APPROVAL_SESSION_KEY } from "@/lib/revenue-os/bentley-publish-approval-chat";
 import { getAdapter } from "@/lib/social/adapters";
 import type { SocialPlatform } from "@/lib/social/config";
@@ -86,10 +87,16 @@ export function SocialRevenueOsStudioPanel({
   const [sessionPublishApproval, setSessionPublishApproval] = useState(false);
 
   const loadAccounts = useCallback(async () => {
+    const cid = coerceTrimmedString(clientId);
+    if (!cid) {
+      setAccounts([]);
+      return;
+    }
     setAccErr(null);
     try {
-      const qs = clientId ? `?clientId=${encodeURIComponent(clientId)}` : "?clientId=";
-      const r = await fetch(`/api/revenue-os/social-studio/connection-summary${qs}`);
+      const r = await fetch(
+        `/api/revenue-os/social-studio/connection-summary?clientId=${encodeURIComponent(cid)}`
+      );
       const j = (await r.json()) as { accounts?: ConnectionAccount[]; error?: string };
       if (!r.ok) throw new Error(j.error ?? "Failed to load accounts");
       setAccounts(Array.isArray(j.accounts) ? j.accounts : []);
@@ -131,7 +138,7 @@ export function SocialRevenueOsStudioPanel({
 
   useEffect(() => {
     if (selectedVariant) {
-      setCaptionEdit(selectedVariant.caption);
+      setCaptionEdit(coerceTrimmedString(selectedVariant.caption));
     }
   }, [selectedVariant?.id, selectedVariant?.caption]);
 
@@ -274,8 +281,8 @@ export function SocialRevenueOsStudioPanel({
 
   function downloadCaptionTxt() {
     if (!gen || !selectedVariant) return;
-    const t = (captionEdit || selectedVariant.caption).trim();
-    const hs = selectedVariant.hashtags?.trim();
+    const t = coerceTrimmedString(captionEdit || selectedVariant.caption);
+    const hs = coerceTrimmedString(selectedVariant.hashtags);
     const text = hs ? `${t}\n\n${hs}` : t;
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");

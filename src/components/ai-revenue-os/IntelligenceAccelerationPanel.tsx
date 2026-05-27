@@ -9,6 +9,7 @@ import type {
   TopPerformingSnapshot,
 } from "@/lib/bentley-social-leads/conversionRecommendations";
 import type { OperatorNextActionsBundle } from "@/lib/bentley-social-leads/operatorNextActions";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { appendCampaignBriefIfMissing } from "@/lib/revenue-os/unified-generation-markers";
 
 const ACCENT = "#00D1FF";
@@ -49,7 +50,7 @@ export function IntelligenceAccelerationPanel({ onApplyBrief }: Props) {
     setErr(null);
     try {
       const ws = loadWorkflowState();
-      const hid = ws.artifacts.bentleySliContentHandoff?.handoffId?.trim();
+      const hid = coerceTrimmedString(ws.artifacts.bentleySliContentHandoff?.handoffId) || undefined;
       const q = hid ? `?bentleyHandoffId=${encodeURIComponent(hid)}` : "";
       const r = await fetch(`/api/bentley-social-leads/intelligence-acceleration${q}`, {
         credentials: "include",

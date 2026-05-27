@@ -1,3 +1,4 @@
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { getAdapter } from "@/lib/social/adapters";
 import { normalizeAccountPlatformToSocialPlatform } from "@/lib/social/platform-identity";
 import type { SocialPlatform } from "@/lib/social/config";
@@ -80,7 +81,7 @@ export function recommendBentleySocialStudioPromote(args: {
         accountId: acc.id,
         postMode: "schedule",
         lines: [
-          `Using connected ${p} account ${acc.displayName?.trim() || acc.id}.`,
+          `Using connected ${p} account ${coerceTrimmedString(acc.displayName) || acc.id}.`,
           "Schedule is safer than instant publish for review — adjust in Social Studio if needed.",
         ],
       };
