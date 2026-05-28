@@ -279,8 +279,8 @@ export type PlatformRoleRoutingFocus =
   | "lead_capture"
   | "distribution_support";
 
-export function inferPlatformRoleFocusFromMessage(message: string): PlatformRoleRoutingFocus {
-  const t = message.trim().toLowerCase();
+export function inferPlatformRoleFocusFromMessage(message: unknown): PlatformRoleRoutingFocus {
+  const t = coerceTrimmedString(message).toLowerCase();
   if (/\b(awareness|reach|impressions?|attention|top.of.funnel|TOF)\b/.test(t)) return "attention";
   if (/\bengagement\b/.test(t) && !/\bauthority\b/.test(t)) return "engagement";
   if (/\bauthority\b|thought.?lead|credibility|professional.reputation\b/.test(t)) return "authority";

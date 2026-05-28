@@ -402,6 +402,8 @@ function RevenueOSDashboardInner() {
   const [userId, setUserId] = useState("demo-user");
   const [clientId, setClientId] = useState<string>("");
   const [trustId, setTrustId] = useState<string>("");
+  const safeClientId = useMemo(() => coerceTrimmedString(clientId), [clientId]);
+  const safeTrustId = useMemo(() => coerceTrimmedString(trustId), [trustId]);
   const [snapshotSaving, setSnapshotSaving] = useState(false);
   const [snapshotResult, setSnapshotResult] = useState<string | null>(null);
   const [snapshotRefreshKey, setSnapshotRefreshKey] = useState(0);
@@ -458,7 +460,7 @@ function RevenueOSDashboardInner() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const { data: socialAccounts = [] } = useSocialAccounts(clientId);
+  const { data: socialAccounts = [] } = useSocialAccounts(safeClientId);
   const invalidateSocialAccounts = useInvalidateSocialAccounts();
 
   useEffect(() => {
@@ -510,8 +512,8 @@ function RevenueOSDashboardInner() {
   }, [userId]);
 
   useEffect(() => {
-    if (searchParams?.get("connected")) invalidateSocialAccounts(clientId);
-  }, [searchParams, clientId, invalidateSocialAccounts]);
+    if (searchParams?.get("connected")) invalidateSocialAccounts(safeClientId);
+  }, [searchParams, safeClientId, invalidateSocialAccounts]);
 
   const lastPlatformConnSig = useRef("");
   useEffect(() => {
@@ -550,8 +552,8 @@ function RevenueOSDashboardInner() {
         margins: form.grossMarginPct / 100,
         aov: form.avgOrderValue,
         userId,
-        clientId: clientId || undefined,
-        trustId: trustId || undefined,
+        clientId: safeClientId || undefined,
+        trustId: safeTrustId || undefined,
         profileId: res.meta.profileId,
         snapshotMonth: month,
       }),
@@ -613,12 +615,12 @@ function RevenueOSDashboardInner() {
   );
 
   const dashboardContentPlatformId = useMemo(() => {
-    const labels = coercePlatformLabelStrings(form.platforms);
+    const labels = coercePlatformLabelStrings(safeForm.platforms);
     const first = labels[0];
     if (!first) return "instagram";
     const id = normalizeStrategyLabelToContentPlatformId(first);
     return isContentPlatformChipId(id) ? id : "instagram";
-  }, [form.platforms]);
+  }, [safeForm.platforms]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -854,8 +856,8 @@ function RevenueOSDashboardInner() {
       <BentleyDashboardPipelineAutorun
         hydratedFromBentley={hydratedFromBentley}
         userId={userId}
-        clientId={clientId}
-        trustId={trustId}
+        clientId={safeClientId}
+        trustId={safeTrustId}
         onFinished={onPipelineAutorunFinished}
       />
       <BentleyDashboardMirrorToForm formRef={formRef} applySyncPatch={applySyncPatchFromBentleyMirror} />
@@ -869,7 +871,7 @@ function RevenueOSDashboardInner() {
           </p>
           <BentleyCampaignOutputTile
             campaignId={bentleyExecutionCampaignId}
-            clientId={clientId}
+            clientId={safeClientId}
             onShowFullDashboard={() => setBentleyExecutionCampaignId(null)}
             onGenerateNew={() => setBentleyExecutionCampaignId(null)}
           />
@@ -1025,7 +1027,7 @@ function RevenueOSDashboardInner() {
             <SocialPostingPlatformsPanel
               postingPlatforms={form.postingPlatforms}
               strategyPlatforms={form.platforms}
-              clientId={clientId}
+              clientId={safeClientId}
               returnTo={oauthReturnTo}
               connectedAccounts={socialAccounts}
               analysis={res}
@@ -1220,8 +1222,8 @@ function RevenueOSDashboardInner() {
                   ))}
                 </div>
                 <StrategyPostingAlignmentBadge
-                  platforms={form.platforms}
-                  postingPlatforms={form.postingPlatforms}
+                  platforms={safeForm.platforms}
+                  postingPlatforms={safeForm.postingPlatforms}
                   connectedAccounts={socialAccounts}
                 />
               </div>
@@ -1246,15 +1248,15 @@ function RevenueOSDashboardInner() {
           <OfferLadderPanel
             profile={offerLadderProfile}
             industry={dashboardIndustryLine || undefined}
-            clientId={clientId}
-            trustId={trustId}
+            clientId={safeClientId}
+            trustId={safeTrustId}
           />
         </div>
 
         <PerformanceMemorySection
           userId={userId}
-          clientId={clientId}
-          trustId={trustId}
+          clientId={safeClientId}
+          trustId={safeTrustId}
           industry={dashboardIndustryLine}
           createWithMetrics={{
             traffic: form.monthlyTraffic,
@@ -1279,21 +1281,21 @@ function RevenueOSDashboardInner() {
             analysis={res}
             contentEngineOutput={contentEngineOutput}
           />
-          <CampaignLaunchSectionFromBentleySnapshot userId={userId} clientId={clientId} postingTargets={form.postingPlatforms} />
+          <CampaignLaunchSectionFromBentleySnapshot userId={userId} clientId={safeClientId} postingTargets={form.postingPlatforms} />
         </div>
 
         <WorkspaceIntegrationsSection
           userId={userId}
-          clientId={clientId}
-          trustId={trustId}
+          clientId={safeClientId}
+          trustId={safeTrustId}
         />
 
         <div className="mt-10 space-y-10">
           <TrendsLibrarySection
             defaultIndustry={dashboardIndustryLine}
             defaultTargetAudience={safeForm.targetAudience}
-            clientId={clientId}
-            trustId={trustId}
+            clientId={safeClientId}
+            trustId={safeTrustId}
             compact
             onTrendsResult={setTrendsResult}
             canonicalDashboardFields={{
@@ -1321,7 +1323,7 @@ function RevenueOSDashboardInner() {
             defaultContentTypeFocus={safeForm.contentTypeFocus || "Full Post"}
             defaultImageStyle={safeForm.imageStyle || "cinematic"}
             defaultContentPlatformId={dashboardContentPlatformId}
-            defaultPlatforms={form.platforms}
+            defaultPlatforms={safeForm.platforms}
             compact
             onOutputChange={setContentEngineOutput}
             dashboardFormCanonical
@@ -1331,18 +1333,18 @@ function RevenueOSDashboardInner() {
           {clientId ? (
             <div className="mb-0">
               <RevenueOsConnectedAccountsPanel
-                clientId={clientId}
+                clientId={safeClientId}
                 returnToPath={`${pathname}#connected-accounts`}
               />
             </div>
           ) : null}
           {clientId ? (
             <div className="mb-8 mt-8">
-              <RevenueOsInboxPanel clientId={clientId} />
+              <RevenueOsInboxPanel clientId={safeClientId} />
             </div>
           ) : null}
           <div className="mb-0">
-            <SocialRevenueOsStudioPanel clientId={clientId} contentEngineOutput={contentEngineOutput} />
+            <SocialRevenueOsStudioPanel clientId={safeClientId} contentEngineOutput={contentEngineOutput} />
           </div>
           <VariantOptimizationPanel />
           <DistributionVolumePanel />
@@ -1365,7 +1367,7 @@ function RevenueOSDashboardInner() {
               postingPlatforms={form.postingPlatforms}
               connectedAccounts={socialAccounts}
               contentEngineOutput={contentEngineOutput}
-              clientId={clientId}
+              clientId={safeClientId}
               oauthReturnTo={oauthReturnTo}
             />
           )}
@@ -1449,7 +1451,7 @@ function RevenueOSDashboardInner() {
               geo={safeForm.market}
               offerType={dashboardOfferTypeLine}
               userId={userId}
-              clientId={clientId}
+              clientId={safeClientId}
             />
 
             <div className="grid md:grid-cols-4 gap-6">
@@ -1529,8 +1531,8 @@ function RevenueOSDashboardInner() {
 
             <PlanVsActualsPanel
               userId={userId}
-              clientId={clientId}
-              trustId={trustId}
+              clientId={safeClientId}
+              trustId={safeTrustId}
               profileId={res.meta.profileId}
               refreshKey={planActualsRefreshKey}
             />
@@ -1573,7 +1575,7 @@ function RevenueOSDashboardInner() {
         })()}
       </div>
       <div className="max-w-6xl mx-auto mt-12 space-y-6 px-0">
-        <DeploymentCenterPanel userId={userId} clientId={clientId} trustId={trustId} />
+        <DeploymentCenterPanel userId={userId} clientId={safeClientId} trustId={safeTrustId} />
       </div>
       <BentleyRunObservabilityDebugPanel />
       </>

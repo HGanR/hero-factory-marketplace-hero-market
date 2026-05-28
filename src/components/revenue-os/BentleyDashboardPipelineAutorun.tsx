@@ -9,6 +9,7 @@ import {
   readBentleySessionWithLegacyFallback,
   removeBentleySessionScopedAndLegacy,
 } from "@/lib/revenue-os/bentley-storage-scope";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 type Props = {
   hydratedFromBentley: boolean;
@@ -47,8 +48,8 @@ export function BentleyDashboardPipelineAutorun({
         getSnapshot: getBentleySnapshot,
         applyPatch: applyBentleyPatch,
         userId,
-        clientId: clientId.trim() || undefined,
-        trustId: trustId.trim() || undefined,
+        clientId: coerceTrimmedString(clientId) || undefined,
+        trustId: coerceTrimmedString(trustId) || undefined,
       });
       bentleyContinuityLog("dashboard_pipeline_autorun_finished", {
         ok: result.ok,

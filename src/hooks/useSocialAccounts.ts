@@ -2,10 +2,11 @@
 
 import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import type { SocialAccountLite } from "@/lib/social/social-account-public";
 
-async function fetchSocialAccounts(clientId: string): Promise<SocialAccountLite[]> {
-  const cid = clientId.trim();
+async function fetchSocialAccounts(clientId: unknown): Promise<SocialAccountLite[]> {
+  const cid = coerceTrimmedString(clientId);
   if (!cid) return [];
   const r = await fetch(`/api/social/accounts?clientId=${encodeURIComponent(cid)}`);
   if (!r.ok) throw new Error("Failed to load social accounts");
@@ -18,8 +19,8 @@ const STALE_MS = 1000 * 60 * 5;
 /**
  * Session-friendly cache for GET /api/social/accounts (shared via React Query).
  */
-export function useSocialAccounts(clientId: string) {
-  const cid = clientId.trim();
+export function useSocialAccounts(clientId: unknown) {
+  const cid = coerceTrimmedString(clientId);
   return useQuery({
     queryKey: ["social-accounts", cid],
     queryFn: () => fetchSocialAccounts(cid),

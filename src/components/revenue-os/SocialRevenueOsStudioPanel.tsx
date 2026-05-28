@@ -64,9 +64,10 @@ export function SocialRevenueOsStudioPanel({
   clientId,
   contentEngineOutput,
 }: {
-  clientId: string;
+  clientId: unknown;
   contentEngineOutput: ContentEngineOutput | null;
 }) {
+  const safeClientId = coerceTrimmedString(clientId);
   const [topic, setTopic] = useState("Launch highlight");
   const [campaignId, setCampaignId] = useState("");
   const [accounts, setAccounts] = useState<ConnectionAccount[]>([]);
@@ -87,7 +88,7 @@ export function SocialRevenueOsStudioPanel({
   const [sessionPublishApproval, setSessionPublishApproval] = useState(false);
 
   const loadAccounts = useCallback(async () => {
-    const cid = coerceTrimmedString(clientId);
+    const cid = safeClientId;
     if (!cid) {
       setAccounts([]);
       return;
@@ -103,7 +104,7 @@ export function SocialRevenueOsStudioPanel({
     } catch (e) {
       setAccErr(e instanceof Error ? e.message : "Failed to load");
     }
-  }, [clientId]);
+  }, [safeClientId]);
 
   useEffect(() => {
     void loadAccounts();
@@ -226,7 +227,7 @@ export function SocialRevenueOsStudioPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           campaignId: campaignId.trim(),
-          clientId: clientId.trim(),
+          clientId: safeClientId,
           imageTemplate,
           ...(imageAspect ? { imageAspect } : {}),
           ...(topic.trim() ? { topic: topic.trim() } : {}),
@@ -252,7 +253,7 @@ export function SocialRevenueOsStudioPanel({
     const pack = buildSocialStudioManualExportPayload({
       runId: gen.runId,
       campaignId: campaignId.trim() || null,
-      clientId: clientId.trim() || null,
+      clientId: safeClientId || null,
       topic: gen.effectiveTopic ?? topic,
       imageTemplate: gen.imageTemplate ?? imageTemplate,
       imageAspect: gen.imageAspect ?? (imageAspect || SOCIAL_STUDIO_IMAGE_TEMPLATE_CATALOG[imageTemplate].defaultAspect),
@@ -301,7 +302,7 @@ export function SocialRevenueOsStudioPanel({
     const pack = buildSocialStudioManualExportPayload({
       runId: gen.runId,
       campaignId: campaignId.trim() || null,
-      clientId: clientId.trim() || null,
+      clientId: safeClientId || null,
       topic: gen.effectiveTopic ?? topic,
       imageTemplate: gen.imageTemplate ?? imageTemplate,
       imageAspect: gen.imageAspect ?? (imageAspect || SOCIAL_STUDIO_IMAGE_TEMPLATE_CATALOG[imageTemplate].defaultAspect),
@@ -336,7 +337,7 @@ export function SocialRevenueOsStudioPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: clientId.trim(),
+          clientId: safeClientId,
           campaignId: campaignId.trim(),
           generationRunId: gen.runId,
           platformVariantId: selectedVariant.id,
@@ -723,7 +724,7 @@ export function SocialRevenueOsStudioPanel({
               (governed JSON). Open{" "}
               <a
                 className="text-cyan-400 underline"
-                href={`/revenue-os/dashboard?clientId=${encodeURIComponent(clientId)}`}
+                href={`/revenue-os/dashboard?clientId=${encodeURIComponent(safeClientId)}`}
               >
                 AI Revenue OS dashboard
               </a>{" "}

@@ -407,7 +407,7 @@ export function AiRevenueOsSharedStateProvider({ children }: { children: ReactNo
 
   const setIndustry = useCallback((label: string) => {
     const found = INDUSTRY_OPTIONS.find(
-      (o) => o.label.toLowerCase() === label.trim().toLowerCase()
+      (o) => o.label.toLowerCase() === coerceTrimmedString(label).toLowerCase()
     );
     if (found) setIndustryKey(found.value);
   }, [setIndustryKey]);

@@ -299,6 +299,7 @@ export function BentleyCampaignOutputTile({
   onShowFullDashboard,
   onGenerateNew,
 }: BentleyCampaignOutputTileProps) {
+  const safeClientId = coerceTrimmedString(clientId);
   const [data, setData] = useState<CampaignDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -357,7 +358,7 @@ export function BentleyCampaignOutputTile({
   } | null>(null);
 
   const loadC360 = useCallback(async () => {
-    const cid = clientId.trim();
+    const cid = safeClientId;
     if (!cid) {
       setC360Connections([]);
       setC360Jobs([]);
@@ -700,7 +701,7 @@ export function BentleyCampaignOutputTile({
   };
 
   const connectContent360 = async () => {
-    const cid = clientId.trim();
+    const cid = safeClientId;
     if (!cid) return;
     setC360ConnectBusy(true);
     setC360PanelErr(null);
@@ -729,7 +730,7 @@ export function BentleyCampaignOutputTile({
   };
 
   const disconnectContent360 = async (connectionId: string) => {
-    const cid = clientId.trim();
+    const cid = safeClientId;
     if (!cid) return;
     if (!window.confirm("Disconnect this Content360 account for this client workspace?")) return;
     setC360ConnectBusy(true);
@@ -765,7 +766,7 @@ export function BentleyCampaignOutputTile({
   };
 
   const scheduleViaContent360 = async (post: CampaignDetailPost) => {
-    const cid = clientId.trim();
+    const cid = safeClientId;
     const conn = defaultConnectionId.trim();
     if (!cid || !conn) {
       setRowErrors((prev) => ({ ...prev, [post.id]: "Select a Content360 connection." }));
@@ -818,7 +819,7 @@ export function BentleyCampaignOutputTile({
   };
 
   const retryContent360Job = async (jobId: string) => {
-    const cid = clientId.trim();
+    const cid = safeClientId;
     if (!cid) return;
     setC360ConnectBusy(true);
     setC360PanelErr(null);
@@ -899,7 +900,7 @@ export function BentleyCampaignOutputTile({
 
   const weeklyBatchWarnings = useMemo(() => {
     const w: string[] = [];
-    if (!clientId.trim()) w.push("Select a client workspace in the dashboard header.");
+    if (!safeClientId) w.push("Select a client workspace in the dashboard header.");
     if (!c360Connections.length) w.push("No Content360 connection — connect an account first.");
     else if (!defaultConnectionId.trim()) w.push("Select a Content360 connection for this batch.");
     const posts = data?.posts ?? [];
@@ -931,7 +932,7 @@ export function BentleyCampaignOutputTile({
   }, [weeklyPlan, clientId, defaultConnectionId, c360Connections.length, data?.posts]);
 
   const sendWeekToContent360 = async () => {
-    const cid = clientId.trim();
+    const cid = safeClientId;
     const conn = defaultConnectionId.trim();
     if (!cid || !conn) {
       setWeeklyMsg("Select a Content360 connection.");
@@ -997,7 +998,7 @@ export function BentleyCampaignOutputTile({
 
   const retryLatestBatchFailedPosts = async () => {
     const bid = asTrimmedString(lastBatchSend?.batchId || latestCampaignBatch?.id);
-    const cid = clientId.trim();
+    const cid = safeClientId;
     if (!bid || !cid) return;
     setC360ConnectBusy(true);
     setC360PanelErr(null);
@@ -1021,7 +1022,7 @@ export function BentleyCampaignOutputTile({
 
   const cancelLatestBatch = async () => {
     const bid = asTrimmedString(lastBatchSend?.batchId || latestCampaignBatch?.id);
-    const cid = clientId.trim();
+    const cid = safeClientId;
     if (!bid || !cid) return;
     if (
       !window.confirm(
@@ -1152,7 +1153,7 @@ export function BentleyCampaignOutputTile({
           <button
             type="button"
             onClick={() => void loadC360()}
-            disabled={c360Loading || !clientId.trim()}
+            disabled={c360Loading || !safeClientId}
             className="text-xs font-medium px-2.5 py-1 rounded-md border border-violet-500/50 text-violet-100 hover:bg-violet-950/50 disabled:opacity-40"
           >
             Refresh jobs
@@ -1212,7 +1213,7 @@ export function BentleyCampaignOutputTile({
             )}
           </div>
         ) : null}
-        {!clientId.trim() ? (
+        {!safeClientId ? (
           <p className="text-xs text-amber-200/85">
             Select a client workspace in the dashboard header so Content360 calls are scoped to the correct owner.
           </p>
@@ -1326,7 +1327,7 @@ export function BentleyCampaignOutputTile({
                 <button
                   type="button"
                   className="rounded-md border border-violet-500/50 px-2 py-1 text-violet-100 hover:bg-violet-950/45 disabled:opacity-40"
-                  disabled={!clientId.trim()}
+                  disabled={!safeClientId}
                   onClick={() => setWeeklyOpen((o) => !o)}
                 >
                   {weeklyOpen ? "Hide planner" : "Create weekly schedule"}
@@ -1541,7 +1542,7 @@ export function BentleyCampaignOutputTile({
                       weeklyBusy ||
                       !defaultConnectionId.trim() ||
                       !weeklyPlan.ok ||
-                      !clientId.trim() ||
+                      !safeClientId ||
                       Boolean(c360Readiness && !c360Readiness.canScheduleSingle)
                     }
                     onClick={() => void sendWeekToContent360()}
@@ -1845,7 +1846,7 @@ export function BentleyCampaignOutputTile({
                                   <button
                                     type="button"
                                     disabled={
-                                      !clientId.trim() ||
+                                      !safeClientId ||
                                       !defaultConnectionId.trim() ||
                                       c360ScheduleBusyId === post.id ||
                                       busy ||

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Layers, ListOrdered, Radio, Loader2 } from "lucide-react";
 import { useAiRevenueOsContentCampaign, useAiRevenueOsProfile } from "@/components/ai-revenue-os/AiRevenueOsSharedState";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 type QueueItem = {
   id: string;
@@ -75,18 +76,18 @@ export function DistributionVolumePanel() {
     setBatchErr(null);
     setBatchLoading(true);
     try {
-      const businessName = shared ? profile.businessName.trim() : "";
-      const industry = shared ? profile.effectiveIndustryLabel.trim() : "";
-      const targetAudience = shared ? profile.targetAudience.trim() : "";
-      const coreOffer = shared ? profile.coreOffer.trim() : "";
+      const businessName = shared ? coerceTrimmedString(profile.businessName) : "";
+      const industry = shared ? coerceTrimmedString(profile.effectiveIndustryLabel) : "";
+      const targetAudience = shared ? coerceTrimmedString(profile.targetAudience) : "";
+      const coreOffer = shared ? coerceTrimmedString(profile.coreOffer) : "";
       if (!businessName || !industry || !targetAudience || !coreOffer) {
         throw new Error("Fill in business context (profile / Analysis) or run from dashboard with data.");
       }
-      const transformation = shared ? profile.transformation.trim() : "";
+      const transformation = shared ? coerceTrimmedString(profile.transformation) : "";
       const tone = campaign.tone || "Professional";
       const platform = "Instagram";
       const contentType = campaign.contentType || "Full Post";
-      const notes = campaign.campaignNotes?.trim() ?? "";
+      const notes = coerceTrimmedString(campaign.campaignNotes);
 
       const r = await fetch("/api/revenue-os/content-engine/batch-variations", {
         method: "POST",

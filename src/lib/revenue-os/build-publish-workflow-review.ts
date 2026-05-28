@@ -80,8 +80,8 @@ function toIso(v: string | Date | null | undefined): string | null {
   return Number.isFinite(t) ? new Date(t).toISOString() : s;
 }
 
-function mapDbStatus(s: string): RevenueOsPublishWorkflowRowStatus {
-  const u = s.trim().toUpperCase();
+function mapDbStatus(s: unknown): RevenueOsPublishWorkflowRowStatus {
+  const u = coerceTrimmedString(s).toUpperCase();
   if (u === "DRAFT") return "draft";
   if (u === "SCHEDULED") return "scheduled";
   if (u === "PUBLISHING") return "publishing";
