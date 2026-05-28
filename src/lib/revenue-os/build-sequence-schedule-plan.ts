@@ -108,7 +108,9 @@ function pickHour(
   preferredPlatforms: string[],
   windows: Record<string, PostingWindow[]> | undefined
 ): number {
-  const keys = preferredPlatforms.map((p) => p.trim().toLowerCase()).filter(Boolean);
+  const keys = preferredPlatforms
+    .map((p) => (typeof p === "string" ? p : String(p ?? "")).trim().toLowerCase())
+    .filter(Boolean);
   for (const k of keys) {
     const w = windows?.[k]?.[0];
     if (w && w.endHour > w.startHour) {

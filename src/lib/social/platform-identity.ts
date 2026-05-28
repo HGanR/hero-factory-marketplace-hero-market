@@ -133,7 +133,9 @@ export function isOauthConnectablePlatformId(p: string): p is OauthConnectablePl
  * Returns canonical id only for {@link OAUTH_CONNECTABLE_PLATFORM_IDS}, else null (`x`, YouTube, unknown).
  */
 export function parseOAuthRoutePlatformParam(raw: string | undefined): SocialPlatform | null {
-  const n = normalizeAccountPlatformToSocialPlatform(raw?.trim() ?? "");
+  const n = normalizeAccountPlatformToSocialPlatform(
+    typeof raw === "string" ? raw.trim() : String(raw ?? "").trim()
+  );
   if (!n) return null;
   if (!isOauthConnectablePlatformId(n)) return null;
   return n;

@@ -7,6 +7,7 @@ import type { SocialPlatform } from "@/lib/social/config";
 import { normalizeAccountPlatformToSocialPlatform } from "@/lib/social/platform-identity";
 import type { SocialAccountRow } from "@/lib/db/schema";
 import { resolveSocialEngagementCapabilities } from "@/lib/social/engagement/social-engagement-capabilities";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 const ACC = "#00D1FF";
 const SURFACED: readonly string[] = ["linkedin", "facebook", "instagram", "tiktok", "pinterest", "snapchat"].filter(
@@ -46,7 +47,7 @@ function accountToEngagementContext(r: Row, clientId: string): SocialAccountRow 
   return {
     id: r.id,
     userId: "",
-    clientId: clientId.trim() || "",
+    clientId: coerceTrimmedString(clientId) || "",
     platform: r.platform,
     authType: "OAUTH",
     accessTokenEnc: null,
@@ -60,7 +61,14 @@ function accountToEngagementContext(r: Row, clientId: string): SocialAccountRow 
   } as SocialAccountRow;
 }
 
-export function RevenueOsConnectedAccountsPanel({ clientId, returnToPath }: { clientId: string; returnToPath: string }) {
+export function RevenueOsConnectedAccountsPanel({
+  clientId,
+  returnToPath,
+}: {
+  clientId: unknown;
+  returnToPath: string;
+}) {
+  const safeClientId = coerceTrimmedString(clientId);
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,11 +86,13 @@ export function RevenueOsConnectedAccountsPanel({ clientId, returnToPath }: { cl
   }, [rows]);
 
   const load = useCallback(async () => {
-    if (!clientId.trim()) return;
+    if (!safeClientId) return;
     setErr(null);
     setBusy(true);
     try {
-      const r = await fetch(`/api/revenue-os/social-studio/connection-summary?clientId=${encodeURIComponent(clientId)}`);
+      const r = await fetch(
+        `/api/revenue-os/social-studio/connection-summary?clientId=${encodeURIComponent(safeClientId)}`
+      );
       const j = (await r.json()) as { accounts?: Row[]; error?: string };
       if (!r.ok) throw new Error(j.error ?? "Load failed");
       setRows(Array.isArray(j.accounts) ? j.accounts : []);
@@ -91,7 +101,7 @@ export function RevenueOsConnectedAccountsPanel({ clientId, returnToPath }: { cl
     } finally {
       setBusy(false);
     }
-  }, [clientId]);
+  }, [safeClientId]);
 
   useEffect(() => {
     void load();
@@ -117,7 +127,10 @@ export function RevenueOsConnectedAccountsPanel({ clientId, returnToPath }: { cl
 
   function startOAuth(platform: string) {
     const rt = encodeURIComponent(returnToPath || "/revenue-os/dashboard#connected-accounts");
-    window.location.assign(`/api/social/oauth/${encodeURIComponent(platform)}/start?clientId=${encodeURIComponent(clientId)}&returnTo=${rt}`);
+    if (!safeClientId) return;
+    window.location.assign(
+      `/api/social/oauth/${encodeURIComponent(platform)}/start?clientId=${encodeURIComponent(safeClientId)}&returnTo=${rt}`
+    );
   }
 
   return (
@@ -217,7 +230,7 @@ export function RevenueOsConnectedAccountsPanel({ clientId, returnToPath }: { cl
                         const eng = resolveSocialEngagementCapabilities({
                           provider: a.platform,
                           flagsOverride: a.capabilities,
-                          socialAccount: accountToEngagementContext(a, clientId),
+                          socialAccount: accountToEngagementContext(a, safeClientId),
                         });
                         return (
                           <p className="text-[9px] text-slate-500 border-t border-white/5 pt-1 mt-1" data-testid="engagement-readiness">

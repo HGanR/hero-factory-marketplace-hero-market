@@ -28,6 +28,8 @@ import { buildBentleyNotesPayload } from "@/lib/revenue-os/bentley-notes-payload
 import {
   effectiveIndustryLabelFromSnapshot,
 } from "@/lib/revenue-os/bentley-section-readiness";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
+import { coercePlatformLabelStrings } from "@/lib/revenue-os/run-revenue-os-analysis";
 import {
   ensureCampaignFromBentleyApi,
   runCampaignNotesCrawlApi,
@@ -195,7 +197,7 @@ function contentPlatformLabelForApi(snap: BentleySnapshot): string {
     YouTube: "youtube",
     Twitter: "x",
   };
-  const first = snap.platforms[0]?.trim();
+  const first = coercePlatformLabelStrings(snap.platforms)[0] ?? "";
   if (!first) return "Instagram";
   let id = LABEL_TO_ID[first];
   if (!id) {
@@ -212,14 +214,14 @@ function contentPlatformLabelForApi(snap: BentleySnapshot): string {
 function buildContentEngineBody(snap: BentleySnapshot): ContentEngineRequestBody {
   const industry = effectiveIndustryLabelFromSnapshot(snap);
   return {
-    businessName: snap.businessName.trim() || "Your business",
-    industry: industry.trim() || "General",
-    targetAudience: snap.targetAudience.trim() || "general audience",
-    coreOffer: snap.coreOffer.trim(),
-    transformation: snap.transformation.trim(),
-    tone: snap.tone.trim() || "Professional",
+    businessName: coerceTrimmedString(snap.businessName) || "Your business",
+    industry: industry || "General",
+    targetAudience: coerceTrimmedString(snap.targetAudience) || "general audience",
+    coreOffer: coerceTrimmedString(snap.coreOffer),
+    transformation: coerceTrimmedString(snap.transformation),
+    tone: coerceTrimmedString(snap.tone) || "Professional",
     platform: contentPlatformLabelForApi(snap),
-    contentType: snap.contentType.trim() || "Full Post",
+    contentType: coerceTrimmedString(snap.contentType) || "Full Post",
   };
 }
 
@@ -232,7 +234,9 @@ function verifyTrendsOutput(t: { items?: unknown }): boolean {
 }
 
 function verifyContentOutput(c: { fullPost?: { caption?: string }; hooks?: unknown }): boolean {
-  return Boolean(c?.fullPost?.caption?.trim() || (Array.isArray(c.hooks) && c.hooks.length > 0));
+  return Boolean(
+    coerceTrimmedString(c?.fullPost?.caption) || (Array.isArray(c.hooks) && c.hooks.length > 0)
+  );
 }
 
 function platformsForMarketSweep(snap: BentleySnapshot): string[] {
@@ -310,7 +314,7 @@ export async function runTrendsAction(
     const bentley = getWorkflowBentleyHandoffForGeneration();
     const trends = await runTrendsShared({
       industry,
-      targetAudience: snap.targetAudience.trim() || "general audience",
+      targetAudience: coerceTrimmedString(snap.targetAudience) || "general audience",
       clientId: ctx.clientId,
       trustId: ctx.trustId,
       ...bentley,
@@ -351,7 +355,7 @@ export async function runMarketSweepAction(
   try {
     const result = await runMarketSweep({
       industry,
-      targetAudience: snap.targetAudience.trim() || "general audience",
+      targetAudience: coerceTrimmedString(snap.targetAudience) || "general audience",
       platforms: platformsForMarketSweep(snap),
       clientId: ctx.clientId,
       trustId: ctx.trustId,
@@ -478,9 +482,9 @@ export async function runAssembleCampaignNotesAction(
     if (industry.length >= 2) {
       const crawl = await runCampaignNotesCrawlApi({
         industry,
-        targetAudience: snap.targetAudience.trim() || "general audience",
+        targetAudience: coerceTrimmedString(snap.targetAudience) || "general audience",
       });
-      crawlPrefix = `${crawl.notesBlock.trim()}\n\n`;
+      crawlPrefix = `${coerceTrimmedString(crawl.notesBlock)}\n\n`;
     }
   } catch {
     // optional — pipeline still works from research/trends/content alone
@@ -505,8 +509,8 @@ export async function runCampaignAction(
 ): Promise<BentleyActionResult<CampaignResponse>> {
   let state = loadWorkflowState();
   if (!opts?.force && state.completed.campaign_generation && state.artifacts.campaign) {
-    const cid = state.artifacts.bentleyDbCampaignId?.trim();
-    if (cid && !state.artifacts.bentleyLaunchSyncedAt?.trim()) {
+    const cid = coerceTrimmedString(state.artifacts.bentleyDbCampaignId);
+    if (cid && !coerceTrimmedString(state.artifacts.bentleyLaunchSyncedAt)) {
       try {
         await syncBentleyLaunchApi({
           campaignId: cid,
@@ -542,7 +546,7 @@ export async function runCampaignAction(
     state = assembled.workflow ?? loadWorkflowState();
   }
   const snap = ctx.getSnapshot();
-  let notes = snap.campaignNotes.trim();
+  let notes = coerceTrimmedString(snap.campaignNotes);
   if (notes.length < BENTLEY_CAMPAIGN_NOTES_MIN) {
     if (structuredGuidedIntakeCompleteForCampaign(snap)) {
       notes = buildBaselineCampaignNotesFromIntake(snap);
@@ -559,12 +563,12 @@ export async function runCampaignAction(
   try {
     const campaign = await runCampaignFromNotes({
       industry,
-      targetAudience: snap.targetAudience.trim() || "general audience",
+      targetAudience: coerceTrimmedString(snap.targetAudience) || "general audience",
       notes,
       ...getWorkflowBentleyHandoffForGeneration(),
     });
     const hasContent =
-      Boolean(campaign.offerStatement?.trim()) ||
+      Boolean(coerceTrimmedString(campaign.offerStatement)) ||
       (campaign.messagePillars?.length ?? 0) > 0 ||
       (campaign.shortFormHooks?.length ?? 0) > 0;
     if (!hasContent) {
@@ -578,7 +582,7 @@ export async function runCampaignAction(
       const runId = getBentleyCampaignPersistenceRunId();
       const ensured = await ensureCampaignFromBentleyApi({
         bentleyRunId: runId,
-        clientId: ctx.clientId?.trim() ?? "",
+        clientId: coerceTrimmedString(ctx.clientId) ?? "",
         businessName: snap.businessName,
         platforms: snap.platforms ?? [],
         postingPlatforms: (snap.postingPlatforms ?? []).map((p) => String(p)),
@@ -666,14 +670,14 @@ export async function runMediaBriefAction(
   try {
     const mediaBriefText = await runCompileMediaBrief({
       industry,
-      targetAudience: snap.targetAudience.trim() || campaign.targetAudience || "general audience",
+      targetAudience: coerceTrimmedString(snap.targetAudience) || campaign.targetAudience || "general audience",
       offerStatement: campaign.offerStatement,
       messagePillars: campaign.messagePillars,
       shortFormHooks: campaign.shortFormHooks,
       campaignAngles: angles?.length ? angles : undefined,
       objectionReplies: campaign.objectionReplies,
       longFormOutlines: campaign.longFormOutlines,
-      notes: snap.campaignNotes.trim().slice(0, 1000),
+      notes: coerceTrimmedString(snap.campaignNotes).slice(0, 1000),
     });
     if (!mediaBriefText.trim()) {
       return fail("Media brief was empty.", loadWorkflowState(), ctx, "media_brief");
@@ -704,7 +708,7 @@ export async function runFullAnalysisAction(
   const campaignNotes =
     notes.trim().length >= BENTLEY_CAMPAIGN_NOTES_MIN
       ? notes
-      : snap.campaignNotes.trim().length >= BENTLEY_CAMPAIGN_NOTES_MIN
+      : coerceTrimmedString(snap.campaignNotes).length >= BENTLEY_CAMPAIGN_NOTES_MIN
         ? snap.campaignNotes
         : structuredGuidedIntakeCompleteForCampaign(snap)
           ? buildBaselineCampaignNotesFromIntake(snap)
@@ -910,7 +914,7 @@ export async function runBentleyLaunchFinalizeAction(
   ctx: BentleyActionRunnerContext
 ): Promise<BentleyActionResult<void>> {
   let state = loadWorkflowState();
-  const cid = state.artifacts.bentleyDbCampaignId?.trim();
+  const cid = coerceTrimmedString(state.artifacts.bentleyDbCampaignId);
   if (!cid) {
     return block(
       "No Bentley DB campaign — finish campaign generation (with persistence) first.",
@@ -1042,7 +1046,7 @@ export async function fetchBentleyLaunchReadiness(
       message: "Choose posting platforms in guided intake before launch.",
     };
   }
-  if (!clientId?.trim()) {
+  if (!coerceTrimmedString(clientId)) {
     return {
       ready: false,
       missingOAuthFor: uniq,
@@ -1050,7 +1054,9 @@ export async function fetchBentleyLaunchReadiness(
     };
   }
   try {
-    const r = await fetch(`/api/social/accounts?clientId=${encodeURIComponent(clientId.trim())}`);
+    const r = await fetch(
+      `/api/social/accounts?clientId=${encodeURIComponent(coerceTrimmedString(clientId))}`
+    );
     const data = (await r.json()) as {
       accounts?: Array<{ platform?: string; platformCanonical?: SocialPlatform | null }>;
     };

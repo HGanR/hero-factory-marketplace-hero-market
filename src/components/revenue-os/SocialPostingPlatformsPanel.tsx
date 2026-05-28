@@ -11,6 +11,7 @@ import { normalizeAccountPlatformToSocialPlatform } from "@/lib/social/platform-
 import type { SocialAccountLite } from "@/lib/social/social-account-public";
 import { StrategyPostingAlignmentBadge } from "@/components/revenue-os/StrategyPostingAlignmentBadge";
 import type { RevenueOsAnalyzeResponse } from "@/lib/validators/revenue-os";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 const ACCENT = "#00D1FF";
 
@@ -20,7 +21,7 @@ type Props = {
   postingPlatforms: SocialPlatform[];
   /** Content strategy channel labels (dashboard `form.platforms`) — for alignment hint only */
   strategyPlatforms?: string[];
-  clientId: string;
+  clientId: unknown;
   returnTo: string;
   connectedAccounts: SocialAccountLite[];
   analysis: RevenueOsAnalyzeResponse | null;
@@ -48,9 +49,11 @@ export function SocialPostingPlatformsPanel({
     [analysis, postingPlatforms, connectedAccounts]
   );
 
+  const safeClientId = coerceTrimmedString(clientId);
+
   const startOAuthConnect = (platform: SocialPlatform) => {
     const qs = new URLSearchParams();
-    if (clientId.trim()) qs.set("clientId", clientId.trim());
+    if (safeClientId) qs.set("clientId", safeClientId);
     qs.set("returnTo", returnTo);
     window.location.href = `/api/social/oauth/${platform}/start?${qs.toString()}`;
   };

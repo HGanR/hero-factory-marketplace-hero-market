@@ -395,7 +395,12 @@ export function ContentEngineSection({
   }
 
   const generateContent = async () => {
-    if (!businessName.trim() || !industry.trim() || !targetAudience.trim() || !coreOffer.trim()) {
+    if (
+      !coerceTrimmedString(businessName) ||
+      !coerceTrimmedString(industry) ||
+      !coerceTrimmedString(targetAudience) ||
+      !coerceTrimmedString(coreOffer)
+    ) {
       setError("Please fill in all required fields");
       return;
     }

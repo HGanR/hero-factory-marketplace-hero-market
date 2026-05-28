@@ -1025,8 +1025,8 @@ function RevenueOSDashboardInner() {
         {(res !== null || form.postingPlatforms.length > 0) && (
           <div className="mb-4">
             <SocialPostingPlatformsPanel
-              postingPlatforms={form.postingPlatforms}
-              strategyPlatforms={form.platforms}
+              postingPlatforms={safeForm.postingPlatforms}
+              strategyPlatforms={safeForm.platforms}
               clientId={safeClientId}
               returnTo={oauthReturnTo}
               connectedAccounts={socialAccounts}
@@ -1276,12 +1276,12 @@ function RevenueOSDashboardInner() {
           className="scroll-mt-24"
         >
           <BentleyLaunchReadinessSummary
-            postingPlatforms={form.postingPlatforms}
+            postingPlatforms={safeForm.postingPlatforms}
             connectedAccounts={socialAccounts}
             analysis={res}
             contentEngineOutput={contentEngineOutput}
           />
-          <CampaignLaunchSectionFromBentleySnapshot userId={userId} clientId={safeClientId} postingTargets={form.postingPlatforms} />
+          <CampaignLaunchSectionFromBentleySnapshot userId={userId} clientId={safeClientId} postingTargets={safeForm.postingPlatforms} />
         </div>
 
         <WorkspaceIntegrationsSection
@@ -1364,7 +1364,7 @@ function RevenueOSDashboardInner() {
             <BentleyFirstCampaignAssetCard
               res={res}
               form={safeForm}
-              postingPlatforms={form.postingPlatforms}
+              postingPlatforms={safeForm.postingPlatforms}
               connectedAccounts={socialAccounts}
               contentEngineOutput={contentEngineOutput}
               clientId={safeClientId}

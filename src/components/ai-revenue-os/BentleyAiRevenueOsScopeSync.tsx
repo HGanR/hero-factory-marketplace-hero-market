@@ -10,6 +10,7 @@ import {
   loadSmartTrustPlatformBinding,
   SMART_TRUST_PLATFORM_BINDING_UPDATED_EVENT,
 } from "@/lib/smart-trust-platform-binding";
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 
 /**
  * Aligns Bentley sessionStorage namespacing on `/ai-revenue-os`:
@@ -31,7 +32,7 @@ export function BentleyAiRevenueOsScopeSync({ userId }: { userId: string }) {
   useEffect(() => {
     const cid =
       clientIdFromUrl ||
-      loadSmartTrustPlatformBinding().clientId?.trim() ||
+      coerceTrimmedString(loadSmartTrustPlatformBinding().clientId) ||
       BENTLEY_SCOPE_DEFAULT_CLIENT;
     setBentleyStorageScope({ userId, clientId: cid });
   }, [userId, clientIdFromUrl, bindingTick]);

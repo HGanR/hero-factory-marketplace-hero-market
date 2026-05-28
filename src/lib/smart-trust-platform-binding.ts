@@ -2,6 +2,7 @@
  * Shared localStorage binding for trust workspace / client context across dashboard, Smart Trust, Trust Records, etc.
  */
 
+import { coerceTrimmedString } from "@/lib/revenue-os/bentley-string-coerce";
 import { setSelectedClientId } from "@/lib/client-context/selected-client";
 
 export const SMART_TRUST_PLATFORM_BINDING_KEY = "smart_trust_platform_binding_v1";
@@ -36,9 +37,11 @@ export function loadSmartTrustPlatformBinding(): SmartTrustPlatformBinding {
     const raw = window.localStorage.getItem(SMART_TRUST_PLATFORM_BINDING_KEY);
     if (!raw) return { clientId: null, trustId: null };
     const parsed = JSON.parse(raw) as Partial<SmartTrustPlatformBinding>;
+    const clientId = coerceTrimmedString(parsed.clientId) || null;
+    const trustId = coerceTrimmedString(parsed.trustId) || null;
     return {
-      clientId: typeof parsed.clientId === "string" ? parsed.clientId : null,
-      trustId: typeof parsed.trustId === "string" ? parsed.trustId : null,
+      clientId,
+      trustId,
       lastUpdatedAt: typeof parsed.lastUpdatedAt === "string" ? parsed.lastUpdatedAt : undefined,
       lastSyncedAt: typeof parsed.lastSyncedAt === "string" ? parsed.lastSyncedAt : undefined,
       bindingValid:
