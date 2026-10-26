@@ -1,0 +1,24 @@
+{
+  "id": "/mobile",
+  "name": "SMART TRUST Mobile",
+  "short_name": "SMART TRUST",
+  "start_url": "/mobile",
+  "scope": "/mobile",
+  "display": "standalone",
+  "background_color": "#050302",
+  "theme_color": "#050302",
+  "icons": [
+    {
+      "src": "/mobile/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/mobile/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

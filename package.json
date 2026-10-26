@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.0.0"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
+    "test:mobile": "node --test tests/mobile/mobile.test.cjs",
     "dev:self-hosted-tts": "node tools/self-hosted-tts-dev-server/server.mjs",
     "dev:self-hosted-stt": "node tools/self-hosted-stt-dev-server/server.mjs",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 next build --webpack",
