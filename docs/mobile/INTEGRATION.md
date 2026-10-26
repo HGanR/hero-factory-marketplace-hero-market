@@ -84,3 +84,21 @@ Runtime: Node v24.22.1. Dependencies installed locally with lifecycle scripts di
 The two database definitions exporting agentConversationSessions are not silently reconciled here: choosing between schemas can affect existing consumers. Existing auth, middleware, database and Next build configuration bytes are unchanged.
 
 Full `npm run build` was attempted with no DATABASE_URL or JWT_SECRET. It was terminated with exit 137 (`Killed`) during webpack compilation in this environment; no successful full build is claimed. The log did not identify a source-code compile error before termination. Review deployment remains blocked on a successful full build and the documented checks.
+
+## Database fixes and bounded build retry (2026-10-26)
+
+This follow-up supersedes the two scoped-type blockers above. `db/index.ts` narrows the helper's string/options union before invoking mysql2's matching overload; both the original URI string and TLS options object are passed unchanged. Cached-connection ping/reuse remains unchanged.
+
+The conflicting definitions are in schema.app-runtime.ts and schema.marketplace-extensions.ts. Both map the same table and five columns; the latter also declares onUpdateNow metadata. The shared barrel now explicitly selects the app-runtime definition that was first in its star-export order. Both direct-import definitions remain intact. Four consumer modules import the barrel: agent-session-memory, executive-skipper-runtime-diagnostics, agent-runtime-diagnostics, unified-skipper-runtime-context. The single write path explicitly sets updatedAt in its duplicate-key update. Existing SQL/ensure DDL already specifies ON UPDATE CURRENT_TIMESTAMP and is untouched. No database migration or schema-push operation was run.
+
+Regression coverage checks identity of the selected schema, columns/primary key, preservation of both direct-import timestamp metadata variants, URI/TLS argument forwarding and cached connection reuse. The first schema test assumed absent onUpdateNow metadata was false; Drizzle uses undefined. The assertion was corrected to its actual representation and rerun.
+
+Scoped TypeScript check (`tsconfig.mobile-review.json`, 4GB heap): PASS. Mobile suite: 18/18 PASS (15 original + 2 connection + 1 real Drizzle schema test). Existing cookie suite: 3/3 PASS. Mocked connection tests do not establish a live database connection.
+
+A temporary build retry tested webpackBuildWorker, webpackMemoryOptimizations, cpus=2 and a 4096MB heap, following https://nextjs.org/docs/app/guides/memory-usage . It failed with explicit JavaScript heap exhaustion and worker SIGABRT (overall exit 1). The cgroup oom_kill counter did not increase. Those experimental config changes and the smaller build heap were REVERTED; shipped next.config and the 8192MB build script remain unchanged. This diagnoses the retry, not the earlier SIGKILL. The typecheck:tsc script now names the real tsconfig.json and uses a 4096MB heap instead of pointing at a missing file.
+
+The environment reports an 8GB cgroup limit. Its initial oom_kill counter was already 1; that alone cannot attribute the earlier exit 137. Retry counters and exit status are evaluated separately. No production credentials are used in this run.
+
+Full TypeScript retry completed with exit 2 (not heap termination): 4978 diagnostics across 912 files, including generated .next types. These are not distinct-defect counts. See TYPECHECK-REPORT.json for categories/examples. No diagnostics in new mobile files or tests; scoped TypeScript including the schema regression test passes. The full run revealed two test-only metadata property typing errors, corrected with Reflect.get (runtime checks retained), then rerun. Route files such as accounting/pre-accounting/documents/[id]/route.ts and app/agents/[id]/capabilities/execute/route.ts contain only a newline on this base. Do not fabricate handlers or waive those errors to claim success.
+
+Final validation: mobile/regression 18/18, cookie 3/3, scoped TypeScript PASS; full TypeScript FAIL; full build NOT VERIFIED. No experimental build tuning is shipped. Remaining repository-wide diagnostics and sufficient build resources must be resolved before review deployment.

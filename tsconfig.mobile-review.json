@@ -6,7 +6,8 @@
   "include": [
     "src/app/mobile/**/*.ts",
     "src/app/api/mobile/**/*.ts",
-    "src/lib/mobile/**/*.ts"
+    "src/lib/mobile/**/*.ts",
+    "tests/mobile/**/*.ts"
   ],
   "exclude": [
     "node_modules"
