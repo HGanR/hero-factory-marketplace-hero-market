@@ -1,0 +1,9 @@
+node_modules/
+.next/
+shared/
+public/
+source-manifest.json
+next-env.d.ts
+*.tsbuildinfo
+.vercel/
+.env*
