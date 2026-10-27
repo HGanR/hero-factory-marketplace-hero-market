@@ -23,7 +23,12 @@
     "db:migrate:drizzle": "drizzle-kit migrate",
     "db:baseline": "npx tsx scripts/drizzle-baseline-migrations.ts",
     "db:status": "npx tsx scripts/db-status.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:selection": "node --test tests/runner-selection.test.cjs",
+    "test:jest": "node scripts/test-selection.cjs && jest --config jest.config.js --runInBand",
+    "test:jest:browser": "node scripts/test-selection.cjs && jest --config jest.browser.config.js --runInBand",
+    "test:playwright": "playwright test",
+    "test:playwright:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@aws-sdk/client-sns": "^3.1045.0",
@@ -93,7 +98,9 @@
     "wagmi": "^3.1.0",
     "xlsx": "^0.18.5",
     "xrpl": "^4.4.3",
-    "zod": "^4.1.13"
+    "zod": "^4.1.13",
+    "date-fns": "4.4.0",
+    "socket.io": "4.8.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -111,6 +118,15 @@
     "eslint-config-next": "16.0.8",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "jest": "30.5.2",
+    "@jest/globals": "30.5.2",
+    "ts-jest": "29.4.15",
+    "jest-environment-jsdom": "30.5.2",
+    "@types/jest": "30.0.0",
+    "@playwright/test": "1.64.1",
+    "pixelmatch": "8.0.0",
+    "pngjs": "7.0.0",
+    "@types/pngjs": "6.0.5"
   }
 }

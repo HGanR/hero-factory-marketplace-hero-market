@@ -19,6 +19,8 @@ describe("package.json typecheck scripts", () => {
     const raw = readFileSync(join(__dirname, "../../../package.json"), "utf8");
     const pkg = JSON.parse(raw) as { scripts?: Record<string, string> };
     const strict = pkg.scripts?.["typecheck:tsc"] ?? "";
-    assert.match(strict, /tsc -p tsconfig\.typecheck\.json/);
+    assert.match(strict, /tsc --noEmit -p tsconfig\.json/);
+    const config = JSON.parse(readFileSync(join(__dirname, "../../../tsconfig.json"), "utf8"));
+    assert.equal(config.compilerOptions.strict, true);
   });
 });
