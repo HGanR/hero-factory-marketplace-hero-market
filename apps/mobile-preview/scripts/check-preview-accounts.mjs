@@ -28,12 +28,15 @@
  *   now empty. The JWT itself is NOT revoked server-side, so re-sending
  *   the old cookie after logout would wrongly expect 401 and is never
  *   done here.
- * - The missing-user case requires --missing-user-id AND
- *   --missing-user-verified: an id the operator has PROVED absent with
- *   the read-only check in scripts/verify-missing-user-id.mjs. Without
- *   both, the case reports SKIP. The 403 for a missing user is
- *   identical to the 403 for an inactive/unapproved account, so an
- *   unverified id could falsely pass. Test tokens are minted in memory with node:crypto HMAC
+ * - The missing-user case requires --missing-user-id AND a proof file
+ *   (--missing-user-proof, with --missing-user-db-host and
+ *   --missing-user-db-name naming the database the proof must apply
+ *   to): the absence check in scripts/verify-missing-user-id.mjs
+ *   writes {userId, host, port, database, rows: 0, checkedAt}, and the
+ *   checker validates the proof against the id and database it is
+ *   about to use. A bare operator flag cannot bind the check to the
+ *   same database and id, so none is accepted. Without a valid proof
+ *   the case reports SKIP. Test tokens are minted in memory with node:crypto HMAC
  *   (HS256, same payload shape the login issues) using
  *   PREVIEW_JWT_SECRET; without it the token cases report SKIP.
  *
@@ -43,7 +46,8 @@
  *   node scripts/check-preview-accounts.mjs \
  *     --base-url <preview-url> --confirmed-origin <preview-origin> \
  *     --credentials-file <path-outside-the-repo> \
- *     [--missing-user-id <id> --missing-user-verified] [--allow-insecure-loopback]
+ *     [--missing-user-id <id> --missing-user-proof <file> \
+ *      --missing-user-db-host <host> --missing-user-db-name <name>] [--allow-insecure-loopback]
  * Exit code 0: every executed case passed (skips reported). Exit code 1:
  * any case failed. --allow-insecure-loopback permits http only for
  * loopback hosts, for local test harnesses only — never for a real
@@ -56,6 +60,7 @@ import {
   mintTestToken,
   validateCheckerTarget,
   validateMissingUserId,
+  validateMissingUserProof,
 } from './preview-test-helpers.mjs';
 
 const GENERIC_FAILURE = 'Sign-in failed. Check your credentials and account approval.';
@@ -67,15 +72,17 @@ function fail(message, code = 2) {
 }
 
 function parseArgs(argv) {
-  const args = { baseUrl: null, confirmedOrigin: null, credentialsFile: null, missingUserId: null, missingUserVerified: false, allowInsecureLoopback: false };
+  const args = { baseUrl: null, confirmedOrigin: null, credentialsFile: null, missingUserId: null, missingUserProof: null, missingUserDbHost: null, missingUserDbName: null, allowInsecureLoopback: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base-url') args.baseUrl = argv[++i];
     else if (argv[i] === '--confirmed-origin') args.confirmedOrigin = argv[++i];
     else if (argv[i] === '--credentials-file') args.credentialsFile = argv[++i];
     else if (argv[i] === '--missing-user-id') args.missingUserId = argv[++i];
-    else if (argv[i] === '--missing-user-verified') args.missingUserVerified = true;
+    else if (argv[i] === '--missing-user-proof') args.missingUserProof = argv[++i];
+    else if (argv[i] === '--missing-user-db-host') args.missingUserDbHost = argv[++i];
+    else if (argv[i] === '--missing-user-db-name') args.missingUserDbName = argv[++i];
     else if (argv[i] === '--allow-insecure-loopback') args.allowInsecureLoopback = true;
-    else fail(`unknown argument: ${argv[i]}\nUsage: node scripts/check-preview-accounts.mjs --base-url <url> --confirmed-origin <origin> --credentials-file <path> [--missing-user-id <id> --missing-user-verified] [--allow-insecure-loopback]`);
+    else fail(`unknown argument: ${argv[i]}\nUsage: node scripts/check-preview-accounts.mjs --base-url <url> --confirmed-origin <origin> --credentials-file <path> [--missing-user-id <id> --missing-user-proof <file> --missing-user-db-host <host> --missing-user-db-name <name>] [--allow-insecure-loopback]`);
   }
   if (!args.baseUrl) fail('--base-url is required.');
   if (!args.confirmedOrigin) fail('--confirmed-origin is required.');
@@ -224,18 +231,23 @@ async function main() {
     record('missing-user session (valid token, no user row)', 'SKIP', 'PREVIEW_JWT_SECRET unset');
     record('expired token', 'SKIP', 'PREVIEW_JWT_SECRET unset');
   } else {
-    if (args.missingUserId === null || !args.missingUserVerified) {
-      record('missing-user session (valid token, no user row)', 'SKIP', '--missing-user-id and --missing-user-verified both required; prove absence with verify-missing-user-id.mjs first');
+    if (args.missingUserId === null || args.missingUserProof === null || args.missingUserDbHost === null || args.missingUserDbName === null) {
+      record('missing-user session (valid token, no user row)', 'SKIP', 'requires --missing-user-id, --missing-user-proof, --missing-user-db-host, --missing-user-db-name; run verify-missing-user-id.mjs first');
     } else {
       let missingId;
       try {
         missingId = validateMissingUserId(args.missingUserId, observedIds);
+        const proof = JSON.parse(await readFile(args.missingUserProof, 'utf8'));
+        validateMissingUserProof(proof, { userId: missingId, dbHost: args.missingUserDbHost, dbName: args.missingUserDbName });
       } catch (error) {
-        fail(error.message, 3);
+        record('missing-user session (valid token, no user row)', 'SKIP', `proof invalid: ${error instanceof Error ? error.message : String(error)}`);
+        missingId = null;
       }
-      const token = mintTestToken(secret.trim(), { userId: missingId, email: 'preview-missing@example.invalid', username: 'preview-missing' }, 7 * 24 * 3600);
-      const p = await getProfile(false, `auth-token=${token}`);
-      record('missing-user session (valid token, no user row)', p.status === 403 && !p.redirected ? 'PASS' : 'FAIL', `status=${p.status}`);
+      if (missingId !== null) {
+        const token = mintTestToken(secret.trim(), { userId: missingId, email: 'preview-missing@example.invalid', username: 'preview-missing' }, 7 * 24 * 3600);
+        const p = await getProfile(false, `auth-token=${token}`);
+        record('missing-user session (valid token, no user row)', p.status === 403 && !p.redirected ? 'PASS' : 'FAIL', `status=${p.status}`);
+      }
     }
     const expired = mintTestToken(secret.trim(), { userId: observedIds[0] ?? 1, email: 'preview-test-01@example.invalid', username: 'preview-test-01' }, -3600);
     const q = await getProfile(false, `auth-token=${expired}`);

@@ -20,18 +20,31 @@
  * marketplace_users only); the script cannot create that restriction.
  * It prints the checked id and a row count of 0 — never row contents.
  *
+ * With --proof-file it also writes a machine-checkable proof record
+ * {userId, host, port, database, rows: 0, checkedAt} that the checker
+ * validates, binding the absence check to the SAME id and the SAME
+ * database the checker is about to use. The proof file is created
+ * exclusively ('wx', mode 0600) outside the repository, like a
+ * credentials file. A bare operator flag cannot provide that binding,
+ * so the checker no longer accepts one.
+ *
  * Usage (from apps/mobile-preview, after `npm ci`):
  *   TEST_READONLY_DATABASE_URL='<read-only test-database URL>' \
  *   node scripts/verify-missing-user-id.mjs \
- *     --user-id <id> --confirmed-host <host> --confirmed-database <name>
+ *     --user-id <id> --confirmed-host <host> --confirmed-database <name> \
+ *     [--proof-file <path-outside-the-repo>]
  * Exit code 0: the id is absent (0 rows). Exit code 1: the id is
  * present, or any error occurred. Run this BEFORE check-preview-accounts.mjs
- * and pass --missing-user-verified only when it exits 0.
+ * and pass --missing-user-proof only when it exits 0.
  */
 
+import { chmod, open, unlink } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   confirmSeedTarget,
   parseSeedTarget,
+  resolveCredentialsDestination,
 } from './preview-test-helpers.mjs';
 
 function fail(message, code = 2) {
@@ -40,12 +53,13 @@ function fail(message, code = 2) {
 }
 
 function parseArgs(argv) {
-  const args = { userId: null, confirmedHost: null, confirmedDatabase: null };
+  const args = { userId: null, confirmedHost: null, confirmedDatabase: null, proofFile: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--user-id') args.userId = argv[++i];
     else if (argv[i] === '--confirmed-host') args.confirmedHost = argv[++i];
     else if (argv[i] === '--confirmed-database') args.confirmedDatabase = argv[++i];
-    else fail(`unknown argument: ${argv[i]}\nUsage: node scripts/verify-missing-user-id.mjs --user-id <id> --confirmed-host <host> --confirmed-database <name>`);
+    else if (argv[i] === '--proof-file') args.proofFile = argv[++i];
+    else fail(`unknown argument: ${argv[i]}\nUsage: node scripts/verify-missing-user-id.mjs --user-id <id> --confirmed-host <host> --confirmed-database <name> [--proof-file <path>]`);
   }
   if (args.userId === null) fail('--user-id is required.');
   return args;
@@ -90,7 +104,27 @@ async function main() {
       console.error(`verify-missing-user-id: id=${id} is PRESENT in ${parsed.database}. Do not use it as the missing-user id.`);
       process.exit(1);
     }
-    console.log(`verify-missing-user-id: id=${id} is ABSENT from ${parsed.database} (0 rows). It may be used with --missing-user-verified.`);
+    console.log(`verify-missing-user-id: id=${id} is ABSENT from ${parsed.database} (0 rows). It may be used with --missing-user-proof.`);
+    if (args.proofFile) {
+      const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+      const dest = await resolveCredentialsDestination(args.proofFile, scriptDir);
+      if (dest.insideRepo) fail(`refusing proof file inside the repository: ${dest.realDest} (repository root: ${dest.realRepoRoot}).`, 3);
+      if (dest.exists) fail(`refusing proof file: a file already exists at ${dest.realDest}. Remove it yourself or choose another path.`, 3);
+      const proof = { userId: id, host: parsed.host, port: parsed.port, database: parsed.database, rows: 0, checkedAt: new Date().toISOString() };
+      let handle = null;
+      try {
+        handle = await open(dest.realDest, 'wx', 0o600);
+        await handle.writeFile(JSON.stringify(proof, null, 2));
+        await handle.sync();
+        await chmod(dest.realDest, 0o600);
+      } catch (error) {
+        if (handle) await handle.close().catch(() => {});
+        await unlink(dest.realDest).catch(() => {});
+        throw error;
+      }
+      await handle.close();
+      console.log(`Proof written to ${dest.realDest} (mode 0600).`);
+    }
   } finally {
     await connection.end().catch(() => {});
   }

@@ -16,6 +16,17 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 
+/** Refusal errors carry an exit code. Callers must throw these and let
+ * the top-level handler set the exit code — never call process.exit()
+ * mid-flow, which would skip cleanup (open files, connections). */
+export class SeedRefusal extends Error {
+  constructor(message, code = 2) {
+    super(message);
+    this.name = 'SeedRefusal';
+    this.code = code;
+  }
+}
+
 // ---------------------------------------------------------------- cookies
 
 export class CookieJar {
@@ -280,4 +291,34 @@ export function validateMissingUserId(value, observedIds) {
   if (!Number.isSafeInteger(n) || n <= 0) throw new Error('--missing-user-id must be a positive integer.');
   if ((observedIds || []).includes(n)) throw new Error(`--missing-user-id ${n} was observed as a real user id in this run; pick an id established as unused.`);
   return n;
+}
+
+export function parseHostPort(value) {
+  const [hostPart, portPart] = String(value || '').split(':');
+  return { host: (hostPart || '').toLowerCase(), port: portPart ? Number(portPart) : 3306 };
+}
+
+/**
+ * Validate a missing-user proof record (written by
+ * verify-missing-user-id.mjs) against the id and database the checker
+ * is about to use. The proof binds the absence check to the SAME id
+ * and the SAME database host/name — a bare operator flag cannot do
+ * that. The remaining link (that host/database is the preview's actual
+ * DATABASE_URL target) is still operator-confirmed in the dashboard;
+ * this validation cannot see the deployment's connection string. */
+export function validateMissingUserProof(proof, { userId, dbHost, dbName }) {
+  if (!proof || typeof proof !== 'object') throw new Error('Missing-user proof must be a JSON object.');
+  if (proof.rows !== 0) throw new Error('Missing-user proof does not establish absence (rows must be 0).');
+  if (typeof proof.checkedAt !== 'string' || !proof.checkedAt) throw new Error('Missing-user proof is missing checkedAt.');
+  const want = parseHostPort(dbHost);
+  if (String(proof.host || '').toLowerCase() !== want.host || Number(proof.port) !== want.port) {
+    throw new Error(`Missing-user proof is for a different database host (${proof.host}:${proof.port}); expected ${want.host}:${want.port}.`);
+  }
+  if (proof.database !== dbName) {
+    throw new Error(`Missing-user proof is for a different database ("${proof.database}"); expected "${dbName}".`);
+  }
+  if (Number(proof.userId) !== Number(userId)) {
+    throw new Error(`Missing-user proof is for user id ${proof.userId}; expected ${userId}.`);
+  }
+  return proof;
 }

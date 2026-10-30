@@ -26,6 +26,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   CookieJar,
+  SeedRefusal,
   confirmSeedTarget,
   diffColumns,
   formatCredentialsOutput,
@@ -36,8 +37,10 @@ import {
   unexpectedRowsMessage,
   validateCheckerTarget,
   validateMissingUserId,
+  validateMissingUserProof,
   verifyTestToken,
 } from '../scripts/preview-test-helpers.mjs';
+import { seedAccounts } from '../scripts/seed-runner.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SEED_SCRIPT = path.join(HERE, '..', 'scripts', 'seed-test-database.mjs');
@@ -410,6 +413,15 @@ async function writeFixtureCredentials(dir) {
   return file;
 }
 
+async function writeProofFile(dir, overrides = {}) {
+  const file = path.join(dir, 'missing-user-proof.json');
+  await writeFile(file, JSON.stringify({
+    userId: 999999999, host: 'db.test', port: 3306, database: 'testdb', rows: 0,
+    checkedAt: new Date().toISOString(), ...overrides,
+  }));
+  return file;
+}
+
 test('checker CLI: full pass against a fake preview (jar switching + logout)', async () => {
   const { server, seenHeaders } = fakePreviewServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -417,10 +429,12 @@ test('checker CLI: full pass against a fake preview (jar switching + logout)', a
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
     const creds = await writeFixtureCredentials(dir);
+    const proof = await writeProofFile(dir);
     const r = await runCli(CHECK_SCRIPT, [
       '--base-url', base, '--confirmed-origin', base,
       '--credentials-file', creds, '--missing-user-id', '999999999',
-      '--missing-user-verified', '--allow-insecure-loopback',
+      '--missing-user-proof', proof, '--missing-user-db-host', 'db.test', '--missing-user-db-name', 'testdb',
+      '--allow-insecure-loopback',
     ], { PREVIEW_JWT_SECRET: FIXTURE_SECRET });
     assert.equal(r.code, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
     for (const line of ['profile changed to user-02', 'profile changed back to user-01', 'logout clears the cookie', 'profile after logout (no cookie sent)', 'missing-user session', 'expired token', '0 failed, 0 skipped']) {
@@ -433,21 +447,24 @@ test('checker CLI: full pass against a fake preview (jar switching + logout)', a
   }
 });
 
-test('checker CLI: missing-user case skips without the verified flag', async () => {
+test('checker CLI: missing-user case skips without a valid proof', async () => {
   const { server } = fakePreviewServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const dir = await mkdtemp(path.join(os.tmpdir(), 'preview-guards-'));
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
     const creds = await writeFixtureCredentials(dir);
-    const r = await runCli(CHECK_SCRIPT, [
-      '--base-url', base, '--confirmed-origin', base,
-      '--credentials-file', creds, '--missing-user-id', '999999999',
-      '--allow-insecure-loopback',
-    ], { PREVIEW_JWT_SECRET: FIXTURE_SECRET });
+    const shared = ['--base-url', base, '--confirmed-origin', base, '--credentials-file', creds, '--missing-user-id', '999999999', '--allow-insecure-loopback'];
+    // No proof at all: SKIP.
+    let r = await runCli(CHECK_SCRIPT, shared, { PREVIEW_JWT_SECRET: FIXTURE_SECRET });
     assert.equal(r.code, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
     assert.match(r.stdout, /SKIP\s+missing-user session/);
-    assert.match(r.stdout, /1 skipped/);
+    // Proof for a different database: SKIP, never a pass.
+    const wrongDb = await writeProofFile(dir, { database: 'otherdb' });
+    r = await runCli(CHECK_SCRIPT, [...shared, '--missing-user-proof', wrongDb, '--missing-user-db-host', 'db.test', '--missing-user-db-name', 'testdb'], { PREVIEW_JWT_SECRET: FIXTURE_SECRET });
+    assert.equal(r.code, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
+    assert.match(r.stdout, /SKIP\s+missing-user session/);
+    assert.match(r.stdout, /different database/);
   } finally {
     server.close();
     await rm(dir, { recursive: true, force: true });
@@ -535,4 +552,199 @@ test('token helper matches a hand-built HS256 token', () => {
   const signature = createHmac('sha256', FIXTURE_SECRET).update(`${header}.${payload}`).digest('base64url');
   const decoded = verifyTestToken(FIXTURE_SECRET, `${header}.${payload}.${signature}`);
   assert.equal(decoded.userId, 3);
+});
+
+// ---------------------------------------------------------------------------
+// Injected-failure tests for the seed runner (no live database).
+// The fake connection implements the fixed query strings the runner
+// issues, over an in-memory table, with injected failure points.
+// ---------------------------------------------------------------------------
+
+const RUNNER_COLUMNS = ['id', 'email', 'username', 'passwordHash', 'isActive', 'isApproved', 'walletAddress', 'hasTokenAccess', 'phone', 'smsConsent', 'revenueOsAccess', 'lastActiveTrustId', 'createdAt', 'updatedAt', 'lastLogin'];
+const RUNNER_ACCOUNTS = [
+  { email: 'seed-a@example.invalid', username: 'seed-a', isActive: true, isApproved: true, hasPassword: true },
+  { email: 'seed-b@example.invalid', username: 'seed-b', isActive: true, isApproved: false, hasPassword: true },
+];
+
+function makeFakeConnection({ columns = RUNNER_COLUMNS, grants = "GRANT SELECT ON `testdb`.* TO 'u'@'%'", rows = [], failCommit = false, verifyShort = false, failInsertAt = -1, events } = {}) {
+  const state = {
+    rows: rows.map((r) => ({ ...r })),
+    nextId: rows.reduce((m, r) => Math.max(m, r.id), 0) + 1,
+    txOpen: false, snapshot: null, committed: false, rolledBack: false,
+    schemaApplied: false, inserts: 0,
+  };
+  const connection = {
+    async query(sql, params) {
+      if (sql.includes('SHOW GRANTS')) return [[{ Grants: grants }]];
+      if (sql.includes('CREATE TABLE')) { state.schemaApplied = true; return []; }
+      if (sql.includes('INFORMATION_SCHEMA.COLUMNS')) return [columns.map((c) => ({ COLUMN_NAME: c }))];
+      if (sql.startsWith('SELECT `email`')) return [state.rows.map((r) => ({ email: r.email }))];
+      if (sql.startsWith('DELETE FROM')) {
+        const emails = params[0];
+        state.rows = state.rows.filter((r) => !emails.includes(r.email));
+        return [{ affectedRows: 0 }];
+      }
+      if (sql.startsWith('INSERT INTO')) {
+        state.inserts += 1;
+        if (failInsertAt === state.inserts) throw new Error('injected insert failure');
+        const [email, username, passwordHash, isActive, isApproved] = params;
+        state.rows.push({ id: state.nextId++, email, username, passwordHash, isActive, isApproved });
+        return [{ insertId: state.nextId - 1 }];
+      }
+      if (sql.includes('WHERE `email` IN')) {
+        let out = state.rows.filter((r) => params[0].includes(r.email)).map((r) => ({ id: r.id, email: r.email, isActive: r.isActive, isApproved: r.isApproved, hasPassword: r.passwordHash ? 1 : 0 }));
+        if (verifyShort) out = out.slice(0, Math.max(0, out.length - 1));
+        return [out];
+      }
+      throw new Error(`fake: unexpected query: ${String(sql).slice(0, 60)}`);
+    },
+    async beginTransaction() { events.push('BEGIN'); state.txOpen = true; state.snapshot = structuredClone(state.rows); },
+    async commit() { events.push('COMMIT'); if (failCommit) throw new Error('injected commit failure'); state.committed = true; state.txOpen = false; },
+    async rollback() { events.push('ROLLBACK'); state.rolledBack = true; state.rows = state.snapshot || state.rows; state.txOpen = false; },
+    async end() {},
+  };
+  return { state, connection };
+}
+
+function makeFakeStore({ failSave = false, events } = {}) {
+  let saved = null;
+  const calls = [];
+  return {
+    calls,
+    get saved() { return saved; },
+    async save(creds) { events.push('save'); calls.push('save'); if (failSave) throw new Error('injected save failure'); saved = creds; },
+    async discard() { events.push('discard'); calls.push('discard'); saved = null; },
+    async preserve() { events.push('preserve'); calls.push('preserve'); },
+  };
+}
+
+async function runSeed(overrides = {}) {
+  const events = [];
+  const { state, connection } = makeFakeConnection({ ...overrides, events });
+  const store = makeFakeStore({ ...overrides, events });
+  const options = {
+    connection,
+    hashPassword: (pw) => `hash:${pw}`,
+    schemaSql: 'CREATE TABLE `marketplace_users` (id INT)',
+    database: 'testdb',
+    accounts: RUNNER_ACCOUNTS,
+    expectedColumns: RUNNER_COLUMNS,
+    store,
+    generatePassword: () => 'pw-fixed-123',
+    log: () => {},
+    ...overrides.runner,
+  };
+  return { events, state, store, result: await seedAccounts(options).catch((error) => ({ __error: error })) };
+}
+
+test('runner: success saves before commit, commits, verifies', async () => {
+  const { events, state, store, result } = await runSeed();
+  assert.equal(result.__error, undefined);
+  assert.equal(result.rows.length, 2);
+  assert.equal(result.credentials.length, 2);
+  assert.ok(result.credentials.every((c) => c.password === 'pw-fixed-123'));
+  assert.ok(events.indexOf('save') < events.indexOf('COMMIT'), 'credentials must be saved before the commit');
+  assert.equal(state.committed, true);
+  assert.equal(state.schemaApplied, true);
+  assert.equal(store.calls.includes('discard'), false);
+  assert.equal(store.calls.includes('preserve'), false);
+  assert.equal(state.rows.length, 2);
+});
+
+test('runner: dangerous grants refuse before any save or transaction', async () => {
+  const { events, state, store, result } = await runSeed({ grants: "GRANT ALL PRIVILEGES ON *.* TO 'u'@'%'" });
+  assert.ok(result.__error instanceof SeedRefusal);
+  assert.equal(result.__error.code, 3);
+  assert.equal(store.calls.length, 0);
+  assert.equal(events.includes('BEGIN'), false);
+  assert.equal(state.rows.length, 0);
+});
+
+test('runner: USAGE grants are accepted (not a privilege)', async () => {
+  const { result } = await runSeed({ grants: "GRANT USAGE ON *.* TO 'u'@'%'" });
+  assert.equal(result.__error, undefined);
+  assert.equal(result.rows.length, 2);
+});
+
+test('runner: missing columns refuse before any save or transaction', async () => {
+  const { store, result } = await runSeed({ columns: RUNNER_COLUMNS.slice(0, 10) });
+  assert.ok(result.__error instanceof SeedRefusal);
+  assert.equal(result.__error.code, 3);
+  assert.equal(store.calls.length, 0);
+});
+
+test('runner: unexpected rows refuse with a count only, table untouched', async () => {
+  const { state, store, result } = await runSeed({ rows: [{ id: 7, email: 'real-member@example.com', username: 'real', passwordHash: 'h', isActive: 1, isApproved: 1 }] });
+  assert.ok(result.__error instanceof SeedRefusal);
+  assert.equal(result.__error.code, 3);
+  assert.match(result.__error.message, /1 existing account/);
+  assert.equal(result.__error.message.includes('real-member@example.com'), false);
+  assert.equal(store.calls.length, 0);
+  assert.equal(state.rows.length, 1);
+});
+
+test('runner: save failure discards and never begins a transaction', async () => {
+  const { events, state, store, result } = await runSeed({ failSave: true });
+  assert.ok(result.__error instanceof Error);
+  assert.equal(store.calls.includes('discard'), true);
+  assert.equal(store.calls.includes('preserve'), false);
+  assert.equal(events.includes('BEGIN'), false);
+  assert.equal(state.rows.length, 0);
+});
+
+test('runner: insert failure rolls back and discards', async () => {
+  const { events, state, store, result } = await runSeed({ failInsertAt: 2 });
+  assert.ok(result.__error instanceof Error);
+  assert.equal(state.rolledBack, true);
+  assert.equal(state.rows.length, 0);
+  assert.equal(events.includes('COMMIT'), false);
+  assert.equal(store.calls.includes('discard'), true);
+  assert.equal(store.calls.includes('preserve'), false);
+});
+
+test('runner: commit failure preserves recovery credentials, rolls back', async () => {
+  const { events, state, store, result } = await runSeed({ failCommit: true });
+  assert.ok(result.__error instanceof SeedRefusal);
+  assert.equal(result.__error.code, 1);
+  assert.match(result.__error.message, /uncertain/);
+  assert.equal(state.rolledBack, true);
+  assert.equal(state.rows.length, 0);
+  assert.ok(events.indexOf('save') < events.indexOf('COMMIT'));
+  assert.equal(store.calls.includes('preserve'), true);
+  assert.equal(store.calls.includes('discard'), false);
+  assert.ok(store.saved && store.saved.length === 2, 'recovery credentials must survive');
+});
+
+test('runner: verification mismatch after commit preserves credentials', async () => {
+  const { state, store, result } = await runSeed({ verifyShort: true });
+  assert.ok(result.__error instanceof SeedRefusal);
+  assert.equal(result.__error.code, 1);
+  assert.equal(state.committed, true);
+  assert.equal(state.rows.length, 2, 'committed rows stay; nothing is silently rolled back');
+  assert.equal(store.calls.includes('preserve'), true);
+  assert.equal(store.calls.includes('discard'), false);
+  assert.ok(store.saved && store.saved.length === 2, 'recovery credentials must survive');
+});
+
+test('validateMissingUserProof: binds the same id and database', () => {
+  const good = { userId: 999999999, host: 'db.test', port: 3306, database: 'testdb', rows: 0, checkedAt: '2026-10-29T00:00:00.000Z' };
+  assert.deepEqual(validateMissingUserProof(good, { userId: 999999999, dbHost: 'db.test', dbName: 'testdb' }), good);
+  assert.throws(() => validateMissingUserProof({ ...good, userId: 5 }, { userId: 999999999, dbHost: 'db.test', dbName: 'testdb' }), /different|expected/);
+  assert.throws(() => validateMissingUserProof({ ...good, database: 'otherdb' }, { userId: 999999999, dbHost: 'db.test', dbName: 'testdb' }), /different database/);
+  assert.throws(() => validateMissingUserProof({ ...good, host: 'elsewhere' }, { userId: 999999999, dbHost: 'db.test', dbName: 'testdb' }), /different database host/);
+  assert.throws(() => validateMissingUserProof({ ...good, rows: 1 }, { userId: 999999999, dbHost: 'db.test', dbName: 'testdb' }), /absence/);
+  assert.throws(() => validateMissingUserProof({ ...good, checkedAt: '' }, { userId: 999999999, dbHost: 'db.test', dbName: 'testdb' }), /checkedAt/);
+  assert.throws(() => validateMissingUserProof(null, { userId: 999999999, dbHost: 'db.test', dbName: 'testdb' }), /JSON object/);
+  // Host with an explicit port in the operator's argument still matches.
+  assert.deepEqual(validateMissingUserProof(good, { userId: 999999999, dbHost: 'db.test:3306', dbName: 'testdb' }), good);
+});
+
+test('static: seed CLI and runner never call process.exit mid-flow', async () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  for (const file of ['seed-test-database.mjs', 'seed-runner.mjs']) {
+    const src = await readFile(path.join(here, '..', 'scripts', file), 'utf8');
+    assert.equal(src.includes('process.exit('), false, `${file} must not call process.exit()`);
+  }
+  const cli = await readFile(path.join(here, '..', 'scripts', 'seed-test-database.mjs'), 'utf8');
+  assert.ok(cli.includes('process.exitCode'), 'seed CLI must map errors to process.exitCode in one place');
 });
