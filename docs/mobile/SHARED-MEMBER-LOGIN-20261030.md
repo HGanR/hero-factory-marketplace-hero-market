@@ -8,7 +8,11 @@ Mobile POST /api/mobile/session continues to invoke the existing marketplace log
 
 The isolated mobile deployment uses its own JWT signing secret and the host-only Secure/HttpOnly `__Host-smart-trust-mobile` session cookie. This permits the same credentials without sharing website/admin cookies or the production JWT signing key. Parent-domain auth-token cookies are ignored in this mode. Logout expires only the mobile cookie. The canonical website defaults to its original auth-token behavior when the mobile setting is absent.
 
-Admin-only credentials are not turned into member credentials. An administrator needs an existing active, approved marketplace member record with a password to use this member surface. Admin JWTs and admin-only sessions remain rejected.
+The owner also authorized the website administrator credentials for app sign-in. The Administrator option uses the existing HTTPS https://troothhurtz.app/api/admin/login-edge endpoint, then independently verifies its issued admin cookie with /api/admin/check. No ADMIN_USERNAME, ADMIN_PASSWORD or production signing key is copied into the mobile project. There is no invented member ID or change to member approval rules.
+
+The verified administrator token is held in the host-only Secure/HttpOnly __Host-smart-trust-mobile-admin cookie for at most 24 hours. Every administrator profile read is rechecked with the website authority; only the role and verified username are returned to the app. Passwords and tokens never appear in the client JSON, logs or device storage. Login uses an explicit account-type selection. Signing into one role clears the other mobile-role cookie; mobile logout clears both private cookies without changing website/admin cookies. Website workspace links may still require the website's own browser session.
+
+SMART_TRUST_MOBILE_ADMIN_LOGIN=true enables this path only on the reviewed branch. Requests use fixed website URLs, no redirects, no caching, timeouts and bounded verifier JSON. User-supplied URLs cannot receive credentials or tokens. No administrator management/payment endpoints are exposed by the mobile package.
 
 ## Deployment boundary
 

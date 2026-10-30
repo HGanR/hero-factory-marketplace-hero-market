@@ -7,6 +7,7 @@ import { mysqlTruthy } from "@/lib/mysqlTruthy";
 import { sessionCookieBase, cookieHostFromRequest } from "@/lib/auth-cookie-options";
 import { POST as websiteLogin } from "@/app/api/marketplace/login/route";
 import { mobileMemberId, mobileSameOrigin, mobileCredentials } from "@/lib/mobile/session-policy";
+import { checkMobileAdministrator, signInMobileAdministrator, mobileAdminCookie } from "@/lib/mobile/admin-session";
 export const dynamic = "force-dynamic";
 // A separate host-only cookie avoids collisions with website cookies on .troothhurtz.app.
 // Leave unset on the canonical website to retain its existing session behavior.
@@ -19,6 +20,8 @@ function mobileCookieOptions(request: NextRequest) {
 function reply(body: object, status = 200) {
   return NextResponse.json(body, {status, headers: {"Cache-Control": "no-store", "Vary": "Cookie"}});
 }
+function adminEnabled() { return process.env.SMART_TRUST_MOBILE_ADMIN_LOGIN === "true"; }
+const privateCookieOptions = {httpOnly: true as const, secure: true, sameSite: "lax" as const, path: "/"};
 function unavailable() {
   if (process.env.SMART_TRUST_MOBILE_ENABLED !== "true") return reply({error: "Mobile is not enabled."}, 404);
   // Do not inherit the legacy auth module's development fallback secret.
@@ -27,6 +30,11 @@ function unavailable() {
 }
 export async function GET(request: NextRequest) {
   const blocked = unavailable(); if (blocked) return blocked;
+  const adminToken = adminEnabled() ? request.cookies.get(mobileAdminCookie)?.value : undefined;
+  if (adminToken) {
+    const result = await checkMobileAdministrator(adminToken);
+    return result.ok ? reply({user: result.user}) : reply({error: result.status === 401 ? "Administrator session expired. Please sign in again." : "Website administrator service is unavailable. Please retry."}, result.status);
+  }
   const token = request.cookies.get(mobileCookieName)?.value;
   if (!token) return reply({error: "Sign in with your website account."}, 401);
   let id: number | null;
@@ -49,9 +57,20 @@ export async function POST(request: NextRequest) {
   if (!request.headers.get("content-type")?.startsWith("application/json")) return reply({error: "JSON required."}, 415);
   const raw = await request.text();
   if (raw.length > 8192) return reply({error: "Request too large."}, 413);
-  let credentials;
-  try { credentials = mobileCredentials(JSON.parse(raw)); } catch { return reply({error: "Invalid sign-in request."}, 400); }
+  let credentials; let input: Record<string, unknown>;
+  try { input = JSON.parse(raw); credentials = mobileCredentials(input); } catch { return reply({error: "Invalid sign-in request."}, 400); }
   if (!credentials) return reply({error: "Enter your username/email and password."}, 400);
+  const accountType = input!.accountType ?? "member";
+  if (accountType !== "member" && accountType !== "administrator") return reply({error: "Choose a member or administrator account."}, 400);
+  if (accountType === "administrator") {
+    if (!adminEnabled()) return reply({error: "Administrator mobile sign-in is not enabled."}, 503);
+    const result = await signInMobileAdministrator(credentials.identifier, credentials.password);
+    if (!result.ok || !result.token) return reply({error: !result.ok && result.status === 401 ? "Administrator sign-in failed. Check your website admin credentials." : "Website administrator service is unavailable. Please retry."}, !result.ok ? result.status : 503);
+    const response = reply({success: true, user: result.user});
+    response.cookies.set(mobileAdminCookie, result.token, {...privateCookieOptions, maxAge: 60 * 60 * 24});
+    response.cookies.set(mobileCookieName, "", {...mobileCookieOptions(request), maxAge: 0});
+    return response;
+  }
   const response = await websiteLogin(new NextRequest(request.url, {
     method: "POST", headers: request.headers, body: JSON.stringify(credentials)
   }));
@@ -64,10 +83,12 @@ export async function POST(request: NextRequest) {
     mobileResponse.cookies.set(mobileCookieName, cookie.value, {
       ...mobileCookieOptions(request), maxAge: 60 * 60 * 24 * 7,
     });
+    if (adminEnabled()) mobileResponse.cookies.set(mobileAdminCookie, "", {...privateCookieOptions, maxAge: 0});
     return mobileResponse;
   }
   // Preserve the existing HttpOnly Set-Cookie contract without exposing a token to JS.
   response.headers.set("Cache-Control", "no-store");
+  if (adminEnabled()) response.cookies.set(mobileAdminCookie, "", {...privateCookieOptions, maxAge: 0});
   return response;
 }
 export async function DELETE(request: NextRequest) {
@@ -75,6 +96,7 @@ export async function DELETE(request: NextRequest) {
   if (!mobileSameOrigin(request)) return reply({error: "Same-origin request required."}, 403);
   const response = reply({success: true});
   response.cookies.set(mobileCookieName, "", {...mobileCookieOptions(request), maxAge: 0});
+  if (adminEnabled()) response.cookies.set(mobileAdminCookie, "", {...privateCookieOptions, maxAge: 0});
   return response;
 }
 

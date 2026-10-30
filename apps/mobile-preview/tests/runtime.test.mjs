@@ -10,7 +10,7 @@ const app=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 async function withServer(env, check) {
  const socket=net.createServer();socket.listen(0,'127.0.0.1');await once(socket,'listening');
  const port=socket.address().port;await new Promise(r=>socket.close(r));
- const clean={...process.env};for(const name of ['DATABASE_URL','JWT_SECRET','SMART_TRUST_MOBILE_ENABLED','AUTH_COOKIE_DOMAIN','SMART_TRUST_MOBILE_SESSION_COOKIE'])delete clean[name];
+ const clean={...process.env};for(const name of ['DATABASE_URL','JWT_SECRET','SMART_TRUST_MOBILE_ENABLED','AUTH_COOKIE_DOMAIN','SMART_TRUST_MOBILE_SESSION_COOKIE','SMART_TRUST_MOBILE_ADMIN_LOGIN'])delete clean[name];
  const child=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',String(port)],{cwd:app,env:{...clean,...env},stdio:['ignore','pipe','pipe']});
  const origin=`http://localhost:${port}`;
  try {
@@ -53,5 +53,19 @@ test('dedicated mobile session ignores website/admin cookies and logs out only m
  assert.match(cookie,/__Host-smart-trust-mobile=/);assert.match(cookie,/HttpOnly/i);assert.match(cookie,/Secure/i);
  assert.match(cookie,/SameSite=lax/i);assert.match(cookie,/Path=\//);assert.match(cookie,/Max-Age=0/i);
  assert.doesNotMatch(cookie,/Domain=|(?:^|[,;] ?)auth-token=|admin-token=/i);
+}));
+
+test('administrator mode keeps origin checks and clears only private mobile cookies',()=>withServer({SMART_TRUST_MOBILE_ENABLED:'true',JWT_SECRET:'local-admin-mode-test',SMART_TRUST_MOBILE_SESSION_COOKIE:'__Host-smart-trust-mobile',SMART_TRUST_MOBILE_ADMIN_LOGIN:'true'},async base=>{
+ assert.equal((await fetch(base+'/api/mobile/session',{headers:{cookie:'__Host-smart-trust-mobile-admin=invalid'}})).status,401);
+ const headers={'content-type':'application/json',origin:'https://unrelated.example'};
+ assert.equal((await fetch(base+'/api/mobile/session',{method:'POST',headers,body:JSON.stringify({identifier:'admin',password:'fixture',accountType:'administrator'})})).status,403);
+ assert.equal((await fetch(base+'/api/mobile/session',{method:'POST',headers:{...headers,origin:base},body:JSON.stringify({identifier:'admin',password:'fixture',accountType:'owner'})})).status,400);
+ const logout=await fetch(base+'/api/mobile/session',{method:'DELETE',headers:{origin:base}});
+ assert.equal(logout.status,200);
+ const cookies=logout.headers.getSetCookie();
+ assert.equal(cookies.length,2);
+ assert.ok(cookies.some(c=>c.startsWith('__Host-smart-trust-mobile=')));
+ assert.ok(cookies.some(c=>c.startsWith('__Host-smart-trust-mobile-admin=')));
+ for(const cookie of cookies){assert.match(cookie,/HttpOnly/i);assert.match(cookie,/Secure/i);assert.match(cookie,/Max-Age=0/i);assert.doesNotMatch(cookie,/Domain=/i);}
 }));
 
