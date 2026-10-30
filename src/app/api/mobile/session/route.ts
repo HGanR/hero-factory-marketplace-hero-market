@@ -8,6 +8,14 @@ import { sessionCookieBase, cookieHostFromRequest } from "@/lib/auth-cookie-opti
 import { POST as websiteLogin } from "@/app/api/marketplace/login/route";
 import { mobileMemberId, mobileSameOrigin, mobileCredentials } from "@/lib/mobile/session-policy";
 export const dynamic = "force-dynamic";
+// A separate host-only cookie avoids collisions with website cookies on .troothhurtz.app.
+// Leave unset on the canonical website to retain its existing session behavior.
+const mobileCookieName = process.env.SMART_TRUST_MOBILE_SESSION_COOKIE === "__Host-smart-trust-mobile"
+  ? "__Host-smart-trust-mobile" : "auth-token";
+function mobileCookieOptions(request: NextRequest) {
+  if (mobileCookieName === "auth-token") return sessionCookieBase(cookieHostFromRequest(request));
+  return { httpOnly: true as const, secure: true, sameSite: "lax" as const, path: "/" };
+}
 function reply(body: object, status = 200) {
   return NextResponse.json(body, {status, headers: {"Cache-Control": "no-store", "Vary": "Cookie"}});
 }
@@ -19,7 +27,7 @@ function unavailable() {
 }
 export async function GET(request: NextRequest) {
   const blocked = unavailable(); if (blocked) return blocked;
-  const token = request.cookies.get("auth-token")?.value;
+  const token = request.cookies.get(mobileCookieName)?.value;
   if (!token) return reply({error: "Sign in with your website account."}, 401);
   let id: number | null;
   try { id = mobileMemberId(jwt.verify(token, process.env.JWT_SECRET!, {algorithms: ["HS256"]})); }
@@ -48,6 +56,16 @@ export async function POST(request: NextRequest) {
     method: "POST", headers: request.headers, body: JSON.stringify(credentials)
   }));
   if (!response.ok) return reply({error: response.status >= 500 ? "Account service is unavailable." : "Sign-in failed. Check your credentials and account approval."}, response.status);
+  if (mobileCookieName !== "auth-token") {
+    const cookie = response.cookies.get("auth-token");
+    if (!cookie?.value) return reply({error: "Account session could not be established."}, 503);
+    // Keep the token server-side. Do not forward a website-domain Set-Cookie header.
+    const mobileResponse = reply(await response.json());
+    mobileResponse.cookies.set(mobileCookieName, cookie.value, {
+      ...mobileCookieOptions(request), maxAge: 60 * 60 * 24 * 7,
+    });
+    return mobileResponse;
+  }
   // Preserve the existing HttpOnly Set-Cookie contract without exposing a token to JS.
   response.headers.set("Cache-Control", "no-store");
   return response;
@@ -56,6 +74,7 @@ export async function DELETE(request: NextRequest) {
   if (process.env.SMART_TRUST_MOBILE_ENABLED !== "true") return reply({error: "Mobile is not enabled."}, 404);
   if (!mobileSameOrigin(request)) return reply({error: "Same-origin request required."}, 403);
   const response = reply({success: true});
-  response.cookies.set("auth-token", "", {...sessionCookieBase(cookieHostFromRequest(request)), maxAge: 0});
+  response.cookies.set(mobileCookieName, "", {...mobileCookieOptions(request), maxAge: 0});
   return response;
 }
+
