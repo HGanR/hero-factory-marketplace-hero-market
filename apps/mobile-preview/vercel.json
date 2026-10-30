@@ -1,6 +1,7 @@
 {
   "framework": "nextjs",
   "installCommand": "npm ci",
-  "buildCommand": "npm run build && npm test",
+  "buildCommand": "npm run build && npm test && NODE_PATH=./node_modules node --test ../../tests/mobile/mobile.test.cjs && node scripts/verify-member-database.mjs",
   "devCommand": "next dev"
 }
+

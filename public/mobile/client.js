@@ -23,13 +23,14 @@ async function refreshSession() {
   try {
     const {user} = await request();
     if (current !== generation) return;
-    if (!user || !Number.isSafeInteger(user.id) || user.id < 1 || typeof user.username !== 'string' || typeof user.email !== 'string') throw new Error('Account service returned an invalid profile.');
+    const administrator = user?.role === 'administrator';
+    if (!user || typeof user.username !== 'string' || !user.username || (!administrator && (!Number.isSafeInteger(user.id) || user.id < 1 || typeof user.email !== 'string'))) throw new Error('Account service returned an invalid profile.');
     $('welcome').textContent = 'WELCOME, ' + user.username;
     $('username').textContent = 'Username: ' + user.username;
-    $('email').textContent = 'Email: ' + user.email;
-    $('memberId').textContent = 'Account ID: ' + user.id;
-    $('wallet').textContent = user.walletAddress ? 'Saved wallet: ' + user.walletAddress : 'No wallet address saved.';
-    $('account').hidden = false; status('Website session confirmed.');
+    $('email').textContent = administrator ? 'Website administrator account' : 'Email: ' + user.email;
+    $('memberId').textContent = administrator ? 'Account type: Administrator' : 'Account ID: ' + user.id;
+    $('wallet').textContent = administrator ? 'Member wallet data is separate from this administrator session.' : user.walletAddress ? 'Saved wallet: ' + user.walletAddress : 'No wallet address saved.';
+    $('account').hidden = false; status(administrator ? 'Website administrator session confirmed.' : 'Website session confirmed.');
   } catch (error) {
     if (current !== generation) return;
     clearAccount(); $('signin').hidden = false;
@@ -41,13 +42,13 @@ $('loginForm').addEventListener('submit', async event => {
   busy = true; ++generation; clearAccount(); $('loginButton').disabled = true;
   const password = $('password').value; $('password').value = '';
   status('Signing in…');
-  try { await request('POST', {identifier: $('identifier').value.trim(), password}); await refreshSession(); }
+  try { await request('POST', {identifier: $('identifier').value.trim(), password, accountType: $('accountType')?.value || 'member'}); await refreshSession(); }
   catch (error) { status(error.name === 'AbortError' ? 'Sign-in timed out. Please retry.' : error.message); }
   finally { busy = false; $('loginButton').disabled = false; }
 });
 $('logout').addEventListener('click', async () => {
   if (busy) return; busy = true; ++generation; clearAccount();
-  try { await request('DELETE'); $('signin').hidden = false; status('Signed out of the website member session in this browser.'); }
+  try { await request('DELETE'); $('signin').hidden = false; status('Signed out of this mobile app. Website sessions are unchanged.'); }
   catch { $('signin').hidden = true; status('Sign-out could not be confirmed. Reconnect and retry.'); }
   finally { busy = false; }
 });
@@ -76,3 +77,4 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloading && !$('update').hidden) { reloading = true; location.reload(); } });
 }
 refreshSession();
+
