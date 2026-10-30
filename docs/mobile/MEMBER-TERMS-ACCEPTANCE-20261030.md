@@ -21,6 +21,8 @@ Existing member rows, passwords and approval flags are untouched by the migratio
 
 ## Activation is pending two concrete prerequisites
 
+The owner's uploaded `Pasted markdown.md` is preserved verbatim in `docs/mobile/terms/SMART-TRUST-MEMBER-TERMS-DRAFT-20261030.md`. It supplies the full 17-section agreement and explicitly flags the legal-name spelling discrepancy. It is source material for finalization, not a finalized published agreement.
+
 1. Supply the final agreement text. The existing `/mobile/terms` document is explicitly a proposed SMART TRUST DESKTOP agreement with `[INSERT DATE]`, operator formation state, business address, legal/support email, privacy-policy link and governing-law/venue placeholders. It is preserved as review-only. `src/lib/mobile/terms-document.ts` deliberately has published=false and rejects unresolved placeholders. No acceptance of this draft is collected. Replace it with the owner's approved final copy, identify its version/effective date, and publish that exact body before enabling the gate.
 2. Approve and apply the two-table migration to the account database, after validating it in an isolated MySQL/TiDB test schema. Production schema changes require explicit owner approval. Nothing auto-runs the migration at startup or build time.
 
