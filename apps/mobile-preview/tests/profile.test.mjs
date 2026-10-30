@@ -12,7 +12,7 @@ test('profile accepts bounded PNGs and refuses executable, malformed and oversiz
 test('profile uses selected website avatar without modifying its model and scopes every read',async()=>{
  const calls=[];const db={execute:async(sql,params)=>{calls.push({sql,params});if(sql.includes('avatar_profiles'))return [[{displayName:'Chosen avatar',thumbnailUrl:'/avatars/chosen.png'}],[]];return [[],[]];}};
  const result=await readMemberProfile(db,7);assert.equal(result.selectedAvatar.thumbnailUrl,'https://troothhurtz.app/avatars/chosen.png');assert.equal(result.bannerData,null);
- assert.deepEqual(calls.map(c=>c.params),[[7],[7,'ready']]);assert.ok(calls.every(c=>c.sql.startsWith('SELECT')));
+ assert.deepEqual(calls.map(c=>c.params),[[7],[7,'ready'],[7]]);assert.ok(calls.every(c=>c.sql.startsWith('SELECT')));
  await readMemberWorlds(db,7);assert.deepEqual(calls.at(-1).params,[7,'archived']);assert.match(calls.at(-1).sql,/ownerId = \?/);
 });
 test('image writes preserve the other image and existing assets; failures do not claim success',async()=>{
@@ -25,3 +25,4 @@ test('unavailable website avatars remain distinguishable from a member with no s
  const profile=await readMemberProfile({execute:async(sql)=>{if(sql.includes('avatar_profiles'))throw Error('unavailable');return [[{bannerData:png}],[]];}},7);
  assert.equal(profile.bannerData,png);assert.equal(profile.avatarAvailable,false);assert.equal(profile.selectedAvatar,null);
 });
+

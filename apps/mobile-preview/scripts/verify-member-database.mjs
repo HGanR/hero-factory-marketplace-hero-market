@@ -29,6 +29,7 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
       console.log('Member terms readiness: published document and receipt schema verified; no acceptance created.');
     }
     if (process.env.SMART_TRUST_MOBILE_VERIFY_PROFILE_DB === 'true') {
+      await connection.execute({sql:'SELECT member_id, skin, updated_at FROM mobile_member_appearance WHERE 1 = 0',timeout:10000});
       await connection.execute({sql:'SELECT member_id, banner_data, avatar_data, updated_at FROM mobile_member_profiles WHERE 1 = 0',timeout:10000});
       await connection.execute({sql:'SELECT userId, displayName, thumbnailUrl, isDefault, status, updatedAt FROM avatar_profiles WHERE 1 = 0',timeout:10000});
       await connection.execute({sql:'SELECT ownerId, id, name, visibility, status, updatedAt FROM worlds WHERE 1 = 0',timeout:10000});
@@ -45,4 +46,5 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
     clearTimeout(watchdog);
   }
 }
+
 

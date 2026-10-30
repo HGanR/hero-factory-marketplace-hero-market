@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GET as session } from '@/app/api/mobile/session/route';
 import { getConnection } from '@/lib/db';
 import { mobileSameOrigin } from '@/lib/mobile/session-policy';
-import { profileImage, readMemberProfile, saveMemberImage, readMemberWorlds, type ProfileField } from '@/lib/mobile/profile';
+import { profileSkin, saveMemberSkin, profileImage, readMemberProfile, saveMemberImage, readMemberWorlds, type ProfileField } from '@/lib/mobile/profile';
 export const dynamic = 'force-dynamic';
 function reply(body: object, status = 200) {
   return NextResponse.json(body, {status, headers: {'Cache-Control':'no-store', Vary:'Cookie'}});
@@ -38,14 +38,15 @@ export async function PATCH(request: NextRequest) {
     for (;;) { const {value,done} = await reader.read(); if (done) break; raw += decoder.decode(value,{stream:true}); if (raw.length > 710000) { await reader.cancel(); return reply({error:'Image is too large.'},413); } }
     raw += decoder.decode();
   }
-  let field: ProfileField; let image: string | null;
+  let field: ProfileField | 'skin'; let image: string | null;
   try {
     const body = JSON.parse(raw);
-    if (!body || Array.isArray(body) || Object.keys(body).length !== 1 || !['bannerData','avatarData'].includes(Object.keys(body)[0])) throw new Error('Choose one profile image to update.');
-    field = Object.keys(body)[0] as ProfileField; image = profileImage(body[field], field);
-  } catch { return reply({error:'Choose one supported PNG profile image. Account IDs and other fields cannot be submitted.'},400); }
+    if (!body || Array.isArray(body) || Object.keys(body).length !== 1 || !['bannerData','avatarData','skin'].includes(Object.keys(body)[0])) throw new Error('Choose one profile image to update.');
+    field = Object.keys(body)[0] as ProfileField | 'skin'; image = field === 'skin' ? profileSkin(body.skin) : profileImage(body[field], field);
+  } catch { return reply({error:'Choose one supported PNG profile image or Gold, Dawn or Neon skin. Account IDs and other fields cannot be submitted.'},400); }
   try {
-    const db = await getConnection(); await saveMemberImage(db, access.id!, field, image);
+    const db = await getConnection(); if (field === 'skin') await saveMemberSkin(db, access.id!, image); else await saveMemberImage(db, access.id!, field, image);
     return reply({saved:true, profile: await readMemberProfile(db, access.id!)});
   } catch { return reply({error:'Image save could not be confirmed. Please retry.'},503); }
 }
+

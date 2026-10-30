@@ -505,3 +505,14 @@ body {
 .profile-image-controls .mini-btn { display:inline-flex; align-items:center; justify-content:center; cursor:pointer; min-height:44px; }
 .journey-btn { margin: 16px 0; width:100%; }
 #worldList .mc-row { flex-wrap:wrap; gap:8px; overflow-wrap:anywhere; }
+
+
+/* Account-scoped appearance choices. No skin preference or account data in local storage. */
+body[data-skin="gold"] { --ink:#fff1c2; --ink2:#e4c977; --accent:#d4af37; --glass-border:#806c38; }
+body[data-skin="dawn"] { --ink:#18362b; --ink2:#315746; --accent:#34664b; --glass-border:#6f927d; --glass:rgba(245,255,248,.94); --glass2:#e1f1e5; background:#e8f4e9; color:#18362b; }
+body[data-skin="neon"] { --ink:#d9fbff; --ink2:#a8e6ed; --accent:#19f0ff; --glass-border:#40828b; --glass:rgba(8,25,38,.94); --glass2:#102d3a; background:#06121e; color:#d9fbff; }
+body[data-skin="dawn"] .device, body[data-skin="dawn"] .screen { background:#e8f4e9; color:#18362b; }
+body[data-skin="neon"] .device, body[data-skin="neon"] .screen { background:#06121e; color:#d9fbff; }
+#appearanceSetup { padding-block:1rem; }
+#appearanceSetup .field { margin-block:1.25rem; }
+#appearanceSetup select { width:100%; min-height:48px; }
