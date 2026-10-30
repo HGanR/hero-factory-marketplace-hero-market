@@ -29,32 +29,35 @@ Run it from the repository root (or anywhere) as:
 bash scripts/revalidate-mobile-preview.sh <checkout-dir> 2>&1 | tee revalidation.log
 ```
 
-`<checkout-dir>` is the caller's own checkout; the previously discovered
-candidate `/Users/user/Desktop/hero-factory-marketplace/hero-market` is
-UNVERIFIED from here — the script's remote check is what establishes
-whether a given directory is the right checkout. Do not substitute a
-placeholder path. No secrets are read, printed, or stored. The script
-performs no deployment, migration, or production action.
+`<checkout-dir>` is the caller's own checkout, verified by the script's
+remote check. The checkout used for the executed run below,
+`/Users/user/Desktop/hero-factory-marketplace/hero-market`, was confirmed
+by inspection (origin, `recovery-from-prod` @ `e8e432f`, Node v24.15.0).
+Do not substitute a placeholder path. No secrets are read, printed, or
+stored. The script performs no deployment, migration, or production action.
 
-## Results
+## Results — executed 2026-10-29 on Charles's Mac
+
+Run from worktree `hero-market-revalidate` @ `04cf52de`, script invoked
+with checkout `/Users/user/Desktop/hero-factory-marketplace/hero-market`.
+Node v24.15.0, npm 11.12.1. Full output in `revalidation.log` in the
+worktree directory. Outcome: **PASS**.
 
 | Step | Command | Result |
 | --- | --- | --- |
-| Checkout / remote / Node / SHA | script steps 1–3 | NOT RUN |
-| Target `npm ci` | script step 4 | NOT RUN |
-| Target `npm run build` | script step 4 | NOT RUN |
-| Target `npm test` (6 tests) | script step 4 | NOT RUN |
-| Root mobile/cookie suites | script step 4 | NOT RUN |
-| Runtime audit | script step 5 | NOT RUN |
+| Checkout / remote / Node / SHA | script steps 1–3 | PASS — origin verified, Node v24.15.0, isolated worktree HEAD `e26b3dd…`, clean |
+| Target `npm ci` | script step 4 | PASS — 59 packages added, 60 audited, 0 vulnerabilities |
+| Target `npm run build` | script step 4 | PASS — Next.js 16.4.3 (webpack); compiled successfully; TypeScript finished; 6 routes (/, /_not-found, /api/mobile/session, /mobile, /mobile/icon.png, /mobile/terms) |
+| Target `npm test` (6 tests) | script step 4 | PASS — 6 pass, 0 fail |
+| Root mobile/cookie suites | script step 4 | PASS — 17 pass, 0 fail (`node --test tests/mobile/*.test.cjs`) |
+| Runtime audit | script step 5 | PASS (recorded) — 0 vulnerabilities at every severity |
 
-No results are recorded yet: this environment has no checkout and cannot
-execute the script (private-repo clone needs the caller's credentials).
-When the script is run, paste its `=== REVALIDATION RESULT ===` block and
-any failure output here (or report it in chat) and this table will be
-updated from the actual output. Do not mark any step passed from the
-earlier validation pass: that pass ran against the working tree on top of
-base `c2a5b069`, before the target was committed, and is reported — not
-re-executed — in `docs/mobile/MOBILE-PREVIEW-VALIDATION.md`.
+`prepare:source` reported 28 verified sources/assets copied unchanged.
+Count note: this run observed 17 tests under `tests/mobile/*.test.cjs`.
+The earlier validation pass recorded its mobile/cookie figures as 18
+mobile checks + 3 cookie checks; the counting basis differs and was not
+reconciled here. What this run establishes is its own observed count:
+17 tests, all passing, against the exact committed revision.
 
 ## Out of scope for this record
 
@@ -62,4 +65,5 @@ Vercel remote build, protected URL, environment configuration, database
 target, real member login, and phone/device checks remain separate live
 checks (see `docs/mobile/DELIVERY-PHASES.md`). The whole-website build
 remains blocked and is not re-validated by this script. The purchase
-safeguard is a separate draft change; it does not alter the target.
+safeguard is a separate draft change; its tests were not run by this
+script and remain NOT RUN.
