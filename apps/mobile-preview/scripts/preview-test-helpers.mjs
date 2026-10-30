@@ -138,12 +138,33 @@ export function confirmSeedTarget(parsed, confirmedHost, confirmedDatabase) {
   }
 }
 
+/**
+ * True only for plainly dangerous grants. Parsed per GRANT row:
+ * - `USAGE` alone (including `GRANT USAGE ON *.*`) means NO privileges
+ *   and is NOT dangerous. A bare `ON *.*` check would falsely reject
+ *   it — USAGE must be distinguished from actual global privileges.
+ * - Any other privilege on the global scope (`ON *.*`), including a
+ *   bare `SELECT ON *.*`, IS dangerous: it reads every database.
+ * - `ALL PRIVILEGES`, `GRANT OPTION`, and FILE/SUPER/SHUTDOWN/RELOAD/
+ *   DROP/CREATE USER are dangerous on any scope.
+ * - Lines without an ON clause (e.g. role grants) carry no privileges
+ *   and are ignored. Unparseable privilege lists fail open here on
+ *   purpose: this is a best-effort check, and provisioning-time
+ *   restriction is the real control. */
 export function grantsLookDangerous(grantsText) {
-  const text = String(grantsText || '').toUpperCase();
-  if (/\bALL PRIVILEGES\b/.test(text)) return true;
-  if (/\bGRANT OPTION\b/.test(text)) return true;
-  if (/\sON\s+\*\.\*/.test(text)) return true;
-  if (/\b(FILE|SUPER|SHUTDOWN|RELOAD|DROP|CREATE USER)\b/.test(text)) return true;
+  const rows = String(grantsText || '').split('\n').map((r) => r.trim()).filter(Boolean);
+  for (const row of rows) {
+    const upper = row.toUpperCase();
+    const match = /^GRANT\s+(.+?)\s+ON\s+(.+?)\s+TO\s+/i.exec(row);
+    if (!match) continue;
+    const privileges = match[1].trim().toUpperCase();
+    const scope = match[2].trim();
+    if (/\bGRANT OPTION\b/.test(upper)) return true;
+    if (/\bALL PRIVILEGES\b/.test(privileges)) return true;
+    if (privileges === 'USAGE') continue;
+    if (/\b(FILE|SUPER|SHUTDOWN|RELOAD|DROP|CREATE USER)\b/.test(privileges)) return true;
+    if (scope === '*.*') return true;
+  }
   return false;
 }
 
@@ -158,13 +179,45 @@ export function diffColumns(present, expected) {
 
 // ------------------------------------------------------- credentials file
 
-/** Resolve a credentials-file path and report whether it lies inside
- * the repository (scriptDir is .../apps/mobile-preview/scripts). */
-export function credentialsPathInfo(fileArg, scriptDir) {
+import { lstat, realpath } from 'node:fs/promises';
+
+/**
+ * Resolve a credentials-file destination, following symlinks: the
+ * PARENT directory is resolved with realpath (the file itself may not
+ * exist yet), and the result is compared against the real repository
+ * root. `exists` reports whether ANY directory entry (file, symlink,
+ * dangling symlink) already sits at the destination — callers must
+ * refuse it and create with exclusive ('wx') mode instead of
+ * check-then-write. Throws when the parent directory does not exist. */
+export async function resolveCredentialsDestination(fileArg, scriptDir) {
   const resolved = path.resolve(fileArg);
+  const base = path.basename(resolved);
+  if (!base) throw new Error('Credentials file path must name a file, not a directory.');
+  const parent = path.dirname(resolved);
+  let realParent;
+  try {
+    realParent = await realpath(parent);
+  } catch {
+    throw new Error(`Credentials file parent directory does not exist: ${parent}. Create it first, outside the repository.`);
+  }
+  const realDest = path.join(realParent, base);
   const repoRoot = path.resolve(scriptDir, '..', '..', '..');
-  const insideRepo = resolved === repoRoot || resolved.startsWith(repoRoot + path.sep);
-  return { resolved, repoRoot, insideRepo };
+  const realRepoRoot = await realpath(repoRoot);
+  const insideRepo = realDest === realRepoRoot || realDest.startsWith(realRepoRoot + path.sep);
+  let exists = false;
+  try {
+    await lstat(realDest);
+    exists = true;
+  } catch (error) {
+    if (error && error.code !== 'ENOENT') throw error;
+  }
+  return { realDest, realRepoRoot, insideRepo, exists };
+}
+
+/** Refusal message for unexpected existing rows. Count only — never
+ * print an existing account's email or any row contents. */
+export function unexpectedRowsMessage(count) {
+  return `pre-flight refused: ${count} existing account row(s) outside the synthetic set. Refusing to delete or insert anything. Confirm the target database first.`;
 }
 
 /** Render credentials for output. In file mode the passwords are NEVER

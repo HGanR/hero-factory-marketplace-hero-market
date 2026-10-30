@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHmac } from 'node:crypto';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
@@ -27,12 +27,13 @@ import { fileURLToPath } from 'node:url';
 import {
   CookieJar,
   confirmSeedTarget,
-  credentialsPathInfo,
   diffColumns,
   formatCredentialsOutput,
   grantsLookDangerous,
   mintTestToken,
   parseSeedTarget,
+  resolveCredentialsDestination,
+  unexpectedRowsMessage,
   validateCheckerTarget,
   validateMissingUserId,
   verifyTestToken,
@@ -41,6 +42,7 @@ import {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SEED_SCRIPT = path.join(HERE, '..', 'scripts', 'seed-test-database.mjs');
 const CHECK_SCRIPT = path.join(HERE, '..', 'scripts', 'check-preview-accounts.mjs');
+const VERIFY_SCRIPT = path.join(HERE, '..', 'scripts', 'verify-missing-user-id.mjs');
 const FIXTURE_SECRET = 'preview-guards-test-secret';
 const GENERIC_FAILURE = 'Sign-in failed. Check your credentials and account approval.';
 const SESSION_EXPIRED = 'Your session has expired. Please sign in again.';
@@ -134,10 +136,20 @@ test('confirmSeedTarget: exact match required, substring rules rejected', () => 
   confirmSeedTarget(parsed, '127.0.0.1', 'hero-market-test');
 });
 
-test('grantsLookDangerous: dangerous vs restricted grants', () => {
-  assert.equal(grantsLookDangerous("GRANT SELECT, UPDATE ON `testdb`.`marketplace_users` TO 'u'@'%'"), false);
-  assert.equal(grantsLookDangerous("GRANT ALL PRIVILEGES ON *.* TO 'u'@'%'"), true);
-  assert.equal(grantsLookDangerous("GRANT SELECT, INSERT, DELETE, CREATE ON `testdb`.* TO 'u'@'%' WITH GRANT OPTION"), true);
+test('grantsLookDangerous: USAGE is not a privilege; global scope is', () => {
+  // Charles's reproduction: USAGE ON *.* must NOT be dangerous.
+  assert.equal(grantsLookDangerous("GRANT USAGE ON *.* TO 'u'@'%'"), false);
+  assert.equal(grantsLookDangerous("GRANT USAGE ON *.* TO 'u'@'%'\nGRANT SELECT, INSERT, DELETE ON `testdb`.* TO 'u'@'%'"), false);
+  // Any other privilege on the global scope IS dangerous.
+  assert.equal(grantsLookDangerous("GRANT SELECT ON *.* TO 'u'@'%'"), true);
+  assert.equal(grantsLookDangerous("GRANT ALL PRIVILEGES ON `testdb`.* TO 'u'@'%'"), true);
+  assert.equal(grantsLookDangerous("GRANT SELECT ON `testdb`.* TO 'u'@'%' WITH GRANT OPTION"), true);
+  assert.equal(grantsLookDangerous("GRANT FILE ON *.* TO 'u'@'%'"), true);
+  assert.equal(grantsLookDangerous("GRANT DROP ON `testdb`.* TO 'u'@'%'"), true);
+  // Restricted test credential: fine.
+  assert.equal(grantsLookDangerous("GRANT SELECT, INSERT, DELETE ON `testdb`.`marketplace_users` TO 'u'@'%'"), false);
+  // Role grants carry no privileges.
+  assert.equal(grantsLookDangerous("GRANT `app_read` TO 'u'@'%'"), false);
   assert.equal(grantsLookDangerous(''), false);
 });
 
@@ -151,13 +163,37 @@ test('diffColumns: missing refused, extras warned', () => {
 
 // ------------------------------------------------------- credentials file
 
-test('credentialsPathInfo: inside-repo paths are flagged', () => {
-  const scriptDir = path.join(HERE, '..', 'scripts');
-  const repoRoot = path.resolve(scriptDir, '..', '..', '..');
-  const inside = credentialsPathInfo(path.join(repoRoot, 'creds.json'), scriptDir);
-  assert.equal(inside.insideRepo, true);
-  const outside = credentialsPathInfo(path.join(os.tmpdir(), 'creds.json'), scriptDir);
-  assert.equal(outside.insideRepo, false);
+test('resolveCredentialsDestination: symlinks resolved, inside-repo flagged, existing flagged', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'preview-guards-dest-'));
+  try {
+    const realRepo = path.join(dir, 'repo');
+    const scriptDir = path.join(realRepo, 'apps', 'mobile-preview', 'scripts');
+    await mkdir(scriptDir, { recursive: true });
+    const outside = path.join(dir, 'outside');
+    await mkdir(outside);
+    await symlink(realRepo, path.join(dir, 'link-in'));
+    const inside = await resolveCredentialsDestination(path.join(dir, 'link-in', 'creds.json'), scriptDir);
+    assert.equal(inside.insideRepo, true);
+    assert.equal(inside.exists, false);
+    await symlink(outside, path.join(dir, 'link-out'));
+    const out = await resolveCredentialsDestination(path.join(dir, 'link-out', 'creds.json'), scriptDir);
+    assert.equal(out.insideRepo, false);
+    assert.equal(out.exists, false);
+    // A dangling symlink at the destination itself counts as existing.
+    await symlink(path.join(dir, 'nope-target'), path.join(outside, 'dangling.json'));
+    const dangling = await resolveCredentialsDestination(path.join(outside, 'dangling.json'), scriptDir);
+    assert.equal(dangling.exists, true);
+    // Missing parent directory is an error, not a silent default.
+    await assert.rejects(() => resolveCredentialsDestination(path.join(dir, 'no-such-dir', 'creds.json'), scriptDir), /parent directory does not exist/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('unexpectedRowsMessage: count only, never row contents', () => {
+  const msg = unexpectedRowsMessage(3);
+  assert.match(msg, /3 existing account/);
+  assert.equal(msg.includes('@'), false);
 });
 
 test('formatCredentialsOutput: file mode never prints passwords', () => {
@@ -213,6 +249,51 @@ test('seed CLI: rejected targets cause zero database activity', async () => {
     assert.notEqual(r.code, 0);
     assert.match(r.stderr, /inside the repository/);
     assert.equal(count(), 0, 'rejected seed targets must open zero connections');
+  } finally {
+    server.close();
+  }
+});
+
+test('seed CLI: existing or symlinked-inside credentials file refused with zero activity', async () => {
+  const { server, port, count } = await countingTcpServer();
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'preview-guards-creds-'));
+  try {
+    const url = `mysql://tester:pw@127.0.0.1:${port}/testdb`;
+    const baseArgs = ['--apply', '--confirmed-host', `127.0.0.1:${port}`, '--confirmed-database', 'testdb'];
+    // Pre-existing file: refused, contents untouched, zero connections.
+    const existing = path.join(dir, 'creds.json');
+    await writeFile(existing, 'sentinel');
+    let r = await runCli(SEED_SCRIPT, [...baseArgs, '--write-credentials-file', existing], { TEST_DATABASE_URL: url });
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /already exists/);
+    assert.equal(await readFile(existing, 'utf8'), 'sentinel');
+    // Symlinked directory resolving inside the repository: refused.
+    const repoRoot = path.resolve(HERE, '..', '..', '..');
+    await symlink(repoRoot, path.join(dir, 'link-in'));
+    r = await runCli(SEED_SCRIPT, [...baseArgs, '--write-credentials-file', path.join(dir, 'link-in', '__guard_test_creds.json')], { TEST_DATABASE_URL: url });
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /inside the repository/);
+    assert.equal(count(), 0, 'refused seed targets must open zero connections');
+  } finally {
+    server.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('verifier CLI: rejected targets cause zero database activity', async () => {
+  const { server, port, count } = await countingTcpServer();
+  try {
+    const url = `mysql://reader:pw@127.0.0.1:${port}/testdb`;
+    let r = await runCli(VERIFY_SCRIPT, ['--user-id', '999999999', '--confirmed-host', `127.0.0.1:${port}`, '--confirmed-database', 'wrongdb'], { TEST_READONLY_DATABASE_URL: url });
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /does not match/);
+    r = await runCli(VERIFY_SCRIPT, ['--user-id', '999999999', '--confirmed-host', `127.0.0.1:${port}`, '--confirmed-database', 'testdb'], {});
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /TEST_READONLY_DATABASE_URL is not set/);
+    r = await runCli(VERIFY_SCRIPT, ['--user-id', 'not-a-number', '--confirmed-host', `127.0.0.1:${port}`, '--confirmed-database', 'testdb'], { TEST_READONLY_DATABASE_URL: url });
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /positive integer/);
+    assert.equal(count(), 0, 'rejected verifier targets must open zero connections');
   } finally {
     server.close();
   }
@@ -339,13 +420,34 @@ test('checker CLI: full pass against a fake preview (jar switching + logout)', a
     const r = await runCli(CHECK_SCRIPT, [
       '--base-url', base, '--confirmed-origin', base,
       '--credentials-file', creds, '--missing-user-id', '999999999',
-      '--allow-insecure-loopback',
+      '--missing-user-verified', '--allow-insecure-loopback',
     ], { PREVIEW_JWT_SECRET: FIXTURE_SECRET });
     assert.equal(r.code, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
     for (const line of ['profile changed to user-02', 'profile changed back to user-01', 'logout clears the cookie', 'profile after logout (no cookie sent)', 'missing-user session', 'expired token', '0 failed, 0 skipped']) {
       assert.match(r.stdout, new RegExp(line.replace(/[()]/g, '\\$&')), `missing line: ${line}`);
     }
     assert.equal(seenHeaders.some((h) => h.headers['x-vercel-protection-bypass']), false);
+  } finally {
+    server.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('checker CLI: missing-user case skips without the verified flag', async () => {
+  const { server } = fakePreviewServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'preview-guards-'));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const creds = await writeFixtureCredentials(dir);
+    const r = await runCli(CHECK_SCRIPT, [
+      '--base-url', base, '--confirmed-origin', base,
+      '--credentials-file', creds, '--missing-user-id', '999999999',
+      '--allow-insecure-loopback',
+    ], { PREVIEW_JWT_SECRET: FIXTURE_SECRET });
+    assert.equal(r.code, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
+    assert.match(r.stdout, /SKIP\s+missing-user session/);
+    assert.match(r.stdout, /1 skipped/);
   } finally {
     server.close();
     await rm(dir, { recursive: true, force: true });

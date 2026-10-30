@@ -23,45 +23,48 @@
  *   exactly. Substring rules are not used: rejecting names containing
  *   "prod" would still allow a production database name.
  * - Before deleting or inserting anything, the script refuses when the
- *   table holds account rows outside the synthetic set (unless
- *   --allow-existing-rows is passed). A production database full of
- *   real accounts is therefore refused even if the URL checks were
- *   somehow bypassed.
+ *   table holds account rows outside the synthetic set. There is no
+ *   escape hatch: a database with unexpected rows is never seeded by
+ *   this script. Refusals print a row COUNT only, never an existing
+ *   account's email or row contents.
  * - The seed credential is expected to be restricted (see
  *   docs/mobile/PREVIEW-TEST-DATABASE.md). As a best-effort check the
- *   script reads SHOW GRANTS and refuses on plainly dangerous grants;
- *   an unreadable grant list warns and continues — provisioning-time
- *   restriction is the real control.
+ *   script reads SHOW GRANTS and refuses on plainly dangerous grants
+ *   (USAGE alone is not dangerous); an unreadable grant list warns and
+ *   continues — provisioning-time restriction is the real control.
  * - TLS follows the website's own rule in
  *   src/lib/db/mysql2-connection-options.ts: TiDB Cloud hosts
  *   (tidbcloud / .tidb.io) and TEST_DATABASE_SSL=1/true/required force
  *   TLS with rejectUnauthorized.
- * - Passwords are printed ONCE to stdout only when no credentials file
- *   is requested. In file mode the passwords are never printed; the
- *   file must not already exist and must lie outside the repository.
+ * - Credentials file: the destination is resolved through symlinks and
+ *   must lie outside the repository; the file is created EXCLUSIVELY
+ *   ('wx', mode 0600) BEFORE any database change, so no check-then-
+ *   write race can overwrite a file created in between, and a failed
+ *   run removes the empty file it created. In file mode the passwords
+ *   are never printed; without a file they print ONCE to stdout.
  *   Passwords must never be committed to Git or pasted into chat.
  *
  * Usage (from apps/mobile-preview, after `npm ci`):
  *   node scripts/seed-test-database.mjs [--apply-schema]
  *     [--apply --confirmed-host <host> --confirmed-database <name>
- *      [--allow-existing-rows] [--write-credentials-file <path-outside-the-repo>]]
+ *      [--write-credentials-file <path-outside-the-repo>]]
  * Without --apply: dry run only — prints the plan, connects to nothing.
  * With --apply-schema: applies test-schema.sql first (same connection).
  * Requires: TEST_DATABASE_URL.
  */
 
-import { access, chmod, readFile, writeFile } from 'node:fs/promises';
-import { constants as fsConstants } from 'node:fs';
+import { chmod, open, readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   confirmSeedTarget,
-  credentialsPathInfo,
   diffColumns,
   formatCredentialsOutput,
   generateTestPassword,
   grantsLookDangerous,
   parseSeedTarget,
+  resolveCredentialsDestination,
+  unexpectedRowsMessage,
 } from './preview-test-helpers.mjs';
 
 const SYNTHETIC_ACCOUNTS = [
@@ -80,15 +83,14 @@ function fail(message, code = 2) {
 }
 
 function parseArgs(argv) {
-  const args = { apply: false, applySchema: false, confirmedHost: null, confirmedDatabase: null, allowExistingRows: false, credentialsFile: null };
+  const args = { apply: false, applySchema: false, confirmedHost: null, confirmedDatabase: null, credentialsFile: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--apply') args.apply = true;
     else if (argv[i] === '--apply-schema') args.applySchema = true;
-    else if (argv[i] === '--allow-existing-rows') args.allowExistingRows = true;
     else if (argv[i] === '--confirmed-host') args.confirmedHost = argv[++i];
     else if (argv[i] === '--confirmed-database') args.confirmedDatabase = argv[++i];
     else if (argv[i] === '--write-credentials-file') args.credentialsFile = argv[++i];
-    else fail(`unknown argument: ${argv[i]}\nUsage: node scripts/seed-test-database.mjs [--apply-schema] [--apply --confirmed-host <host> --confirmed-database <name> [--allow-existing-rows] [--write-credentials-file <path>]]`);
+    else fail(`unknown argument: ${argv[i]}\nUsage: node scripts/seed-test-database.mjs [--apply-schema] [--apply --confirmed-host <host> --confirmed-database <name> [--write-credentials-file <path>]]`);
   }
   return args;
 }
@@ -120,36 +122,46 @@ async function main() {
   } catch (error) {
     fail(error.message, 3);
   }
-  let credentialsPath = null;
+  let credentialsDest = null;
   if (args.credentialsFile) {
     const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-    const info = credentialsPathInfo(args.credentialsFile, scriptDir);
-    if (info.insideRepo) fail(`refusing credentials file inside the repository: ${info.resolved} (repository root: ${info.repoRoot}).`);
     try {
-      await access(info.resolved, fsConstants.F_OK);
-      fail(`refusing to overwrite existing credentials file: ${info.resolved}`);
+      credentialsDest = await resolveCredentialsDestination(args.credentialsFile, scriptDir);
     } catch (error) {
-      if (error && error.code !== 'ENOENT') throw error;
+      fail(error.message, 3);
     }
-    credentialsPath = info.resolved;
+    if (credentialsDest.insideRepo) fail(`refusing credentials file inside the repository: ${credentialsDest.realDest} (repository root: ${credentialsDest.realRepoRoot}).`, 3);
+    if (credentialsDest.exists) fail(`refusing credentials file: a file already exists at ${credentialsDest.realDest}. Remove it yourself or choose another path.`, 3);
   }
   console.log(`\nSeeding host=${parsed.host}:${parsed.port} database=${parsed.database} (password never logged).`);
 
-  // Guards passed: only now load third-party packages and connect.
+  // Guards passed: only now load third-party packages.
   const [{ default: bcrypt }, mysql] = await Promise.all([
     import('bcryptjs'),
     import('mysql2/promise'),
   ]);
-  const connection = await mysql.createConnection({
-    host: parsed.host,
-    port: parsed.port,
-    user: parsed.user,
-    password: decodeURIComponent(new URL(rawUrl.includes('://') ? rawUrl : `mysql://${rawUrl}`).password || ''),
-    database: parsed.database,
-    ssl: parsed.forceSsl ? { rejectUnauthorized: true } : undefined,
-    multipleStatements: Boolean(args.applySchema),
-  });
+
+  let connection = null;
+  let credHandle = null;
+  let wroteCredentials = false;
   try {
+    // Establish the private output file BEFORE any database change.
+    // Exclusive creation ('wx') closes the check-then-write race: if
+    // anything appears at the destination first, open fails here and
+    // no database work happens.
+    if (credentialsDest) {
+      credHandle = await open(credentialsDest.realDest, 'wx', 0o600);
+    }
+    connection = await mysql.createConnection({
+      host: parsed.host,
+      port: parsed.port,
+      user: parsed.user,
+      password: decodeURIComponent(new URL(rawUrl.includes('://') ? rawUrl : `mysql://${rawUrl}`).password || ''),
+      database: parsed.database,
+      ssl: parsed.forceSsl ? { rejectUnauthorized: true } : undefined,
+      multipleStatements: Boolean(args.applySchema),
+    });
+
     // Best-effort restricted-credential check: refuse plainly dangerous
     // grants; an unreadable grant list warns and continues.
     try {
@@ -180,13 +192,11 @@ async function main() {
     for (const c of extra) console.log(`Warning: unexpected extra column "${c}" — proceeding; login selects the whole row.`);
 
     // Isolation: refuse unexpected existing account rows before mutating.
+    // No escape hatch. The refusal prints a count only.
     const [existing] = await connection.query('SELECT `email` FROM `marketplace_users`');
     const syntheticEmails = new Set(SYNTHETIC_ACCOUNTS.map((a) => a.email));
-    const unexpected = existing.map((r) => r.email).filter((e) => !syntheticEmails.has(e));
-    if (unexpected.length > 0 && !args.allowExistingRows) {
-      fail(`pre-flight refused: ${unexpected.length} existing account row(s) outside the synthetic set (e.g. ${unexpected[0]}). Refusing to delete or insert anything. Pass --allow-existing-rows only if that is intended, and confirm the target first.`, 3);
-    }
-    if (unexpected.length > 0) console.log(`Warning: proceeding with ${unexpected.length} pre-existing non-synthetic row(s) (--allow-existing-rows); they will not be touched.`);
+    const unexpectedCount = existing.filter((r) => !syntheticEmails.has(r.email)).length;
+    if (unexpectedCount > 0) fail(unexpectedRowsMessage(unexpectedCount), 3);
 
     const emails = SYNTHETIC_ACCOUNTS.map((a) => a.email);
     const credentials = [];
@@ -224,18 +234,28 @@ async function main() {
     }
     if (rows.length !== SYNTHETIC_ACCOUNTS.length) fail('verification failed: row count mismatch after seeding.', 1);
 
-    if (credentialsPath) {
-      await writeFile(credentialsPath, JSON.stringify({ accounts: credentials }, null, 2), { mode: 0o600 });
-      await chmod(credentialsPath, 0o600);
+    if (credHandle) {
+      await credHandle.writeFile(JSON.stringify({ accounts: credentials }, null, 2));
+      await chmod(credentialsDest.realDest, 0o600);
+      await credHandle.close();
+      credHandle = null;
+      wroteCredentials = true;
       console.log('\nCREDENTIALS — written to file only, passwords NOT printed:');
       console.log(formatCredentialsOutput(credentials, { toFile: true }));
-      console.log(`File: ${credentialsPath} (mode 0600). Keep it outside the repository.`);
+      console.log(`File: ${credentialsDest.realDest} (mode 0600). Keep it outside the repository.`);
     } else {
       console.log('\nCREDENTIALS — shown once. Store them in a password manager; never commit them or paste them into chat:');
       console.log(formatCredentialsOutput(credentials, { toFile: false }));
     }
+  } catch (error) {
+    // A failed run must not leave a half-written credentials file behind.
+    if (credHandle && !wroteCredentials) {
+      await credHandle.close().catch(() => {});
+      if (credentialsDest) await unlink(credentialsDest.realDest).catch(() => {});
+    }
+    throw error;
   } finally {
-    await connection.end();
+    if (connection) await connection.end().catch(() => {});
   }
 }
 
