@@ -12,7 +12,7 @@ const pkg = JSON.parse(await readFile(path.join(app, 'package.json'), 'utf8'));
 const manifest = { schema: 'mobile-preview-source-v1', files: {}, packages: [] };
 const external = new Set();
 const visited = new Set();
-const entries = ['src/app/mobile/route.ts', 'src/app/mobile/terms/route.ts', 'src/app/mobile/icon.png/route.ts', 'src/app/api/mobile/session/route.ts'];
+const entries = ['src/app/mobile/route.ts', 'src/app/mobile/terms/route.ts', 'src/app/mobile/icon.png/route.ts', 'src/app/api/mobile/session/route.ts', 'src/app/api/mobile/terms/route.ts'];
 
 // Copy the actual dependency closure. No auth/database replacement or generated handlers.
 async function visit(relative) {
@@ -55,3 +55,4 @@ for (const relative of publicFiles) {
 manifest.packages = [...external].sort();
 await writeFile(path.join(app, 'source-manifest.json'), JSON.stringify(manifest,null,2)+'\n');
 console.log(`Prepared ${Object.keys(manifest.files).length} verified source/assets; website login and database code copied unchanged.`);
+

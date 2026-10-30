@@ -10,7 +10,7 @@ const app=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 async function withServer(env, check) {
  const socket=net.createServer();socket.listen(0,'127.0.0.1');await once(socket,'listening');
  const port=socket.address().port;await new Promise(r=>socket.close(r));
- const clean={...process.env};for(const name of ['DATABASE_URL','JWT_SECRET','SMART_TRUST_MOBILE_ENABLED','AUTH_COOKIE_DOMAIN','SMART_TRUST_MOBILE_SESSION_COOKIE','SMART_TRUST_MOBILE_ADMIN_LOGIN'])delete clean[name];
+ const clean={...process.env};for(const name of ['DATABASE_URL','JWT_SECRET','SMART_TRUST_MOBILE_ENABLED','AUTH_COOKIE_DOMAIN','SMART_TRUST_MOBILE_SESSION_COOKIE','SMART_TRUST_MOBILE_ADMIN_LOGIN','SMART_TRUST_MOBILE_TERMS_REQUIRED'])delete clean[name];
  const child=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',String(port)],{cwd:app,env:{...clean,...env},stdio:['ignore','pipe','pipe']});
  const origin=`http://localhost:${port}`;
  try {
@@ -68,4 +68,16 @@ test('administrator mode keeps origin checks and clears only private mobile cook
  assert.ok(cookies.some(c=>c.startsWith('__Host-smart-trust-mobile-admin=')));
  for(const cookie of cookies){assert.match(cookie,/HttpOnly/i);assert.match(cookie,/Secure/i);assert.match(cookie,/Max-Age=0/i);assert.doesNotMatch(cookie,/Domain=/i);}
 }));
+
+test('terms acceptance route remains gated and draft publication cannot be bypassed',async()=>{
+ await withServer({SMART_TRUST_MOBILE_ENABLED:'true',JWT_SECRET:'terms-fixture'},async base=>assert.equal((await fetch(base+'/api/mobile/terms',{method:'POST'})).status,404));
+ await withServer({SMART_TRUST_MOBILE_ENABLED:'true',JWT_SECRET:'terms-fixture',SMART_TRUST_MOBILE_TERMS_REQUIRED:'true'},async base=>{
+  const token=jwt.sign({userId:7},'terms-fixture',{algorithm:'HS256',expiresIn:60});
+  const headers={origin:base,'content-type':'application/json',cookie:'auth-token='+token};
+  assert.equal((await fetch(base+'/api/mobile/terms',{method:'POST',headers:{...headers,origin:'https://unrelated.example'},body:'{}'})).status,403);
+  assert.equal((await fetch(base+'/api/mobile/terms',{method:'POST',headers,body:'{}'})).status,503);
+  const admin=jwt.sign({userId:7,isAdmin:true},'terms-fixture',{algorithm:'HS256',expiresIn:60});
+  assert.equal((await fetch(base+'/api/mobile/terms',{method:'POST',headers:{...headers,cookie:'auth-token='+admin},body:'{}'})).status,401);
+ });
+});
 

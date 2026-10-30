@@ -20,9 +20,10 @@ test('every packaged source and asset matches the website bytes',async()=>{
 });
 test('only the gated mobile API is exposed; shared website login remains an internal dependency',async()=>{
  const routes=await readdir(path.join(app,'app'),{recursive:true});
- assert.deepEqual(routes.filter(p=>p.endsWith('route.ts')).sort(),['api/mobile/session/route.ts','mobile/icon.png/route.ts','mobile/route.ts','mobile/terms/route.ts','route.ts']);
+ assert.deepEqual(routes.filter(p=>p.endsWith('route.ts')).sort(),['api/mobile/session/route.ts','api/mobile/terms/route.ts','mobile/icon.png/route.ts','mobile/route.ts','mobile/terms/route.ts','route.ts']);
  assert.match(await readFile(path.join(app,'app/api/mobile/session/route.ts'),'utf8'), /@\/app\/api\/mobile\/session\/route/);
 });
 test('production target is refused before build',()=>{
  assert.throws(()=>execFileSync(process.execPath,['--input-type=module','-e',"import('./next.config.mjs')"],{cwd:app,env:{...process.env,VERCEL_ENV:'production'},stdio:'pipe'}),/protected Preview deployments only/);
 });
+

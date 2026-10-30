@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
-import { getDb } from "@/lib/db";
+import { getDb, getConnection } from "@/lib/db";
 import { marketplaceUsers } from "@/lib/db/schema";
 import { mysqlTruthy } from "@/lib/mysqlTruthy";
 import { sessionCookieBase, cookieHostFromRequest } from "@/lib/auth-cookie-options";
 import { POST as websiteLogin } from "@/app/api/marketplace/login/route";
 import { mobileMemberId, mobileSameOrigin, mobileCredentials } from "@/lib/mobile/session-policy";
 import { checkMobileAdministrator, signInMobileAdministrator, mobileAdminCookie } from "@/lib/mobile/admin-session";
+import { activeMemberTerms } from "@/lib/mobile/terms-document";
+import { findTermsReceipt } from "@/lib/mobile/terms-acceptance";
 export const dynamic = "force-dynamic";
 // A separate host-only cookie avoids collisions with website cookies on .troothhurtz.app.
 // Leave unset on the canonical website to retain its existing session behavior.
@@ -21,6 +23,7 @@ function reply(body: object, status = 200) {
   return NextResponse.json(body, {status, headers: {"Cache-Control": "no-store", "Vary": "Cookie"}});
 }
 function adminEnabled() { return process.env.SMART_TRUST_MOBILE_ADMIN_LOGIN === "true"; }
+function termsRequired() { return process.env.SMART_TRUST_MOBILE_TERMS_REQUIRED === "true"; }
 const privateCookieOptions = {httpOnly: true as const, secure: true, sameSite: "lax" as const, path: "/"};
 function unavailable() {
   if (process.env.SMART_TRUST_MOBILE_ENABLED !== "true") return reply({error: "Mobile is not enabled."}, 404);
@@ -48,6 +51,13 @@ export async function GET(request: NextRequest) {
       isActive: marketplaceUsers.isActive, isApproved: marketplaceUsers.isApproved})
       .from(marketplaceUsers).where(eq(marketplaceUsers.id, id)).limit(1);
     if (!user || !mysqlTruthy(user.isActive) || !mysqlTruthy(user.isApproved)) return reply({error: "Account access is unavailable. Contact website support."}, 403);
+    if (termsRequired()) {
+      const document = activeMemberTerms();
+      if (!document) return reply({access: "terms_unavailable", message: "Member terms are being finalized. Profile access is not available yet."});
+      const receipt = await findTermsReceipt(await getConnection(), id, document);
+      if (!receipt) return reply({access: "terms_required", terms: {version: document.version, sha256: document.sha256, title: document.title, url: "/mobile/terms"}});
+      return reply({user: {id: user.id, username: user.username, email: user.email, walletAddress: user.walletAddress}, termsAcceptance: receipt});
+    }
     return reply({user: {id: user.id, username: user.username, email: user.email, walletAddress: user.walletAddress}});
   } catch { return reply({error: "Account service is unavailable. Please retry."}, 503); }
 }
@@ -75,11 +85,11 @@ export async function POST(request: NextRequest) {
     method: "POST", headers: request.headers, body: JSON.stringify(credentials)
   }));
   if (!response.ok) return reply({error: response.status >= 500 ? "Account service is unavailable." : "Sign-in failed. Check your credentials and account approval."}, response.status);
-  if (mobileCookieName !== "auth-token") {
+  if (mobileCookieName !== "auth-token" || termsRequired()) {
     const cookie = response.cookies.get("auth-token");
     if (!cookie?.value) return reply({error: "Account session could not be established."}, 503);
     // Keep the token server-side. Do not forward a website-domain Set-Cookie header.
-    const mobileResponse = reply(await response.json());
+    const mobileResponse = reply(termsRequired() ? {success: true} : await response.json());
     mobileResponse.cookies.set(mobileCookieName, cookie.value, {
       ...mobileCookieOptions(request), maxAge: 60 * 60 * 24 * 7,
     });
