@@ -1,8 +1,10 @@
 # Protected mobile preview — deployment checklist (DRAFT, not executed)
 
 Prepared 2026-10-29 by Aura from the committed target (`apps/mobile-preview`),
-its README, and `docs/mobile/DELIVERY-PHASES.md`. Nothing in this checklist
-has been created, configured, or deployed yet. No secret values appear here:
+its README, and `docs/mobile/DELIVERY-PHASES.md`. Corrected 2026-10-29 per
+Charles's review (protection-check order; synthetic test credentials; session
+vs account expiry; payment wording). Nothing in this checklist has been
+created, configured, or deployed yet. No secret values appear here:
 environment-variable names only. This checklist deploys a Preview only. It
 does not merge, promote to production, change the live website, or enable
 payments.
@@ -50,12 +52,13 @@ another repository; do NOT redeploy it from this work.
 - [ ] After the preview project exists: re-open the live project's settings
       and confirm Root Directory and domains are unchanged.
 
-## 4. Deployment Protection (before any account testing)
+## 4. Deployment Protection (enable before deploying; verify after the URL exists)
 
 - [ ] Deployment Protection: ENABLED (Vercel Authentication) on the new
-      project, before the preview URL is used with any account.
-- [ ] Verify: opening the preview URL without Vercel authentication shows
-      the Vercel auth challenge, not the app.
+      project BEFORE deploying, when the project is created/configured.
+- [ ] Verify AFTER the Preview URL exists, and BEFORE testing any
+      account: opening the preview URL without Vercel authentication
+      shows the Vercel auth challenge, not the app.
 
 ## 5. Environment variables (Preview environment only — names only)
 
@@ -78,12 +81,18 @@ third-party keys: the target exposes no purchase, email, or admin surface.
 
 - [ ] Provision a SEPARATE MySQL database for preview testing. It must not
       be the production member database.
-- [ ] Load the website schema and password-hash format. Preserve actual
-      password hashes and the active/approved flags. Do not reset
-      passwords. Do not create a second membership system.
-- [ ] Create NON-PRODUCTION test accounts only, covering: active+approved
-      (can sign in), unapproved, inactive, deleted/expired (must be
-      refused). Use clearly fake names, usernames, and emails.
+- [ ] Load the website schema and password-hash format. Do NOT copy any
+      production member's password hash into this test database.
+- [ ] Create SYNTHETIC test accounts only, with newly generated test
+      password hashes in the website's existing format (bcrypt, as the
+      copied login code verifies with bcrypt). Do not reset production
+      passwords. Do not create a second membership system. Cover:
+      active+approved (can sign in), unapproved, inactive, and no
+      password set (the last three must be refused). Use clearly fake
+      names, usernames, and emails. Do NOT seed deleted or expired
+      account states: the application implements neither — the only
+      account checks in the copied login and session code at `e26b3dd`
+      are `isApproved`, `isActive`, and a set `passwordHash`.
 - [ ] Confirm `DATABASE_URL` points at the test database BEFORE the first
       login. Website login updates `lastLogin`, so this is not read-only.
 - [ ] Switching to the real member database later is a separate,
@@ -94,23 +103,32 @@ third-party keys: the target exposes no purchase, email, or admin surface.
 
 - [ ] 1. Create the new project with the Section 2 settings.
 - [ ] 2. Set the Section 5 Preview environment variables.
-- [ ] 3. Enable Deployment Protection (Section 4) and verify the challenge.
+- [ ] 3. Enable Deployment Protection (Section 4) BEFORE deploying.
 - [ ] 4. Trigger a Preview deployment of the feature branch.
 - [ ] 5. Confirm the deployment record's commit SHA is `e26b3dd…` (or the
       reviewed SHA recorded in Section 1).
 - [ ] 6. Confirm the build log shows `prepare:source` packaging the
       sources and a successful Next.js build.
-- [ ] 7. After Vercel authentication, open `/mobile` and confirm the app
+- [ ] 7. Verify the unauthenticated challenge on the Preview URL
+      (Section 4) before testing any account.
+- [ ] 8. After Vercel authentication, open `/mobile` and confirm the app
       serves (flag on). Record the preview URL.
 
 ## 8. Acceptance checks (Phase 1 is not complete until these exist)
 
-Account checks (test accounts only, isolated database):
+Account checks (synthetic test accounts only, isolated database):
 
 - [ ] Correct password signs in; server-checked profile shows (read-only).
 - [ ] Wrong password refused, without revealing whether the account exists
       beyond what the preview already discloses.
-- [ ] Unapproved, inactive, deleted, and expired accounts refused.
+- [ ] Unapproved accounts, inactive accounts, and accounts with no
+      password set are refused. Account expiry is NOT tested: the
+      application implements no account-expiry state.
+- [ ] Expired session/JWT is distinct from account expiry: a token past
+      its 7-day expiry (or otherwise invalid) must return 401 "Your
+      session has expired" on the profile check. Test with an expired
+      test token minted with the preview secret if the test setup can
+      do so; otherwise record it NOT RUN with the reason.
 - [ ] Logout works; account switch works; second-tab revalidation works.
 - [ ] Private responses are not cached (check `no-store` on session/profile
       responses in browser devtools).
@@ -128,9 +146,10 @@ Phone checks (record device, browser, deployment commit, and result):
 ## 9. Limits — what this preview does not do
 
 - The payment safeguard (draft PR #4) is TESTED, not live. Until it is
-  deployed, it does not protect the deployed purchase endpoint. TROO
-  purchases remain disabled pending verified payment handling. This
-  preview exposes no purchase surface and must not be used to test buying.
+  deployed, it does not protect the deployed purchase endpoint. This
+  preview exposes no purchase endpoint. The live website's payment
+  exposure has not been verified, and PR #4's safeguard is not
+  deployed. This preview must not be used to test buying.
 - Production security gates remain open and out of scope here: the
   hardcoded JWT fallback (D3), login enumeration / rate limiting (D4),
   and cross-device session revocation (D5), plus legal/privacy review
