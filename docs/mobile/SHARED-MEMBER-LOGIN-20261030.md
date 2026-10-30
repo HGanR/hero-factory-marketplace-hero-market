@@ -1,6 +1,6 @@
 # Mobile access to existing website member credentials
 
-The owner explicitly authorized connecting mobile to the existing website account source on October 30, 2026. This changes the earlier isolated-database-only preview boundary for the reviewed mobile login branch, not for arbitrary previews.
+The owner requested connecting mobile to the existing website account source on October 30, 2026. Automatic approval review subsequently blocked copying the live DATABASE_URL credential to the separate mobile project: it requires explicit approval for that credential transfer, beyond the shared-login request. The connection has not been configured. The following describes the prepared integration, not an activated shared login.
 
 ## Account behavior
 
@@ -15,7 +15,7 @@ Admin-only credentials are not turned into member credentials. An administrator 
 - Separate Vercel project: smart-trust-mobile-preview.
 - Custom address: https://mobile.troothhurtz.app/.
 - Source branch: feat/mobile-shared-member-login-20261030.
-- Preview-only DATABASE_URL is supplied from the existing hero-market account database configuration and scoped to this specific branch. Do not copy it to other previews or commit its value.
+- Pending explicit approval: supply Preview-only DATABASE_URL from the existing hero-market account database configuration, scoped to this specific branch. This credential grants the app access to the live member database. Do not copy it to other previews or commit its value. No database connection was added after the automatic-review rejection.
 - SMART_TRUST_MOBILE_SESSION_COOKIE=__Host-smart-trust-mobile and SMART_TRUST_MOBILE_ENABLED=true.
 - Retain the mobile project's independent JWT_SECRET. Do not copy ADMIN_PASSWORD, ADMIN_USERNAME, provider keys, the website signing key or AUTH_COOKIE_DOMAIN.
 - Vercel protection stays enabled, including for the custom domain. No production promotion or change to the hero-market project is part of this operation.
