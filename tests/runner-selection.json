@@ -632,7 +632,8 @@
     "src/lib/user-mission-path/build-mission-path-response.spec.ts",
     "src/lib/widget/crm-logger.spec.ts",
     "src/lib/widget/widget-conversation-service.spec.ts",
-    "src/lib/widget/widget-platform.spec.ts"
+    "src/lib/widget/widget-platform.spec.ts",
+    "src/app/api/world-assets/[assetId]/purchase/route.spec.ts"
   ],
   "jestBrowser": [
     "src/components/jarva/JarvaChatNextUiActions.browser.spec.tsx",
