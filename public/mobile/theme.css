@@ -493,3 +493,15 @@ body {
   .device { height: calc(100vh - 2rem); height: calc(100dvh - 2rem); border: 1px solid var(--glass-border); border-radius: 1.5rem; }
 }
 
+
+
+/* Account-backed member profile; phone width and touch targets retained. */
+.member-hero { overflow: hidden; padding-bottom: 12px; }
+.member-banner { height: clamp(140px, 28vw, 200px); position: relative; background: linear-gradient(125deg,#4b3415,#17101f,#6c5423); display: grid; place-items: center; }
+.member-banner img { width: 100%; height: 100%; object-fit: cover; }
+.member-avatar { position: relative; margin: -46px auto 0; width: 96px; height: 96px; border: 4px solid #dfc883; border-radius: 50%; overflow: hidden; background: #1c150b; display: grid; place-items: center; color: #f7ecd2; font-size: 28px; }
+.member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-image-controls { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
+.profile-image-controls .mini-btn { display:inline-flex; align-items:center; justify-content:center; cursor:pointer; min-height:44px; }
+.journey-btn { margin: 16px 0; width:100%; }
+#worldList .mc-row { flex-wrap:wrap; gap:8px; overflow-wrap:anywhere; }

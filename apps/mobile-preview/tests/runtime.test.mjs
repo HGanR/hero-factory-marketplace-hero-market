@@ -81,3 +81,14 @@ test('terms acceptance route remains gated and draft publication cannot be bypas
  });
 });
 
+
+
+test('built member profile route is authenticated, origin checked, and gated with mobile',async()=>{
+ await withServer({},async base=>assert.equal((await fetch(base+'/api/mobile/profile')).status,404));
+ await withServer({SMART_TRUST_MOBILE_ENABLED:'true',JWT_SECRET:'profile-fixture'},async base=>{
+  assert.equal((await fetch(base+'/api/mobile/profile')).status,401);
+  assert.equal((await fetch(base+'/api/mobile/profile',{method:'PATCH',headers:{origin:'https://unrelated.example','content-type':'application/json'},body:'{}'})).status,403);
+  const token=jwt.sign({userId:7},'profile-fixture',{algorithm:'HS256',expiresIn:60});
+  assert.equal((await fetch(base+'/api/mobile/profile',{headers:{cookie:'auth-token='+token}})).status,503);
+ });
+});

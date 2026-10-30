@@ -2,8 +2,18 @@ const $ = id => document.getElementById(id);
 let generation = 0;
 let busy = false;
 let pendingTerms = null;
+let memberWorlds = null;
+let currentMember = null;
 function clearAccount() {
   $('account').hidden = true;
+  currentMember = null; memberWorlds = null;
+  $('profileScreen').hidden = false; $('explorer').hidden = true;
+  $('profileImageControls').hidden = true; $('journeyBtn').hidden = true; $('journeyBtn').disabled = true;
+  $('profileBanner').removeAttribute('src'); $('profileAvatar').removeAttribute('src');
+  $('profileBanner').hidden = true; $('profileAvatar').hidden = true;
+  $('bannerPlaceholder').hidden = false; $('avatarPlaceholder').hidden = false;
+  $('avatarPlaceholder').textContent = ''; $('profileMessage').textContent = '';
+  $('worldList').replaceChildren(); $('worldMessage').textContent = '';
   $('termsGate').hidden = true; $('termsForm').hidden = true;
   $('termsAccepted').checked = false; $('acceptTerms').disabled = true; pendingTerms = null;
   $('termsReceipt').hidden = true; $('termsReceipt').textContent = '';
@@ -48,7 +58,11 @@ async function refreshSession() {
     $('email').textContent = administrator ? 'Website administrator account' : 'Email: ' + user.email;
     $('memberId').textContent = administrator ? 'Account type: Administrator' : 'Account ID: ' + user.id;
     $('wallet').textContent = administrator ? 'Member wallet data is separate from this administrator session.' : user.walletAddress ? 'Saved wallet: ' + user.walletAddress : 'No wallet address saved.';
-    $('account').hidden = false; status(administrator ? 'Website administrator session confirmed.' : 'Website session confirmed.');
+    currentMember = administrator ? null : user.id;
+    $('avatarPlaceholder').textContent = user.username.slice(0, 2).toUpperCase();
+    $('account').hidden = false;
+    if (!administrator) { $('journeyBtn').hidden = false; loadProfile(current); }
+    status(administrator ? 'Website administrator session confirmed.' : 'Website session confirmed.');
     if (!administrator && data.termsAcceptance && typeof data.termsAcceptance.acceptedAt === 'string') {
       $('termsReceipt').textContent = 'Terms '+data.termsAcceptance.version+' accepted (UTC): '+data.termsAcceptance.acceptedAt;
       $('termsReceipt').hidden = false;
@@ -59,6 +73,91 @@ async function refreshSession() {
     status(error.name === 'AbortError' ? 'The server took too long. Please retry.' : error.message);
   }
 }
+function showProfileImages(profile) {
+  // Only raster data saved by the profile endpoint or an HTTPS website avatar thumbnail.
+  const banner = typeof profile.bannerData === 'string' && profile.bannerData.startsWith('data:image/png;base64,') ? profile.bannerData : null;
+  const candidate = profile.avatarData || profile.selectedAvatar?.thumbnailUrl;
+  const avatar = typeof candidate === 'string' && (candidate.startsWith('data:image/png;base64,') || /^https:\/\//.test(candidate)) ? candidate : null;
+  for (const [id, placeholder, src] of [['profileBanner','bannerPlaceholder',banner],['profileAvatar','avatarPlaceholder',avatar]]) {
+    $(id).removeAttribute('src'); $(id).hidden = !src; $(placeholder).hidden = !!src;
+    if (src) $(id).src = src;
+  }
+}
+for (const [id, placeholder] of [['profileBanner','bannerPlaceholder'],['profileAvatar','avatarPlaceholder']]) {
+  $(id).addEventListener('error', () => { $(id).hidden = true; $(id).removeAttribute('src'); $(placeholder).hidden = false; });
+}
+async function loadProfile(current) {
+  $('profileMessage').textContent = 'Loading your saved profile images…';
+  try {
+    const data = await request('GET', undefined, '/api/mobile/profile');
+    if (current !== generation) return;
+    if (!data.profile) throw new Error('Profile images could not be loaded.');
+    showProfileImages(data.profile); memberWorlds = data.worlds;
+    $('profileImageControls').hidden = false;
+    $('profileMessage').textContent = !data.profile.avatarAvailable ? 'Profile images loaded. Your website avatar service is unavailable.' : data.profile.selectedAvatar && !data.profile.selectedAvatar.thumbnailUrl && !data.profile.avatarData ? 'Your selected website avatar has no preview image. You can choose a profile image here.' : 'Images are saved to your member account.';
+  } catch (error) {
+    if (current !== generation) return;
+    $('profileMessage').textContent = error.message;
+    if (error.status === 401 || error.status === 403) await refreshSession();
+  } finally { if (current === generation) $('journeyBtn').disabled = false; }
+}
+async function saveProfileImage(field, image, current) {
+  if (current !== generation || currentMember === null) return;
+  const data = await request('PATCH', {[field]: image}, '/api/mobile/profile');
+  if (current !== generation) return;
+  showProfileImages(data.profile); $('profileMessage').textContent = 'Profile image saved to your account.';
+}
+async function chooseProfileImage(event, field) {
+  const input = event.target, file = input.files?.[0]; input.value = '';
+  if (!file || busy || currentMember === null) return;
+  if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) { $('profileMessage').textContent = 'Choose a PNG, JPEG or WebP image under 10 MB.'; return; }
+  const current = generation; busy = true;
+  $('profileMessage').textContent = 'Preparing and saving your image…';
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+    const max = field === 'bannerData' ? 1600 : 512;
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1,Math.round(bitmap.width * scale)); canvas.height = Math.max(1,Math.round(bitmap.height * scale));
+    canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
+    let image = canvas.toDataURL('image/png');
+    const limit = field === 'bannerData' ? 512 * 1024 : 256 * 1024;
+    while (image.length > Math.floor(limit * 4 / 3) && Math.max(canvas.width,canvas.height) > 128) {
+      canvas.width = Math.max(1,Math.round(canvas.width * 0.75)); canvas.height = Math.max(1,Math.round(canvas.height * 0.75));
+      canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height); image = canvas.toDataURL('image/png');
+    }
+    await saveProfileImage(field,image,current);
+  } catch (error) { if (current === generation) $('profileMessage').textContent = error.message || 'This image could not be saved. Try a smaller image.'; }
+  finally { bitmap?.close(); busy = false; if (current !== generation && !document.hidden) refreshSession(); }
+}
+$('bannerFile').addEventListener('change', e => chooseProfileImage(e,'bannerData'));
+$('avatarFile').addEventListener('change', e => chooseProfileImage(e,'avatarData'));
+for (const [id,field] of [['removeBanner','bannerData'],['removeAvatar','avatarData']]) {
+  $(id).addEventListener('click', async () => {
+    if (busy || currentMember === null) return;
+    const current = generation; busy = true;
+    try { await saveProfileImage(field,null,current); }
+    catch (error) { if (current === generation) $('profileMessage').textContent = error.message; }
+    finally { busy = false; if (current !== generation && !document.hidden) refreshSession(); }
+  });
+}
+$('journeyBtn').addEventListener('click', () => {
+  if (currentMember === null) return;
+  $('profileScreen').hidden = true; $('explorer').hidden = false;
+  $('worldList').replaceChildren();
+  if (!Array.isArray(memberWorlds)) $('worldMessage').textContent = 'Your worlds could not be loaded. Return to your profile and recheck your session to retry.';
+  else {
+    $('worldMessage').textContent = memberWorlds.length ? 'Your saved worlds are listed below.' : 'No saved worlds were found for this account yet.';
+    for (const world of memberWorlds) {
+      const card = document.createElement('div'); card.className = 'glass mc-row';
+      const title = document.createElement('strong'); title.textContent = world.name;
+      const detail = document.createElement('span'); detail.textContent = world.visibility+' · '+world.status;
+      card.append(title,detail); $('worldList').append(card);
+    }
+  }
+  $('explorerHeading').focus();
+});
+$('explorerBack').addEventListener('click', () => { $('explorer').hidden = true; $('profileScreen').hidden = false; $('journeyBtn').focus(); });
 $('loginForm').addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
   busy = true; ++generation; clearAccount(); $('loginButton').disabled = true;
@@ -116,4 +215,5 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloading && !$('update').hidden) { reloading = true; location.reload(); } });
 }
 refreshSession();
+
 
