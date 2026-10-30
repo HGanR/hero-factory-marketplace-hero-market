@@ -1,6 +1,6 @@
 # Mobile access to existing website member credentials
 
-The owner requested connecting mobile to the existing website account source on October 30, 2026. Automatic approval review subsequently blocked copying the live DATABASE_URL credential to the separate mobile project: it requires explicit approval for that credential transfer, beyond the shared-login request. The connection has not been configured. The following describes the prepared integration, not an activated shared login.
+The owner explicitly approved copying the existing hero-market DATABASE_URL credential into the separate smart-trust-mobile-preview Vercel project on October 30, 2026, scoped to the reviewed mobile-login branch. The credential is configured as a sensitive Preview variable for that branch only. This supersedes the earlier automatic-review block. Real member password login still requires owner confirmation in the deployed app.
 
 ## Account behavior
 
@@ -15,7 +15,7 @@ Admin-only credentials are not turned into member credentials. An administrator 
 - Separate Vercel project: smart-trust-mobile-preview.
 - Custom address: https://mobile.troothhurtz.app/.
 - Source branch: feat/mobile-shared-member-login-20261030.
-- Pending explicit approval: supply Preview-only DATABASE_URL from the existing hero-market account database configuration, scoped to this specific branch. This credential grants the app access to the live member database. Do not copy it to other previews or commit its value. No database connection was added after the automatic-review rejection.
+- Preview-only DATABASE_URL is supplied from the existing hero-market account database configuration, scoped to this specific branch. This credential grants the app access to the live member database. Do not copy it to other previews or commit its value.
 - SMART_TRUST_MOBILE_SESSION_COOKIE=__Host-smart-trust-mobile and SMART_TRUST_MOBILE_ENABLED=true.
 - Retain the mobile project's independent JWT_SECRET. Do not copy ADMIN_PASSWORD, ADMIN_USERNAME, provider keys, the website signing key or AUTH_COOKIE_DOMAIN.
 - Vercel protection stays enabled, including for the custom domain. No production promotion or change to the hero-market project is part of this operation.
@@ -25,3 +25,5 @@ Admin-only credentials are not turned into member credentials. An administrator 
 The build runs the existing isolated-target runtime/source-parity checks plus an added real-Next-server cookie isolation test. Test subprocesses explicitly remove DATABASE_URL and auth configuration before applying test fixtures, so those tests cannot query real member records. They verify website/admin-cookie rejection, private mobile-token selection, admin-token rejection and host-only mobile logout.
 
 A build and configuration copy alone do not prove a real member can log in. Verify a real connection through the deployed app, then have the owner enter their own existing member credentials. Do not extract member password hashes, reset a member password for testing, mint a member session to impersonate them, or copy production member data into a fixture database.
+
+On this approved branch, SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB=true additionally gates deployment on a real database connection and a SELECT of required login/profile columns with WHERE 1 = 0. It returns zero member rows and performs no writes. Database errors are reduced to a non-sensitive error code; credentials and connection strings are never logged. The gate is in scripts/verify-member-database.mjs and runs after the isolated build/tests.
