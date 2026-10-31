@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise';
 import { mysql2ConnectionOptionsFromUrl } from '../shared/src/lib/db/mysql2-connection-options.ts';
 
 // Explicitly enabled only on the owner-approved shared-login branch.
-if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.SMART_TRUST_MOBILE_TERMS_REQUIRED !== 'true') {
+if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.SMART_TRUST_MOBILE_TERMS_REQUIRED !== 'true' && process.env.SMART_TRUST_MOBILE_VERIFY_PROFILE_DB !== 'true') {
   console.log('Member database readiness: not requested for this build.');
 } else {
   let connection;
@@ -28,6 +28,12 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
       await connection.execute({sql:'SELECT member_id, terms_version, terms_sha256, accepted_at FROM mobile_terms_acceptances WHERE 1 = 0',timeout:10000});
       console.log('Member terms readiness: published document and receipt schema verified; no acceptance created.');
     }
+    if (process.env.SMART_TRUST_MOBILE_VERIFY_PROFILE_DB === 'true') {
+      await connection.execute({sql:'SELECT member_id, banner_data, avatar_data, updated_at FROM mobile_member_profiles WHERE 1 = 0',timeout:10000});
+      await connection.execute({sql:'SELECT userId, displayName, thumbnailUrl, isDefault, status, updatedAt FROM avatar_profiles WHERE 1 = 0',timeout:10000});
+      await connection.execute({sql:'SELECT ownerId, id, name, visibility, status, updatedAt FROM worlds WHERE 1 = 0',timeout:10000});
+      console.log('Member profile readiness: image, default-avatar and world columns verified; no member records read or changed.');
+    }
     console.log('Member database readiness: connection and login/profile columns verified; zero member rows returned; no writes performed.');
   } catch (error) {
     // Never log a connection string, credential, SQL error message or account data.
@@ -39,3 +45,4 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
     clearTimeout(watchdog);
   }
 }
+
