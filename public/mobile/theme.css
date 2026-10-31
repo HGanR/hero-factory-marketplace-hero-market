@@ -603,3 +603,5 @@ body[data-skin="dawn"] .device { border-color:#6f927d; box-shadow:0 0 18px #3157
 body[data-skin="dawn"] .theme-stars { opacity:.2; }
 body[data-skin="dawn"] .member-banner { background:linear-gradient(125deg,#b1c2a0,#dce4b8,#a0d5b7); }
 body[data-skin="dawn"] .member-avatar { border-color:#6f927d; }
+
+.device #signin h1, .device #appearanceSetup h1, .device #explorer h1 { font-family:'Orbitron',sans-serif; font-weight:800; letter-spacing:.08em; }
