@@ -60,7 +60,7 @@ test('administrator sign-in needs explicit mode, enabled feature and verified we
  assert.match(response.headers.get('set-cookie'),/__Host-smart-trust-mobile-admin=fixture.admin.signature/);
  assert.equal(allowed.calls.db,0);assert.equal(allowed.calls.login,0);
 });
-function browser(o={}){const nodes=new Map(),events={},pending=[];const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,textContent:'',value:'',disabled:false,removeAttribute(name){delete this[name];},replaceChildren(){this.children=[];},append(...children){this.children=(this.children||[]).concat(children);},focus(){},addEventListener:(k,f)=>{events[id+':'+k]=f;}});return nodes.get(id);};const ctx={document:{getElementById:node,createElement:()=>({textContent:"",append(...children){this.children=children;}}),hidden:false,addEventListener:(k,f)=>{events['doc:'+k]=f;}},window:{addEventListener:(k,f)=>{events[k]=f;}},navigator:{},fetch:(url)=>url==='/api/mobile/profile'&&!o.deferProfile?Promise.resolve(new Response(JSON.stringify({profile:{bannerData:null,avatarData:null,selectedAvatar:null,avatarAvailable:true},worlds:[]}))):new Promise(r=>pending.push(r)),AbortController,setTimeout,clearTimeout,location:{reload(){}},console};vm.runInNewContext(fs.readFileSync(path.join(root,'public/mobile/client.js'),'utf8'),ctx);return {node,events,pending};}
+function browser(o={}){const nodes=new Map(),events={},pending=[];const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,textContent:'',value:'',disabled:false,setAttribute(name,value){this[name]=value;},removeAttribute(name){delete this[name];},replaceChildren(){this.children=[];},append(...children){this.children=(this.children||[]).concat(children);},focus(){},addEventListener:(k,f)=>{events[id+':'+k]=f;}});return nodes.get(id);};const ctx={document:{body:{dataset:{}},getElementById:node,createElement:()=>({textContent:"",append(...children){this.children=children;}}),hidden:false,addEventListener:(k,f)=>{events['doc:'+k]=f;}},window:{addEventListener:(k,f)=>{events[k]=f;}},navigator:{},fetch:(url)=>url==='/api/mobile/profile'&&!o.deferProfile?Promise.resolve(new Response(JSON.stringify({profile:{bannerData:null,avatarData:null,selectedAvatar:null,avatarAvailable:true,skin:'gold'},worlds:[]}))):new Promise(r=>pending.push(r)),AbortController,setTimeout,clearTimeout,location:{reload(){}},console};vm.runInNewContext(fs.readFileSync(path.join(root,'public/mobile/client.js'),'utf8'),ctx);return {node,events,pending};}
 const tick=()=>new Promise(r=>setImmediate(r)),profile={id:7,username:'<img onerror=alert(1)>',email:'member@example.test',walletAddress:null};
 test('browser uses text and discards stale session responses',async()=>{const b=browser();b.events['retry:click']();b.pending[1](new Response(JSON.stringify({user:profile})));await tick();assert.equal(b.node('username').textContent,'Username: '+profile.username);assert.equal(b.node('account').hidden,false);b.pending[0](new Response(JSON.stringify({error:'expired'}),{status:401}));await tick();assert.equal(b.node('account').hidden,false);});
 test('pagehide clears profile and expired sessions offer sign-in',async()=>{const b=browser();b.pending[0](new Response(JSON.stringify({user:profile})));await tick();b.events.pagehide();assert.equal(b.node('account').hidden,true);assert.equal(b.node('email').textContent,'');b.events.pageshow();b.pending[1](new Response(JSON.stringify({error:'expired'}),{status:401}));await tick();assert.equal(b.node('signin').hidden,false);assert.equal(b.node('account').hidden,true);});
@@ -123,7 +123,7 @@ function profileHarness(options={}) {
   'next/server':{NextResponse:{json:(data,init)=>new Response(JSON.stringify(data),init)}},
   '@/app/api/mobile/session/route':{GET:async()=>new Response(JSON.stringify(options.session??{user:{id:7,username:'member'}}),{status:options.status??200})},
   '@/lib/mobile/session-policy':policy,'@/lib/db':{getConnection:async()=>({})},
-  '@/lib/mobile/profile':{profileImage:(x)=>{if(x!==null&&x!=='test-png')throw Error('invalid');return x;},readMemberProfile:async(_db,id)=>{calls.push(['read',id]);return {bannerData:null,avatarData:null};},readMemberWorlds:async(_db,id)=>{calls.push(['worlds',id]);return [];},saveMemberImage:async(_db,id,field,image)=>{calls.push(['save',id,field,image]);}},
+  '@/lib/mobile/profile':{profileImage:(x)=>{if(x!==null&&x!=='test-png')throw Error('invalid');return x;},profileSkin:v=>{if(!['gold','dawn','neon'].includes(v))throw Error('invalid');return v;},saveMemberSkin:async(_db,id,skin)=>{calls.push(['skin',id,skin]);},readMemberProfile:async(_db,id)=>{calls.push(['read',id]);return {bannerData:null,avatarData:null};},readMemberWorlds:async(_db,id)=>{calls.push(['worlds',id]);return [];},saveMemberImage:async(_db,id,field,image)=>{calls.push(['save',id,field,image]);}},
  },{SMART_TRUST_MOBILE_ENABLED:'true'});
  return {route,calls,request:(method='GET',body,origin='https://example.test')=>new Request('https://example.test/api/mobile/profile',{method,headers:{origin,'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})})};
 }
@@ -150,4 +150,24 @@ test('Journey lists actual account world names safely without granting entry or 
  const b=browser({deferProfile:true});b.pending[0](new Response(JSON.stringify({user:profile})));await tick();
  b.pending[1](new Response(JSON.stringify({profile:{avatarAvailable:true},worlds:[{id:'own-world',name:'<img onerror=alert(1)>',visibility:'private',status:'draft'}]})));await tick();
  b.events['journeyBtn:click']();const card=b.node('worldList').children[0];assert.equal(card.children[0].textContent,'<img onerror=alert(1)>');assert.equal(card.href,undefined);
+});
+
+test('appearance endpoint binds the member and rejects unapproved skins or combined mutations',async()=>{
+ const h=profileHarness();const result=await h.route.PATCH(h.request('PATCH',{skin:'dawn'}));assert.equal(result.status,200);assert.deepEqual(h.calls[0],['skin',7,'dawn']);
+ for(const body of [{skin:'admin'},{skin:'dawn',memberId:8},{skin:'gold',avatarData:null}])assert.equal((await h.route.PATCH(h.request('PATCH',body))).status,400);
+ assert.equal(h.calls.filter(x=>x[0]==='skin').length,1);
+});
+
+test('website avatar thumbnails are allowed while connection policy stays same-origin',()=>{
+ const shell=load('src/lib/mobile/shell.ts');
+ const route=load('src/app/mobile/route.ts',{'@/lib/mobile/shell':shell},{SMART_TRUST_MOBILE_ENABLED:'true'});
+ const policy=route.GET().headers.get('content-security-policy');assert.match(policy,/img-src 'self' data: https:;/);assert.match(policy,/connect-src 'self';/);
+ assert.match(shell.mobileShell,/id="profileAvatar"[^>]*referrerpolicy="no-referrer"/);
+});
+
+test('registration happens on the website and the mobile page uses the existing login form',()=>{
+ const {mobileShell}=load('src/lib/mobile/shell.ts');
+ assert.match(mobileShell,/href="https:\/\/troothhurtz.app\/">Register on troothhurtz.app/);
+ assert.match(mobileShell,/administrator approves your account and sends your generated password/);
+ assert.match(mobileShell,/id="loginForm"/);assert.doesNotMatch(mobileShell,/href="\/">Open the website|Request access|request sent/i);
 });

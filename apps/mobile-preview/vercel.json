@@ -1,7 +1,8 @@
 {
   "framework": "nextjs",
   "installCommand": "npm ci",
-  "buildCommand": "npm run build && npm test && NODE_PATH=./node_modules node --test ../../tests/mobile/mobile.test.cjs && node scripts/verify-member-database.mjs",
+  "buildCommand": "npm run build && npm test && NODE_PATH=./node_modules node --test ../../tests/mobile/mobile.test.cjs ../../tests/mobile/appearance.test.mjs ../../tests/mobile/theme-mode.test.mjs && node scripts/verify-member-database.mjs",
   "devCommand": "next dev"
 }
+
 
