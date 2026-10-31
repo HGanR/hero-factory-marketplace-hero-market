@@ -507,12 +507,35 @@ body {
 #worldList .mc-row { flex-wrap:wrap; gap:8px; overflow-wrap:anywhere; }
 
 
-/* Account-scoped appearance choices. No skin preference or account data in local storage. */
-body[data-skin="gold"] { --ink:#fff1c2; --ink2:#e4c977; --accent:#d4af37; --glass-border:#806c38; }
-body[data-skin="dawn"] { --ink:#18362b; --ink2:#315746; --accent:#34664b; --glass-border:#6f927d; --glass:rgba(245,255,248,.94); --glass2:#e1f1e5; background:#e8f4e9; color:#18362b; }
-body[data-skin="neon"] { --ink:#d9fbff; --ink2:#a8e6ed; --accent:#19f0ff; --glass-border:#40828b; --glass:rgba(8,25,38,.94); --glass2:#102d3a; background:#06121e; color:#d9fbff; }
-body[data-skin="dawn"] .device, body[data-skin="dawn"] .screen { background:#e8f4e9; color:#18362b; }
-body[data-skin="neon"] .device, body[data-skin="neon"] .screen { background:#06121e; color:#d9fbff; }
+/* Set palette values on the container that owns the prototype variables. */
+body[data-skin="gold"] .device { color-scheme:dark; }
+body[data-skin="dawn"] { background:#e8f4e9; }
+body[data-skin="dawn"] .device {
+  color-scheme:light;
+  --ink:#18362b; --ink2:#315746; --ink3:#3f604f; --ink4:#4e665b;
+  --accent:#245a40; --accent2:#176653;
+  --glass1:#f5fff8; --glass2:#e1f1e5; --glass-border:#6f927d;
+  --field:#ffffff; --field-border:#6f927d; --shadow:rgba(30,60,42,.15);
+  background:#e8f4e9; color:var(--ink2);
+}
+body[data-skin="neon"] { background:#06121e; }
+body[data-skin="neon"] .device {
+  color-scheme:dark;
+  --ink:#d9fbff; --ink2:#a8e6ed; --ink3:#8ac6d5; --ink4:#88aebb;
+  --accent:#19f0ff; --accent2:#b2a0ff;
+  --glass1:#081926; --glass2:#102d3a; --glass-border:#40828b;
+  --field:#081b2b; --field-border:#40828b; --shadow:rgba(0,0,0,.4);
+  background:#06121e; color:var(--ink2);
+}
+body[data-skin="dawn"] .brand-mini, body[data-skin="neon"] .brand-mini {
+  background:none; color:var(--ink); text-shadow:none;
+}
+body[data-skin="dawn"] .brand-mini b, body[data-skin="neon"] .brand-mini b { color:var(--accent); text-shadow:none; }
+body[data-skin="dawn"] .device a { color:#245a40; }
+body[data-skin="neon"] .device a { color:#19f0ff; }
+body[data-skin="dawn"] .btn { background:#245a40; color:#fff; border-color:#245a40; box-shadow:none; }
+body[data-skin="neon"] .btn { background:linear-gradient(120deg,#19f0ff,#9b82ff); color:#06121e; border-color:#75f6ff; }
+body[data-skin="dawn"] :focus-visible { outline-color:#245a40; }
 #appearanceSetup { padding-block:1rem; }
 #appearanceSetup .field { margin-block:1.25rem; }
 #appearanceSetup select { width:100%; min-height:48px; }

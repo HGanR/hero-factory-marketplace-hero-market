@@ -5,6 +5,7 @@ let pendingTerms = null;
 let memberWorlds = null;
 let currentMember = null;
 let savedProfile = null;
+const imageSelections = new Map();
 function clearAccount() {
   $('account').hidden = true;
   currentMember = null; memberWorlds = null; savedProfile = null;
@@ -66,7 +67,7 @@ async function refreshSession() {
     $('setupUsername').textContent = 'Website username: ' + user.username;
     $('avatarPlaceholder').textContent = user.username.slice(0, 2).toUpperCase();
     $('account').hidden = false;
-    if (!administrator) { $('profileScreen').hidden = true; $('journeyBtn').hidden = false; loadProfile(current); }
+    if (!administrator) { $('profileScreen').hidden = true; $('journeyBtn').hidden = false; await loadProfile(current); }
     status(administrator ? 'Website administrator session confirmed.' : 'Website session confirmed.');
     if (!administrator && data.termsAcceptance && typeof data.termsAcceptance.acceptedAt === 'string') {
       $('termsReceipt').textContent = 'Terms '+data.termsAcceptance.version+' accepted (UTC): '+data.termsAcceptance.acceptedAt;
@@ -123,11 +124,17 @@ async function saveProfileImage(field, image, current) {
   $('profileMessage').textContent = 'Profile image saved to your account.';
 }
 async function chooseProfileImage(event, field) {
-  const input = event.target, file = input.files?.[0]; input.value = '';
-  if (!file || busy || currentMember === null) return;
+  const input = event.target, file = input.files?.[0];
+  const selectedFor = imageSelections.get(input.id);
+  imageSelections.delete(input.id); input.value = '';
+  if (!file || busy || !Number.isSafeInteger(selectedFor)) return;
+  // Native phone pickers may hide the page and clear its private profile.
+  // Revalidate the session before attaching that selection to the same member.
+  if (currentMember === null) await refreshSession();
+  if (currentMember !== selectedFor) { status('Your account changed. Choose the image again for the current account.'); return; }
   if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) { $('setupMessage').textContent = $('profileMessage').textContent = 'Choose a PNG, JPEG or WebP image under 10 MB.'; return; }
   const current = generation; busy = true;
-  $('profileMessage').textContent = 'Preparing and saving your image…';
+  $('setupMessage').textContent = $('profileMessage').textContent = 'Preparing and saving your image…';
   let bitmap;
   try {
     bitmap = await createImageBitmap(file);
@@ -145,9 +152,18 @@ async function chooseProfileImage(event, field) {
   } catch (error) { if (current === generation) $('setupMessage').textContent = $('profileMessage').textContent = error.message || 'This image could not be saved. Try a smaller image.'; }
   finally { bitmap?.close(); busy = false; if (current !== generation && !document.hidden) refreshSession(); }
 }
+for (const [button,input] of [['chooseBanner','bannerFile'],['chooseAvatar','avatarFile'],['chooseSetupAvatar','setupAvatarFile']]) {
+  $(button).addEventListener('click', () => { if (!busy && currentMember !== null) $(input).click(); });
+}
 $('bannerFile').addEventListener('change', e => chooseProfileImage(e,'bannerData'));
 $('avatarFile').addEventListener('change', e => chooseProfileImage(e,'avatarData'));
 $('setupAvatarFile').addEventListener('change', e => chooseProfileImage(e,'avatarData'));
+for (const id of ['bannerFile','avatarFile','setupAvatarFile']) {
+  $(id).addEventListener('click', event => {
+    if (busy || currentMember === null) { event.preventDefault(); return; }
+    imageSelections.set(id,currentMember);
+  });
+}
 for (const [id,field] of [['removeBanner','bannerData'],['removeAvatar','avatarData']]) {
   $(id).addEventListener('click', async () => {
     if (busy || currentMember === null) return;
@@ -201,7 +217,7 @@ $('journeyBtn').addEventListener('click', () => {
 $('explorerBack').addEventListener('click', () => { $('explorer').hidden = true; $('profileScreen').hidden = false; $('journeyBtn').focus(); });
 $('loginForm').addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
-  busy = true; ++generation; clearAccount(); $('loginButton').disabled = true;
+  busy = true; ++generation; imageSelections.clear(); clearAccount(); $('loginButton').disabled = true;
   const password = $('password').value; $('password').value = '';
   status('Signing in…');
   try { await request('POST', {identifier: $('identifier').value.trim(), password, accountType: $('accountType')?.value || 'member'}); await refreshSession(); }
@@ -209,7 +225,7 @@ $('loginForm').addEventListener('submit', async event => {
   finally { busy = false; $('loginButton').disabled = false; }
 });
 async function signOut() {
-  if (busy) return; busy = true; ++generation; clearAccount();
+  if (busy) return; busy = true; ++generation; imageSelections.clear(); clearAccount();
   try { await request('DELETE'); $('signin').hidden = false; status('Signed out of this mobile app. Website sessions are unchanged.'); }
   catch { $('signin').hidden = true; status('Sign-out could not be confirmed. Reconnect and retry.'); }
   finally { busy = false; }
@@ -256,6 +272,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloading && !$('update').hidden) { reloading = true; location.reload(); } });
 }
 refreshSession();
+
 
 
 

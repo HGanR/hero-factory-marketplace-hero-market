@@ -5,16 +5,17 @@ import {readFile} from 'node:fs/promises';
 import {profileSkin,saveMemberSkin,readMemberProfile} from '../../src/lib/mobile/profile.ts';
 const source=await readFile(new URL('../../public/mobile/client.js',import.meta.url),'utf8');
 const flush=()=>new Promise(r=>setImmediate(r));
-function harness({image=null,available=true,admin=false,terms=false,failSave=false,delayed=false}={}) {
+function harness({image=null,available=true,admin=false,terms=false,failSave=false,delayed=false,selectedAvatar=null}={}) {
  const nodes=new Map(), calls=[];let resolveProfile;
- const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,value:'gold',dataset:{},textContent:'',handlers:{},addEventListener(t,f){this.handlers[t]=f},removeAttribute(){},replaceChildren(){},focus(){}});return nodes.get(id)};
- const profile={avatarData:image,avatarAvailable:available,skin:'gold'};
+ const node=id=>{if(!nodes.has(id))nodes.set(id,{id,hidden:false,value:'gold',dataset:{},textContent:'',handlers:{},addEventListener(t,f){this.handlers[t]=f},removeAttribute(){},replaceChildren(){},focus(){},click(){this.handlers.click?.({preventDefault(){}});}});return nodes.get(id)};
+ const profile={avatarData:image,selectedAvatar,avatarAvailable:available,skin:'gold'};
  const fetch=async(url,opts)=>{calls.push({url,opts});if(url.includes('/profile')){
   if(delayed && opts.method==='GET')return new Promise(resolve=>{resolveProfile=()=>resolve({ok:true,json:async()=>({profile,worlds:[]})})});
   if(failSave && opts.method==='PATCH')return {ok:false,status:503,json:async()=>({error:'save unavailable'})};
-  return {ok:true,json:async()=>({profile:{...profile,skin:opts.body?JSON.parse(opts.body).skin:'gold'},worlds:[]})};
+  if(opts.method==='PATCH')Object.assign(profile,JSON.parse(opts.body));
+  return {ok:true,json:async()=>({profile:{...profile},worlds:[]})};
  }return {ok:true,json:async()=>terms?{access:'terms_required',terms:{version:'v1',sha256:'a'.repeat(64)}}:{user:{id:7,username:'existing',email:'test@example.invalid',role:admin?'administrator':'member'}}};};
- const context=vm.createContext({document:{getElementById:node,body:{dataset:{}},addEventListener(){},hidden:false},window:{addEventListener(){}},navigator:{},fetch,AbortController,setTimeout,clearTimeout,console});
+ const context=vm.createContext({document:{getElementById:node,createElement:()=>({width:0,height:0,getContext:()=>({drawImage(){}}),toDataURL:()=> 'data:image/png;base64,fixture'}),body:{dataset:{}},addEventListener(){},hidden:false},window:{addEventListener(){}},navigator:{},createImageBitmap:async()=>({width:64,height:64,close(){}}),fetch,AbortController,setTimeout,clearTimeout,console});
  vm.runInContext(source,context);
  return {node,calls,context,resolve:()=>resolveProfile()};
 }
@@ -48,4 +49,35 @@ test('terms gate precedes profile fetch, administrators bypass member setup',asy
 });
 test('late profile response cannot reopen setup after signout',async()=>{
  const h=harness({delayed:true});await flush();await h.node('logout').handlers.click();h.resolve();await flush();assert.equal(h.node('account').hidden,true);assert.equal(h.node('appearanceSetup').hidden,true);
+});
+
+
+test('website avatar selection bypasses first-time image setup',async()=>{
+ const h=harness({selectedAvatar:{thumbnailUrl:'https://troothhurtz.app/avatars/chosen.png'}});await flush();
+ assert.equal(h.node('appearanceSetup').hidden,true);assert.equal(h.node('profileAvatar').src,'https://troothhurtz.app/avatars/chosen.png');
+});
+test('native picker selection revalidates a cleared session before saving to its original member',async()=>{
+ const h=harness();await flush();const input=h.node('setupAvatarFile');input.handlers.click({preventDefault(){}});
+ vm.runInContext('++generation; clearAccount();',h.context);
+ input.files=[{type:'image/png',size:100}];await input.handlers.change({target:input});
+ const writes=h.calls.filter(x=>x.opts.method==='PATCH');assert.equal(writes.length,1);assert.ok(JSON.parse(writes[0].opts.body).avatarData);
+ assert.equal(h.node('finishSetup').disabled,false);
+});
+test('an image selected for a different account cannot be saved after account switching',async()=>{
+ const h=harness();await flush();const input=h.node('setupAvatarFile');input.handlers.click({preventDefault(){}});
+ vm.runInContext('currentMember=8;',h.context);input.files=[{type:'image/png',size:100}];await input.handlers.change({target:input});
+ assert.equal(h.calls.filter(x=>x.opts.method==='PATCH').length,0);assert.match(h.node('status').textContent,/account changed/);
+});
+
+test('a cancelled selection cannot attach to a different account after logout',async()=>{
+ const h=harness();await flush();const input=h.node('setupAvatarFile');input.handlers.click({preventDefault(){}});
+ await h.node('logout').handlers.click();vm.runInContext('currentMember=8;',h.context);
+ input.files=[{type:'image/png',size:100}];await input.handlers.change({target:input});
+ assert.equal(h.calls.filter(x=>x.opts.method==='PATCH').length,0);
+});
+
+test('keyboard-accessible setup button opens an account-bound image selection',async()=>{
+ const h=harness();await flush();h.node('chooseSetupAvatar').handlers.click();
+ const input=h.node('setupAvatarFile');input.files=[{type:'image/png',size:100}];await input.handlers.change({target:input});
+ assert.equal(h.calls.filter(x=>x.opts.method==='PATCH').length,1);
 });
