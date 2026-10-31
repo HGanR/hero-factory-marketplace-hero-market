@@ -26,3 +26,11 @@ Activation remains separate: the live mobile address stays on the working PR #11
 Website avatar thumbnails also needed the mobile HTML image policy repaired: the previous img-src self/data policy blocked the HTTPS thumbnails the profile API deliberately returns. HTTPS image loading is now permitted for that use, with no-referrer on the profile images. connect-src remains same-origin; wallet/RPC access is not enabled.
 
 Final local validation after repairs: optimized Next build and TypeScript pass; 46 root route/browser-model checks and 25 package/runtime checks pass (71 passed total). One existing isolated-database terms test is skipped because no test database is configured. No real-member image/skin round trip, native phone-picker test, browser screenshot or viewport measurement is claimed. The new picker tests simulate session clearing and account changes; actual iPhone/Android validation remains required.
+
+## Direct member access and website registration
+
+The owner clarified that mobile members must reach the app's own sign-in page without Vercel registration, access requests or tester links. Registration remains at https://troothhurtz.app/; after administrator approval and delivery of the website-generated password, the member returns to mobile and uses the same username/email and password. The page now states this flow and uses an explicit website link. The extra hosting/test banner outside the app layout is removed. No new mobile registration endpoint or alternate credential store is introduced.
+
+Application authentication, active/approved account checks, host-only cookies and member-only profile APIs remain unchanged. Opening the HTML sign-in page must not grant profile or image access.
+
+Hosting change is separately pending: automatic approval review rejected setting ssoProtection=null on smart-trust-mobile-preview because it disables Vercel Authentication for that entire project, including its deployment preview URLs. No protection setting was changed by that rejected operation. The available connector did not establish a domain-only exception for this staging alias. Explicit owner approval for the full project setting is required before retrying; the live hero-market website project is outside this change.

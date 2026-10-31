@@ -164,3 +164,10 @@ test('website avatar thumbnails are allowed while connection policy stays same-o
  const policy=route.GET().headers.get('content-security-policy');assert.match(policy,/img-src 'self' data: https:;/);assert.match(policy,/connect-src 'self';/);
  assert.match(shell.mobileShell,/id="profileAvatar"[^>]*referrerpolicy="no-referrer"/);
 });
+
+test('registration happens on the website and the mobile page uses the existing login form',()=>{
+ const {mobileShell}=load('src/lib/mobile/shell.ts');
+ assert.match(mobileShell,/href="https:\/\/troothhurtz.app\/">Register on troothhurtz.app/);
+ assert.match(mobileShell,/administrator approves your account and sends your generated password/);
+ assert.match(mobileShell,/id="loginForm"/);assert.doesNotMatch(mobileShell,/href="\/">Open the website|Request access|request sent/i);
+});
