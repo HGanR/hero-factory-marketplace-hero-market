@@ -1,0 +1,26 @@
+name: Shared engine runtime checks
+on:
+  pull_request:
+    paths:
+      - 'src/lib/executive-agent/engine-runtime*'
+      - 'src/lib/executive-agent/executive-agent-approvals-store.ts'
+      - 'src/app/api/admin/executive-agent/engine-runtime/**'
+      - 'src/app/api/admin/executive-agent/approvals/**'
+      - '.github/workflows/shared-engine-runtime-checks.yml'
+jobs:
+  engine-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --prefix /tmp/engine-checks tsx typescript@5.6.3 zod@4 @types/node
+      - run: ln -s /tmp/engine-checks/node_modules node_modules
+      - run: node --import /tmp/engine-checks/node_modules/tsx/dist/loader.mjs --test src/lib/executive-agent/engine-runtime.spec.ts src/lib/executive-agent/executive-agent-policy.spec.ts src/lib/executive-agent/executive-action-executors.spec.ts
+      - name: Strict type check of the executable contract and coordinator
+        run: >-
+          /tmp/engine-checks/node_modules/.bin/tsc --noEmit --strict --types node --target ES2022
+          --moduleResolution bundler --module ESNext --esModuleInterop --skipLibCheck
+          src/lib/executive-agent/engine-runtime-contract.ts src/lib/executive-agent/engine-runtime-core.ts
+          src/lib/executive-agent/engine-runtime.spec.ts

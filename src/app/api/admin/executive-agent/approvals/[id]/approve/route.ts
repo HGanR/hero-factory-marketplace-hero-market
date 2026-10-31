@@ -5,6 +5,7 @@ import { executeExecutiveApprovedAction } from "@/lib/executive-agent/executive-
 import {
   getExecutiveApprovalById,
   setExecutiveApprovalStatus,
+  claimExecutiveApproval,
 } from "@/lib/executive-agent/executive-agent-approvals-store";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,9 @@ export async function POST(_req: NextRequest, ctx: RouteCtx) {
     return NextResponse.json({ error: "INVALID_STATE", message: "Only pending approvals can be approved." }, { status: 409 });
   }
 
-  await setExecutiveApprovalStatus(db, id, adminUserId, "approved");
+  if (!await claimExecutiveApproval(db, id, adminUserId)) {
+    return NextResponse.json({ error: "INVALID_STATE", message: "This approval was already claimed." }, { status: 409 });
+  }
 
   const exec = await executeExecutiveApprovedAction(db, { adminUserId, approval: row });
 
@@ -39,3 +42,4 @@ export async function POST(_req: NextRequest, ctx: RouteCtx) {
     data: exec.data,
   });
 }
+
