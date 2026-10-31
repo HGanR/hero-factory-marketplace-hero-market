@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
 import {
   getExecutiveApprovalById,
-  setExecutiveApprovalStatus,
+  transitionPendingExecutiveApproval,
 } from "@/lib/executive-agent/executive-agent-approvals-store";
 import { randomUUID } from "crypto";
 
@@ -24,7 +24,9 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   if (row.status !== "pending") {
     return NextResponse.json({ error: "INVALID_STATE" }, { status: 409 });
   }
-  await setExecutiveApprovalStatus(db, id, adminUserId, "rejected");
+  if (!await transitionPendingExecutiveApproval(db, id, adminUserId, "rejected")) {
+    return NextResponse.json({ error: "INVALID_STATE" }, { status: 409 });
+  }
   await insertExecutiveAgentAuditLog(db, {
     id: randomUUID(),
     adminUserId,
@@ -39,3 +41,4 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   });
   return NextResponse.json({ ok: true });
 }
+

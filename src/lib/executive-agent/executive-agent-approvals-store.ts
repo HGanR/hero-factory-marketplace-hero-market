@@ -80,3 +80,18 @@ export async function setExecutiveApprovalStatus(
     })
     .where(and(eq(executiveAgentApprovals.id, id), eq(executiveAgentApprovals.adminUserId, adminUserId)));
 }
+
+/** A pending action may be claimed by exactly one HTTP request or worker. */
+export async function claimExecutiveApproval(
+  db: MySql2Database<typeof schema>, id: string, adminUserId: number
+): Promise<boolean> {
+  return transitionPendingExecutiveApproval(db,id,adminUserId,"approved");
+}
+export async function transitionPendingExecutiveApproval(
+  db: MySql2Database<typeof schema>, id: string, adminUserId: number, status: "approved" | "rejected"
+): Promise<boolean> {
+  const [result] = await db.update(executiveAgentApprovals).set({status})
+    .where(and(eq(executiveAgentApprovals.id,id),eq(executiveAgentApprovals.adminUserId,adminUserId),eq(executiveAgentApprovals.status,"pending")));
+  return result.affectedRows === 1;
+}
+
