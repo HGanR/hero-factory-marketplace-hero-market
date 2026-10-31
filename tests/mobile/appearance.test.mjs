@@ -7,7 +7,7 @@ const source=await readFile(new URL('../../public/mobile/client.js',import.meta.
 const flush=()=>new Promise(r=>setImmediate(r));
 function harness({image=null,available=true,admin=false,terms=false,failSave=false,delayed=false,selectedAvatar=null}={}) {
  const nodes=new Map(), calls=[];let resolveProfile;
- const node=id=>{if(!nodes.has(id))nodes.set(id,{id,hidden:false,value:'gold',dataset:{},textContent:'',handlers:{},addEventListener(t,f){this.handlers[t]=f},removeAttribute(){},replaceChildren(){},focus(){},click(){this.handlers.click?.({preventDefault(){}});}});return nodes.get(id)};
+ const node=id=>{if(!nodes.has(id))nodes.set(id,{id,hidden:false,value:'gold',dataset:{},textContent:'',handlers:{},addEventListener(t,f){this.handlers[t]=f},setAttribute(k,v){this[k]=v;},removeAttribute(){},replaceChildren(){},focus(){},click(){this.handlers.click?.({preventDefault(){}});}});return nodes.get(id)};
  const profile={avatarData:image,selectedAvatar,avatarAvailable:available,skin:'gold'};
  const fetch=async(url,opts)=>{calls.push({url,opts});if(url.includes('/profile')){
   if(delayed && opts.method==='GET')return new Promise(resolve=>{resolveProfile=()=>resolve({ok:true,json:async()=>({profile,worlds:[]})})});
@@ -80,4 +80,13 @@ test('keyboard-accessible setup button opens an account-bound image selection',a
  const h=harness();await flush();h.node('chooseSetupAvatar').handlers.click();
  const input=h.node('setupAvatarFile');input.files=[{type:'image/png',size:100}];await input.handlers.change({target:input});
  assert.equal(h.calls.filter(x=>x.opts.method==='PATCH').length,1);
+});
+
+test('profile skin pills preview the skin and Save Profile persists only the skin',async()=>{
+ const h=harness({image:'data:image/png;base64,fixture'});await flush();
+ h.node('profileSkinDawn').handlers.click();assert.equal(h.context.document.body.dataset.skin,'dawn');assert.equal(h.node('profileSkinDawn')['aria-pressed'],'true');assert.equal(h.calls.filter(x=>x.opts.method==='PATCH').length,0);
+ await h.node('saveProfile').handlers.click();const writes=h.calls.filter(x=>x.opts.method==='PATCH');assert.equal(writes.length,1);assert.deepEqual(JSON.parse(writes[0].opts.body),{skin:'dawn'});assert.equal(h.node('profileAvatar').src,'data:image/png;base64,fixture');assert.equal(h.node('appearanceMessage').textContent,'Profile saved.');
+});
+test('administrator view does not expose member skin saving controls',async()=>{
+ const h=harness({admin:true});await flush();assert.equal(h.node('profileAppearance').hidden,true);assert.equal(h.node('saveProfile').hidden,true);await h.node('saveProfile').handlers.click();assert.equal(h.calls.filter(x=>x.opts.method==='PATCH').length,0);
 });

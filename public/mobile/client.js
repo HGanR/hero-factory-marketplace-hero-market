@@ -11,7 +11,8 @@ function clearAccount() {
   currentMember = null; memberWorlds = null; savedProfile = null;
   $('appearanceSetup').hidden = true; $('finishSetup').disabled = true; $('editAppearance').hidden = true;
   $('setupUsername').textContent = ''; $('setupMessage').textContent = '';
-  $('skinChoice').value = 'gold'; document.body.dataset.skin = 'gold';
+  applySkinChoice('gold');
+  $('profileAppearance').hidden = true; $('saveProfile').hidden = true; $('appearanceMessage').textContent = '';
   $('profileScreen').hidden = false; $('explorer').hidden = true;
   $('profileImageControls').hidden = true; $('journeyBtn').hidden = true; $('journeyBtn').disabled = true;
   $('profileBanner').removeAttribute('src'); $('profileAvatar').removeAttribute('src');
@@ -58,7 +59,7 @@ async function refreshSession() {
     const {user} = data;
     const administrator = user?.role === 'administrator';
     if (!user || typeof user.username !== 'string' || !user.username || (!administrator && (!Number.isSafeInteger(user.id) || user.id < 1 || typeof user.email !== 'string'))) throw new Error('Account service returned an invalid profile.');
-    $('welcome').textContent = 'WELCOME, ' + user.username;
+    $('welcome').textContent = administrator ? 'ADMINISTRATOR · ' + user.username : user.username;
     $('username').textContent = 'Username: ' + user.username;
     $('email').textContent = administrator ? 'Website administrator account' : 'Email: ' + user.email;
     $('memberId').textContent = administrator ? 'Account type: Administrator' : 'Account ID: ' + user.id;
@@ -100,8 +101,8 @@ async function loadProfile(current) {
     if (!data.profile) throw new Error('Profile images could not be loaded.');
     showProfileImages(data.profile); memberWorlds = data.worlds;
     savedProfile = data.profile;
-    $('skinChoice').value = ['gold','dawn','neon'].includes(data.profile.skin) ? data.profile.skin : 'gold';
-    document.body.dataset.skin = $('skinChoice').value;
+    applySkinChoice(data.profile.skin);
+    $('profileAppearance').hidden = false; $('saveProfile').hidden = false; $('saveProfile').disabled = !hasProfileImage(savedProfile);
     $('editAppearance').hidden = false;
     // An unavailable avatar service is not proof that no avatar is assigned.
     showAppearance(!hasProfileImage(data.profile) && data.profile.avatarAvailable !== false);
@@ -119,7 +120,7 @@ async function saveProfileImage(field, image, current) {
   const data = await request('PATCH', {[field]: image}, '/api/mobile/profile');
   if (current !== generation) return;
   savedProfile = data.profile; showProfileImages(data.profile);
-  $('finishSetup').disabled = !hasProfileImage(savedProfile);
+  $('finishSetup').disabled = !hasProfileImage(savedProfile); $('saveProfile').disabled = !hasProfileImage(savedProfile);
   $('setupMessage').textContent = 'Profile image saved. Choose your skin, then continue.';
   $('profileMessage').textContent = 'Profile image saved to your account.';
 }
@@ -182,21 +183,30 @@ function showAppearance(open) {
   $('finishSetup').disabled = !hasProfileImage(savedProfile);
   if (open) $('setupMessage').textContent = hasProfileImage(savedProfile) ? 'Your saved profile image will be kept.' : 'Choose a profile image to continue.';
 }
-$('skinChoice').addEventListener('change', () => {
-  document.body.dataset.skin = ['gold','dawn','neon'].includes($('skinChoice').value) ? $('skinChoice').value : 'gold';
-});
+function applySkinChoice(value) {
+  const skin = ['gold','dawn','neon'].includes(value) ? value : 'gold';
+  $('skinChoice').value = skin; document.body.dataset.skin = skin;
+  for (const [id,name] of [['profileSkinDawn','dawn'],['profileSkinNeon','neon'],['profileSkinGold','gold']]) $(id).setAttribute('aria-pressed',String(name === skin));
+}
+$('skinChoice').addEventListener('change', () => applySkinChoice($('skinChoice').value));
+for (const [id,skin] of [['profileSkinDawn','dawn'],['profileSkinNeon','neon'],['profileSkinGold','gold']]) {
+  $(id).addEventListener('click', () => { if (!busy && currentMember !== null) { applySkinChoice(skin); $('appearanceMessage').textContent = 'Choose Save Profile to keep this skin.'; } });
+}
 $('editAppearance').addEventListener('click', () => { if (!busy && currentMember !== null) showAppearance(true); });
-$('finishSetup').addEventListener('click', async () => {
+async function saveAppearance() {
   if (busy || currentMember === null || !hasProfileImage(savedProfile)) return;
-  const current = generation; busy = true; $('finishSetup').disabled = true;
+  const current = generation; busy = true; $('finishSetup').disabled = true; $('saveProfile').disabled = true;
   try {
     const data = await request('PATCH', {skin:$('skinChoice').value}, '/api/mobile/profile');
     if (current !== generation) return;
-    savedProfile = data.profile; document.body.dataset.skin = data.profile.skin;
+    savedProfile = data.profile; applySkinChoice(data.profile.skin);
+    $('appearanceMessage').textContent = 'Profile saved.'; $('profileMessage').textContent = 'Profile saved to your member account.';
     showAppearance(false); $('welcome').focus();
-  } catch (error) { if (current === generation) $('setupMessage').textContent = error.message; }
-  finally { busy = false; if (current === generation) $('finishSetup').disabled = !hasProfileImage(savedProfile); else if (!document.hidden) refreshSession(); }
-});
+  } catch (error) { if (current === generation) $('appearanceMessage').textContent = $('setupMessage').textContent = error.message; }
+  finally { busy = false; if (current === generation) { $('finishSetup').disabled = !hasProfileImage(savedProfile); $('saveProfile').disabled = !hasProfileImage(savedProfile); } else if (!document.hidden) refreshSession(); }
+}
+$('finishSetup').addEventListener('click', saveAppearance);
+$('saveProfile').addEventListener('click', saveAppearance);
 
 $('journeyBtn').addEventListener('click', () => {
   if (currentMember === null) return;

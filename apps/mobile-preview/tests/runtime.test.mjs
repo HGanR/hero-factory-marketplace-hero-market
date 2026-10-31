@@ -24,7 +24,7 @@ test('built app stays gated by default',()=>withServer({},async base=>{
 }));
 test('built app exposes working assets but fails closed without signing secret',()=>withServer({SMART_TRUST_MOBILE_ENABLED:'true'},async base=>{
  const page=await fetch(base+'/mobile');assert.equal(page.status,200);assert.equal(page.headers.get('cache-control'),'no-store');const html=await page.text();assert.doesNotMatch(html,/Protected test build|Request access/);assert.match(html,/Register on troothhurtz.app/);assert.match(html,/sends your generated password/);assert.match(html,/href="https:\/\/troothhurtz.app\/"/);
- for(const url of ['/mobile/client.js','/mobile/theme.css','/mobile/manifest.webmanifest','/mobile/icon.png','/smart-trust-mobile-sw.js','/mobile/terms'])assert.equal((await fetch(base+url)).status,200,url);
+ for(const url of ['/mobile/client.js','/mobile/theme-mode.js','/mobile/orbitron.ttf','/mobile/share-tech-mono.ttf','/mobile/theme.css','/mobile/manifest.webmanifest','/mobile/icon.png','/smart-trust-mobile-sw.js','/mobile/terms'])assert.equal((await fetch(base+url)).status,200,url);
  assert.equal((await fetch(base+'/api/mobile/session')).status,503);
  assert.equal((await fetch(base+'/api/marketplace/login',{method:'POST'})).status,404);
  const redirect=await fetch(base+'/app/dashboard',{redirect:'manual'});assert.equal(redirect.headers.get('location'),'https://troothhurtz.app/app/dashboard');
