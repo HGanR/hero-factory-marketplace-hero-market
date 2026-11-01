@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { marketplaceUsers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { emitPlatformEvent } from "@/lib/workflow-engine/emit-platform-event";
+import { emitNewAccountEvent } from "@/lib/telemetry/telemetry-events";
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,6 +58,28 @@ export async function POST(request: NextRequest) {
       hasTokenAccess: false,
       lastLogin: null,
     });
+
+    // STEP 1 (Task 1.1): emit a new_account telemetry event so
+    // SKIPPER's revenue loop can see the registration. The emit
+    // must never fail the registration, so it is wrapped in
+    // try/catch (and emitPlatformEvent itself swallows its own
+    // errors). The payload carries no phone number.
+    try {
+      const [newUser] = await db
+        .select()
+        .from(marketplaceUsers)
+        .where(eq(marketplaceUsers.email, email))
+        .limit(1);
+      if (newUser) {
+        const registeredAt =
+          newUser.createdAt instanceof Date
+            ? newUser.createdAt.toISOString()
+            : new Date().toISOString();
+        await emitNewAccountEvent(emitPlatformEvent, newUser.id, newUser.id, registeredAt);
+      }
+    } catch {
+      // Telemetry must not disrupt registration.
+    }
 
     return NextResponse.json({
       success: true,

@@ -52,6 +52,8 @@ const TRIGGER_TO_WEBHOOK: Record<WorkflowTriggerEvent, WebhookEventType> = {
   app_published: "app_published",
   app_installed: "app_installed",
   asset_purchased: "asset_purchased",
+  new_account: "new_account",
+  onboarding_completed: "onboarding_completed",
 };
 
 const SOURCE_MODULES: Record<WorkflowTriggerEvent, string> = {
@@ -68,6 +70,8 @@ const SOURCE_MODULES: Record<WorkflowTriggerEvent, string> = {
   app_published: "Creator Marketplace",
   app_installed: "Creator Marketplace",
   asset_purchased: "Asset Marketplace",
+  new_account: "Marketplace",
+  onboarding_completed: "Entity Builder",
 };
 
 export interface EmitPayload {

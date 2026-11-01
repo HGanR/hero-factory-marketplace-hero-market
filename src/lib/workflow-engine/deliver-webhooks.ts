@@ -21,7 +21,9 @@ export type WebhookEventType =
   | "commerce_transaction"
   | "app_published"
   | "app_installed"
-  | "asset_purchased";
+  | "asset_purchased"
+  | "new_account"
+  | "onboarding_completed";
 
 const ACCOUNTING_TO_WEBHOOK: Record<string, WebhookEventType> = {
   INSTRUMENT_ISSUED: "instrument_issued",

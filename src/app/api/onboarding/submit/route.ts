@@ -3,6 +3,8 @@ import { getDb } from "@/lib/db";
 import { entityOnboardings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
+import { emitPlatformEvent } from "@/lib/workflow-engine/emit-platform-event";
+import { emitOnboardingCompletedEvent } from "@/lib/telemetry/telemetry-events";
 
 function isLast4(s: unknown): s is string {
   return typeof s === "string" && /^\d{4}$/.test(s);
@@ -91,6 +93,24 @@ export async function POST(request: NextRequest) {
       .from(entityOnboardings)
       .where(eq(entityOnboardings.userId, decoded.userId))
       .limit(1);
+
+    // STEP 1 (Task 1.2): emit an onboarding_completed telemetry
+    // event so SKIPPER's revenue loop can see the submission.
+    // The emit must never fail the submission, so it is wrapped
+    // in try/catch (and emitPlatformEvent itself swallows its
+    // own errors). The payload carries no phone number.
+    if (rows[0]) {
+      try {
+        await emitOnboardingCompletedEvent(
+          emitPlatformEvent,
+          rows[0].id,
+          rows[0].onboardingStatus,
+          decoded.userId,
+        );
+      } catch {
+        // Telemetry must not disrupt the submission.
+      }
+    }
 
     return NextResponse.json({ onboarding: rows[0] || null });
   } catch (error) {
