@@ -27,9 +27,11 @@ const getConnection = async () => {
   }
   
   try {
-    const connection = await mysql.createConnection(
-      mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL),
-    );
+    const options = mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL);
+    // Narrow the union for mysql2's separate URI/options overloads.
+    const connection = typeof options === "string"
+      ? await mysql.createConnection(options)
+      : await mysql.createConnection(options);
     cachedConnection = connection;
     return connection;
   } catch (error) {

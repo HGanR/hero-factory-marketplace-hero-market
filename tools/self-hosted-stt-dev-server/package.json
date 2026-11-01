@@ -1,0 +1,5 @@
+{
+  "name": "self-hosted-stt-dev-server",
+  "private": true,
+  "description": "Dev mock for Hero Market self-hosted STT contract (no real speech model)."
+}

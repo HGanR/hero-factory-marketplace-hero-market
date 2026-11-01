@@ -1,0 +1,158 @@
+{
+  "command": "npm run typecheck:tsc",
+  "exit_code": 2,
+  "diagnostics": 4978,
+  "files": 912,
+  "codes": {
+    "TS2304": 2493,
+    "TS2582": 1237,
+    "TS2307": 367,
+    "TS2345": 231,
+    "TS7006": 90,
+    "TS2322": 84,
+    "TS2339": 83,
+    "TS2306": 81,
+    "TS2503": 49,
+    "TS2353": 33,
+    "TS2769": 32,
+    "TS2352": 32,
+    "TS7031": 19,
+    "TS18048": 16,
+    "TS2367": 15,
+    "TS5097": 15,
+    "TS2739": 14,
+    "TS2554": 12,
+    "TS2741": 11,
+    "TS2561": 11,
+    "TS2540": 8,
+    "TS2344": 6,
+    "TS2300": 6,
+    "TS7022": 5,
+    "TS2783": 4,
+    "TS2305": 4,
+    "TS2459": 2,
+    "TS7016": 2,
+    "TS2365": 2,
+    "TS2740": 2,
+    "TS2531": 2,
+    "TS2551": 1,
+    "TS18004": 1,
+    "TS1355": 1,
+    "TS2694": 1,
+    "TS1016": 1,
+    "TS18046": 1,
+    "TS2363": 1,
+    "TS2488": 1,
+    "TS2719": 1,
+    "TS18047": 1
+  },
+  "largest_file_counts": {
+    "src/lib/bentley-social-leads/bentley-sli-v4.spec.ts": 139,
+    "src/lib/trust-records-me-client.spec.ts": 93,
+    "src/lib/revenue-os/notification-phase.spec.ts": 83,
+    "src/lib/site-builder/project-export/deployment-export.shape.spec.ts": 76,
+    "src/lib/revenue-os/build-publish-workflow-review.spec.ts": 71,
+    "src/lib/maania/maania-demo.spec.ts": 65,
+    "src/lib/bentley-social-leads/import/csv-import.spec.ts": 64,
+    "src/lib/revenue-os/policy-workbench.spec.ts": 57,
+    "src/lib/revenue-os/build-post-optimization-memory.spec.ts": 54,
+    "src/lib/revenue-os/autonomous-phase.spec.ts": 53,
+    "src/lib/revenue-os/unified-generation.spec.ts": 52,
+    "src/lib/meet/avatar-nfts/cache.spec.ts": 50,
+    "src/lib/site-builder/assistant/map-execute-intent-message.spec.ts": 49,
+    "src/lib/revenue-os/publish-workflow-approve-all-batch.spec.ts": 48,
+    "src/lib/social/adapters/linkedin-post-performance.spec.ts": 44,
+    "src/lib/site-builder/deliverables.spec.ts": 43,
+    "src/lib/revenue-os/autonomous-approval-audit-ui.spec.ts": 41,
+    "src/lib/revenue-os/bentley-generation-context.spec.ts": 41,
+    "src/lib/revenue-os/bentley-deployment-orchestrator.spec.ts": 40,
+    "src/lib/revenue-os/bentley-system-signal-diagnostics.spec.ts": 40
+  },
+  "note": "Includes generated .next types from the failed webpack attempt. Counts are diagnostics, not distinct defects. No successful full build.",
+  "examples": [
+    {
+      "path": ".next/types/app/api/accounting/pre-accounting/documents/[id]/route.ts",
+      "line": 2,
+      "column": 24,
+      "code": "TS2306",
+      "message": "File 'src/app/api/accounting/pre-accounting/documents/[id]/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/accounting/pre-accounting/documents/[id]/route.ts",
+      "line": 7,
+      "column": 29,
+      "code": "TS2306",
+      "message": "File 'src/app/api/accounting/pre-accounting/documents/[id]/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/app/agents/[id]/capabilities/execute/route.ts",
+      "line": 2,
+      "column": 24,
+      "code": "TS2306",
+      "message": "File 'src/app/api/app/agents/[id]/capabilities/execute/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/app/agents/[id]/capabilities/execute/route.ts",
+      "line": 7,
+      "column": 29,
+      "code": "TS2306",
+      "message": "File 'src/app/api/app/agents/[id]/capabilities/execute/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/bentley-social-leads/analyses/route.ts",
+      "line": 2,
+      "column": 24,
+      "code": "TS2306",
+      "message": "File 'src/app/api/bentley-social-leads/analyses/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/bentley-social-leads/analyses/route.ts",
+      "line": 7,
+      "column": 29,
+      "code": "TS2306",
+      "message": "File 'src/app/api/bentley-social-leads/analyses/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/internal/post-optimization-memory/run/route.ts",
+      "line": 2,
+      "column": 24,
+      "code": "TS2306",
+      "message": "File 'src/app/api/internal/post-optimization-memory/run/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/internal/post-optimization-memory/run/route.ts",
+      "line": 7,
+      "column": 29,
+      "code": "TS2306",
+      "message": "File 'src/app/api/internal/post-optimization-memory/run/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/meet/broadcast/analytics/recent/route.ts",
+      "line": 2,
+      "column": 24,
+      "code": "TS2306",
+      "message": "File 'src/app/api/meet/broadcast/analytics/recent/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/meet/broadcast/analytics/recent/route.ts",
+      "line": 7,
+      "column": 29,
+      "code": "TS2306",
+      "message": "File 'src/app/api/meet/broadcast/analytics/recent/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/meet/broadcast/events/[id]/route.ts",
+      "line": 2,
+      "column": 24,
+      "code": "TS2306",
+      "message": "File 'src/app/api/meet/broadcast/events/[id]/route.ts' is not a module."
+    },
+    {
+      "path": ".next/types/app/api/meet/broadcast/events/[id]/route.ts",
+      "line": 7,
+      "column": 29,
+      "code": "TS2306",
+      "message": "File 'src/app/api/meet/broadcast/events/[id]/route.ts' is not a module."
+    }
+  ]
+}

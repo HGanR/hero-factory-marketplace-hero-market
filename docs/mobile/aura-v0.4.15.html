@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<!--
+  Smart Trust Mobile — Test App v0.4.15 · Permanent Library home.
+  v0.4.15: the KYC screen opens with a full-width STEP 1 · START HERE button (to the PayPal payment page) above the declaration, which is now labeled STEP 2. v0.4.14: the agree-and-continue screen now carries the full SMART TRUST DESKTOP agreement — Terms of Use, Intellectual Property Protection, Confidentiality, and AI Disclosure, with the NDA and AI disclosure combined — replacing the plain-words summary. It is labeled PROPOSED, not attorney-approved, with its bracketed fields still open. Agreement version 'desktop-1.0' means existing saves re-agree once before continuing. v0.4.13: after the email code and the name step, a new member lands on My Profile first — the dashboard is one tap back. This build lives at one fixed Library address so updates arrive here in place — no more downloaded copies.
+  Your test data stays in this browser, on this device (saved in this page's local storage). It is not backed up or synced anywhere else: if you erase it from Privacy inside the app, it is gone for good. The numbered copies in your Downloads are separate files with their own separate saves — they do not share data with this Library home.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#14231a">
+<title>TROOTHURTZ — Test App · NEON 3000</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { font-family: 'Orbitron', 'Courier New', monospace; background: #5c6e58; min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+  .mono { font-family: 'Share Tech Mono', 'Courier New', monospace; }
+  .device {
+    --ink: #eafcff; --ink2: #9fd8ef; --ink3: #5f7ea6; --ink4: #8b9a7d;
+    --glass1: rgba(255,255,255,0.55); --glass2: rgba(255,255,255,0.32);
+    --glass-border: rgba(255,255,255,0.65);
+    --field: rgba(255,255,255,0.75); --field-border: rgba(90,120,85,0.45);
+    --accent: #256b4d; --accent2: #1f7a6d; --shadow: rgba(43,64,40,0.30);
+    width: 400px; max-width: 100vw; height: min(840px, 100dvh); position: relative; overflow: hidden;
+    border-radius: 44px; border: 1px solid var(--glass-border);
+    background:
+      radial-gradient(circle at 88% 6%, rgba(255,183,92,0.5) 0%, rgba(255,183,92,0) 46%),
+      radial-gradient(circle at 6% 30%, rgba(96,178,152,0.5) 0%, rgba(96,178,152,0) 48%),
+      radial-gradient(circle at 78% 88%, rgba(106,164,196,0.45) 0%, rgba(106,164,196,0) 46%),
+      radial-gradient(circle at 18% 96%, rgba(232,198,138,0.45) 0%, rgba(232,198,138,0) 44%),
+      linear-gradient(168deg, #f2e8cf 0%, #cfdfbe 38%, #b7d8cd 68%, #c4d6ba 100%);
+    box-shadow: 0 24px 60px var(--shadow), inset 0 0 60px rgba(255,255,255,0.35);
+    display: flex; flex-direction: column; padding: 0 1.2rem; color: var(--ink2);
+    transition: background 0.6s ease, color 0.4s ease;
+  }
+  .device.night {
+    --ink: #eef4e4; --ink2: #cfdcc4; --ink3: #9db18f; --ink4: #74866a;
+    --glass1: rgba(24,38,28,0.66); --glass2: rgba(20,32,24,0.5);
+    --glass-border: rgba(190,220,180,0.28);
+    --field: rgba(16,26,19,0.68); --field-border: rgba(160,190,150,0.35);
+    --accent: #7fd1a8; --accent2: #6fc7bd; --shadow: rgba(0,0,0,0.55);
+    background:
+      radial-gradient(circle at 86% 5%, rgba(255,196,110,0.20) 0%, rgba(255,196,110,0) 42%),
+      radial-gradient(circle at 8% 28%, rgba(64,145,108,0.35) 0%, rgba(64,145,108,0) 48%),
+      radial-gradient(circle at 80% 90%, rgba(61,143,168,0.28) 0%, rgba(61,143,168,0) 46%),
+      linear-gradient(168deg, #1c2b20 0%, #14231a 42%, #10201c 70%, #16241a 100%);
+  }
+  @media (max-width: 600px) {
+    .device { width: 100vw; height: 100dvh; border-radius: 0; border: none; padding: 0 1.1rem; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    .notch { display: none; }
+  }
+  .notch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 110px; height: 22px; border-radius: 12px; background: #22301f; border: 1px solid rgba(255,255,255,0.35); z-index: 5; }
+  .proto { margin-top: 42px; text-align: center; font-size: 0.53rem; letter-spacing: 0.14em; color: #a16207; position: relative; z-index: 2; line-height: 1.7; }
+  .device.night .proto { color: #d9a441; }
+  .glass { position: relative; background: linear-gradient(150deg, var(--glass1) 0%, var(--glass2) 100%); backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25); border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: 0 18px 40px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .screen { display: none; position: relative; z-index: 2; flex: 1; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: none; padding-bottom: 0.4rem; }
+  .screen::-webkit-scrollbar { display: none; }
+  .screen.active { display: flex; animation: fadein .3s ease; }
+  .screen > * { flex: none; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  h1.title { margin-top: 1.15rem; font-size: 1.12rem; font-weight: 900; letter-spacing: 0.1em; color: var(--ink); text-align: center; }
+  .title-sub { text-align: center; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.5em; text-indent: 0.5em; margin-top: 0.4rem; color: var(--ink2); }
+  .subtitle { margin-top: 0.45rem; text-align: center; font-size: 0.7rem; color: var(--ink3); line-height: 1.6; }
+  .btn { width: 100%; padding: 0.95rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.45); cursor: pointer; background: linear-gradient(135deg, #19f0ff 0%, #22806f 55%, #7a5cff 100%); color: #fdfdf8; font-family: 'Orbitron', monospace; font-weight: 900; letter-spacing: 0.18em; font-size: 0.8rem; box-shadow: 0 12px 24px rgba(35,85,60,0.35), inset 0 1px 0 rgba(255,255,255,0.4); transition: transform .1s, opacity .2s, filter .2s; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; filter: grayscale(0.35); }
+  .btn.danger { background: linear-gradient(135deg, #b34a30, #93321f); }
+  .foot { margin-top: auto; padding: 1rem 0 1.2rem; text-align: center; font-size: 0.55rem; letter-spacing: 0.2em; color: var(--ink4); }
+  label { display: block; font-size: 0.57rem; letter-spacing: 0.22em; font-weight: 700; color: var(--ink3); margin: 0 0 0.35rem 0.2rem; }
+  .field { margin-bottom: 0.9rem; }
+  .field input, .field textarea, .field select { width: 100%; padding: 0.8rem 0.95rem; border-radius: 12px; font-size: 0.92rem; background: var(--field); border: 1px solid var(--field-border); color: var(--ink); font-family: 'Share Tech Mono', monospace; outline: none; transition: border-color .2s, box-shadow .2s; resize: none; }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: #19f0ff; box-shadow: 0 0 0 4px rgba(53,121,90,0.18); }
+  .field input.bad { border-color: #d1603d; box-shadow: 0 0 0 4px rgba(209,96,61,0.13); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--ink4); }
+  .hint { font-size: 0.62rem; color: var(--ink4); margin-top: 0.35rem; font-family: 'Share Tech Mono', monospace; line-height: 1.6; }
+  .err { display: none; font-size: 0.67rem; color: #c2502e; margin: 0 0 0.85rem 0.2rem; font-family: 'Share Tech Mono', monospace; line-height: 1.6; }
+  .err.show { display: block; }
+  .shake { animation: shake .4s ease; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+  .steps { display: flex; gap: 0.45rem; justify-content: center; margin-top: 1rem; }
+  .steps i { width: 26px; height: 5px; border-radius: 3px; background: rgba(120,150,120,0.3); }
+  .steps i.on { background: linear-gradient(90deg, #40916c, #2a9d8f); }
+  .steps i.done { background: rgba(64,145,108,0.55); }
+  /* terms */
+  .terms-box { margin-top: 1.1rem; padding: 1.05rem 1.05rem 0.85rem; height: 340px; overflow-y: auto; scrollbar-width: thin; }
+  .terms-box h3 { font-size: 0.7rem; letter-spacing: 0.14em; color: var(--accent); margin: 0.85rem 0 0.3rem; }
+  .terms-box h3:first-child { margin-top: 0; }
+  .terms-box h3.tdoc { font-size: 0.88rem; color: var(--ink); margin-bottom: 0.05rem; }
+  .terms-box h3.tsub { font-size: 0.72rem; margin-top: 0.1rem; line-height: 1.55; }
+  .terms-box h4 { font-size: 0.68rem; letter-spacing: 0.1em; color: var(--ink); margin: 0.7rem 0 0.25rem; font-family: 'Share Tech Mono', monospace; }
+  .terms-box p { font-size: 0.71rem; line-height: 1.75; color: var(--ink2); font-family: 'Share Tech Mono', monospace; }
+  .terms-box p.meta { margin: 0.15rem 0; }
+  .terms-box p.tnote { color: var(--ink); }
+  .terms-box ul { margin: 0.2rem 0 0.4rem; padding-left: 0.4rem; list-style: none; }
+  .terms-box li { font-size: 0.71rem; line-height: 1.75; color: var(--ink2); font-family: 'Share Tech Mono', monospace; margin: 0.15rem 0; }
+  .terms-box .draft { font-size: 0.59rem; color: #a16207; letter-spacing: 0.06em; }
+  .device.night .terms-box .draft { color: #d9a441; }
+  .agree { display: flex; gap: 0.7rem; align-items: flex-start; margin: 1rem 0.2rem 0.95rem; cursor: pointer; }
+  .agree input { width: 20px; height: 20px; margin-top: 1px; accent-color: #2a9d8f; flex: none; cursor: pointer; }
+  .agree span { font-size: 0.69rem; line-height: 1.6; color: var(--ink2); font-family: 'Share Tech Mono', monospace; }
+  .scroll-hint { text-align: center; font-size: 0.6rem; color: var(--ink4); margin-top: 0.5rem; font-family: 'Share Tech Mono', monospace; }
+  /* verify */
+  .mail-badge { margin: 1.2rem auto 0; width: 66px; height: 66px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; background: var(--glass1); border: 1px solid var(--glass-border); box-shadow: 0 14px 30px var(--shadow); color: var(--accent); }
+  .code-row { display: flex; gap: 0.45rem; justify-content: center; margin-top: 1.3rem; }
+  .code-row input { width: 44px; height: 54px; text-align: center; font-size: 1.3rem; font-weight: 700; border-radius: 12px; background: var(--field); border: 1px solid var(--field-border); color: var(--ink); font-family: 'Share Tech Mono', monospace; outline: none; }
+  .code-row input:focus { border-color: #19f0ff; box-shadow: 0 0 0 4px rgba(53,121,90,0.18); }
+  .code-row.bad input { border-color: #d1603d; animation: shake .4s ease; }
+  .demo-code { margin-top: 1rem; text-align: center; font-size: 0.65rem; color: #a16207; font-family: 'Share Tech Mono', monospace; line-height: 1.7; }
+  .device.night .demo-code { color: #d9a441; }
+  .demo-code b { font-size: 0.85rem; letter-spacing: 0.3em; }
+  .linklike { margin-top: 0.85rem; text-align: center; font-size: 0.66rem; color: var(--accent); font-family: 'Share Tech Mono', monospace; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; background: none; border: none; display: block; margin-left: auto; margin-right: auto; }
+  /* header / toggle */
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
+  .brand-mini { font-weight: 900; letter-spacing: 0.2em; font-size: 0.8rem; color: var(--ink); }
+  .brand-mini b { color: var(--accent); }
+  .mode-toggle { display: flex; align-items: center; gap: 0.45rem; cursor: pointer; background: var(--glass2); border: 1px solid var(--glass-border); border-radius: 999px; padding: 0.32rem 0.6rem; }
+  .mode-toggle .lbl { font-size: 0.56rem; font-weight: 700; letter-spacing: 0.14em; color: var(--ink3); }
+  .mode-toggle .track { width: 34px; height: 18px; border-radius: 999px; background: linear-gradient(90deg, #e8c87a, #a8c69f); position: relative; transition: background .4s; flex: none; }
+  .mode-toggle .track::after { content: " "; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fffdf5; box-shadow: 0 1px 4px rgba(0,0,0,0.3); transition: left .3s ease; }
+  .device.night .mode-toggle .track { background: linear-gradient(90deg, #2c4a3e, #1d3446); }
+  .device.night .mode-toggle .track::after { left: 18px; background: #dfe9d2; }
+  .head { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; }
+  .back { background: var(--glass1); border: 1px solid var(--glass-border); width: 36px; height: 36px; border-radius: 12px; font-size: 1rem; color: var(--accent); cursor: pointer; flex: none; }
+  .head h2 { font-size: 0.95rem; font-weight: 900; letter-spacing: 0.14em; color: var(--ink); }
+  .head .sub { font-size: 0.61rem; color: var(--ink3); margin-top: 0.2rem; font-family: 'Share Tech Mono', monospace; }
+  /* avatar */
+  .avatar-wrap { margin: 1.3rem auto 0; text-align: center; }
+  .avatar-circle { width: 160px; height: 160px; border-radius: 50%; margin: 0 auto; position: relative; overflow: hidden; border: 3px solid rgba(255,255,255,0.8); box-shadow: 0 20px 44px var(--shadow), inset 0 0 0 2px rgba(53,121,90,0.25); background: linear-gradient(135deg, #19f0ff, #7a5cff); display: flex; align-items: center; justify-content: center; font-size: 3.2rem; font-weight: 900; color: #fdfdf8; cursor: pointer; }
+  .avatar-circle img, .avatar-circle video, .avatar-sm img, .avatar-sm video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .avatar-sm { width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex: none; position: relative; background: linear-gradient(135deg, #19f0ff, #7a5cff); display: flex; align-items: center; justify-content: center; color: #fdfdf8; font-weight: 900; border: 2px solid rgba(255,255,255,0.75); }
+  .avatar-big { width: 118px; height: 118px; border-radius: 50%; overflow: hidden; position: relative; margin: 0 auto; background: linear-gradient(135deg, #19f0ff, #7a5cff); display: flex; align-items: center; justify-content: center; color: #fdfdf8; font-weight: 900; font-size: 2.5rem; border: 3px solid rgba(255,255,255,0.8); box-shadow: 0 0 26px rgba(25,240,255,0.35), 0 12px 30px rgba(20,40,60,0.35); }
+  .avatar-big img, .avatar-big video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .avatar-big .badge-check { width: 30px; height: 30px; font-size: 0.95rem; }
+  .badge-check { position: absolute; right: 0; bottom: 0; width: 19px; height: 19px; border-radius: 50%; background: linear-gradient(135deg, #2f9e6e, #1f7a6d); color: #fff; font-size: 0.62rem; font-weight: 900; display: none; align-items: center; justify-content: center; border: 2px solid #fdfdf8; z-index: 3; box-shadow: 0 3px 8px rgba(30,90,60,0.4); }
+  .presets { display: flex; gap: 0.55rem; justify-content: center; margin-top: 0.85rem; }
+  .presets button { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.75); cursor: pointer; box-shadow: 0 6px 14px var(--shadow); }
+  .name-check { font-size: 0.66rem; margin-top: 0.4rem; font-family: 'Share Tech Mono', monospace; min-height: 1em; }
+  .name-check.free { color: var(--accent); }
+  .name-check.taken { color: #c2502e; }
+  /* node */
+  .node-card { margin-top: 1.1rem; padding: 1rem 1.05rem 0.85rem; }
+  .node-card .row { display: flex; justify-content: space-between; align-items: center; }
+  .node-card .t { font-size: 0.6rem; letter-spacing: 0.22em; font-weight: 700; color: var(--ink3); }
+  .node-card .addr { font-size: 0.62rem; color: var(--accent); }
+  .node-card .foot-note { text-align: center; font-size: 0.62rem; color: var(--ink3); margin-top: 0.35rem; line-height: 1.6; }
+  .sat { cursor: pointer; }
+  .sat text { font-family: 'Share Tech Mono', monospace; }
+  /* banner */
+  .banner-card { margin-top: 1.05rem; overflow: hidden; border-radius: 20px; }
+  .banner-img { height: 118px; background: linear-gradient(120deg, #7ba05b, #2a9d8f 55%, #3d8fa8); background-size: cover; background-position: center; position: relative; }
+  .banner-img .tag { position: absolute; left: 0.85rem; bottom: 0.65rem; font-size: 0.55rem; font-weight: 700; letter-spacing: 0.15em; color: #fdfdf8; background: rgba(20,35,22,0.55); padding: 0.26rem 0.58rem; border-radius: 999px; }
+  .banner-meta { padding: 0.8rem 1rem 0.95rem; }
+  .banner-meta .row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .banner-meta .t { font-size: 0.59rem; letter-spacing: 0.2em; font-weight: 700; color: var(--ink3); }
+  .banner-meta .renew { font-size: 0.63rem; color: var(--ink3); margin-top: 0.4rem; line-height: 1.65; }
+  .banner-meta .renew b { color: var(--accent); }
+  .mini-btn { font-family: 'Orbitron', monospace; font-size: 0.57rem; font-weight: 700; letter-spacing: 0.11em; padding: 0.44rem 0.72rem; border-radius: 999px; cursor: pointer; background: var(--glass2); border: 1px solid var(--glass-border); color: var(--accent); }
+  .mini-btn.danger { color: #c2502e; }
+  /* cards + doors */
+  .pcard { margin-top: 1.05rem; padding: 1.05rem 1.1rem; }
+  .pcard .k { font-size: 0.57rem; letter-spacing: 0.22em; font-weight: 700; color: var(--ink3); display: flex; justify-content: space-between; align-items: center; }
+  .chip { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.09em; padding: 0.22rem 0.58rem; border-radius: 999px; color: #fdfdf8; background: linear-gradient(135deg, #19f0ff, #22806f); }
+  .pcard .line { margin-top: 0.55rem; font-size: 0.83rem; color: var(--ink); line-height: 1.55; }
+  .pcard .line b { color: var(--accent); }
+  .pcard .note { font-size: 0.63rem; color: var(--ink3); margin-top: 0.6rem; line-height: 1.65; }
+  .bar { height: 8px; border-radius: 4px; background: rgba(90,120,85,0.25); margin-top: 0.7rem; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 19%; background: linear-gradient(90deg, #19f0ff, #22806f, #7a5cff); }
+  .dash-who { display: flex; gap: 0.9rem; align-items: center; margin-top: 1.05rem; padding: 1rem 1.1rem; }
+  .dash-who .nm { font-size: 0.94rem; font-weight: 900; color: var(--ink); }
+  .dash-who .rl { font-size: 0.63rem; color: var(--ink3); margin-top: 0.25rem; }
+  .door-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.65rem; margin-top: 1.05rem; }
+  .door { padding: 0.9rem 0.35rem 0.8rem; text-align: center; cursor: pointer; }
+  .door .ic { font-size: 1.3rem; line-height: 1; }
+  .door .lb { margin-top: 0.42rem; font-size: 0.56rem; font-weight: 700; letter-spacing: 0.12em; color: var(--ink); line-height: 1.5; }
+  .door, .mini-btn, .seg button, .back { transition: filter .18s ease, box-shadow .18s ease, transform .12s ease; }
+  .door:hover, .mini-btn:hover, .seg button:hover, .back:hover { filter: brightness(1.13); }
+  @keyframes pulseGlow { 0% { filter: brightness(1); } 45% { filter: brightness(1.4); box-shadow: 0 0 0 3px rgba(64,180,140,0.45), 0 18px 44px rgba(53,170,120,0.45); } 100% { filter: brightness(1.06); } }
+  .pulsing { animation: pulseGlow .3s ease; }
+  .toast { display: none; margin-top: 0.9rem; text-align: center; font-size: 0.64rem; color: var(--ink3); font-family: 'Share Tech Mono', monospace; line-height: 1.6; }
+  .toast.show { display: block; }
+  /* profile */
+  .profile-bg { margin-top: 1.05rem; height: 140px; border-radius: 20px; overflow: hidden; position: relative; background: linear-gradient(120deg, #7ba05b, #2a9d8f 55%, #3d8fa8); background-size: cover; background-position: center; border: 1px solid var(--glass-border); box-shadow: 0 16px 34px var(--shadow); }
+  .profile-bg .change-bg { position: absolute; right: 0.65rem; bottom: 0.65rem; font-size: 0.57rem; font-weight: 700; letter-spacing: 0.09em; color: #fdfdf8; background: rgba(20,35,22,0.55); border: 1px solid rgba(255,255,255,0.4); padding: 0.38rem 0.68rem; border-radius: 999px; cursor: pointer; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
+  .seg button { padding: 0.62rem 0.2rem; border-radius: 10px; border: 1px solid var(--field-border); background: var(--field); color: var(--ink3); font-family: 'Orbitron', monospace; font-size: 0.61rem; font-weight: 700; letter-spacing: 0.09em; cursor: pointer; }
+  .seg button.on { background: linear-gradient(135deg, #19f0ff, #22806f); color: #fdfdf8; border-color: rgba(255,255,255,0.45); }
+  .vis-row { display: flex; justify-content: space-between; align-items: center; margin-top: 1.05rem; padding: 1rem 1.1rem; }
+  .vis-row .t { font-size: 0.79rem; font-weight: 700; color: var(--ink); letter-spacing: 0.05em; }
+  .vis-row .d { font-size: 0.62rem; color: var(--ink3); margin-top: 0.3rem; line-height: 1.6; font-family: 'Share Tech Mono', monospace; max-width: 235px; }
+  .switch { width: 52px; height: 28px; border-radius: 999px; background: rgba(90,120,85,0.4); position: relative; cursor: pointer; flex: none; transition: background .3s; border: 1px solid var(--glass-border); }
+  .switch::after { content: " "; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fffdf5; box-shadow: 0 1px 4px rgba(0,0,0,0.3); transition: left .25s ease; }
+  .switch.on { background: linear-gradient(90deg, #19f0ff, #22806f); }
+  .switch.on::after { left: 27px; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.65rem; }
+  .stat-row .num { font-size: 1.45rem; font-weight: 900; color: var(--ink); }
+  .stat-row .cap { font-size: 0.57rem; letter-spacing: 0.14em; color: var(--ink3); font-weight: 700; margin-top: 0.2rem; }
+  /* entities */
+  .entity-card { margin-top: 0.8rem; padding: 0.95rem 1.05rem; }
+  .entity-card .nm2 { font-size: 0.9rem; font-weight: 900; color: var(--ink); }
+  .type-chip { font-size: 0.53rem; font-weight: 700; letter-spacing: 0.09em; padding: 0.22rem 0.55rem; border-radius: 999px; color: #fdfdf8; background: linear-gradient(135deg, #5b7fa6, #7a6fa0); }
+  .type-chip.biz { background: linear-gradient(135deg, #19f0ff, #22806f); }
+  .gift-row { display: flex; gap: 0.45rem; align-items: center; margin-top: 0.65rem; flex-wrap: wrap; }
+  .gift-chip { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; padding: 0.34rem 0.58rem; border-radius: 999px; border: 1px solid var(--field-border); background: var(--field); color: var(--ink2); cursor: pointer; }
+  .gift-chip.on { background: linear-gradient(135deg, #19f0ff, #22806f); color: #fdfdf8; }
+  .choice-big { display: block; width: 100%; text-align: left; padding: 1rem 1.05rem; margin-top: 0.8rem; border-radius: 16px; cursor: pointer; }
+  .choice-big .t1 { font-size: 0.79rem; font-weight: 900; letter-spacing: 0.05em; color: var(--ink); }
+  .choice-big .t2 { font-size: 0.65rem; color: var(--ink3); margin-top: 0.32rem; line-height: 1.6; font-family: 'Share Tech Mono', monospace; }
+  .eq { display: none; }
+  .eq.on { display: block; }
+
+  /* ----- merged dashboard: hero-market interface DNA ----- */
+  .conn-card { margin-top: 1.05rem; padding: 0.95rem 1.05rem; }
+  .conn-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.42rem 0; font-size: 0.66rem; }
+  .conn-row .dot { width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(135deg, #2f9e6e, #1f7a6d); flex: none; box-shadow: 0 0 8px rgba(47,158,110,0.7); }
+  .conn-row .who { font-weight: 900; letter-spacing: 0.08em; color: var(--ink); font-size: 0.64rem; }
+  .conn-row .what { color: var(--ink3); font-family: 'Share Tech Mono', monospace; }
+  .mc-row { display: flex; align-items: center; gap: 0.75rem; width: 100%; text-align: left; padding: 0.72rem 0.8rem; margin-top: 0.55rem; border-radius: 14px; cursor: pointer; background: var(--glass2); border: 1px solid var(--glass-border); color: var(--ink2); font-family: 'Orbitron', monospace; }
+  .mc-row .ic { font-size: 1.15rem; flex: none; }
+  .mc-row .tt { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.08em; color: var(--ink); }
+  .mc-row .ss { font-size: 0.6rem; color: var(--ink3); font-family: 'Share Tech Mono', monospace; margin-top: 0.15rem; }
+  .mc-row .go { margin-left: auto; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); flex: none; }
+  .prog-steps { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.65rem; }
+  .prog-steps span { font-size: 0.58rem; font-family: 'Share Tech Mono', monospace; padding: 0.3rem 0.55rem; border-radius: 999px; border: 1px solid var(--field-border); color: var(--ink3); background: var(--field); }
+  .prog-steps span.done { background: linear-gradient(135deg, #19f0ff, #22806f); color: #fdfdf8; border-color: rgba(255,255,255,0.4); }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.42rem; margin-top: 0.55rem; }
+  .chips button { font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; padding: 0.42rem 0.66rem; border-radius: 999px; border: 1px solid var(--field-border); background: var(--field); color: var(--ink2); cursor: pointer; }
+  .chips button:active { filter: brightness(1.25); }
+  .crea-row { display: flex; justify-content: space-between; align-items: center; gap: 0.7rem; padding: 0.5rem 0; border-bottom: 1px dashed rgba(120,150,120,0.3); font-size: 0.66rem; }
+  .crea-row:last-child { border-bottom: none; }
+  .crea-row .a { color: var(--ink2); font-family: 'Share Tech Mono', monospace; }
+  .crea-row .b { color: var(--ink); font-weight: 700; font-family: 'Share Tech Mono', monospace; text-align: right; }
+
+  /* ----- versioning / what's new ----- */
+  .upd-banner { display: none; margin-top: 1rem; padding: 0.85rem 1rem; border-radius: 16px; cursor: pointer; background: linear-gradient(135deg, #19f0ff, #22806f 60%, #7a5cff); color: #fdfdf8; box-shadow: 0 14px 30px rgba(35,85,60,0.4); }
+  .upd-banner.show { display: block; animation: fadein .35s ease; }
+  .upd-banner .t { font-size: 0.72rem; font-weight: 900; letter-spacing: 0.1em; }
+  .upd-banner .s { font-size: 0.63rem; font-family: 'Share Tech Mono', monospace; margin-top: 0.25rem; opacity: 0.92; }
+  .news-entry { margin-top: 1rem; padding: 1.05rem 1.1rem; }
+  .news-entry .vh { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+  .news-entry .vn { font-size: 0.92rem; font-weight: 900; color: var(--ink); }
+  .news-entry .vd { font-size: 0.6rem; color: var(--ink4); font-family: 'Share Tech Mono', monospace; }
+  .news-entry ul { margin: 0.6rem 0 0 1rem; font-size: 0.7rem; line-height: 1.75; color: var(--ink2); font-family: 'Share Tech Mono', monospace; }
+  /* privacy */
+  .data-pre { margin-top: 0.7rem; padding: 0.85rem 0.9rem; border-radius: 14px; background: rgba(20,35,22,0.08); border: 1px solid var(--glass-border); font-size: 0.6rem; line-height: 1.7; color: var(--ink2); white-space: pre-wrap; word-break: break-word; display: none; max-height: 220px; overflow-y: auto; }
+  .device.night .data-pre { background: rgba(0,0,0,0.35); }
+  .data-pre.show { display: block; }
+  .kv { display: flex; justify-content: space-between; gap: 0.8rem; padding: 0.5rem 0; border-bottom: 1px dashed rgba(120,150,120,0.3); font-size: 0.66rem; }
+  .kv:last-child { border-bottom: none; }
+  .kv .a { color: var(--ink3); font-family: 'Share Tech Mono', monospace; }
+  .kv .b { color: var(--ink); font-weight: 700; text-align: right; font-family: 'Share Tech Mono', monospace; }
+  .check { width: 88px; height: 88px; margin: 2rem auto 1.1rem; border-radius: 50%; border: 2px solid rgba(53,121,90,0.85); display: flex; align-items: center; justify-content: center; font-size: 2.3rem; color: var(--accent); background: var(--glass1); box-shadow: 0 16px 34px var(--shadow); }
+
+  /* skins (v0.4.2) */
+  .skin-row { margin-top: 1.5rem; padding: 0 0.2rem; }
+  .skin-cap { text-align: center; font-size: 0.56rem; letter-spacing: 0.24em; font-weight: 700; color: var(--ink3); margin-bottom: 0.5rem; }
+  .skin-pills { display: flex; gap: 0.55rem; }
+  .skin-pill { flex: 1; padding: 0.62rem 0.4rem; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass2); color: var(--ink2); font-family: 'Orbitron', monospace; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.18em; cursor: pointer; transition: box-shadow .25s, border-color .25s, color .25s; }
+  .skin-pill.on { color: var(--ink); border-color: var(--accent); box-shadow: 0 0 16px rgba(25,240,255,0.35), 0 0 10px var(--shadow), inset 0 0 12px rgba(255,255,255,0.18); }
+  /* collapsible pill sections (profile, v0.4.2) */
+  .pill-sec { margin-top: 0.85rem; }
+  .pill-head { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0.82rem 1.05rem; border-radius: 999px; border: 1px solid var(--glass-border); background: linear-gradient(150deg, var(--glass1), var(--glass2)); color: var(--ink); font-family: 'Orbitron', monospace; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.16em; cursor: pointer; box-shadow: 0 0 14px rgba(25,240,255,0.20), 0 8px 20px var(--shadow); }
+  .pill-head .chev { font-size: 0.72rem; color: var(--accent); transition: transform .3s ease; }
+  .pill-sec.open .pill-head .chev { transform: rotate(90deg); }
+  .pill-body { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .45s ease, opacity .35s ease; }
+  .pill-sec.open .pill-body { opacity: 1; }
+  .pill-body > .inner { padding-top: 0.15rem; }
+  .journey-btn { border-radius: 999px; animation: journeyPulse 2.6s ease-in-out infinite; }
+  @keyframes journeyPulse { 0%, 100% { box-shadow: 0 0 14px rgba(25,240,255,0.30), 0 12px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.4); } 50% { box-shadow: 0 0 32px rgba(25,240,255,0.60), 0 12px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.4); } }
+  /* world explorer (v0.4.2) */
+  .ex-map-wrap { margin-top: 1.05rem; padding: 0.6rem; border-radius: 22px; box-shadow: 0 0 22px rgba(25,240,255,0.20), 0 16px 34px var(--shadow); }
+  #exMap { display: block; width: 100%; height: 300px; border-radius: 16px; cursor: pointer; }
+  .ex-nodes { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.8rem; }
+  .ex-pill { padding: 0.52rem 0.8rem; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass2); color: var(--ink2); font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; cursor: pointer; transition: box-shadow .25s, border-color .25s; }
+  .ex-pill.on { color: var(--ink); border-color: var(--accent); box-shadow: 0 0 14px rgba(25,240,255,0.35); }
+  .terms-ver { text-align: center; margin-top: 0.6rem; font-size: 0.6rem; letter-spacing: 0.14em; color: var(--accent); font-family: 'Share Tech Mono', monospace; }
+</style>
+
+<style id="neon3000">
+  body { background: #02040a; }
+  .device {
+    --ink: #eafcff; --ink2: #b9e6f7; --ink3: #7fa8c9; --ink4: #55708f;
+    --glass1: rgba(10, 26, 48, 0.66); --glass2: rgba(8, 16, 38, 0.52);
+    --glass-border: rgba(0, 209, 255, 0.34);
+    --field: rgba(6, 18, 38, 0.78); --field-border: rgba(0, 209, 255, 0.30);
+    --accent: #19f0ff; --accent2: #ff2bd6; --shadow: rgba(0, 0, 0, 0.6);
+    background:
+      radial-gradient(circle at 88% 4%, rgba(255, 43, 214, 0.20) 0%, rgba(255, 43, 214, 0) 46%),
+      radial-gradient(circle at 6% 26%, rgba(0, 209, 255, 0.20) 0%, rgba(0, 209, 255, 0) 50%),
+      radial-gradient(circle at 80% 90%, rgba(122, 92, 255, 0.22) 0%, rgba(122, 92, 255, 0) 48%),
+      radial-gradient(circle at 16% 96%, rgba(184, 255, 46, 0.08) 0%, rgba(184, 255, 46, 0) 42%),
+      linear-gradient(168deg, #060a1e 0%, #040814 42%, #070420 72%, #030612 100%);
+    border-color: rgba(0, 209, 255, 0.45);
+    box-shadow: 0 0 44px rgba(0, 209, 255, 0.28), 0 24px 70px rgba(0,0,0,0.8), inset 0 0 70px rgba(0, 120, 200, 0.10);
+  }
+  .device.night {
+    --glass1: rgba(6, 12, 30, 0.78); --glass2: rgba(4, 8, 22, 0.66);
+    --glass-border: rgba(122, 92, 255, 0.40);
+    background:
+      radial-gradient(circle at 86% 5%, rgba(255, 43, 214, 0.13) 0%, rgba(255, 43, 214, 0) 42%),
+      radial-gradient(circle at 8% 28%, rgba(0, 209, 255, 0.13) 0%, rgba(0, 209, 255, 0) 48%),
+      radial-gradient(circle at 80% 90%, rgba(122, 92, 255, 0.16) 0%, rgba(122, 92, 255, 0) 46%),
+      linear-gradient(168deg, #03040f 0%, #02040c 45%, #04020f 72%, #01030a 100%);
+  }
+  #bgFx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+  .scanfx { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden;
+    background: repeating-linear-gradient(0deg, rgba(160, 240, 255, 0.028) 0 1px, transparent 1px 3px); }
+  .scanfx::after { content: " "; position: absolute; left: 0; right: 0; height: 120px; top: -140px;
+    background: linear-gradient(180deg, rgba(0,209,255,0) 0%, rgba(0,209,255,0.07) 45%, rgba(0,209,255,0.16) 50%, rgba(0,209,255,0.07) 55%, rgba(0,209,255,0) 100%);
+    animation: scanmove 7s linear infinite; }
+  @keyframes scanmove { 0% { top: -140px; } 100% { top: 110%; } }
+  .glass { box-shadow: 0 0 0 1px rgba(0,209,255,0.06), 0 16px 40px rgba(0,0,0,0.55), 0 0 22px rgba(0, 160, 255, 0.10), inset 0 1px 0 rgba(160,240,255,0.22); }
+  h1.title, .head h2, .dash-who .nm, .node-card .addr { text-shadow: 0 0 14px rgba(25, 240, 255, 0.45); }
+  .brand-mini { text-shadow: 0 0 12px rgba(25,240,255,0.55); }
+  .brand-mini b { color: #ff2bd6; text-shadow: 0 0 12px rgba(255,43,214,0.6); }
+  .proto { color: #19b8d8; }
+  .device.night .proto { color: #19b8d8; }
+  .btn { background: linear-gradient(135deg, #0090c8 0%, #00c2e8 38%, #7a5cff 78%, #ff2bd6 130%); border-color: rgba(160,240,255,0.55);
+    box-shadow: 0 0 22px rgba(0, 190, 255, 0.45), 0 12px 26px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .btn.danger { background: linear-gradient(135deg, #a1164f, #ff2b6a 60%, #ff7847); box-shadow: 0 0 22px rgba(255,43,106,0.4), 0 12px 26px rgba(0,0,0,0.5); }
+  .chip, .seg button.on, .switch.on, .gift-chip.on, .type-chip.biz, .prog-steps span.done, .steps i.on, .steps i.done {
+    background: linear-gradient(135deg, #0090c8, #00c2e8 55%, #7a5cff); box-shadow: 0 0 12px rgba(0,190,255,0.4); }
+  .bar i { background: linear-gradient(90deg, #19f0ff, #7a5cff, #ff2bd6); box-shadow: 0 0 10px rgba(25,240,255,0.6); }
+  .bar { background: rgba(0, 120, 180, 0.22); }
+  .field input:focus, .field textarea:focus, .field select:focus, .code-row input:focus { border-color: #19f0ff; box-shadow: 0 0 0 4px rgba(25,240,255,0.18), 0 0 16px rgba(25,240,255,0.25); }
+  .avatar-circle { background: linear-gradient(135deg, #00a8d8, #7a5cff 70%, #ff2bd6); border-color: rgba(200,250,255,0.85);
+    box-shadow: 0 0 34px rgba(0,190,255,0.5), 0 20px 44px rgba(0,0,0,0.6), inset 0 0 24px rgba(255,255,255,0.18); }
+  .avatar-sm { background: linear-gradient(135deg, #00a8d8, #7a5cff); border-color: rgba(200,250,255,0.7); }
+  .avatar-big { background: linear-gradient(135deg, #00a8d8, #7a5cff 70%, #ff2bd6); border-color: rgba(200,250,255,0.85); box-shadow: 0 0 34px rgba(0,190,255,0.5), 0 20px 44px rgba(0,0,0,0.6), inset 0 0 24px rgba(255,255,255,0.18); }
+  .badge-check { background: linear-gradient(135deg, #00d68f, #00b8a9); box-shadow: 0 0 12px rgba(0,230,160,0.7); border-color: #eafffb; }
+  .check { border-color: rgba(25,240,255,0.8); box-shadow: 0 0 30px rgba(0,190,255,0.45), inset 0 0 18px rgba(0,190,255,0.2); }
+  .mail-badge { box-shadow: 0 0 26px rgba(0,190,255,0.35); }
+  .node-card { animation: nodebreathe 4.2s ease-in-out infinite; }
+  @keyframes nodebreathe { 0%, 100% { box-shadow: 0 0 18px rgba(0,190,255,0.16), 0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(160,240,255,0.22); } 50% { box-shadow: 0 0 34px rgba(0,190,255,0.38), 0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(160,240,255,0.3); } }
+  .upd-banner { background: linear-gradient(135deg, #0090c8, #00c2e8 45%, #7a5cff); box-shadow: 0 0 26px rgba(0,190,255,0.5); }
+  .door .ic { filter: drop-shadow(0 0 7px rgba(25,240,255,0.65)); }
+  @keyframes pulseGlow { 0% { filter: brightness(1); } 45% { filter: brightness(1.5); box-shadow: 0 0 0 3px rgba(25,240,255,0.5), 0 0 30px rgba(0,190,255,0.6); } 100% { filter: brightness(1.08); } }
+  .mode-toggle .track { background: linear-gradient(90deg, #123a5e, #3a2a6e); }
+  .mode-toggle .track::after { background: #dff8ff; }
+  .banner-img { background: linear-gradient(120deg, #0b3b66, #00a8d8 45%, #7a5cff 80%, #ff2bd6); }
+  .profile-bg { background: linear-gradient(120deg, #0b3b66, #00a8d8 45%, #7a5cff 80%, #ff2bd6); }
+  .terms-box .draft, .demo-code { color: #ffb02e; }
+  .device.night .terms-box .draft, .device.night .demo-code { color: #ffb02e; }
+  .err, .banner-meta .mini-btn.danger { color: #ff7a6b; }
+  .name-check.taken { color: #ff7a6b; }
+  a, .linklike { color: #19f0ff; }
+  .sat circle { fill: rgba(8, 24, 48, 0.55); }
+</style>
+
+<style id="gold3000">
+  body { background: #010101; }
+  .device {
+    --ink: #f7ecd2; --ink2: #e8d096; --ink3: #b3985e; --ink4: #7d6a42;
+    --glass1: rgba(28, 20, 6, 0.66); --glass2: rgba(17, 12, 3, 0.55);
+    --glass-border: rgba(212, 175, 55, 0.38);
+    --field: rgba(15, 11, 3, 0.82); --field-border: rgba(212, 175, 55, 0.32);
+    --accent: #d4af37; --accent2: #f1d27a; --shadow: rgba(0, 0, 0, 0.65);
+    background:
+      radial-gradient(circle at 50% 110%, rgba(255, 176, 32, 0.15) 0%, rgba(255, 176, 32, 0) 48%),
+      radial-gradient(circle at 86% 4%, rgba(212, 175, 55, 0.06) 0%, rgba(212, 175, 55, 0) 46%),
+      radial-gradient(circle at 6% 26%, rgba(212, 175, 55, 0.03) 0%, rgba(212, 175, 55, 0) 50%),
+      linear-gradient(170deg, #050302 0%, #020202 45%, #030201 100%);
+    border: 1px solid #ffcf4d;
+    box-shadow: 0 0 6px rgba(255, 207, 77, 0.9), 0 0 20px rgba(255, 190, 50, 0.50), 0 0 44px rgba(212, 175, 55, 0.25), 0 24px 70px rgba(0, 0, 0, 0.85), inset 0 0 70px rgba(120, 84, 10, 0.05), inset 0 0 14px rgba(255, 207, 77, 0.22);
+  }
+  .device.night {
+    --glass1: rgba(20, 14, 4, 0.78); --glass2: rgba(12, 8, 2, 0.66);
+    --glass-border: rgba(212, 175, 55, 0.30);
+    background:
+      radial-gradient(circle at 50% 112%, rgba(255, 176, 32, 0.08) 0%, rgba(255, 176, 32, 0) 48%),
+      radial-gradient(circle at 86% 4%, rgba(212, 175, 55, 0.035) 0%, rgba(212, 175, 55, 0) 44%),
+      linear-gradient(170deg, #030202 0%, #010101 45%, #020101 100%);
+  }
+  #bgFx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+  .scanfx { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden;
+    background: repeating-linear-gradient(0deg, rgba(255, 224, 160, 0.028) 0 1px, transparent 1px 3px); }
+  .scanfx::after { content: " "; position: absolute; left: 0; right: 0; height: 120px; top: -140px;
+    background: linear-gradient(180deg, rgba(212,175,55,0) 0%, rgba(212,175,55,0.07) 45%, rgba(212,175,55,0.16) 50%, rgba(212,175,55,0.07) 55%, rgba(212,175,55,0) 100%);
+    animation: scanmove 7s linear infinite; }
+  @keyframes scanmove { 0% { top: -140px; } 100% { top: 110%; } }
+  .glass { box-shadow: 0 0 0 1px rgba(212,175,55,0.06), 0 16px 40px rgba(0,0,0,0.55), 0 0 22px rgba(212, 175, 55, 0.10), inset 0 1px 0 rgba(255, 236, 190, 0.20); }
+  h1.title { background: linear-gradient(180deg, #f9ecbe 0%, #e9cd7e 38%, #d4af37 58%, #96762a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 16px rgba(246, 210, 106, 0.35); }
+  .head h2, .dash-who .nm, .node-card .addr { text-shadow: 0 0 14px rgba(246, 210, 106, 0.45); }
+  .brand-mini { background: linear-gradient(180deg, #f9ecbe 0%, #e9cd7e 38%, #d4af37 58%, #96762a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 12px rgba(246, 210, 106, 0.35); }
+  .brand-mini b { color: #ffeec2; text-shadow: 0 0 12px rgba(246, 210, 106, 0.6); }
+  .title-sub { color: #d4af37; }
+  .proto { color: #caa64b; }
+  .device.night .proto { color: #caa64b; }
+  .btn { background: linear-gradient(135deg, #8a6420 0%, #d4af37 34%, #f6e27a 50%, #d4af37 66%, #8a6420 100%); color: #221806; border-color: rgba(246, 226, 122, 0.7);
+    box-shadow: 0 0 22px rgba(212, 175, 55, 0.40), 0 12px 26px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+  .btn.danger { background: linear-gradient(135deg, #a1164f, #ff2b6a 60%, #ff7847); color: #fff; box-shadow: 0 0 22px rgba(255,43,106,0.4), 0 12px 26px rgba(0,0,0,0.5); }
+  .chip, .seg button.on, .switch.on, .gift-chip.on, .type-chip.biz, .prog-steps span.done, .steps i.on, .steps i.done {
+    background: linear-gradient(135deg, #8a6420 0%, #d4af37 34%, #f6e27a 50%, #d4af37 66%, #8a6420 100%); color: #221806; box-shadow: 0 0 12px rgba(212, 175, 55, 0.35); }
+  .bar i { background: linear-gradient(90deg, #96762a, #d4af37, #f6e27a); box-shadow: 0 0 10px rgba(212, 175, 55, 0.6); }
+  .bar { background: rgba(212, 175, 55, 0.16); }
+  .field input:focus, .field textarea:focus, .field select:focus, .code-row input:focus { border-color: #d4af37; box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.18), 0 0 16px rgba(212, 175, 55, 0.25); }
+  .avatar-circle { background: linear-gradient(135deg, #8a6420, #d4af37 55%, #f6e27a); border-color: rgba(255, 240, 200, 0.85);
+    box-shadow: 0 0 34px rgba(212, 175, 55, 0.5), 0 20px 44px rgba(0,0,0,0.6), inset 0 0 24px rgba(255,255,255,0.18); }
+  .avatar-sm { background: linear-gradient(135deg, #8a6420, #d4af37); border-color: rgba(255, 240, 200, 0.7); }
+  .avatar-big { background: linear-gradient(135deg, #8a6420, #d4af37 55%, #f6e27a); border-color: rgba(255, 240, 200, 0.85); box-shadow: 0 0 34px rgba(212, 175, 55, 0.5), 0 20px 44px rgba(0,0,0,0.6), inset 0 0 24px rgba(255,255,255,0.18); }
+  .badge-check { background: linear-gradient(135deg, #00d68f, #00b8a9); box-shadow: 0 0 12px rgba(0,230,160,0.7); border-color: #eafffb; }
+  .check { border-color: rgba(212, 175, 55, 0.85); box-shadow: 0 0 30px rgba(212, 175, 55, 0.45), inset 0 0 18px rgba(212, 175, 55, 0.2); }
+  .mail-badge { box-shadow: 0 0 26px rgba(212, 175, 55, 0.35); }
+  .node-card { animation: nodebreatheGold 4.2s ease-in-out infinite; }
+  @keyframes nodebreatheGold { 0%, 100% { box-shadow: 0 0 18px rgba(212,175,55,0.16), 0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,236,190,0.22); } 50% { box-shadow: 0 0 34px rgba(212,175,55,0.38), 0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,236,190,0.3); } }
+  .upd-banner { background: linear-gradient(135deg, #8a6420 0%, #d4af37 34%, #f6e27a 50%, #d4af37 66%, #8a6420 100%); color: #221806; box-shadow: 0 0 26px rgba(212, 175, 55, 0.5); }
+  .door .ic { filter: drop-shadow(0 0 7px rgba(246, 210, 106, 0.65)); }
+  @keyframes pulseGlow { 0% { filter: brightness(1); } 45% { filter: brightness(1.5); box-shadow: 0 0 0 3px rgba(246,210,106,0.5), 0 0 30px rgba(212,175,55,0.6); } 100% { filter: brightness(1.08); } }
+  .mode-toggle .track { background: linear-gradient(90deg, #3a2c10, #6b5316); }
+  .mode-toggle .track::after { background: #ffeec2; }
+  .banner-img { background: linear-gradient(120deg, #241a06, #8a6420 45%, #d4af37 80%, #f6e27a); }
+  .profile-bg { background: linear-gradient(120deg, #241a06, #8a6420 45%, #d4af37 80%, #f6e27a); }
+  .terms-box .draft, .demo-code { color: #ffb02e; }
+  .device.night .terms-box .draft, .device.night .demo-code { color: #ffb02e; }
+  .err, .banner-meta .mini-btn.danger { color: #ff7a6b; }
+  .name-check.taken { color: #ff7a6b; }
+  a, .linklike { color: #e8c766; }
+  .sat circle { fill: rgba(30, 22, 6, 0.55); }
+  .skin-pill.on { border-color: rgba(246,226,122,0.9); box-shadow: 0 0 16px rgba(212,175,55,0.45), 0 0 10px rgba(0,0,0,0.5), inset 0 0 12px rgba(246,226,122,0.25); color: #f9ecbe; }
+  .k .chip { background: linear-gradient(135deg, #8a6420, #d4af37 55%, #f6e27a) !important; color: #221806 !important; }
+</style>
+</head>
+<body>
+<div class="device" id="device">
+  <canvas id="bgFx"></canvas>
+  <div class="scanfx"></div>
+  <div class="notch"></div>
+  <div class="proto">SMART TRUST MOBILE · TEST BUILD <span data-ver>v—</span> — NO REAL ACCOUNTS, NO REAL MONEY<br>YOUR TEST DATA STAYS ON THIS DEVICE</div>
+
+  <!-- ============ START ============ -->
+  <section class="screen active" id="scr-start">
+    <div class="mail-badge" style="margin-top:2.2rem;">&#9672;</div>
+    <h1 class="title" style="font-size:1.45rem; margin-top:1.3rem;">SMART TRUST</h1>
+    <div class="title-sub">MOBILE</div>
+    <div class="subtitle">Members doing business with each other —<br>simply, openly, and on the record.</div>
+    <div class="skin-row">
+      <div class="skin-cap">CHOOSE YOUR SKIN</div>
+      <div class="skin-pills">
+        <button class="skin-pill" type="button" data-skin="dawn">DAWN</button>
+        <button class="skin-pill" type="button" data-skin="neon">NEON</button>
+        <button class="skin-pill" type="button" data-skin="gold">GOLD</button>
+      </div>
+    </div>
+    <div id="startFresh" style="padding: 0 0.2rem; margin-top: 2.4rem;">
+      <button class="btn" id="startBtn" type="button" style="font-size:0.92rem; padding:1.05rem;">START HERE</button>
+    </div>
+    <div id="startBack" style="display:none; padding: 0 0.2rem; margin-top: 2.4rem;">
+      <div class="subtitle" style="margin-bottom:0.8rem;" id="welcomeBack">Welcome back.</div>
+      <button class="btn" id="continueBtn" type="button">CONTINUE MY TEST →</button>
+      <button class="linklike" id="startOverBtn" type="button">Start over — erases this test data</button>
+    </div>
+    <div class="subtitle" style="margin-top:1rem;">New here? Start begins with the agreement,<br>then your intake.</div>
+    <button class="linklike" id="signInLink" type="button" style="margin-top:0.55rem;">Already a member? Sign in →</button>
+    <button class="linklike" id="newsFromStart" type="button">Version <span data-ver>v—</span> · See what's new →</button>
+    <div class="foot">TEST BUILD · ONE THING PER SCREEN</div>
+  </section>
+
+  <!-- ============ TERMS ============ -->
+  <section class="screen" id="scr-terms">
+    <div class="steps"><i class="on"></i><i></i><i></i></div>
+    <h1 class="title">BEFORE WE BEGIN</h1>
+    <div class="subtitle">Understood. This agreement is for members using <b>SMART TRUST DESKTOP</b>, not your SKIPPER DESKTOP creator interface. The NDA and AI disclosure are combined below.</div>
+    <div class="terms-ver">SMART TRUST DESKTOP · AGREEMENT VERSION 1.0 · PROPOSED — NOT ATTORNEY-APPROVED</div>
+    <div class="glass terms-box" id="termsBox">
+      <p class="tnote">Understood. This agreement is for members using <b>SMART TRUST DESKTOP</b>, not your SKIPPER DESKTOP creator interface. The NDA and AI disclosure are combined below.</p>
+      <p class="draft">PROPOSED AGREEMENT — NOT ATTORNEY-APPROVED. Complete the bracketed fields and obtain legal review before publishing.</p>
+      <h3 class="tdoc">SMART TRUST DESKTOP</h3>
+      <h3 class="tsub">TERMS OF USE, INTELLECTUAL PROPERTY PROTECTION, CONFIDENTIALITY, AND AI DISCLOSURE AGREEMENT</h3>
+      <p class="meta"><b>Version:</b> 1.0</p>
+      <p class="meta"><b>Effective Date:</b> [INSERT DATE]</p>
+      <p class="meta"><b>Legal Operator:</b> TROOTHHERTZ LLC, a [STATE OF FORMATION] limited liability company</p>
+      <p class="meta"><b>Business Address:</b> [INSERT BUSINESS ADDRESS]</p>
+      <p class="meta"><b>Legal Notices:</b> [INSERT LEGAL EMAIL ADDRESS]</p>
+      <p class="meta"><b>Member Support:</b> [INSERT MONITORED SUPPORT EMAIL ADDRESS]</p>
+      <p class="meta"><b>Privacy Policy:</b> [INSERT PRIVACY POLICY LINK]</p>
+      <h3>IMPORTANT NOTICE</h3>
+      <p>SMART TRUST DESKTOP uses artificial intelligence and automated software. Its designated digital assistants are AI-powered systems, not human employees or licensed professionals. Their outputs may contain errors and are not necessarily reviewed by a human.</p>
+      <p>This Agreement includes obligations protecting intellectual property and confidential information disclosed by TROOTHHERTZ LLC, the SMART TRUST DESKTOP team, authorized representatives, and participating users as described below.</p>
+      <p>Please read this Agreement before accepting it. You may download or retain a copy for your records.</p>
+      <h3>1. PARTIES, SCOPE, AND ACCEPTANCE</h3>
+      <p>This Agreement is between TROOTHHERTZ LLC (“Company,” “we,” “us,” or “our”) and the individual or organization accepting it (“Member,” “you,” or “your”).</p>
+      <p>It governs your access to and use of the SMART TRUST DESKTOP application and the related TROOTHHURTZ services, member workspaces, tools, presentations, and materials expressly provided subject to this Agreement (collectively, the “Services”).</p>
+      <p>References to the “SMART TRUST DESKTOP team” mean Company’s authorized personnel and representatives. A team name, brand, or digital agent is not a separate contracting entity.</p>
+      <p>By selecting the acceptance checkbox and clicking “Agree and Continue,” you acknowledge that you have had an opportunity to review this Agreement and agree to its terms.</p>
+      <p>You must be at least 18 years old and legally capable of entering this Agreement. If you accept on behalf of an organization, you represent that you have authority to bind that organization.</p>
+      <p>If you do not agree, do not access restricted materials or use Services that require acceptance.</p>
+      <h3>2. MEMBERSHIP, ACCOUNTS, AND AUTHORIZED ACCESS</h3>
+      <p>You must provide accurate account information, keep it reasonably current, protect your login credentials, and promptly report suspected unauthorized access.</p>
+      <p>You may not impersonate another person, falsely claim authority to represent an organization, share restricted access with unauthorized persons, or circumvent authentication, security, or access controls.</p>
+      <p>Subject to this Agreement and any applicable purchase or license terms, Company grants you a limited, nonexclusive, nontransferable permission to use the Services for their intended purposes.</p>
+      <p>Membership or access does not give you ownership of the application, Company’s business, its trademarks, its intellectual property, or materials belonging to other rights holders.</p>
+      <p>You are responsible for activities you authorize through your account. Responsibility for unauthorized activities will be determined under applicable law and the circumstances, including whether a security failure was within your control.</p>
+      <h3>3. COMPANY INTELLECTUAL PROPERTY</h3>
+      <p>As between you and Company, Company and its licensors retain their respective rights in the Services and materials they own or lawfully license.</p>
+      <p>Protected materials may include software, source code, original interface designs, graphics, branding, documentation, training materials, original models, audiovisual content, and confidential technical or business information.</p>
+      <p>Protection applies only to the extent supported by applicable intellectual property law, confidentiality obligations, or an enforceable license. This Agreement does not create exclusive ownership of public information, general ideas, or other material that cannot lawfully be exclusively owned.</p>
+      <p>Materials shared by Company’s employees, contractors, advisers, or other authorized representatives remain owned by their respective rights holders unless a written agreement expressly transfers ownership.</p>
+      <p>Except as authorized by the rights holder or applicable law, you may not:</p>
+      <ul>
+        <li>(a) copy, distribute, sell, sublicense, publish, or publicly display protected materials beyond the scope of your authorized use;</li>
+        <li>(b) remove copyright, trademark, ownership, or confidentiality notices;</li>
+        <li>(c) use Company names, marks, or branding to imply an endorsement, partnership, employment relationship, or authorization that does not exist;</li>
+        <li>(d) use confidential code, designs, or business information to develop or assist a competing product or service;</li>
+        <li>(e) disclose restricted demonstrations, private development materials, or confidential project files to unauthorized persons; or</li>
+        <li>(f) reverse engineer, decompile, or disassemble proprietary software, except where applicable law permits that activity despite this restriction.</li>
+      </ul>
+      <p>These restrictions do not override applicable open-source licenses, third-party licenses, fair use, or other rights that cannot lawfully be waived. They do not prohibit independent development using lawful, nonconfidential information.</p>
+      <h3>4. MEMBER MATERIALS, GENERATED ASSETS, AND PUBLICATION</h3>
+      <p>You retain any rights you hold in materials you submit. You represent that you have sufficient rights and permissions to submit those materials and authorize the processing you request.</p>
+      <p>You grant Company a nonexclusive license, limited to providing the Services, to host, store, reproduce, process, and display your submissions to you and your authorized collaborators. This license continues only for the periods reasonably necessary to provide the Services and carry out permitted retention obligations.</p>
+      <p>This permission does not authorize Company to publicly sell, publish in a catalog, or use your private submissions for unrelated advertising.</p>
+      <p>Company will not use private submissions to train a general-purpose AI model without separate affirmative permission.</p>
+      <p>Rights in commissioned work, generated assets, downloadable models, and third-party content are governed by the applicable written project agreement or asset license. No provision guarantees that AI-generated content is unique, copyrightable, accurate, or free of third-party claims.</p>
+      <p>Public catalog publication requires a separate, explicit authorization identifying the asset and applicable publication or license terms. An AI recommendation, private preview, or completion of a build does not constitute that authorization.</p>
+      <h3>5. DEFINITION OF CONFIDENTIAL INFORMATION</h3>
+      <p>“Confidential Information” means nonpublic information disclosed by one party (“Disclosing Party”) to the other (“Receiving Party”) for an authorized purpose under this Agreement that:</p>
+      <ul>
+        <li>(a) is identified as confidential; or</li>
+        <li>(b) reasonably should be understood to be confidential because of its nature and the circumstances of disclosure.</li>
+      </ul>
+      <p>Company Confidential Information may include unreleased software, source code, credentials, security information, private demonstrations, internal documentation, business plans, nonpublic financial information, product roadmaps, customer or member information, proprietary prompts or workflows, and private designs or models.</p>
+      <p>Your Confidential Information may include qualifying private project files, business plans, and nonpublic records submitted through a private workspace.</p>
+      <p>Confidential Information may be disclosed through documents, files, messages, screen sharing, demonstrations, oral discussions, or other communication methods.</p>
+      <p>Oral disclosures that are not otherwise reasonably understood to be confidential should be identified as confidential when made and confirmed in writing within 30 days.</p>
+      <p>Publicly available information does not become confidential merely because it appears in the Services. Confidentiality obligations under this Agreement do not retroactively apply to earlier disclosures unless the parties separately agree in writing.</p>
+      <h3>6. NONDISCLOSURE AND RESTRICTED USE</h3>
+      <p>The Receiving Party must:</p>
+      <ul>
+        <li>(a) use Confidential Information only for the authorized project, collaboration, evaluation, or use of the Services for which it was disclosed;</li>
+        <li>(b) protect it using at least reasonable care and no less care than it uses for its own similarly sensitive information;</li>
+        <li>(c) disclose it only to employees, contractors, professional advisers, or service providers who need access for the authorized purpose and are subject to confidentiality obligations or professional duties at least as protective;</li>
+        <li>(d) remain responsible, to the extent permitted by law, for breaches by representatives to whom it authorizes disclosure;</li>
+        <li>(e) avoid copying or retaining it beyond what is reasonably necessary for the authorized purpose; and</li>
+        <li>(f) promptly notify the Disclosing Party upon discovering unauthorized access, use, or disclosure and reasonably cooperate in limiting resulting harm.</li>
+      </ul>
+      <p>Without authorization, you may not publish, stream, repost, or distribute screenshots, recordings, transcripts, code, designs, or other files that reveal Confidential Information.</p>
+      <p>You may not submit another party’s Confidential Information to a public AI service, public repository, or other external system unless authorized and subject to appropriate confidentiality protections.</p>
+      <p>Company’s use of external processing providers must be consistent with this Agreement, its Privacy Policy, and the permissions applicable to the project.</p>
+      <p>Disclosure does not transfer ownership or grant a license beyond the authorized purpose.</p>
+      <h3>7. EXCLUSIONS AND LEGALLY PROTECTED DISCLOSURES</h3>
+      <p>Confidentiality obligations do not apply to information the Receiving Party can demonstrate:</p>
+      <ul>
+        <li>(a) became public without a breach of duty;</li>
+        <li>(b) was lawfully known without restriction before disclosure;</li>
+        <li>(c) was independently developed without using the Confidential Information; or</li>
+        <li>(d) was lawfully received from another source without a confidentiality obligation.</li>
+      </ul>
+      <p>If disclosure is legally compelled, the Receiving Party may disclose the information required by law. Where legally permitted, it must provide prompt notice and reasonably cooperate with efforts to obtain protective treatment.</p>
+      <p>Nothing in this Agreement prohibits lawful reports to government agencies, cooperation with investigations, communications with an attorney, protected whistleblowing, or other disclosures protected by applicable law. No prior permission or notice is required for protected reporting.</p>
+      <p>Under 18 U.S.C. § 1833(b), an individual is protected from liability under federal or state trade secret law for qualifying disclosures made confidentially to a government official or attorney solely to report or investigate a suspected legal violation, and for qualifying disclosures made in a complaint or other document filed under seal.</p>
+      <p>An individual bringing a retaliation claim for reporting a suspected legal violation may disclose trade secrets to counsel and use them in the proceeding subject to the statute’s requirements, including filing documents containing trade secrets under seal and making other disclosures only as permitted by court order. These protections apply according to the statute, including to qualifying contractors and consultants.</p>
+      <p>This Agreement does not prohibit honest consumer reviews or lawful criticism. Confidentiality restrictions apply only to information that may lawfully be protected.</p>
+      <h3>8. CONFIDENTIALITY PERIOD, RETURN, AND DELETION</h3>
+      <p>Confidentiality and restricted-use obligations continue during access and for five years after termination of this Agreement.</p>
+      <p>For information qualifying as a trade secret, those obligations continue for as long as the information remains a trade secret under applicable law. A Receiving Party’s breach does not itself release that party from its obligations.</p>
+      <p>Upon a reasonable written request or termination, the Receiving Party must stop unauthorized use and return or securely delete Confidential Information within 30 days, except for information reasonably retained to satisfy legal obligations, preserve evidence, or maintain routine backups.</p>
+      <p>Retained information remains protected and may not be used for an unrelated purpose.</p>
+      <p>Routine backups need not be individually altered where doing so is impracticable, but retained information must be removed through the applicable retention cycle and may not be restored for unauthorized use.</p>
+      <h3>9. PRIVACY, ACTIVITY RECORDS, AND RECORDING</h3>
+      <p>Personal information is handled according to the Privacy Policy identified at the beginning of this Agreement.</p>
+      <p>The Privacy Policy must describe the collection, use, sharing, security, retention, and user rights applicable to the Services actually provided.</p>
+      <p>The Services may retain submitted messages, uploaded files, account activity, acceptance records, and transaction history as disclosed in that policy.</p>
+      <p>These records may support an audit trail. Company does not guarantee that they are complete, error-free, tamper-proof, or conclusive evidence of what occurred.</p>
+      <p>This Agreement does not provide blanket consent to record audio, video, or off-platform conversations. Recording features must provide appropriate notice and obtain any consent required by applicable law before recording begins.</p>
+      <p>Access to records and retention after account closure are subject to applicable law, the Privacy Policy, technical availability, and any separate agreement. Members should retain copies of important agreements and deliverables.</p>
+      <h3>10. MEMBER-TO-MEMBER BUSINESS</h3>
+      <p>Unless Company expressly signs as a party, a transaction between members is between those members.</p>
+      <p>Company does not become a seller, buyer, employer, trustee, fiduciary, guarantor, or financial adviser solely by supplying the Services.</p>
+      <p>Members are responsible for verifying the identity, authority, qualifications, and commitments of their counterparties.</p>
+      <p>Specific transactions should use separate written agreements identifying the parties, scope, price, deliverables, ownership, confidentiality, and dispute procedures.</p>
+      <p>Those agreements cannot grant rights in Company materials or bind Company without its written consent.</p>
+      <p>This Agreement does not automatically create a mutual NDA between every member. Members must expressly accept a separate shared-project NDA or other agreement when reciprocal confidentiality between them is required.</p>
+      <h3>11. ARTIFICIAL INTELLIGENCE DISCLOSURE</h3>
+      <h4>11.1 Use of AI</h4>
+      <p>Company uses artificial intelligence and automated software in SMART TRUST DESKTOP and related Services.</p>
+      <p>AI-enabled functions may include conversation, synthesized speech, research assistance, document drafting, image analysis, software assistance, workflow coordination, and generation or modification of images and 3D assets.</p>
+      <p>Your designated executive assistant and other digital agents identified as AI within SMART TRUST DESKTOP are software systems—not human employees or independent human professionals.</p>
+      <p>Their names, avatars, voices, personalities, and role descriptions identify software functions. They do not establish human identity, professional licensing, employment history, or personal experience.</p>
+      <h4>11.2 Notice during interaction</h4>
+      <p>Company will clearly identify AI-powered conversational agents before or at the beginning of an interaction.</p>
+      <p>Written interactions will include a visible AI identification notice. Voice interactions will include an appropriate spoken disclosure where needed to make the AI identity clear, including where the user cannot see a written notice.</p>
+      <p>Company will answer questions about whether an interaction is automated truthfully. When a human representative takes over, the transition will be identified.</p>
+      <p>Disclosures will be clear, accessible, and appropriate to the communication method. Additional notices and content labels will be provided where required by applicable law.</p>
+      <h4>11.3 Limitations and verification</h4>
+      <p>AI-generated responses, analyses, summaries, designs, code, and other outputs may contain errors, omissions, unsupported assumptions, bias, or outdated information.</p>
+      <p>An agent may misunderstand instructions or infer details that were not supplied.</p>
+      <p>Unless expressly identified as reviewed by a qualified human, an AI response should not be understood as having received human professional review.</p>
+      <p>Company will not describe an output as verified, approved, completed, or professionally reviewed without an appropriate factual basis.</p>
+      <p>AI-generated models may approximate reference material and may not reproduce actual dimensions, structural conditions, hidden features, or construction details.</p>
+      <p>Members should verify material information before relying on it for consequential decisions.</p>
+      <h4>11.4 Professional services</h4>
+      <p>AI assistance does not itself establish an attorney-client, fiduciary, medical, investment-advisory, or other licensed professional relationship.</p>
+      <p>An agent’s job title or simulated personality does not constitute a professional credential.</p>
+      <p>AI-generated legal, financial, tax, health, construction, or similar information is not a substitute for advice from an appropriately qualified professional where such advice is needed.</p>
+      <p>This provision does not excuse Company from its own legal duties, promises, or responsibility for how it provides the Services.</p>
+      <h4>11.5 Automated actions and authority</h4>
+      <p>AI agents may perform automated actions within the permissions and instructions validly granted to them.</p>
+      <p>Technical capability alone does not authorize an agent to enter contracts, transfer funds, publish private materials, or waive rights.</p>
+      <p>An AI statement alone does not establish that Company, another member, or an outside party has accepted an agreement or approved a transaction.</p>
+      <p>Binding commitments require the authorization and acceptance applicable to that action.</p>
+      <p>The separate authorization required for public catalog publication remains applicable even when an AI agent recommends or prepares publication.</p>
+      <h4>11.6 AI processing and privacy</h4>
+      <p>Depending on the feature and configuration, information may be processed by local AI software or external service providers.</p>
+      <p>Company’s Privacy Policy and applicable feature notices will describe the processing actually used, including relevant categories of information, purposes, recipients, and retention practices.</p>
+      <p>The confidentiality obligations in this Agreement continue to apply to AI processing.</p>
+      <p>Acceptance of this AI disclosure does not waive confidentiality, transfer ownership of submissions, or authorize unrelated model training.</p>
+      <p>Any separate consent required for recording, sensitive information, model training, or another processing activity must be obtained separately.</p>
+      <h4>11.7 Synthetic content</h4>
+      <p>Where required by applicable law, Company will identify AI-generated or materially AI-altered content and implement applicable technical marking or provenance requirements.</p>
+      <p>Members may not remove legally required disclosures or use the Services to deceptively impersonate a real person.</p>
+      <p>When publishing or distributing generated content, members remain responsible for disclosure obligations applicable to their own use. Company remains responsible for obligations applicable to Company.</p>
+      <h4>11.8 Human contact</h4>
+      <p>Members may contact the support address identified at the beginning of this Agreement to ask about AI use, report inaccurate or misleading output, or request human assistance.</p>
+      <p>Availability and response times depend on the support arrangements actually offered. Immediate live assistance is not guaranteed.</p>
+      <h4>11.9 Preservation of rights</h4>
+      <p>Nothing in this section waives nonwaivable rights or relieves Company of legal obligations concerning transparency, privacy, discrimination, consumer protection, or automated decision-making.</p>
+      <h3>12. ELECTRONIC ACCEPTANCE AND PROJECT AGREEMENTS</h3>
+      <p>Electronic acceptance records may be used to document assent. Members must have an opportunity to review and retain the agreement they accept.</p>
+      <p>Company will identify the applicable agreement version and retain an acceptance record associated with the member’s account, consistent with applicable law and the Privacy Policy.</p>
+      <p>A generated draft, automated summary, or informal AI response does not by itself amend a signed agreement.</p>
+      <p>Changes to project agreements must follow their amendment requirements and applicable law.</p>
+      <p>Nothing in this Agreement makes an electronic record automatically authentic, accurate, enforceable, or immune from challenge.</p>
+      <h3>13. SERVICE LIMITATIONS</h3>
+      <p>Company does not guarantee uninterrupted availability, particular business income, investment returns, the accuracy of AI output, or the suitability of generated content for a particular purpose.</p>
+      <p>To the extent permitted by applicable law, the Services are provided “as is” and “as available,” except for express commitments made in a separate written agreement.</p>
+      <p>Nothing in this Agreement excludes nonwaivable consumer rights or liability that applicable law prohibits excluding.</p>
+      <p>Nothing excuses fraud, willful misconduct, or other conduct for which a disclaimer is legally ineffective.</p>
+      <h3>14. SUSPENSION AND TERMINATION</h3>
+      <p>You may stop using the Services at any time.</p>
+      <p>Company may restrict or suspend access where reasonably necessary to address a material breach, misuse, security incident, or legal requirement.</p>
+      <p>Where reasonably practicable, Company will provide notice and an opportunity to address a remediable breach. Immediate restriction may be necessary for an active security threat or unauthorized disclosure.</p>
+      <p>Termination does not transfer ownership, authorize disclosure, cancel accrued obligations, or invalidate separate agreements.</p>
+      <p>Provisions concerning ownership, confidentiality, lawful retention, accrued claims, and disputes survive as applicable.</p>
+      <h3>15. ENFORCEMENT AND REMEDIES</h3>
+      <p>Unauthorized use or disclosure of protected materials may cause harm that monetary damages alone cannot adequately remedy.</p>
+      <p>An affected rights holder may seek appropriate injunctive or other relief, subject to applicable law and the court’s requirements.</p>
+      <p>No injunction, damages award, penalty, or attorney-fee award is automatic. Available relief depends on the agreement, applicable law, and the facts.</p>
+      <p>Identifiable third-party owners whose materials Company is authorized to provide are intended beneficiaries of Sections 3 and 5–8 solely regarding their own protected materials and may enforce those protections to the extent permitted by law.</p>
+      <h3>16. GOVERNING LAW AND DISPUTES</h3>
+      <p>Subject to mandatory applicable law, this Agreement is governed by the laws of [STATE], without applying conflict-of-law rules.</p>
+      <p>Unless applicable law requires otherwise, disputes may be brought in the state courts located in [COUNTY, STATE] or the federal court having jurisdiction there.</p>
+      <p>Any applicable right to use small-claims court remains available.</p>
+      <p>Before filing a claim, the parties will ordinarily attempt to resolve the dispute through written notice and good-faith discussion for 30 days.</p>
+      <p>This discussion period does not prevent urgent protective relief, government reporting, or action needed to preserve a legal deadline.</p>
+      <h3>17. CHANGES AND GENERAL PROVISIONS</h3>
+      <p>Company will identify revised terms by version and effective date.</p>
+      <p>Material changes require renewed affirmative acceptance before they govern continued access to affected Services. Changes do not retroactively alter completed transactions or extinguish accrued rights.</p>
+      <p>A separately signed agreement controls over these terms for its specific subject matter where it expressly states that priority.</p>
+      <p>No member agreement can change Company’s rights without Company’s assent.</p>
+      <p>If a provision is unenforceable, the remainder remains effective to the extent permitted by law.</p>
+      <p>Failure to enforce a provision is not a waiver.</p>
+      <p>This Agreement does not create a partnership, joint venture, employment relationship, or general agency between Company and a member.</p>
+      <p>Questions and legal notices should be directed to the contact addresses identified at the beginning of this Agreement.</p>
+      <h3>MEMBER ACCEPTANCE</h3>
+      <p>I have read and agree to the SMART TRUST DESKTOP Terms of Use, Intellectual Property Protection, Confidentiality, and AI Disclosure Agreement. I understand that it includes nondisclosure and restricted-use obligations and that designated digital assistants are AI-powered software, not human representatives.</p>
+      <p>This acknowledgment does not replace any separate consent required by law.</p>
+    </div>
+    <div class="scroll-hint" id="scrollHint">scroll to the bottom to continue ↓</div>
+    <label class="agree">
+      <input type="checkbox" id="agreeBox" disabled>
+      <span>I have read and agree to the SMART TRUST DESKTOP Terms of Use, Intellectual Property Protection, Confidentiality, and AI Disclosure Agreement. I understand that it includes nondisclosure and restricted-use obligations and that designated digital assistants are AI-powered software, not human representatives.</span>
+    </label>
+    <button class="btn" id="agreeBtn" type="button" disabled>AGREE &amp; CONTINUE</button>
+    <div class="foot">STEP 1 OF 3 · THE AGREEMENT COMES FIRST</div>
+  </section>
+
+  <!-- ============ INTAKE ============ -->
+  <section class="screen" id="scr-intake">
+    <div class="steps"><i class="done"></i><i class="on"></i><i></i></div>
+    <h1 class="title">CREATE YOUR DOOR</h1>
+    <div class="subtitle">This is your intake — who you are,<br>and the keys only you hold.</div>
+    <form class="glass" id="intakeForm" autocomplete="off" novalidate style="margin-top:1.15rem; padding:1.2rem 1.1rem 1.05rem;">
+      <div class="field">
+        <label for="fullName">YOUR NAME</label>
+        <input id="fullName" type="text" placeholder="e.g. Jordan A. Rivera">
+      </div>
+      <div class="field">
+        <label for="userName">CHOOSE A USERNAME</label>
+        <input id="userName" type="text" placeholder="e.g. j.rivera" autocapitalize="none" spellcheck="false">
+        <div class="hint">Letters, numbers, dots and underscores — this is how members will know you.</div>
+      </div>
+      <div class="field">
+        <label for="email">EMAIL ADDRESS</label>
+        <input id="email" type="email" placeholder="you@example.com" autocapitalize="none" spellcheck="false">
+        <div class="hint">We send a short code here to prove this email is yours.</div>
+      </div>
+      <div class="field">
+        <label for="pass1">CREATE A PASSWORD</label>
+        <input id="pass1" type="password" placeholder="At least 8 characters">
+      </div>
+      <div class="field">
+        <label for="pass2">TYPE IT AGAIN</label>
+        <input id="pass2" type="password" placeholder="Same password, once more">
+      </div>
+      <div class="err" id="formErr"></div>
+      <button class="btn" type="submit">CONTINUE</button>
+    </form>
+    <div class="foot">STEP 2 OF 3 · YOUR KEYS, CREATED BY YOU</div>
+  </section>
+
+  <!-- ============ VERIFY ============ -->
+  <section class="screen" id="scr-verify">
+    <div class="steps"><i class="done"></i><i class="done"></i><i class="on"></i></div>
+    <div class="mail-badge">✉️</div>
+    <h1 class="title">CHECK YOUR EMAIL</h1>
+    <div class="subtitle">We sent a 6-digit code to<br><b class="mono" id="sentTo">your email</b>.<br>You cannot proceed until it is verified.</div>
+    <div class="code-row" id="codeRow">
+      <input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1">
+    </div>
+    <div class="err" id="codeErr" style="text-align:center; margin-top:0.85rem;"></div>
+    <div class="demo-code" id="codeMeta" style="margin-top:0.1rem;"></div>
+    <div style="padding: 0 0.2rem; margin-top: 0.5rem;">
+      <button class="btn" id="verifyBtn" type="button" disabled>VERIFY &amp; ENTER</button>
+    </div>
+    <div class="demo-code">TEST BUILD — in the live app this code arrives by email only.<br>Your test code is <b id="demoCode">······</b></div>
+    <button class="linklike" id="resendBtn" type="button">Didn't get it? Send a new code</button>
+    <div class="foot">STEP 3 OF 3 · A VERIFIED EMAIL KEEPS YOUR DOOR YOURS</div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section class="screen" id="scr-setup">
+    <h1 class="title">MAKE IT YOURS</h1>
+    <div class="subtitle">Your email is verified. Two things before your profile:<br>how you'll be <b>seen</b>, and the <b>name</b> you'll be known by.</div>
+    <div class="avatar-wrap">
+      <div class="avatar-circle" id="avatarCircle">J<span class="badge-check" id="setupBadge">✓</span></div>
+      <input type="file" id="avatarInput" accept="image/*,video/mp4,video/webm,.gif" style="display:none;">
+      <button class="linklike" id="avatarChange" type="button" style="margin-top:0.6rem;">Upload an image, GIF, or MP4</button>
+      <div class="hint" style="text-align:center;">It lives in this circle — on your dashboard, your profile,<br>and as your skin when you meet others in the app.</div>
+      <div class="presets" id="presets">
+        <button type="button" data-p="linear-gradient(135deg,#19f0ff,#7a5cff)" style="background:linear-gradient(135deg,#19f0ff,#7a5cff)" aria-label="Forest preset"></button>
+        <button type="button" data-p="linear-gradient(135deg,#b08945,#c97b4a)" style="background:linear-gradient(135deg,#b08945,#c97b4a)" aria-label="Dawn preset"></button>
+        <button type="button" data-p="linear-gradient(135deg,#5b7fa6,#7a6fa0)" style="background:linear-gradient(135deg,#5b7fa6,#7a6fa0)" aria-label="Dusk preset"></button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:1.4rem;">
+      <label for="displayName">DISPLAY NAME — YOUR CHOICE</label>
+      <input id="displayName" type="text" placeholder="e.g. RiverStone" maxlength="24" autocomplete="off">
+      <div class="name-check" id="nameCheck">Pick a name no one else has taken.</div>
+    </div>
+    <div style="margin-top:0.5rem;">
+      <button class="btn" id="setupBtn" type="button" disabled>CONTINUE TO MY PROFILE</button>
+    </div>
+    <div class="foot">GUIDED, STEP BY STEP · NOTHING PUBLIC YET</div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <!-- ============ SIGN IN ============ -->
+  <section class="screen" id="scr-signin">
+    <div class="head">
+      <button class="back" id="siBack" type="button">←</button>
+      <div><h2>SIGN IN</h2><div class="sub">The returning member's door</div></div>
+    </div>
+    <div class="glass" style="padding:1.2rem 1.1rem 1.05rem;">
+      <div class="field">
+        <label for="siUser">YOUR USERNAME</label>
+        <input id="siUser" type="text" autocomplete="username" placeholder="The username you chose">
+      </div>
+      <div class="field">
+        <label for="siPass">YOUR PASSWORD</label>
+        <input id="siPass" type="password" autocomplete="current-password" placeholder="The password you created">
+      </div>
+      <button class="linklike" id="siEye" type="button" style="margin:0 0 0.6rem;">Show password</button>
+      <div class="err" id="siErr"></div>
+      <button class="btn" id="siBtn" type="button">SIGN IN →</button>
+      <p class="subtitle" style="margin-top:0.9rem; font-size:0.72rem;">In this test build your account lives on this device, so sign-in checks the name and password you chose here. Your password itself is never stored — only a scrambled fingerprint of it. In the live app, sign-in reaches your account from anywhere.</p>
+    </div>
+    <div class="foot">ONE THING PER SCREEN · NOTHING TO FIGURE OUT</div>
+  </section>
+
+  <section class="screen" id="scr-dash">
+    <div class="topbar">
+      <div class="brand-mini">SMART <b>TRUST</b></div>
+      <button class="mini-btn" id="doorProfileTop" type="button" style="margin-left:auto; font-size:0.62rem; padding:0.42rem 0.85rem;">👤 PROFILE</button>
+      <div class="mode-toggle" data-mode-toggle role="switch" aria-checked="false" tabindex="0"><span class="lbl" data-mode-lbl>DAY</span><span class="track"></span></div>
+    </div>
+
+    <div class="upd-banner" id="updateBanner" role="button" tabindex="0">
+      <div class="t">✓ UPDATED TO <span data-ver>v—</span></div>
+      <div class="s">This app improved while you were away — tap to see what changed.</div>
+    </div>
+
+    <div class="glass conn-card">
+      <div class="conn-row"><span class="dot"></span><span class="who">SKIPPER</span><span class="what">Linked — your account was forwarded at creation; your metrics count in the whole system.</span></div>
+      <div class="conn-row"><span class="dot"></span><span class="who">TROOTHURTZ.APP</span><span class="what">Same account — your website workspace creations appear below.</span></div>
+      <div class="conn-row"><span class="dot"></span><span class="who">SMART TRUST DESKTOP OS</span><span class="what">Linked — build in the 3D explorer there; control from here.</span></div>
+    </div>
+
+    <div class="glass pcard">
+      <div class="k">MISSION CONTROL <span class="chip" style="background:linear-gradient(135deg,#0e6ea8,#00a1d6);">FROM HERO-MARKET</span></div>
+      <button class="mc-row" type="button" data-open="Worlds — Troo Town opens in the Smart Trust explorer on desktop; from mobile you visit as your avatar."><span class="ic">🌍</span><span><span class="tt">WORLDS</span><div class="ss">Troo Town · your worlds live here</div></span><span class="go">ENTER WORLD →</span></button>
+      <button class="mc-row" type="button" data-open="AI Agency — your agents live on the website; the starter building you buy houses the agent you created there."><span class="ic">🤖</span><span><span class="tt">AI AGENTS</span><div class="ss">AI Agency · your executive agents</div></span><span class="go">DEPLOY AGENTS →</span></button>
+      <button class="mc-row" type="button" data-open="Mission Path — your guided next steps, the same path the website dashboard loads for your progress."><span class="ic">🧭</span><span><span class="tt">GUIDED</span><div class="ss">Mission Path · next steps</div></span><span class="go">NEXT STEPS →</span></button>
+      <button class="mc-row" type="button" data-open="Trust Records — your trusts and certificates, the same records the website dashboard renders with their QR codes."><span class="ic">📜</span><span><span class="tt">TRUST</span><div class="ss">Trust Records · certificates</div></span><span class="go">CONFIGURE →</span></button>
+      <button class="mc-row" type="button" data-open="Accounting — the ledger behind your promises, gifts, and store. TROO-backed, on the record."><span class="ic">🧮</span><span><span class="tt">FINANCE</span><div class="ss">Accounting · the ledger</div></span><span class="go">LEDGER →</span></button>
+    </div>
+
+    <div class="glass node-card">
+      <div class="row"><span class="t">YOUR NODE</span><span class="addr mono" id="nodeAddr">NODE #—</span></div>
+      <svg viewBox="0 0 340 196" style="width:100%; margin-top:0.4rem;" role="img" aria-label="Your account node and its connections">
+        <defs>
+          <clipPath id="nodeClip"><circle cx="170" cy="98" r="37"/></clipPath>
+          <radialGradient id="nodeGlow" cx="50%" cy="42%" r="65%">
+            <stop offset="0%" stop-color="#a5fbff"/><stop offset="60%" stop-color="#19f0ff"/><stop offset="100%" stop-color="#7a5cff"/>
+          </radialGradient>
+        </defs>
+        <line x1="170" y1="98" x2="52" y2="42" stroke="#19f0ff" stroke-width="1.4" opacity="0.55"/>
+        <line x1="170" y1="98" x2="288" y2="42" stroke="#19f0ff" stroke-width="1.4" opacity="0.55"/>
+        <line x1="170" y1="98" x2="52" y2="156" stroke="#19f0ff" stroke-width="1.4" opacity="0.55"/>
+        <line x1="170" y1="98" x2="288" y2="156" stroke="#19f0ff" stroke-width="1.4" opacity="0.55"/>
+        <g class="sat" data-msg="Your promise lives on this connection — Capital LLC, 5.0%, active and in good standing.">
+          <circle cx="52" cy="42" r="21" fill="rgba(255,255,255,0.35)" stroke="#19f0ff" stroke-width="1.6"/>
+          <text x="52" y="48" text-anchor="middle" font-size="17">⬡</text>
+          <text x="52" y="80" text-anchor="middle" font-size="9.5" fill="#9fd8ef" font-weight="bold">PROMISE</text>
+          <text x="52" y="92" text-anchor="middle" font-size="8.5" fill="#5f7ea6">ACTIVE</text>
+        </g>
+        <g class="sat" data-msg="Your assets hang off your node — pledged property, your starter building, your worlds.">
+          <circle cx="288" cy="42" r="21" fill="rgba(255,255,255,0.35)" stroke="#19f0ff" stroke-width="1.6"/>
+          <text x="288" y="48" text-anchor="middle" font-size="15">🏠</text>
+          <text x="288" y="80" text-anchor="middle" font-size="9.5" fill="#9fd8ef" font-weight="bold">ASSETS</text>
+          <text x="288" y="92" text-anchor="middle" font-size="8.5" fill="#5f7ea6">1 PLEDGED</text>
+        </g>
+        <g class="sat" data-msg="Talk is a connection of your node — every conversation on the record, clean hands.">
+          <circle cx="52" cy="156" r="21" fill="rgba(255,255,255,0.35)" stroke="#19f0ff" stroke-width="1.6"/>
+          <text x="52" y="162" text-anchor="middle" font-size="15">💬</text>
+          <text x="52" y="194" text-anchor="middle" font-size="9.5" fill="#9fd8ef" font-weight="bold">TALK</text>
+        </g>
+        <g class="sat" data-msg="Your world connects here too — built in the explorer, visited through this app.">
+          <circle cx="288" cy="156" r="21" fill="rgba(255,255,255,0.35)" stroke="#19f0ff" stroke-width="1.6"/>
+          <text x="288" y="162" text-anchor="middle" font-size="15">🌍</text>
+          <text x="288" y="194" text-anchor="middle" font-size="9.5" fill="#9fd8ef" font-weight="bold">WORLD</text>
+        </g>
+        <circle cx="170" cy="98" r="44" fill="none" stroke="#19f0ff" stroke-width="1.2" opacity="0.4"/>
+        <circle cx="170" cy="98" r="37" fill="url(#nodeGlow)" stroke="rgba(255,255,255,0.85)" stroke-width="2.4"/>
+        <image id="nodeImg" x="133" y="61" width="74" height="74" clip-path="url(#nodeClip)" style="display:none;" preserveAspectRatio="xMidYMid slice"/>
+        <text id="nodeInitial" x="170" y="112" text-anchor="middle" font-size="30" font-weight="900" fill="#fdfdf8" font-family="Orbitron, monospace">J</text>
+        <text id="nodeName" x="170" y="160" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#eafcff" font-family="Orbitron, monospace">—</text>
+      </svg>
+      <div class="foot-note mono">Your account is a <b>node</b> of the Troothurtz network — everything you hold connects through it.<br><span id="nodeCount">You are member — of —.</span></div>
+    </div>
+
+
+    <div class="glass pcard">
+      <div class="k">BUSINESS CREATION PROGRESS <span class="mono" id="progPct" style="color:var(--accent); letter-spacing:0;">0%</span></div>
+      <div class="bar" style="margin-top:0.6rem;"><i id="progBar" style="width:0%; transition:width .6s ease;"></i></div>
+      <div class="prog-steps" id="progSteps">
+        <span data-step="account">ACCOUNT</span><span data-step="email">EMAIL VERIFIED</span><span data-step="display">DISPLAY NAME</span><span data-step="kyc">KYC ✓</span><span data-step="wallet">WALLET</span><span data-step="entity">FIRST ENTITY</span>
+      </div>
+      <div class="note mono">Your mission path, live — the same progress the hero-market dashboard tracks, computed from where you actually are in this app.</div>
+    </div>
+
+    <div class="glass dash-who">
+      <div class="avatar-sm" id="dashAvatar">J<span class="badge-check" id="dashBadge">✓</span></div>
+      <div>
+        <div class="nm" id="dashName">—</div>
+        <div class="rl mono">Display name: <span id="dashDisplay">—</span> · <span id="dashSaved">Not saved yet</span></div>
+      </div>
+    </div>
+
+    <div class="glass pcard">
+      <div class="k">YOUR PROMISE <span class="chip">ACTIVE · IN GOOD STANDING</span></div>
+      <div class="line">You share <b>5.0%</b> of income with <b>Capital LLC</b> · they have received <b>$7,144</b> so far.</div>
+      <div class="bar"><i></i></div>
+    </div>
+
+
+    <div class="glass pcard">
+      <div class="k">MY CREATIONS · TROOTHURTZ.APP WORKSPACE</div>
+      <div style="margin-top:0.35rem;">
+        <div class="crea-row"><span class="a">🌍 Worlds</span><span class="b">1 · My First World</span></div>
+        <div class="crea-row"><span class="a">🏢 Entities</span><span class="b" id="creEntCount">0 created here</span></div>
+        <div class="crea-row"><span class="a">🏠 Assets</span><span class="b">Starter Building (mobile)</span></div>
+        <div class="crea-row"><span class="a">🖼️ NFT collection</span><span class="b">3 items</span></div>
+      </div>
+      <div class="chips" aria-label="Filter NFTs by blockchain">
+        <button type="button" data-open="NFT filter: All chains — the same filter the website dashboard uses.">ALL</button>
+        <button type="button" data-open="NFT filter: Ethereum.">ETHEREUM</button>
+        <button type="button" data-open="NFT filter: Polygon — where TROO and your starter building live.">POLYGON</button>
+        <button type="button" data-open="NFT filter: Solana.">SOLANA</button>
+        <button type="button" data-open="NFT filter: XRP.">XRP</button>
+      </div>
+      <button class="linklike" type="button" data-open="Smart Trust Desktop OS — your worlds open in the 3D explorer there, where buildings can be moved anywhere in your own world." style="margin-left:0;">Open my worlds in Smart Trust Desktop OS →</button>
+    </div>
+
+    <div class="glass pcard">
+      <div class="k">TOOLS · THE HERO-MARKET MODULES, IN YOUR POCKET</div>
+      <div class="note mono" style="margin-top:0.45rem;">BUILD</div>
+      <div class="chips">
+        <button type="button" data-open="Site Builder — opens in your troothhurtz.app workspace.">Site Builder</button>
+        <button type="button" data-open="Property Twin — opens in your troothhurtz.app workspace.">Property Twin</button>
+        <button type="button" data-open="Entity Mapping — the map form of the entities you create here.">Entity Mapping</button>
+        <button type="button" data-open="Trust Records — your trusts and certificates.">Trust Records</button>
+        <button type="button" data-open="Seal Maker — opens in your troothhurtz.app workspace.">Seal Maker</button>
+        <button type="button" data-open="Trademark Prep — opens in your troothhurtz.app workspace.">Trademark Prep</button>
+      </div>
+      <div class="note mono">OPERATE &amp; TRADE</div>
+      <div class="chips">
+        <button type="button" data-open="AI Agency — where your executive agents are created; one of them will live in your starter building.">AI Agency</button>
+        <button type="button" data-open="Workflows — opens in your troothhurtz.app workspace.">Workflows</button>
+        <button type="button" data-open="Accounting — the ledger.">Accounting</button>
+        <button type="button" data-open="Crypto Market — opens in your troothhurtz.app workspace.">Crypto Market</button>
+        <button type="button" data-open="NFT Market — opens in your troothhurtz.app workspace.">NFT Market</button>
+        <button type="button" data-open="Merch Creation — opens in your troothhurtz.app workspace.">Merch Creation</button>
+        <button type="button" data-open="AI Revenue OS — opens in your troothhurtz.app workspace.">AI Revenue OS</button>
+      </div>
+    </div>
+
+    <div class="glass pcard">
+      <div class="k">SYSTEM METRICS · VIA SKIPPER <span class="mono" style="color:var(--ink4); letter-spacing:0;">TEST NUMBERS</span></div>
+      <div class="stat-row">
+        <div><div class="num">1,465</div><div class="cap">MEMBERS · NODES</div></div>
+        <div><div class="num">318</div><div class="cap">ENTITIES ON NETWORK</div></div>
+      </div>
+      <div class="stat-row">
+        <div><div class="num">84,200</div><div class="cap">TROO MOVED TODAY</div></div>
+        <div><div class="num">12</div><div class="cap">NEW MEMBERS TODAY</div></div>
+      </div>
+      <div class="note mono">When a member joins, their account forwards to <b>Skipper</b> and joins these numbers — your node is one of them. What the system knows, it knows because every account reports in.</div>
+    </div>
+
+    <div class="door-row">
+      <div class="glass door" id="doorTalk"><div class="ic">💬</div><div class="lb">TALK</div></div>
+      <div class="glass door" id="doorSupport"><div class="ic">🛟</div><div class="lb">CONTACT<br>SUPPORT</div></div>
+      <div class="glass door" id="doorMission"><div class="ic">🌱</div><div class="lb">OUR<br>MISSION</div></div>
+    </div>
+    <div class="door-row">
+      <div class="glass door" id="doorWallet"><div class="ic">👛</div><div class="lb">MY<br>WALLET</div></div>
+      <div class="glass door" id="doorPrivacy"><div class="ic">🔒</div><div class="lb">PRIVACY &amp;<br>SECURITY</div></div>
+      <div class="glass door" id="doorProfile"><div class="ic">👤</div><div class="lb">MY<br>PROFILE</div></div>
+    </div>
+    <div class="toast" id="dashToast"></div>
+    <div class="foot">YOUR DASHBOARD · SIMPLE ON PURPOSE</div>
+  </section>
+
+  <!-- ============ PROFILE ============ -->
+  <section class="screen" id="scr-profile">
+    <div class="head">
+      <button class="back" id="profileBack" type="button">←</button>
+      <div><h2>MY PROFILE</h2><div class="sub">How you appear — you decide</div></div>
+      <div class="mode-toggle" data-mode-toggle role="switch" aria-checked="false" tabindex="0" style="margin-left:auto;"><span class="lbl" data-mode-lbl>DAY</span><span class="track"></span></div>
+    </div>
+
+    <div class="note mono" id="joinNote" style="display:none; margin-bottom:0.7rem;">Account created — forwarded to <b>Skipper</b> ✓. Your node is live in the system metrics. This is your page — the dashboard is one tap back (←).</div>
+    <div class="glass banner-card profile-hero">
+      <div class="banner-img" id="bannerImg" style="height:170px;"><span class="tag">YOUR BANNER · PRIVATE</span></div>
+      <div style="text-align:center; padding: 0 1rem 1.05rem;">
+        <div class="avatar-big" id="idAvatar" style="margin-top:-59px; z-index:2;">J<span class="badge-check" id="idBadge">✓</span></div>
+        <div class="mono" id="idWho" style="font-size:0.72rem; color:var(--ink2); margin-top:0.7rem; line-height:1.65;">Display name: —</div>
+        <div class="mono" id="idStatus" style="font-size:0.67rem; color:var(--ink3); margin-top:0.35rem; line-height:1.65;">Not verified yet. Complete KYC — who you truly are, or who you represent — and the ✓ appears in your avatar area.</div>
+        <div style="margin-top:0.85rem;">
+          <button class="btn" id="openKyc" type="button" style="padding:0.8rem; font-size:0.73rem;">OPEN KYC →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass banner-card" style="margin-top:1rem;">
+      <div class="banner-meta">
+        <div class="row">
+          <span class="t">BANNER IMAGE</span>
+          <span>
+            <button class="mini-btn" id="bannerUploadBtn" type="button">CHANGE</button>
+            <button class="mini-btn" id="bannerRenewBtn" type="button">RENEW</button>
+            <button class="mini-btn danger" id="bannerDeleteBtn" type="button">DELETE</button>
+          </span>
+        </div>
+        <input type="file" id="bannerInput" accept="image/*" style="display:none;">
+        <div class="renew mono" id="bannerNote">Only you see this — it is <b>not public</b>. Stored images are security-checked regularly. Renew by <b id="renewDate">—</b> or an admin removes it.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:1rem;">
+      <button class="btn journey-btn" id="journeyBtn" type="button">START YOUR JOURNEY</button>
+    </div>
+
+    <div class="pill-sec" data-sec="appearance">
+      <button class="pill-head" type="button" data-sec-head="appearance" aria-expanded="false">APPEARANCE <span class="chev">▸</span></button>
+      <div class="pill-body"><div class="inner">
+        <div class="skin-cap" style="text-align:left; margin-top:0.7rem;">CHOOSE YOUR SKIN</div>
+        <div class="skin-pills">
+          <button class="skin-pill" type="button" data-skin="dawn">DAWN</button>
+          <button class="skin-pill" type="button" data-skin="neon">NEON</button>
+          <button class="skin-pill" type="button" data-skin="gold">GOLD</button>
+        </div>
+        <div class="glass vis-row" style="margin-top:0.85rem;">
+          <div>
+            <div class="t">Day / night</div>
+            <div class="d">The same switch as on your dashboard — light glass by day, deep glass by night. Works in every skin.</div>
+          </div>
+          <div class="mode-toggle" data-mode-toggle role="switch" aria-checked="false" tabindex="0"><span class="lbl" data-mode-lbl>DAY</span><span class="track"></span></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="pill-sec" data-sec="about">
+      <button class="pill-head" type="button" data-sec-head="about" aria-expanded="false">ABOUT ME <span class="chev">▸</span></button>
+      <div class="pill-body"><div class="inner">
+    <div class="profile-bg" id="profileBg">
+      <button class="change-bg" id="bgChangeBtn" type="button">CHANGE BACKGROUND</button>
+      <input type="file" id="bgInput" accept="image/*" style="display:none;">
+    </div>
+
+    <div class="field" style="margin-top:1.15rem;">
+      <label for="bio">BIO — SAY IT PLAINLY</label>
+      <textarea id="bio" rows="3" placeholder="Who you are, what you're building, what you're here for…"></textarea>
+    </div>
+
+    <div class="field">
+      <label>I AM HERE FOR</label>
+      <div class="seg" id="kindSeg">
+        <button type="button" class="on">BUSINESS</button>
+        <button type="button">CHARITY</button>
+        <button type="button">CONTACT</button>
+      </div>
+    </div>
+
+    <div class="glass vis-row">
+      <div>
+        <div class="t">Public profile</div>
+        <div class="d" id="visText">Private — only you can see your profile. Turn this on and members see <b>only your most recent image</b> — nothing older.</div>
+      </div>
+      <div class="switch" id="visSwitch" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+      </div></div>
+    </div>
+
+    <div class="pill-sec" data-sec="store">
+      <button class="pill-head" type="button" data-sec-head="store" aria-expanded="false">MY STORE <span class="chev">▸</span></button>
+      <div class="pill-body"><div class="inner">
+    <div class="glass pcard">
+      <div class="k">YOUR STORE · TROO-BACKED</div>
+      <div class="stat-row">
+        <div><div class="num" id="statSold">128</div><div class="cap">PRODUCTS SOLD</div></div>
+        <div><div class="num"><span id="statGifts">342</span><span style="font-size:0.8rem; color:var(--accent);"> TROO</span></div><div class="cap">GIFTS RECEIVED</div></div>
+      </div>
+      <div class="note mono">Products sold in your store count up here. Donations work like gifting on other platforms — except every gift moves in <b>TROO coin</b>: backed, recorded, on the record.</div>
+    </div>
+      </div></div>
+    </div>
+
+    <div class="pill-sec" data-sec="entities">
+      <button class="pill-head" type="button" data-sec-head="entities" aria-expanded="false">MY ENTITIES <span class="chev">▸</span></button>
+      <div class="pill-body"><div class="inner">
+    <div class="glass pcard">
+      <div class="k" style="display:flex; justify-content:space-between; align-items:center;">YOUR ENTITIES
+        <button class="mini-btn" id="entityCreateBtn" type="button">＋ CREATE</button>
+      </div>
+      <div id="entityList">
+        <div class="mono" id="entityEmpty" style="font-size:0.65rem; color:var(--ink3); margin-top:0.6rem; line-height:1.65;">No entities yet. Create one — a <b>reflection of a real-world business</b>, or an <b>entertainment</b> members can visit.</div>
+      </div>
+    </div>
+      </div></div>
+    </div>
+
+    <div style="margin-top:1.15rem;">
+      <button class="btn" id="profileSave" type="button">SAVE PROFILE</button>
+    </div>
+    <div class="toast" id="profileToast"></div>
+    <div class="foot">PRIVATE BY DEFAULT · PUBLIC BY YOUR HAND ONLY</div>
+  </section>
+
+  <!-- ============ ENTITY WIZARD ============ -->
+  <section class="screen" id="scr-entity">
+    <div class="head">
+      <button class="back" id="entityBack" type="button">←</button>
+      <div><h2>CREATE AN ENTITY</h2><div class="sub">A few questions — one at a time</div></div>
+    </div>
+    <div class="eq on" data-eq="1">
+      <div class="subtitle" style="text-align:left; margin-top:1.15rem;">QUESTION 1 OF 4 — WHAT ARE YOU CREATING?</div>
+      <button class="glass choice-big" type="button" data-kind="business">
+        <div class="t1">🏢 A REAL-WORLD BUSINESS</div>
+        <div class="t2">A reflection of a business that truly exists in the real world — your store, your company, your work, mirrored here.</div>
+      </button>
+      <button class="glass choice-big" type="button" data-kind="entertainment">
+        <div class="t1">🎭 AN ENTERTAINMENT</div>
+        <div class="t2">A place of fun members visit inside the app — shows, games, gatherings.</div>
+      </button>
+    </div>
+    <div class="eq" data-eq="2">
+      <div class="subtitle" style="text-align:left; margin-top:1.15rem;">QUESTION 2 OF 4 — ITS NAME?</div>
+      <div class="field" style="margin-top:0.85rem;"><input id="eqName" type="text" placeholder="e.g. Rivera Freight Co."></div>
+      <button class="btn" id="eqNext2" type="button">NEXT →</button>
+    </div>
+    <div class="eq" data-eq="3">
+      <div class="subtitle" style="text-align:left; margin-top:1.15rem;">QUESTION 3 OF 4 — WHAT DOES IT DO?</div>
+      <div class="field" style="margin-top:0.85rem;"><textarea id="eqDesc" rows="3" placeholder="One or two plain sentences…"></textarea></div>
+      <button class="btn" id="eqNext3" type="button">NEXT →</button>
+    </div>
+    <div class="eq" data-eq="4">
+      <div class="subtitle" style="text-align:left; margin-top:1.15rem;">QUESTION 4 OF 4 — WILL IT SELL PRODUCTS IN A STORE?</div>
+      <div class="seg" id="eqStoreSeg" style="margin-top:0.85rem;">
+        <button type="button" class="on">YES — A STORE</button>
+        <button type="button">NO STORE</button>
+      </div>
+      <div class="subtitle" style="text-align:left;">If it sells, every product sold counts as a number on your profile page.</div>
+      <div style="margin-top:0.95rem;"><button class="btn" id="eqCreate" type="button">CREATE MY ENTITY</button></div>
+    </div>
+    <div class="foot">ANSWER HONESTLY · IT STANDS IN YOUR NAME</div>
+  </section>
+
+  <!-- ============ KYC ============ -->
+  <section class="screen" id="scr-kyc">
+    <div class="head">
+      <button class="back" id="kycBack" type="button">←</button>
+      <div><h2>KYC · KNOW YOUR CUSTOMER</h2><div class="sub">Who you truly are — or who you represent</div></div>
+    </div>
+    <div class="glass pcard" style="margin-top:1.15rem;">
+      <div class="note mono" style="margin-top:0;">⚠️ <b>TEST KYC — never type a real document number here.</b> Last 4 digits only. In the live app, identity is verified by a licensed provider; the app never stores your documents.</div>
+    </div>
+    <a class="btn" href="https://www.paypal.com/ncp/payment/YPS4H5NTVWDYE" target="_blank" rel="noopener" style="display:block; text-align:center; text-decoration:none; margin-top:1.05rem;">STEP 1 · START HERE →</a>
+    <form class="glass" id="kycForm" novalidate style="margin-top:1.05rem; padding:1.2rem 1.1rem 1.05rem;">
+      <div class="field">
+        <label>STEP 2 · YOU ARE DECLARING AS</label>
+        <div class="seg" id="kycKindSeg" style="grid-template-columns:1fr 1fr;">
+          <button type="button" class="on">MYSELF</button>
+          <button type="button">I REPRESENT AN ENTITY</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="kycName" id="kycNameLabel">FULL LEGAL NAME</label>
+        <input id="kycName" type="text" placeholder="As it appears on your ID">
+      </div>
+      <div class="field">
+        <label for="kycDob">DATE OF BIRTH</label>
+        <input id="kycDob" type="date">
+      </div>
+      <div class="field">
+        <label for="kycState">STATE OF RESIDENCE</label>
+        <input id="kycState" type="text" placeholder="e.g. Florida" maxlength="30">
+      </div>
+      <div class="field">
+        <label for="kycIdType">ID TYPE</label>
+        <select id="kycIdType">
+          <option>Driver's license</option>
+          <option>Passport</option>
+          <option>State ID</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="kycId4">ID NUMBER — LAST 4 DIGITS ONLY</label>
+        <input id="kycId4" type="text" inputmode="numeric" maxlength="4" placeholder="••••">
+        <div class="hint">Four digits. Nothing more is ever asked in this test build.</div>
+      </div>
+      <label class="agree" style="margin:0.4rem 0.2rem 0.9rem;">
+        <input type="checkbox" id="kycTrue">
+        <span>I swear this is truly me — or I am authorized to represent the entity named. False declarations are recorded and end membership.</span>
+      </label>
+      <div class="err" id="kycErr"></div>
+      <button class="btn" type="submit">SUBMIT FOR THE ✓</button>
+    </form>
+    <div class="foot">IDENTITY FIRST · THE CHECK MARK IS EARNED</div>
+  </section>
+
+  <!-- ============ WALLET ============ -->
+  <section class="screen" id="scr-wallet">
+    <div class="head">
+      <button class="back" id="walletBack" type="button">←</button>
+      <div><h2>MY WALLET</h2><div class="sub">Where your node receives — TROO lives on Polygon</div></div>
+    </div>
+    <div id="walletUnlinked">
+      <div class="subtitle" style="text-align:left; margin-top:1.15rem;">Link the wallet your node will receive with — your starter building, your gifts, your assets all land at this address.</div>
+      <div class="field" style="margin-top:0.95rem;">
+        <label for="walletAddr">WALLET ADDRESS (POLYGON · 0x…)</label>
+        <input id="walletAddr" type="text" placeholder="0x…" autocapitalize="none" spellcheck="false" style="font-size:0.8rem;">
+        <div class="hint">A public address is safe to share — it can only receive.</div>
+      </div>
+      <div class="err" id="walletErr"></div>
+      <button class="btn" id="linkWalletBtn" type="button">LINK THIS WALLET</button>
+      <div class="glass pcard">
+        <div class="k">NEVER — READ THIS</div>
+        <div class="note mono" style="margin-top:0.4rem;">This app will <b>NEVER</b> ask for your seed phrase, your private key, or your wallet password. Anyone or anything that asks is stealing. Linking here is address-only; in the live app you will also sign a message in your own wallet to prove the address is yours.</div>
+      </div>
+    </div>
+    <div id="walletLinked" style="display:none;">
+      <div class="check" style="margin-top:1.6rem;">👛</div>
+      <h1 class="title">WALLET LINKED</h1>
+      <div class="glass pcard">
+        <div class="kv"><span class="a">ADDRESS</span><span class="b" id="walletShort">—</span></div>
+        <div class="kv"><span class="a">NETWORK</span><span class="b">Polygon</span></div>
+        <div class="kv"><span class="a">TROO BALANCE (TEST)</span><span class="b">1,250 TROO</span></div>
+        <div class="kv"><span class="a">RECEIVES</span><span class="b">Assets · Gifts · Payouts</span></div>
+      </div>
+      <div style="margin-top:1.05rem;">
+        <button class="btn danger" id="unlinkWalletBtn" type="button">UNLINK WALLET</button>
+      </div>
+      <div class="subtitle">Unlinking stops future deliveries to this address.<br>Anything already received stays in the wallet.</div>
+    </div>
+    <div class="foot">YOUR KEYS STAY YOURS · ADDRESS ONLY HERE</div>
+  </section>
+
+  <!-- ============ PRIVACY & SECURITY ============ -->
+  <section class="screen" id="scr-privacy">
+    <div class="head">
+      <button class="back" id="privacyBack" type="button">←</button>
+      <div><h2>PRIVACY &amp; SECURITY</h2><div class="sub">Your data — see it, save it, erase it</div></div>
+    </div>
+    <div class="glass pcard" style="margin-top:1.15rem;">
+      <div class="k">WHAT THIS TEST BUILD HOLDS</div>
+      <div id="privacyKv" style="margin-top:0.4rem;"></div>
+      <div class="note mono">All of it lives <b>only on this device</b> (this test build has no server and sends nothing anywhere). Passwords are never saved in readable form — in the live app they are hashed on the server, never stored on the phone.</div>
+      <button class="linklike" id="viewDataBtn" type="button" style="margin-left:0;">View my saved data (JSON)</button>
+      <pre class="data-pre mono" id="dataPre"></pre>
+    </div>
+    <div class="glass pcard">
+      <div class="k">SAVE</div>
+      <div class="note mono" style="margin-top:0.4rem;">Your test data saves to this device automatically as you go. <span id="saveStamp">Not saved yet.</span></div>
+      <div style="margin-top:0.7rem;"><button class="mini-btn" id="saveNowBtn" type="button">SAVE NOW</button></div>
+    </div>
+    <div class="glass pcard">
+      <div class="k">SECURITY, IN PLAIN WORDS</div>
+      <div class="note mono" style="margin-top:0.4rem; line-height:1.8;">
+        · Email codes expire in 10 minutes; 3 wrong tries cancels a code.<br>
+        · The ✓ check mark follows a real identity review (KYC) — never a payment.<br>
+        · This app never asks for a seed phrase or private key. Ever.<br>
+        · Your banner is private; public profiles show only your newest image.<br>
+        · Everything in the app is on the record — that record protects you too.
+      </div>
+    </div>
+    <div class="glass pcard">
+      <div class="k">VERSION &amp; UPDATES</div>
+      <div style="margin-top:0.4rem;">
+        <div class="kv"><span class="a">RUNNING</span><span class="b" data-ver>v—</span></div>
+        <div class="kv"><span class="a">CHANNEL</span><span class="b">TEST</span></div>
+        <div class="kv"><span class="a">LAST CHECKED</span><span class="b" id="lastChecked">Never</span></div>
+      </div>
+      <div class="note mono" id="updateResult">Updates arrive in the open — when a new version is released, this app tells you what changed, in plain words.</div>
+      <div style="margin-top:0.7rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="mini-btn" id="checkUpdateBtn" type="button">CHECK FOR UPDATES</button>
+        <button class="mini-btn" id="doUpdateBtn" type="button" style="display:none;">UPDATE NOW →</button>
+        <button class="mini-btn" id="newsFromPrivacy" type="button">WHAT'S NEW</button>
+      </div>
+    </div>
+
+    <div class="glass pcard">
+      <div class="k" style="color:#c2502e;">ERASE EVERYTHING</div>
+      <div class="note mono" style="margin-top:0.4rem;">Erase wipes this test account from this device completely — intake, avatar, KYC declaration, wallet link, entities. There is no undo and nothing to recover: that is the point of an erase.</div>
+      <div style="margin-top:0.75rem;">
+        <button class="btn danger" id="eraseBtn" type="button">ERASE MY TEST DATA</button>
+      </div>
+    </div>
+    <div class="foot">YOUR DATA · YOUR DEVICE · YOUR DECISION</div>
+  </section>
+
+  <!-- ============ WHAT'S NEW ============ -->
+  <section class="screen" id="scr-news">
+    <div class="head">
+      <button class="back" id="newsBack" type="button">←</button>
+      <div><h2>WHAT'S NEW</h2><div class="sub">Every update, in plain words — on the record</div></div>
+    </div>
+
+    <div class="glass news-entry" id="newsV5">
+      <div class="vh"><span class="vn">Version 0.5.0</span><span class="chip" id="newsV5chip" style="background:linear-gradient(135deg,#5b7fa6,#7a6fa0);">PREVIEW · NEXT UPDATE</span></div>
+      <div class="vd" id="newsV5date">Coming in the next test release</div>
+      <ul>
+        <li>Talk opens right from your dashboard doors.</li>
+        <li>Your banner reminds you 7 days before it needs renewing.</li>
+        <li>The app starts faster on older phones.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV415">
+      <div class="vh"><span class="vn">Version 0.4.15</span><span class="chip" id="newsV415chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 24, 2026 · KYC in two steps</div>
+      <ul>
+        <li><b>KYC, IN TWO STEPS.</b> The KYC screen now opens with a full-width STEP 1 · START HERE button — it takes you to the payment page. The declaration itself, who you are or who you represent, is STEP 2, right below it.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV414">
+      <div class="vh"><span class="vn">Version 0.4.14</span><span class="chip" id="newsV414chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 24, 2026 · the SMART TRUST DESKTOP agreement</div>
+      <ul>
+        <li><b>THE AGREEMENT, IN FULL.</b> The agree-and-continue screen now shows the complete SMART TRUST DESKTOP agreement — Terms of Use, Intellectual Property Protection, Confidentiality, and AI Disclosure, with the NDA and the AI disclosure combined in one document. It replaces the short summary that stood there before.</li>
+        <li>It is written for members using SMART TRUST DESKTOP — not the SKIPPER DESKTOP creator interface — and it is labeled PROPOSED, not attorney-approved; the bracketed fields are still open and legal review comes before any production use.</li>
+        <li>Because the agreement changed, you will be asked to read and agree to the new one once before continuing — the version you agreed to is kept with your account.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV413">
+      <div class="vh"><span class="vn">Version 0.4.13</span><span class="chip" id="newsV413chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · profile first</div>
+      <ul>
+        <li><b>PROFILE FIRST.</b> After your email code and your name, the app now opens on your My Profile page — your banner, your photo, your node and your promise, all yours first. The dashboard is one tap back (←) whenever you want it.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV412">
+      <div class="vh"><span class="vn">Version 0.4.12</span><span class="chip" id="newsV412chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · your initial, and one home for this app</div>
+      <ul>
+        <li>Avatars without a photo now show the first letter of YOUR display name — they were stuck on a leftover demo letter.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV411">
+      <div class="vh"><span class="vn">Version 0.4.11</span><span class="chip" id="newsV411chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · your profile, one tap away</div>
+      <ul>
+        <li>There is now a PROFILE button at the top of your dashboard — no more scrolling the whole dashboard to find the profile door (it is still there too, with the other doors).</li>
+        <li>The dashboard header now reads SMART TRUST, matching the start screen.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV410">
+      <div class="vh"><span class="vn">Version 0.4.10</span><span class="chip" id="newsV410chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · banner first, your face right under it</div>
+      <ul>
+        <li>Your profile now opens with your banner, and your profile picture sits right underneath it — overlapping the banner, front and center. Your name, NODE number and KYC status follow, then everything else.</li>
+        <li>The banner controls (change, renew, delete) moved just below, in their own card — same buttons, same behavior.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV49">
+      <div class="vh"><span class="vn">Version 0.4.9</span><span class="chip" id="newsV49chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · deeper black, brighter words</div>
+      <ul>
+        <li>The Gold skin's background went deeper black, so the gold and ivory text pops. The electric gold frame is unchanged.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV48">
+      <div class="vh"><span class="vn">Version 0.4.8</span><span class="chip" id="newsV48chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · an electric gold frame</div>
+      <ul>
+        <li>The Gold skin's frame is now electric gold — a thin, bright gold edge with a soft electric glow. Nothing else changed.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV47">
+      <div class="vh"><span class="vn">Version 0.4.7</span><span class="chip" id="newsV47chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · a golden new look</div>
+      <ul>
+        <li>Gold is here — black and metallic gold, matched to the Smart Trust emblem — and it is now the default skin. This update switched you to Gold once.</li>
+        <li>Dawn and Neon are still one tap away, on the start screen or in Profile → Appearance — and any skin you pick from here on stays picked.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV46">
+      <div class="vh"><span class="vn">Version 0.4.6</span><span class="chip" id="newsV46chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 23, 2026 · a new name up top</div>
+      <ul>
+        <li>The app now greets you as SMART TRUST Mobile — the name the family uses everywhere. Same test build, same data on this device; nothing else moved.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV45">
+      <div class="vh"><span class="vn">Version 0.4.5</span><span class="chip" id="newsV45chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 22, 2026 · your face, front and center</div>
+      <ul>
+        <li>On your profile, your banner is first and your profile picture is now big right under it — your name and NODE number beneath your face.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV44">
+      <div class="vh"><span class="vn">Version 0.4.4</span><span class="chip" id="newsV44chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 22, 2026 · the dashboard, reordered</div>
+      <ul>
+        <li>Your NODE card now sits below Mission Control on the dashboard — Mission Control leads, your node follows.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV43">
+      <div class="vh"><span class="vn">Version 0.4.3</span><span class="chip" id="newsV43chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 22, 2026 · the front door</div>
+      <ul>
+        <li>START HERE is always on the front door now — new members and returning members alike. Welcome back and CONTINUE sit right under it when your test data is on the device.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV42">
+      <div class="vh"><span class="vn">Version 0.4.2</span><span class="chip" id="newsV42chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 22, 2026 · skins, a calmer profile, your journey</div>
+      <ul>
+        <li>Two skins — Dawn and Neon, your choice, on the start screen and in your profile.</li>
+        <li>A calmer profile — your banner and your face first, then sections that open and close.</li>
+        <li>START YOUR JOURNEY on your profile opens the World Explorer — your worlds, on a map.</li>
+        <li>The Terms are now Version 1.0 — in effect, and the version you agreed to is kept with your account.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV41">
+      <div class="vh"><span class="vn">Version 0.4.1</span><span class="chip" id="newsV41chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 22, 2026 · the fixes</div>
+      <ul>
+        <li>Your banner is back — a layout fault had hidden it, and your profile background with it. Their buttons work again.</li>
+        <li>A sign-in door for returning members — checked against this device; your password itself is never stored.</li>
+        <li>Your bio now saves itself as you type — no button to remember.</li>
+        <li>Banner and background pictures stay on this device now, like your avatar.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry" id="newsV4">
+      <div class="vh"><span class="vn">Version 0.4.0</span><span class="chip" id="newsV4chip" style="display:none;">YOU ARE HERE</span></div>
+      <div class="vd">October 22, 2026 · the merged dashboard</div>
+      <ul>
+        <li>Mission Control arrives from hero-market: Worlds, AI Agents, Guided, Trust, Finance.</li>
+        <li>Your troothhurtz.app creations appear on your dashboard.</li>
+        <li>Business Creation Progress is live — it moves as you complete steps.</li>
+        <li>Your account announces itself: forwarded to Skipper, counted in the system metrics.</li>
+        <li>Version numbers and this What's New page — updates now announce themselves.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry">
+      <div class="vh"><span class="vn">Version 0.3.0</span></div>
+      <div class="vd">October 22, 2026 · the iPhone test build</div>
+      <ul>
+        <li>Built for your phone: full-screen, one thing per screen.</li>
+        <li>KYC identity check — last 4 digits only — earns the ✓ in your avatar area.</li>
+        <li>Wallet linking for Polygon, address only. Never a seed phrase. Ever.</li>
+        <li>Privacy &amp; Security center: see your data, save it, erase it completely.</li>
+        <li>The app remembers you on your device and greets you back.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry">
+      <div class="vh"><span class="vn">Version 0.2.0</span></div>
+      <div class="vd">October 22, 2026 · your node</div>
+      <ul>
+        <li>Your account becomes a node, with your member number — the counter of everyone who joined.</li>
+        <li>Dashboard and profile: private banner, background, bio, day and night.</li>
+        <li>Entities: answer four questions, create a business reflection or an entertainment.</li>
+        <li>Gifting in TROO — donations that move like gifts, on the record.</li>
+      </ul>
+    </div>
+
+    <div class="glass news-entry">
+      <div class="vh"><span class="vn">Version 0.1.0</span></div>
+      <div class="vd">October 22, 2026 · the first build</div>
+      <ul>
+        <li>START HERE, the agreement first — scroll, read, agree.</li>
+        <li>Intake: your name, your username, your password, your email.</li>
+        <li>The email code gate: 10 minutes, 3 tries — no way past an unverified email.</li>
+      </ul>
+    </div>
+    <div class="foot">UPDATES IN THE OPEN · EVERY CHANGE ON THE RECORD</div>
+  </section>
+
+  <!-- ============ WORLD EXPLORER ============ -->
+  <section class="screen" id="scr-explorer">
+    <div class="head">
+      <button class="back" id="explorerBack" type="button">←</button>
+      <div><h2>WORLD EXPLORER</h2><div class="sub">Your worlds — mobile view</div></div>
+    </div>
+    <div class="glass ex-map-wrap">
+      <canvas id="exMap" width="640" height="600"></canvas>
+    </div>
+    <div class="ex-nodes" id="exNodes">
+      <button class="ex-pill" type="button" data-node="home">🏠 My Home World</button>
+      <button class="ex-pill" type="button" data-node="property">🏢 Starter Business Property</button>
+      <button class="ex-pill" type="button" data-node="stadium">🏟️ Elysium Stadium</button>
+      <button class="ex-pill" type="button" data-node="troo">🌍 Troo-Town</button>
+    </div>
+    <div class="glass pcard" id="exInfo">
+      <div class="k" id="exName">MY HOME WORLD</div>
+      <div class="note mono" id="exStatus" style="margin-top:0.45rem; line-height:1.7;">—</div>
+      <div style="margin-top:0.75rem;"><button class="mini-btn" id="exAction" type="button">ENTER →</button></div>
+    </div>
+    <div class="toast" id="exToast"></div>
+    <div class="foot">Mobile explorer — test view. The full 3D explorer lives in the Smart Trust Desktop OS; what you build there syncs here.</div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  var KEY = 'tt_test_v1';
+  var TERMS_VERSION = 'desktop-1.0'; // the SMART TRUST DESKTOP agreement (Terms of Use, IP Protection, Confidentiality & AI Disclosure, v1.0); an edited version must be agreed before continuing
+  var S = {
+    name: '', username: '', email: '', emailVerified: false,
+    display: '', node: 0, avatarData: '', avatarBg: '',
+    bio: '', kind: 'BUSINESS', publicProfile: false,
+    kyc: null, wallet: '', renew: '', bannerSet: false,
+    sold: 128, gifts: 342, entities: [], seenVersion: '', simVersion: '', passHash: '', bannerData: '', bgData: '', skin: 'gold', themeV: '', termsVersion: '', termsAgreedAt: '', profileOpen: ['appearance']
+  };
+  try { var raw = localStorage.getItem(KEY); if (raw) { var parsed = JSON.parse(raw); Object.keys(S).forEach(function (k) { if (parsed[k] !== undefined) S[k] = parsed[k]; }); } } catch (e) {}
+  if (S.themeV !== '0.4.7') { S.skin = 'gold'; S.themeV = '0.4.7'; save(); } // v0.4.7: switch every existing save to the new Gold default exactly once; later member picks persist untouched
+
+  function save() {
+    var stamp = 'Saved on this device · ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { stamp = 'Could not save (device storage full) — kept for this session'; }
+    var d = $('dashSaved'); if (d) d.textContent = stamp;
+    var ss = $('saveStamp'); if (ss) ss.textContent = stamp + '.';
+    applyProgress(); renderVersion();
+    return stamp;
+  }
+  function applyProgress() {
+    var bar = $('progBar'); if (!bar) return;
+    var steps = {
+      account: !!S.name, email: !!S.emailVerified, display: !!S.display,
+      kyc: !!(S.kyc && S.kyc.done), wallet: !!S.wallet, entity: S.entities.length > 0
+    };
+    var done = 0;
+    document.querySelectorAll('#progSteps span').forEach(function (sp) {
+      var on = !!steps[sp.getAttribute('data-step')];
+      sp.classList.toggle('done', on);
+      if (on) done++;
+    });
+    var pct = Math.round(done / 6 * 100);
+    bar.style.width = pct + '%';
+    $('progPct').textContent = pct + '%';
+  }
+  function eraseAll() { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
+
+  /* ---------- navigation ---------- */
+  var screens = {};
+  ['start', 'terms', 'intake', 'verify', 'signin', 'setup', 'dash', 'profile', 'entity', 'kyc', 'wallet', 'privacy', 'news', 'explorer'].forEach(function (n) { screens[n] = $('scr-' + n); });
+  function go(name) {
+    Object.keys(screens).forEach(function (k) { screens[k].classList.toggle('active', k === name); });
+    screens[name].scrollTop = 0;
+  }
+  function pulseWire(id, fn) {
+    var el = $(id); if (!el) return;
+    el.addEventListener('click', function () {
+      el.classList.remove('pulsing'); void el.offsetWidth; el.classList.add('pulsing');
+      setTimeout(fn, 240);
+    });
+  }
+  function toast(id, msg) { var t = $(id); t.textContent = msg; t.classList.add('show'); }
+
+  /* ---------- day / night ---------- */
+  var device = $('device');
+  var bgFxEl = $('bgFx');
+  function setMode(night) {
+    device.classList.toggle('night', night);
+    document.querySelectorAll('[data-mode-lbl]').forEach(function (l) { l.textContent = night ? 'NIGHT' : 'DAY'; });
+  }
+  document.querySelectorAll('[data-mode-toggle]').forEach(function (t) {
+    t.addEventListener('click', function () { setMode(!device.classList.contains('night')); });
+  });
+  /* ---------- skins (v0.4.2; Gold added v0.4.7): Dawn / Neon / Gold, the member's choice ---------- */
+  var neonSheet = document.getElementById('neon3000');
+  var goldSheet = document.getElementById('gold3000');
+  var scanEl = document.querySelector('.scanfx');
+  function applySkin() {
+    var dawn = S.skin === 'dawn';
+    if (neonSheet) neonSheet.disabled = S.skin !== 'neon';
+    if (goldSheet) goldSheet.disabled = S.skin !== 'gold';
+    if (bgFxEl) bgFxEl.style.display = dawn ? 'none' : 'block';
+    if (scanEl) scanEl.style.display = dawn ? 'none' : 'block';
+    document.querySelectorAll('[data-skin]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-skin') === S.skin); });
+    if (window.__exReady && screens.explorer && screens.explorer.classList.contains('active')) selectNode(exSel);
+  }
+  document.querySelectorAll('[data-skin]').forEach(function (b) {
+    b.addEventListener('click', function () { S.skin = b.getAttribute('data-skin'); save(); applySkin(); });
+  });
+
+
+  /* ---------- start / restore ---------- */
+  if (S.display) {
+    $('startBack').style.display = 'block';
+    $('welcomeBack').textContent = 'Welcome back, ' + S.display + ' — your test data is on this device.';
+  }
+  $('startBtn').addEventListener('click', function () { go('terms'); });
+  $('continueBtn').addEventListener('click', function () {
+    if (S.termsVersion !== TERMS_VERSION) { postTermsDest = 'dash'; resetTermsGate(); go('terms'); return; }
+    applyAll(); go('dash');
+  });
+
+  /* ---------- sign in (the returning member's door) ---------- */
+  $('signInLink').addEventListener('click', function () { $('siErr').classList.remove('show'); go('signin'); });
+  $('siBack').addEventListener('click', function () { go('start'); });
+  $('siEye').addEventListener('click', function () {
+    var p = $('siPass'); var show = p.type === 'password';
+    p.type = show ? 'text' : 'password'; this.textContent = show ? 'Hide password' : 'Show password';
+  });
+  $('siBtn').addEventListener('click', function () {
+    var err = $('siErr');
+    function sfail(msg) { err.textContent = msg; err.classList.add('show'); }
+    if (!S.display) { sfail('No account lives on this device yet. If you are new, begin with START HERE \u2014 the agreement, then your intake. In the live app, sign-in reaches your account from anywhere.'); return; }
+    if (!S.passHash) { sfail('This test account was made before the sign-in door existed, so there is no password fingerprint to check. Use CONTINUE MY TEST on the start screen.'); return; }
+    var u = $('siUser').value.trim().toLowerCase(), p = $('siPass').value;
+    if (!u || !p) { sfail('Type your username and your password \u2014 both of them.'); return; }
+    hashPw(p).then(function (h) {
+      if (u === String(S.username).toLowerCase() && h === S.passHash) {
+        err.classList.remove('show'); $('siPass').value = '';
+        applyAll(); go('dash');
+        setTimeout(function () { dashNote('Welcome back, ' + S.display + ' \u2014 signed in.'); }, 500);
+      } else {
+        sfail('That does not match the account on this device \u2014 check the username and password, and try again.');
+      }
+    });
+  });
+  var overArmed = false;
+  $('startOverBtn').addEventListener('click', function () {
+    if (!overArmed) { overArmed = true; this.textContent = 'Tap again to erase and start over — no undo'; setTimeout(function () { overArmed = false; }, 3000); return; }
+    eraseAll();
+  });
+
+  /* ---------- terms ---------- */
+  var termsBox = $('termsBox'), agreeBox = $('agreeBox'), agreeBtn = $('agreeBtn'), scrollHint = $('scrollHint');
+  function termsRead() { return termsBox.scrollTop + termsBox.clientHeight >= termsBox.scrollHeight - 12; }
+  termsBox.addEventListener('scroll', function () { if (termsRead()) { agreeBox.disabled = false; scrollHint.textContent = '✓ you have seen the whole agreement'; } });
+  /* the checkbox unlocks only on a real scroll to the bottom — never at load, when the hidden screen's zero heights can read as "already at the end" */
+  agreeBox.addEventListener('change', function () { agreeBtn.disabled = !agreeBox.checked; });
+  var postTermsDest = 'intake';
+  agreeBtn.addEventListener('click', function () {
+    S.termsVersion = TERMS_VERSION;
+    S.termsAgreedAt = new Date().toISOString();
+    save();
+    var dest = postTermsDest; postTermsDest = 'intake';
+    if (dest === 'dash') { applyAll(); go('dash'); } else { go('intake'); }
+  });
+  function resetTermsGate() {
+    termsBox.scrollTop = 0;
+    agreeBox.checked = false;
+    agreeBtn.disabled = true;
+    agreeBox.disabled = true;
+    scrollHint.textContent = 'scroll to the bottom to continue ↓';
+  }
+
+  /* ---------- intake ---------- */
+  var pendingPassHash = '';
+  function fallbackHash(pw) { var h = 5381; var s = 'troothurtz-test:' + pw; for (var i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; } return 'fnv' + h.toString(16); }
+  function hashPw(pw) {
+    if (window.crypto && crypto.subtle && crypto.subtle.digest) {
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode('troothurtz-test:' + pw)).then(function (buf) {
+        return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+      }).catch(function () { return Promise.resolve(fallbackHash(pw)); });
+    }
+    return Promise.resolve(fallbackHash(pw));
+  }
+  var form = $('intakeForm'), formErr = $('formErr');
+  ['fullName', 'userName', 'email', 'pass1', 'pass2'].forEach(function (id) {
+    $(id).addEventListener('input', function (e) { e.target.classList.remove('bad'); formErr.classList.remove('show'); });
+  });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = $('fullName'), user = $('userName'), email = $('email'), p1 = $('pass1'), p2 = $('pass2');
+    function fail(el, msg) {
+      el.classList.add('bad'); formErr.textContent = msg; formErr.classList.add('show');
+      form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); el.focus();
+    }
+    if (name.value.trim().length < 2) { fail(name, 'Tell us your name — the real one your agreements will carry.'); return; }
+    if (!/^[a-zA-Z0-9._]{3,}$/.test(user.value.trim())) { fail(user, 'Choose a username of at least 3 letters, numbers, dots or underscores.'); return; }
+    var em = email.value.trim();
+    var emOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em) && em.indexOf('..') === -1 && em.split('@').length === 2 && em.charAt(0) !== '.' && em.split('@')[1].charAt(0) !== '.';
+    if (!emOk) { fail(email, 'That email does not pass validation — one @, a real domain, no spaces. Check it once more.'); return; }
+    if (p1.value.length < 8) { fail(p1, 'Make your password at least 8 characters — it guards your door.'); return; }
+    if (p1.value !== p2.value) { fail(p2, 'The two passwords do not match yet.'); return; }
+    S.name = name.value.trim(); S.username = user.value.trim(); S.email = em;
+    hashPw(p1.value).then(function (h) { pendingPassHash = h; });
+    $('sentTo').textContent = em;
+    newCode();
+    go('verify');
+    codeInputs[0].focus();
+  });
+
+  /* ---------- verify ---------- */
+  var codeInputs = Array.prototype.slice.call(document.querySelectorAll('#codeRow input'));
+  var codeRow = $('codeRow'), codeErr = $('codeErr'), verifyBtn = $('verifyBtn');
+  var currentCode = '', attemptsLeft = 3, codeExpiresAt = 0, codeTimer = null;
+  function codeMeta() {
+    var left = Math.max(0, Math.round((codeExpiresAt - Date.now()) / 1000));
+    var mm = Math.floor(left / 60), ss = ('0' + (left % 60)).slice(-2);
+    $('codeMeta').textContent = currentCode ? 'Code expires in ' + mm + ':' + ss + ' · attempts left: ' + attemptsLeft : 'This code is no longer valid — send a new one below.';
+    if (left <= 0 && currentCode) currentCode = '';
+  }
+  function newCode() {
+    currentCode = String(Math.floor(100000 + Math.random() * 900000));
+    attemptsLeft = 3; codeExpiresAt = Date.now() + 10 * 60 * 1000;
+    $('demoCode').textContent = currentCode.split('').join(' ');
+    codeInputs.forEach(function (i) { i.value = ''; });
+    codeRow.classList.remove('bad'); codeErr.classList.remove('show');
+    verifyBtn.disabled = true;
+    if (codeTimer) clearInterval(codeTimer);
+    codeTimer = setInterval(codeMeta, 1000); codeMeta();
+  }
+  codeInputs.forEach(function (input, idx) {
+    input.addEventListener('input', function () {
+      input.value = input.value.replace(/\D/g, '').slice(0, 1);
+      codeRow.classList.remove('bad'); codeErr.classList.remove('show');
+      if (input.value && idx < 5) codeInputs[idx + 1].focus();
+      verifyBtn.disabled = codeInputs.some(function (i) { return !i.value; });
+    });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Backspace' && !input.value && idx > 0) codeInputs[idx - 1].focus(); });
+  });
+  $('resendBtn').addEventListener('click', function () { newCode(); codeInputs[0].focus(); });
+  verifyBtn.addEventListener('click', function () {
+    var typed = codeInputs.map(function (i) { return i.value; }).join('');
+    function reject(msg) {
+      codeErr.textContent = msg; codeErr.classList.add('show');
+      codeRow.classList.remove('bad'); void codeRow.offsetWidth; codeRow.classList.add('bad'); codeMeta();
+    }
+    if (!currentCode) { reject('This code is no longer valid — tap “Send a new code” below and use the fresh one.'); return; }
+    if (Date.now() > codeExpiresAt) { currentCode = ''; reject('That code expired — codes live for 10 minutes. Send a new one below.'); return; }
+    if (typed === currentCode) {
+      if (codeTimer) clearInterval(codeTimer);
+      S.emailVerified = true; S.passHash = pendingPassHash; save();
+      go('setup');
+      return;
+    }
+    attemptsLeft--;
+    if (attemptsLeft <= 0) { currentCode = ''; reject('Three wrong tries — this code is cancelled. Send a new code below; you cannot proceed without a verified email.'); }
+    else reject('That code is not the one we sent — ' + attemptsLeft + (attemptsLeft === 1 ? ' try' : ' tries') + ' left before this code is cancelled.');
+  });
+
+  /* ---------- avatar (shared) ---------- */
+  var avatarMedia = null;
+  function paintAvatar(targets) {
+    targets.forEach(function (el) {
+      if (!el) return;
+      el.querySelectorAll('img,video').forEach(function (n) { n.remove(); });
+      if (!avatarMedia) return;
+      var node = document.createElement(avatarMedia.type === 'video' ? 'video' : 'img');
+      node.src = avatarMedia.url;
+      if (node.tagName === 'VIDEO') { node.autoplay = true; node.loop = true; node.muted = true; node.playsInline = true; }
+      el.appendChild(node);
+    });
+  }
+  function avatarTargets() { return [$('avatarCircle'), $('dashAvatar'), $('idAvatar')]; }
+  var avatarCircle = $('avatarCircle'), avatarInput = $('avatarInput');
+  avatarCircle.addEventListener('click', function () { avatarInput.click(); });
+  $('avatarChange').addEventListener('click', function () { avatarInput.click(); });
+  avatarInput.addEventListener('change', function () {
+    var f = avatarInput.files[0]; avatarInput.value = ''; if (!f) return;
+    var isVideo = f.type.indexOf('video') === 0;
+    avatarMedia = { type: isVideo ? 'video' : 'img', url: URL.createObjectURL(f) };
+    paintAvatar(avatarTargets());
+    if (!isVideo && f.size <= 700 * 1024) {
+      var r = new FileReader();
+      r.onload = function () { S.avatarData = r.result; S.avatarBg = ''; save(); };
+      r.readAsDataURL(f);
+    } else if (!isVideo) {
+      toast('dashToast', 'That image is large — kept for this session, too big to save on the device.');
+    }
+  });
+  document.querySelectorAll('#presets button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      avatarMedia = null; paintAvatar(avatarTargets());
+      S.avatarBg = b.getAttribute('data-p'); S.avatarData = '';
+      avatarTargets().forEach(function (el) { el.style.background = S.avatarBg; });
+      save();
+    });
+  });
+
+  /* ---------- setup ---------- */
+  var TAKEN = ['jordan', 'rivera', 'truth', 'troothurtz', 'admin', 'capital', 'elysium', 'river', 'support'];
+  var nameInput = $('displayName'), nameCheck = $('nameCheck'), setupBtn = $('setupBtn'), chosenName = '';
+  nameInput.addEventListener('input', function () {
+    var v = nameInput.value.trim(); chosenName = '';
+    if (v.length < 2) { nameCheck.textContent = 'Pick a name no one else has taken.'; nameCheck.className = 'name-check'; setupBtn.disabled = true; return; }
+    if (TAKEN.indexOf(v.toLowerCase()) !== -1) { nameCheck.textContent = '✗ “' + v + '” is already taken — try another.'; nameCheck.className = 'name-check taken'; setupBtn.disabled = true; return; }
+    nameCheck.textContent = '✓ “' + v + '” is available — it will be yours.'; nameCheck.className = 'name-check free';
+    var ac = $('avatarCircle'); if (ac) { for (var i = 0; i < ac.childNodes.length; i++) { var nn = ac.childNodes[i]; if (nn.nodeType === 3 && nn.textContent.trim()) { nn.textContent = v.charAt(0).toUpperCase(); break; } } }
+    chosenName = v; setupBtn.disabled = false;
+  });
+  setupBtn.addEventListener('click', function () {
+    S.display = chosenName;
+    if (!S.node) S.node = 1465; // test counter base 1,464 — the live app reads the real member total at sign-up
+    S.seenVersion = effectiveVersion();
+    applyAll(); save();
+    go('profile');
+    var jn = $('joinNote'); if (jn) jn.style.display = 'block';
+  });
+
+  /* ---------- apply state to the UI ---------- */
+  function refreshBadges() {
+    var d = S.kyc && S.kyc.done ? 'flex' : 'none';
+    ['dashBadge', 'idBadge', 'setupBadge'].forEach(function (id) { var e = $(id); if (e) e.style.display = d; });
+  }
+  function applyNode() {
+    $('nodeAddr').textContent = 'NODE #' + fmt(S.node || 0);
+    $('nodeName').textContent = S.display || '—';
+    $('nodeInitial').textContent = (S.display || 'J').charAt(0).toUpperCase();
+    $('nodeCount').textContent = S.node ? 'You are member ' + fmt(S.node) + ' of ' + fmt(S.node) + '. The next member to join will be NODE #' + fmt(S.node + 1) + '.' : '';
+    var ni = $('nodeImg');
+    if (S.avatarData) { ni.setAttribute('href', S.avatarData); ni.style.display = 'block'; $('nodeInitial').style.display = 'none'; }
+    else { ni.style.display = 'none'; $('nodeInitial').style.display = 'block'; }
+  }
+  function paintInitials() {
+    var initial = (S.display || '').charAt(0).toUpperCase() || '✦';
+    ['avatarCircle', 'dashAvatar', 'idAvatar'].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      for (var i = 0; i < el.childNodes.length; i++) {
+        var n = el.childNodes[i];
+        if (n.nodeType === 3 && n.textContent.trim()) { n.textContent = initial; break; }
+      }
+    });
+  }
+  function applyAll() {
+    if (S.avatarData) { avatarMedia = { type: 'img', url: S.avatarData }; }
+    paintAvatar(avatarTargets());
+    paintInitials();
+    if (S.avatarBg) avatarTargets().forEach(function (el) { el.style.background = S.avatarBg; });
+    $('dashName').textContent = S.name || '—';
+    $('dashDisplay').textContent = S.display || '—';
+    applyNode(); refreshBadges(); renderIdStatus(); renderWallet(); renderEntities();
+    $('statSold').textContent = fmt(S.sold);
+    $('statGifts').textContent = fmt(S.gifts);
+    $('bio').value = S.bio || '';
+    document.querySelectorAll('#kindSeg button').forEach(function (b) { b.classList.toggle('on', b.textContent === S.kind); });
+    var vs = $('visSwitch');
+    vs.classList.toggle('on', !!S.publicProfile); vs.setAttribute('aria-checked', S.publicProfile ? 'true' : 'false');
+    visTextRender();
+    if (S.bannerData) bannerImg.style.backgroundImage = 'url(' + S.bannerData + ')';
+    if (S.bgData) $('profileBg').style.backgroundImage = 'url(' + S.bgData + ')';
+    if (!S.renew) { var d = new Date(); d.setDate(d.getDate() + 7); S.renew = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    $('renewDate').textContent = S.renew;
+    save();
+  }
+  function visTextRender() {
+    $('visText').innerHTML = S.publicProfile
+      ? 'Public — members can see your profile, showing <b>only your most recent image</b> — nothing older.'
+      : 'Private — only you can see your profile. Turn this on and members see <b>only your most recent image</b> — nothing older.';
+  }
+
+  /* ---------- dashboard ---------- */
+  document.querySelectorAll('[data-open]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      el.classList.remove('pulsing'); void el.offsetWidth; el.classList.add('pulsing');
+      var msg = el.getAttribute('data-open');
+      setTimeout(function () { dashNote(msg); }, 240);
+    });
+  });
+  function dashNote(msg) { toast('dashToast', msg); }
+  document.querySelectorAll('.sat').forEach(function (s) { s.addEventListener('click', function () { dashNote(s.getAttribute('data-msg')); }); });
+  pulseWire('doorTalk', function () { dashNote('Talk opens your conversations — on the record, clean hands both sides.'); });
+  pulseWire('doorSupport', function () { dashNote('Contact Support — a message to the Troothurtz team, answered inside the app, on the record.'); });
+  pulseWire('doorMission', function () { dashNote('Our Mission: a community doing business with each other — simply, openly, and on the record, so everyone keeps clean hands.'); });
+  pulseWire('doorProfile', function () { go('profile'); applyProfileSections(); });
+  var dpt = $('doorProfileTop'); if (dpt) dpt.addEventListener('click', function () { go('profile'); applyProfileSections(); });
+  pulseWire('doorWallet', function () { renderWallet(); go('wallet'); });
+  pulseWire('doorPrivacy', function () { renderPrivacy(); go('privacy'); });
+  pulseWire('profileBack', function () { var jn = $('joinNote'); if (jn) jn.style.display = 'none'; go('dash'); });
+  pulseWire('entityBack', function () { go('profile'); });
+  pulseWire('kycBack', function () { go('profile'); });
+  pulseWire('walletBack', function () { go('dash'); });
+  pulseWire('privacyBack', function () { go('dash'); });
+
+  var bannerImg = $('bannerImg'), bannerInput = $('bannerInput');
+  $('bannerUploadBtn').addEventListener('click', function () { bannerInput.click(); });
+  bannerInput.addEventListener('change', function () {
+    var f = bannerInput.files[0]; bannerInput.value = ''; if (!f) return;
+    S.bannerSet = true;
+    if (f.size <= 700 * 1024) {
+      var r = new FileReader();
+      r.onload = function () { S.bannerData = r.result; bannerImg.style.backgroundImage = 'url(' + r.result + ')'; save(); dashNote('Banner updated \u2014 kept on this device. It stays private: only you see it here.'); };
+      r.readAsDataURL(f);
+    } else {
+      bannerImg.style.backgroundImage = 'url(' + URL.createObjectURL(f) + ')';
+      S.bannerData = ''; save();
+      dashNote('Banner updated for this visit \u2014 that image is too large to keep on the device.');
+    }
+  });
+  $('bannerRenewBtn').addEventListener('click', function () {
+    var d = new Date(); d.setDate(d.getDate() + 30);
+    S.renew = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    $('renewDate').textContent = S.renew; save();
+    dashNote('Renewed for another month — the new date is on the banner card.');
+  });
+  $('bannerDeleteBtn').addEventListener('click', function () {
+    bannerImg.style.backgroundImage = ''; S.bannerSet = false; S.bannerData = ''; bannerInput.value = ''; save();
+    dashNote('Banner deleted. You can upload a new one any time.');
+  });
+
+  /* ---------- profile ---------- */
+  var profileBg = $('profileBg'), bgInput = $('bgInput');
+  $('bgChangeBtn').addEventListener('click', function () { bgInput.click(); });
+  bgInput.addEventListener('change', function () {
+    var f = bgInput.files[0]; bgInput.value = ''; if (!f) return;
+    if (f.size <= 700 * 1024) {
+      var r = new FileReader();
+      r.onload = function () { S.bgData = r.result; profileBg.style.backgroundImage = 'url(' + r.result + ')'; save(); toast('profileToast', 'Background set \u2014 kept on this device.'); };
+      r.readAsDataURL(f);
+    } else {
+      profileBg.style.backgroundImage = 'url(' + URL.createObjectURL(f) + ')';
+      S.bgData = ''; save();
+      toast('profileToast', 'Background set for this visit \u2014 that image is too large to keep on the device.');
+    }
+  });
+  document.querySelectorAll('#kindSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#kindSeg button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on'); S.kind = b.textContent; save();
+    });
+  });
+  $('visSwitch').addEventListener('click', function () {
+    S.publicProfile = !S.publicProfile;
+    this.classList.toggle('on', S.publicProfile);
+    this.setAttribute('aria-checked', S.publicProfile ? 'true' : 'false');
+    visTextRender(); save();
+  });
+  $('bio').addEventListener('input', function () { S.bio = this.value; save(); });
+  $('profileSave').addEventListener('click', function () {
+    S.bio = $('bio').value.trim(); save();
+    toast('profileToast', 'Profile saved to this device.');
+  });
+  $('openKyc').addEventListener('click', function () { go('kyc'); });
+  function renderIdStatus() {
+    var el = $('idStatus'); if (!el) return;
+    if (S.kyc && S.kyc.done) {
+      el.textContent = S.kyc.kind === 'self'
+        ? '✓ Verified (TEST): you are ' + S.kyc.name + ' · ID ••••' + S.kyc.id4 + '. The check mark rides in your avatar area.'
+        : '✓ Verified (TEST): you represent ' + S.kyc.name + ' · ID ••••' + S.kyc.id4 + '. The check mark rides in your avatar area.';
+    }
+    var who = $('idWho');
+    if (who) who.textContent = 'Display name: ' + (S.display || '—') + (S.node ? ' · NODE #' + fmt(S.node) : '') + (S.username ? ' · @' + S.username : '');
+  }
+
+  /* ---------- KYC ---------- */
+  var kycKind = 'self';
+  document.querySelectorAll('#kycKindSeg button').forEach(function (b, idx) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#kycKindSeg button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on'); kycKind = idx === 0 ? 'self' : 'represent';
+      $('kycNameLabel').textContent = kycKind === 'self' ? 'FULL LEGAL NAME' : 'ENTITY LEGAL NAME — YOU REPRESENT IT';
+    });
+  });
+  $('kycId4').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 4); });
+  $('kycForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('kycErr');
+    function kfail(msg) { err.textContent = msg; err.classList.add('show'); }
+    var nm = $('kycName').value.trim();
+    if (nm.length < 2) { kfail('Give the true legal name — the check mark stands behind it.'); return; }
+    if (!$('kycDob').value) { kfail('Add a date of birth — KYC cannot be checked without it.'); return; }
+    if ($('kycState').value.trim().length < 2) { kfail('Add your state of residence.'); return; }
+    if (!/^\d{4}$/.test($('kycId4').value)) { kfail('The ID check needs exactly the last 4 digits — never the full number.'); return; }
+    if (!$('kycTrue').checked) { kfail('The declaration must be sworn — tick the box to stand behind it.'); return; }
+    err.classList.remove('show');
+    S.kyc = { done: true, kind: kycKind, name: nm, idType: $('kycIdType').value, id4: $('kycId4').value };
+    refreshBadges(); renderIdStatus(); save();
+    go('profile');
+    toast('profileToast', '✓ Check mark earned (TEST) — in the live app it follows the provider’s real identity review.');
+  });
+
+  /* ---------- wallet ---------- */
+  function renderWallet() {
+    var linked = !!S.wallet;
+    $('walletUnlinked').style.display = linked ? 'none' : 'block';
+    $('walletLinked').style.display = linked ? 'block' : 'none';
+    if (linked) $('walletShort').textContent = S.wallet.slice(0, 6) + '…' + S.wallet.slice(-4);
+  }
+  $('linkWalletBtn').addEventListener('click', function () {
+    var v = $('walletAddr').value.trim();
+    var err = $('walletErr');
+    if (!/^0x[a-fA-F0-9]{40}$/.test(v)) {
+      err.textContent = 'That is not a complete wallet address — it starts with 0x and runs 42 characters in total. Nothing was linked.';
+      err.classList.add('show'); return;
+    }
+    err.classList.remove('show');
+    S.wallet = v; save(); renderWallet();
+  });
+  $('unlinkWalletBtn').addEventListener('click', function () { S.wallet = ''; save(); renderWallet(); $('walletAddr').value = ''; });
+
+  /* ---------- entities ---------- */
+  function renderEntities() {
+    var cc = $('creEntCount');
+    if (cc) cc.textContent = S.entities.length ? S.entities.length + ' · ' + S.entities.map(function (e) { return e.name; }).join(', ') : '0 created here';
+    var list = $('entityList');
+    list.querySelectorAll('.entity-card').forEach(function (c) { c.remove(); });
+    var empty = $('entityEmpty');
+    if (empty) empty.style.display = S.entities.length ? 'none' : 'block';
+    S.entities.forEach(function (ent, idx) { list.appendChild(entityCard(ent, idx)); });
+    applyProfileSections();
+  }
+  function entityCard(ent, idx) {
+    var card = document.createElement('div');
+    card.className = 'glass entity-card';
+    card.innerHTML =
+      '<div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem;">' +
+        '<span class="nm2"></span>' +
+        '<span class="type-chip ' + (ent.kind === 'business' ? 'biz' : '') + '">' + (ent.kind === 'business' ? 'REAL-WORLD BUSINESS' : 'ENTERTAINMENT') + '</span>' +
+      '</div>' +
+      '<div class="mono desc" style="font-size:0.65rem; color:var(--ink3); margin-top:0.4rem; line-height:1.65;"></div>' +
+      (ent.store ? '<div class="mono" style="font-size:0.65rem; color:var(--ink2); margin-top:0.5rem;">PRODUCTS SOLD: <b style="color:var(--accent);">' + fmt(ent.sold || 0) + '</b> — every sale in this store counts up here.</div>' : '') +
+      '<div class="gift-row"><span class="mono" style="font-size:0.61rem; color:var(--ink3);">GIFT TROO:</span>' +
+        '<button type="button" class="gift-chip">5</button><button type="button" class="gift-chip on">10</button><button type="button" class="gift-chip">25</button>' +
+        '<button type="button" class="mini-btn giftBtn">GIFT</button>' +
+        '<span class="mono" style="font-size:0.63rem; color:var(--ink2);">Received: <b class="gTot">' + fmt(ent.gifts || 0) + '</b> TROO</span></div>' +
+      '<div class="mono" style="font-size:0.57rem; color:var(--ink4); margin-top:0.45rem;">Gifting runs on TROO coin — coin-backed, recorded, on the record.</div>';
+    card.querySelector('.nm2').textContent = ent.name;
+    card.querySelector('.desc').textContent = ent.desc || '(no description yet)';
+    var amt = 10;
+    card.querySelectorAll('.gift-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        card.querySelectorAll('.gift-chip').forEach(function (x) { x.classList.remove('on'); });
+        chip.classList.add('on'); amt = parseInt(chip.textContent, 10);
+      });
+    });
+    card.querySelector('.giftBtn').addEventListener('click', function () {
+      ent.gifts = (ent.gifts || 0) + amt;
+      S.gifts += amt;
+      card.querySelector('.gTot').textContent = fmt(ent.gifts);
+      $('statGifts').textContent = fmt(S.gifts);
+      save();
+      toast('profileToast', 'Gift sent (test): ' + amt + ' TROO to ' + ent.name + ' — coin-backed and on the record.');
+    });
+    return card;
+  }
+  var eq = { kind: '', store: true };
+  function eqShow(n) { document.querySelectorAll('.eq').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-eq') === String(n)); }); }
+  $('entityCreateBtn').addEventListener('click', function () { eqShow(1); go('entity'); });
+  document.querySelectorAll('[data-kind]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      b.classList.remove('pulsing'); void b.offsetWidth; b.classList.add('pulsing');
+      eq.kind = b.getAttribute('data-kind');
+      setTimeout(function () { eqShow(2); $('eqName').focus(); }, 240);
+    });
+  });
+  $('eqNext2').addEventListener('click', function () { if ($('eqName').value.trim().length < 2) { $('eqName').focus(); return; } eqShow(3); $('eqDesc').focus(); });
+  $('eqNext3').addEventListener('click', function () { eqShow(4); });
+  document.querySelectorAll('#eqStoreSeg button').forEach(function (b, idx) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#eqStoreSeg button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on'); eq.store = idx === 0;
+    });
+  });
+  $('eqCreate').addEventListener('click', function () {
+    S.entities.push({ kind: eq.kind || 'business', name: $('eqName').value.trim(), desc: $('eqDesc').value.trim(), store: eq.store, sold: 0, gifts: 0 });
+    $('eqName').value = ''; $('eqDesc').value = ''; eqShow(1);
+    renderEntities(); save();
+    go('profile');
+    toast('profileToast', 'Entity created — it now stands on your profile.');
+  });
+
+  /* ---------- privacy & security ---------- */
+  function renderPrivacy() {
+    var rows = [
+      ['NAME', S.name || '—'], ['USERNAME', S.username || '—'], ['EMAIL', S.email || '—'],
+      ['EMAIL VERIFIED', S.emailVerified ? 'YES' : 'NO'], ['DISPLAY NAME', S.display || '—'],
+      ['NODE', S.node ? '#' + fmt(S.node) : '—'], ['KYC', S.kyc && S.kyc.done ? '✓ DECLARED (TEST)' : 'NOT DONE'],
+      ['WALLET', S.wallet ? S.wallet.slice(0, 6) + '…' + S.wallet.slice(-4) : 'NOT LINKED'],
+      ['ENTITIES', String(S.entities.length)], ['BANNER', S.bannerSet ? 'SET (PRIVATE)' : 'DEFAULT'],
+      ['PASSWORD', 'NEVER KEPT \u2014 FINGERPRINT ONLY'],
+      ['TERMS AGREED', S.termsVersion ? 'Version ' + S.termsVersion + ' · ' + (S.termsAgreedAt ? new Date(S.termsAgreedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'date not recorded') : 'NOT RECORDED']
+    ];
+    $('privacyKv').innerHTML = rows.map(function (r) { return '<div class="kv"><span class="a">' + r[0] + '</span><span class="b">' + r[1] + '</span></div>'; }).join('');
+    $('dataPre').textContent = JSON.stringify(S, null, 2);
+  }
+  $('viewDataBtn').addEventListener('click', function () {
+    renderPrivacy();
+    $('dataPre').classList.toggle('show');
+    this.textContent = $('dataPre').classList.contains('show') ? 'Hide my saved data' : 'View my saved data (JSON)';
+  });
+  $('saveNowBtn').addEventListener('click', function () { save(); });
+  var eraseArmed = false, eraseBtn = $('eraseBtn');
+  eraseBtn.addEventListener('click', function () {
+    if (!eraseArmed) {
+      eraseArmed = true;
+      eraseBtn.textContent = 'TAP AGAIN TO ERASE — NO UNDO';
+      setTimeout(function () { eraseArmed = false; eraseBtn.textContent = 'ERASE MY TEST DATA'; }, 3500);
+      return;
+    }
+    eraseAll();
+  });
+
+  /* ---------- versioning & updates ---------- */
+  var APP_VERSION = '0.4.15';
+  var CHANNEL_LATEST = '0.5.0'; // test channel: the newest release this build knows how to fetch
+  function effectiveVersion() { return S.simVersion || APP_VERSION; }
+  function cmpVer(a, b) {
+    var pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
+    for (var i = 0; i < 3; i++) { if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0); }
+    return 0;
+  }
+  function renderVersion() {
+    var eff = effectiveVersion();
+    document.querySelectorAll('[data-ver]').forEach(function (el) { el.textContent = 'v' + eff; });
+    var v4 = $('newsV4chip'); if (v4) v4.style.display = eff === '0.4.0' ? 'inline-block' : 'none';
+    var v41 = $('newsV41chip'); if (v41) v41.style.display = eff === '0.4.1' ? 'inline-block' : 'none';
+    var v42 = $('newsV42chip'); if (v42) v42.style.display = eff === '0.4.2' ? 'inline-block' : 'none';
+    var v43 = $('newsV43chip'); if (v43) v43.style.display = eff === '0.4.3' ? 'inline-block' : 'none';
+    var v44 = $('newsV44chip'); if (v44) v44.style.display = eff === '0.4.4' ? 'inline-block' : 'none';
+    var v45 = $('newsV45chip'); if (v45) v45.style.display = eff === '0.4.5' ? 'inline-block' : 'none';
+    var v46 = $('newsV46chip'); if (v46) v46.style.display = eff === '0.4.6' ? 'inline-block' : 'none';
+    var v47 = $('newsV47chip'); if (v47) v47.style.display = eff === '0.4.7' ? 'inline-block' : 'none';
+    var v48 = $('newsV48chip'); if (v48) v48.style.display = eff === '0.4.8' ? 'inline-block' : 'none';
+    var v49 = $('newsV49chip'); if (v49) v49.style.display = eff === '0.4.9' ? 'inline-block' : 'none';
+    var v410 = $('newsV410chip'); if (v410) v410.style.display = eff === '0.4.10' ? 'inline-block' : 'none';
+    var v411 = $('newsV411chip'); if (v411) v411.style.display = eff === '0.4.11' ? 'inline-block' : 'none';
+    var v412 = $('newsV412chip'); if (v412) v412.style.display = eff === '0.4.12' ? 'inline-block' : 'none';
+    var v413 = $('newsV413chip'); if (v413) v413.style.display = eff === '0.4.13' ? 'inline-block' : 'none';
+    var v414 = $('newsV414chip'); if (v414) v414.style.display = eff === '0.4.14' ? 'inline-block' : 'none';
+    var v415 = $('newsV415chip'); if (v415) v415.style.display = eff === '0.4.15' ? 'inline-block' : 'none';
+    var v5 = $('newsV5chip');
+    if (v5) v5.textContent = cmpVer(eff, '0.5.0') >= 0 ? 'JUST INSTALLED' : 'PREVIEW · NEXT UPDATE';
+    var v5d = $('newsV5date');
+    if (v5d) v5d.textContent = cmpVer(eff, '0.5.0') >= 0 ? 'Installed from the test channel' : 'Coming in the next test release';
+    var banner = $('updateBanner');
+    if (banner) banner.classList.toggle('show', !!S.display && cmpVer(eff, S.seenVersion || '0.0.0') > 0);
+  }
+  var newsReturn = 'dash';
+  function openNews(from) { newsReturn = from; go('news'); }
+  $('newsFromStart').addEventListener('click', function () { openNews('start'); });
+  $('newsFromPrivacy').addEventListener('click', function () { openNews('privacy'); });
+  pulseWire('newsBack', function () { go(newsReturn); });
+  $('updateBanner').addEventListener('click', function () {
+    S.seenVersion = effectiveVersion(); save();
+    openNews('dash');
+  });
+  $('checkUpdateBtn').addEventListener('click', function () {
+    $('lastChecked').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    var eff = effectiveVersion();
+    if (cmpVer(CHANNEL_LATEST, eff) > 0) {
+      $('updateResult').innerHTML = 'An update is waiting: <b>v' + CHANNEL_LATEST + '</b> — Talk from the dashboard, banner reminders, a faster start. In the live web release there would be no button at all: the new version simply arrives. Here, tap UPDATE NOW to feel it land.';
+      $('doUpdateBtn').style.display = 'inline-block';
+    } else {
+      $('updateResult').textContent = 'You are on the newest test release (v' + eff + ') — nothing to do.';
+      $('doUpdateBtn').style.display = 'none';
+    }
+  });
+  $('doUpdateBtn').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'UPDATING…';
+    setTimeout(function () {
+      S.simVersion = CHANNEL_LATEST;
+      S.seenVersion = CHANNEL_LATEST;
+      save(); renderVersion();
+      btn.style.display = 'none'; btn.disabled = false; btn.textContent = 'UPDATE NOW →';
+      $('updateResult').innerHTML = '✓ Updated to <b>v' + CHANNEL_LATEST + '</b>. Open WHAT’S NEW to read what changed — every update, in plain words, on the record.';
+    }, 900);
+  });
+
+  /* ---------- profile collapsible pill sections (v0.4.2) ---------- */
+  function applyProfileSections() {
+    var open = Array.isArray(S.profileOpen) ? S.profileOpen : ['appearance'];
+    document.querySelectorAll('.pill-sec').forEach(function (sec) {
+      var id = sec.getAttribute('data-sec');
+      var isOpen = open.indexOf(id) >= 0;
+      sec.classList.toggle('open', isOpen);
+      var body = sec.querySelector('.pill-body');
+      if (body) body.style.maxHeight = isOpen ? body.scrollHeight + 'px' : '0px';
+      var head = sec.querySelector('.pill-head');
+      if (head) head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('[data-sec-head]').forEach(function (h) {
+    h.addEventListener('click', function () {
+      var id = h.getAttribute('data-sec-head');
+      var open = Array.isArray(S.profileOpen) ? S.profileOpen.slice() : ['appearance'];
+      var i = open.indexOf(id);
+      if (i >= 0) { open.splice(i, 1); } else { open.push(id); }
+      S.profileOpen = open; save(); applyProfileSections();
+    });
+  });
+
+  /* ---------- world explorer (v0.4.2) ---------- */
+  var EX_NODES = [
+    { id: 'home', name: 'My Home World', x: 0.27, y: 0.36, c: '#19f0ff', action: 'ENTER',
+      note: 'My Home World (test): entering a world in full 3D lives in the Smart Trust Desktop OS \u2014 this map is the mobile view of the same world.' },
+    { id: 'property', name: 'Starter Business Property', x: 0.69, y: 0.25, c: '#b8ff2e', action: 'VISIT',
+      note: 'Starter Business Property (test): when the building GLB arrives it is placed on this lot, and your AI agent lives inside it.' },
+    { id: 'stadium', name: 'Elysium Stadium', x: 0.73, y: 0.68, c: '#ff2bd6', action: 'LOCKED',
+      note: 'Elysium Stadium is token / NFT gated \u2014 in this test build the gate is shown, not enforced. In the live app a qualifying token or NFT opens it.' },
+    { id: 'troo', name: 'Troo-Town', x: 0.29, y: 0.71, c: '#7a5cff', action: 'VISIT',
+      note: 'Troo-Town (test): the shared town \u2014 view only from here. It is the admin\u2019s world; your building happens in your own world.' }
+  ];
+  function exStatus(n) {
+    if (n.id === 'home') return 'Your home base. On your account: ' + S.entities.length + (S.entities.length === 1 ? ' entity' : ' entities') + ' created here \u00b7 1 world \u00b7 starter building \u00b7 3 NFT items \u2014 the same creations your dashboard lists.';
+    if (n.id === 'property') return 'Status: Building GLB coming \u2014 this is where your agent will live. The lot is reserved under your node.';
+    if (n.id === 'stadium') return 'Badge: Token / NFT gated. Members meet here \u2014 bring a qualifying token or NFT to enter (the gate is shown, not enforced, in this test build).';
+    return 'Badge: View only \u2014 admin\u2019s world. Visit as your avatar; building and editing happen in your own world.';
+  }
+  var exCanvas = $('exMap'), exCtx = exCanvas ? exCanvas.getContext('2d') : null;
+  var exSel = 'home', exPulse = 0, exRAF = 0, exVisible = false;
+  function drawExplorer() {
+    if (!exCtx || typeof EX_NODES === 'undefined') return;
+    var W = exCanvas.width, H = exCanvas.height, dawn = S.skin === 'dawn', i, n, px, py;
+    exCtx.clearRect(0, 0, W, H);
+    var bg = exCtx.createLinearGradient(0, 0, 0, H);
+    if (dawn) { bg.addColorStop(0, '#d8e8c4'); bg.addColorStop(1, '#a9c9b2'); }
+    else { bg.addColorStop(0, '#071228'); bg.addColorStop(1, '#0a0630'); }
+    exCtx.fillStyle = bg; exCtx.fillRect(0, 0, W, H);
+    exCtx.strokeStyle = dawn ? 'rgba(70,110,70,0.35)' : 'rgba(25,240,255,0.16)';
+    exCtx.lineWidth = 1;
+    for (i = 1; i < 8; i++) {
+      exCtx.beginPath(); exCtx.moveTo(i * W / 8, 0); exCtx.lineTo(i * W / 8, H); exCtx.stroke();
+      exCtx.beginPath(); exCtx.moveTo(0, i * H / 8); exCtx.lineTo(W, i * H / 8); exCtx.stroke();
+    }
+    exCtx.strokeStyle = dawn ? 'rgba(90,120,60,0.55)' : 'rgba(122,92,255,0.45)';
+    exCtx.lineWidth = 2; exCtx.setLineDash([7, 7]);
+    exCtx.beginPath();
+    EX_NODES.forEach(function (nd, j) { if (j === 0) { exCtx.moveTo(nd.x * W, nd.y * H); } else { exCtx.lineTo(nd.x * W, nd.y * H); } });
+    exCtx.closePath(); exCtx.stroke(); exCtx.setLineDash([]);
+    EX_NODES.forEach(function (nd) {
+      px = nd.x * W; py = nd.y * H;
+      var sel = nd.id === exSel;
+      var ring = (sel ? 27 : 22) + 2.5 * Math.sin(exPulse / 6);
+      exCtx.beginPath(); exCtx.arc(px, py, ring, 0, 6.2832);
+      exCtx.strokeStyle = nd.c; exCtx.globalAlpha = 0.5; exCtx.lineWidth = 2; exCtx.stroke(); exCtx.globalAlpha = 1;
+      exCtx.beginPath(); exCtx.arc(px, py, sel ? 15 : 11, 0, 6.2832);
+      exCtx.fillStyle = nd.c; exCtx.shadowColor = nd.c; exCtx.shadowBlur = sel ? 26 : 13; exCtx.fill(); exCtx.shadowBlur = 0;
+      exCtx.fillStyle = dawn ? '#22301f' : '#eafcff';
+      exCtx.font = '700 19px Orbitron, monospace'; exCtx.textAlign = 'center';
+      exCtx.fillText(nd.name.toUpperCase(), px, py + 46);
+    });
+  }
+  function exLoop() {
+    if (!exVisible) { exRAF = 0; return; }
+    exPulse++; drawExplorer();
+    exRAF = requestAnimationFrame(exLoop);
+  }
+  function selectNode(id) {
+    var n = null;
+    EX_NODES.forEach(function (x) { if (x.id === id) n = x; });
+    if (!n) return;
+    exSel = id;
+    $('exName').textContent = n.name.toUpperCase();
+    $('exStatus').textContent = exStatus(n);
+    $('exAction').textContent = n.action + ' \u2192';
+    document.querySelectorAll('#exNodes .ex-pill').forEach(function (p) { p.classList.toggle('on', p.getAttribute('data-node') === id); });
+    drawExplorer();
+  }
+  if (exCanvas) {
+    exCanvas.addEventListener('click', function (e) {
+      var r = exCanvas.getBoundingClientRect();
+      var nx = (e.clientX - r.left) / r.width, ny = (e.clientY - r.top) / r.height;
+      var best = null, bestD = 0.13;
+      EX_NODES.forEach(function (nd) {
+        var d = Math.sqrt(Math.pow(nx - nd.x, 2) + Math.pow((ny - nd.y) * (exCanvas.height / exCanvas.width), 2));
+        if (d < bestD) { bestD = d; best = nd; }
+      });
+      if (best) selectNode(best.id);
+    });
+  }
+  document.querySelectorAll('#exNodes .ex-pill').forEach(function (p) {
+    p.addEventListener('click', function () { selectNode(p.getAttribute('data-node')); });
+  });
+  $('exAction').addEventListener('click', function () {
+    var n = null;
+    EX_NODES.forEach(function (x) { if (x.id === exSel) n = x; });
+    if (!n) return;
+    this.classList.remove('pulsing'); void this.offsetWidth; this.classList.add('pulsing');
+    setTimeout(function () { toast('exToast', n.note); }, 240);
+  });
+  $('journeyBtn').addEventListener('click', function () {
+    go('explorer');
+    selectNode(exSel);
+    exVisible = true;
+    if (!exRAF) exRAF = requestAnimationFrame(exLoop);
+  });
+  pulseWire('explorerBack', function () { exVisible = false; go('profile'); applyProfileSections(); });
+
+  applySkin();
+  window.__exReady = true;
+  selectNode('home');
+
+  renderVersion();
+
+  if (S.display) applyAll();
+})();
+</script>
+
+<script>
+(function () {
+  var cv = document.getElementById('bgFx');
+  if (!cv) return;
+  var goldSheetEl = document.getElementById('gold3000'); // gold skin state lives in the main script's closure; its sheet flag is the shared signal
+  var ctx = cv.getContext('2d');
+  var W = 0, H = 0, pts = [];
+  function size() {
+    var r = cv.parentElement.getBoundingClientRect();
+    W = cv.width = Math.max(300, r.width);
+    H = cv.height = Math.max(500, r.height);
+  }
+  size(); window.addEventListener('resize', size);
+  for (var i = 0; i < 55; i++) {
+    pts.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.00045, vy: (Math.random() - 0.5) * 0.00045, r: Math.random() * 1.6 + 0.6, hue: [190, 199, 265, 315][i % 4], gh: [43, 47, 38, 51][i % 4] });
+  }
+  function tick() {
+    if (cv.style.display === 'none') { requestAnimationFrame(tick); return; } // dawn skin: particles paused
+    ctx.clearRect(0, 0, W, H);
+    var gold = !!(goldSheetEl && !goldSheetEl.disabled);
+    var i, j, p, q, dx, dy, d, hue;
+    for (i = 0; i < pts.length; i++) {
+      p = pts[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > 1) p.vx *= -1;
+      if (p.y < 0 || p.y > 1) p.vy *= -1;
+      hue = gold ? p.gh : p.hue;
+      ctx.beginPath();
+      ctx.arc(p.x * W, p.y * H, p.r, 0, 6.2832);
+      ctx.fillStyle = 'hsla(' + hue + ', 100%, 72%, 0.8)';
+      ctx.shadowColor = 'hsla(' + hue + ', 100%, 65%, 0.9)';
+      ctx.shadowBlur = 7;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    for (i = 0; i < pts.length; i++) {
+      for (j = i + 1; j < pts.length; j++) {
+        p = pts[i]; q = pts[j];
+        dx = (p.x - q.x) * W; dy = (p.y - q.y) * H; d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 92) {
+          ctx.beginPath();
+          ctx.moveTo(p.x * W, p.y * H); ctx.lineTo(q.x * W, q.y * H);
+          ctx.strokeStyle = gold ? 'rgba(232, 199, 102,' + (0.13 * (1 - d / 92)).toFixed(3) + ')' : 'rgba(25, 200, 255,' + (0.13 * (1 - d / 92)).toFixed(3) + ')';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+</script>
+</body>
+</html>

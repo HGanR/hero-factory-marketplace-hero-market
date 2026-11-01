@@ -3,6 +3,9 @@ import { mysqlEnum, mysqlTable, int, varchar, boolean, timestamp, text, longtext
 
 // Re-export split runtime schemas so consumers can continue importing from "@/lib/db/schema".
 export * from "./schema.app-runtime";
+// Resolve the duplicate star export without changing either direct-import schema.
+// Agent memory callers explicitly write updatedAt on upsert.
+export { agentConversationSessions } from "./schema.app-runtime";
 export * from "./schema.client-portal";
 export * from "./schema.social-runtime";
 export * from "./schema.platform-extras";
