@@ -36,6 +36,7 @@ const input={clientId,siteId,input:{siteType:'landing',userPrompt:'Build a corpo
 const sha=s=>createHash('sha256').update(s).digest('hex');
 before(async()=>{const [[r]]=await pool.query('SELECT DATABASE() AS db');assert.equal(r.db,'skipper_step2_ci');const [rows]=await pool.query('SHOW TABLES');assert.equal(rows.length,0,'Fresh disposable database required');});
 beforeEach(async()=>{
+ await pool.query('DROP TABLE IF EXISTS web3_site_builder_ai_settings');
  for(const table of tables){const cfg=getTableConfig(table);await pool.query('DROP TABLE IF EXISTS '+quote(cfg.name));await pool.query('CREATE TABLE '+quote(cfg.name)+' ('+cfg.columns.map(ddl).join(',')+') ENGINE=InnoDB');}
  await db.insert(m.schema.clients).values({id:clientId,userId:7,firstName:'Fixture',lastName:'Client',email:'fixture@example.invalid',addressLine1:'Fixture Street',city:'Fixture',state:'DC',postalCode:'00000'});
  await db.insert(m.schema.web3Sites).values({id:siteId,userId:7,clientId,name:'Fixture Site',status:'DRAFT'});
@@ -91,4 +92,16 @@ test('private bundle removes active content and remote references before checksu
  const html='<html><head><script>alert(1)</script><link href="https://tracker.invalid/style.css" rel="stylesheet"></head><body onload="steal()"><form action="/api/write"></form><img src="https://tracker.invalid/pixel"><a href="https://outside.invalid">out</a><iframe src="/admin"></iframe></body></html>';
  const packed=m.artifacts.preparePrivateBundle({files:[{path:'index.html',contentType:'text/html',content:html,bytes:html.length,sha256:sha(html)}],manifest:{}},siteId);
  const [file]=m.artifacts.readPrivateBundle(packed.packed);assert.ok(!/script|iframe|onload|tracker.invalid|outside.invalid|<form/.test(file.content));assert.equal(sha(file.content),file.sha256);
+});
+
+
+test('configured mode refuses missing settings storage without auto-provisioning or saving a draft',async()=>{
+ await assert.rejects(()=>run({...input,generationMode:'configured'}));
+ assert.deepEqual(await counts(),{versions:0,artifacts:0,notes:0});
+ const [tables]=await pool.query("SHOW TABLES LIKE 'web3_site_builder_ai_settings'");assert.equal(tables.length,0);
+});
+test('configured site mode off reuses the provider selector and remains deterministic',async()=>{
+ await pool.query('CREATE TABLE web3_site_builder_ai_settings (site_id VARCHAR(36),user_id INT,llm_mode VARCHAR(16),endpoint TEXT,model TEXT,api_key_enc TEXT,fallback_to_platform INT)');
+ await pool.query("INSERT INTO web3_site_builder_ai_settings VALUES (?,7,'off',NULL,NULL,NULL,0)",[siteId]);
+ const result=await run({...input,generationMode:'configured'});assert.equal(result.ok,true);assert.equal(result.data.providerSource,'deterministic');assert.equal(result.data.generationMeta.llmUsed,false);
 });
