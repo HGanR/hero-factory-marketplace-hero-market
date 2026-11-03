@@ -61,7 +61,7 @@ export type ExecutiveOrchestratorResult = {
     proposedApprovalsCount: number;
     insightBlockCount?: number;
     ambientVoiceBriefing?: boolean;
-    ambientPresenceMode?: string;
+    ambientPresenceMode?: string | null;
     /** Voice-only short paths (Executive Administration); never used for write execution. */
     voiceShortCircuit?:
       | "greeting"
