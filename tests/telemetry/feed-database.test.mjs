@@ -49,9 +49,9 @@ const db = drizzle(pool);
 const dialect = new MySqlDialect();
 const quote = name => "`" + name.replaceAll("`", "``") + "`";
 before(async () => {
-  const [[info]] = await pool.query("SELECT DATABASE() AS db, VERSION() AS version, TIMEDIFF(NOW(), UTC_TIMESTAMP()) AS offsetFromUtc");
+  const [[info]] = await pool.query("SELECT DATABASE() AS db, VERSION() AS version, @@session.time_zone AS sessionTimezone");
   assert.equal(info.db, "skipper_step1_ci");
-  assert.equal(info.offsetFromUtc, "00:00:00");
+  assert.equal(info.sessionTimezone, "+00:00");
   assert.equal(info.version.includes("TiDB"), engine === "tidb");
   const [existing] = await pool.query("SHOW TABLES");
   assert.equal(existing.length, 0, "Disposable fixture database must start empty.");
