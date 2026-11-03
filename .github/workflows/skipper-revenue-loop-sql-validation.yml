@@ -1,0 +1,46 @@
+name: SKIPPER STEP 2 disposable SQL validation
+on:
+  pull_request:
+    paths:
+      - 'tests/revenue-loop/**'
+      - '.github/workflows/skipper-revenue-loop-sql-validation.yml'
+permissions:
+  contents: read
+jobs:
+  revenue-loop-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, tidb]
+    env:
+      SKIPPER_STEP2_SQL_TEST_ONLY: '1'
+      SKIPPER_STEP2_SQL_ENGINE: ${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Start disposable engine on localhost only
+        shell: bash
+        run: |
+          if [ "$SKIPPER_STEP2_SQL_ENGINE" = mysql ]; then
+            docker run -d --name skipper-step2-db -p 127.0.0.1:41306:3306 -e MYSQL_ROOT_HOST=% -e MYSQL_ROOT_PASSWORD=disposable-ci-root mysql:8.0
+          else
+            docker run -d --name skipper-step2-db -p 127.0.0.1:41306:4000 pingcap/tidb:v8.5.4 --store=unistore --path=/tmp/skipper-step2 --host=0.0.0.0
+          fi
+      - run: node tests/revenue-loop/prepare-disposable-db.mjs
+      - name: Test actual audited loop against disposable database
+        run: node --test tests/revenue-loop/revenue-loop-database.test.mjs
+      - name: Existing STEP 2 behavior checks
+        run: node --test tests/step2/*.test.mjs
+      - name: Database diagnostics on failure
+        if: failure()
+        run: docker logs --tail 80 skipper-step2-db
+      - name: Remove disposable database
+        if: always()
+        run: docker rm -f skipper-step2-db || true
