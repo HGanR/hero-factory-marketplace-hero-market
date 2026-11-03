@@ -1,8 +1,10 @@
+import { GenerateStephonDraftSchema } from "./stephon-draft-contract";
 import { z } from "zod";
 
 /** Registered server adapters only. These descriptors do not grant execution authority. */
 export const ENGINE_RUNTIME_VERSION = "skipper-engine-runtime-v1";
 export const ENGINE_CATALOG = [
+  { id: "stephon.generate_draft", agent: "stephon", mode: "approval", purpose: "Generate an owned client-linked DRAFT site version and inert private seven-day preview. Requires review; no publication. Configured mode may incur existing provider charges; deterministic mode never invokes a model.", fields: "{clientId: UUID, siteId: UUID (use stephon.projects), input:{userPrompt:string,...existing planner inputs}, generationMode:deterministic|configured}" },
   { id: "executive.inbox", agent: "skipper", mode: "read", purpose: "Read the latest 120 Executive Inbox messages and up to 2500 approved active recipients. This does not send a message or read external email.", fields: "{}" },
   { id: "company.accounts", agent: "skipper", mode: "read", purpose: "Current pending and approved account counts; not collected payments.", fields: "{}" },
   { id: "company.analytics", agent: "skipper", mode: "read", purpose: "Recorded website analytics and attribution, with their source limits.", fields: "{}" },
@@ -19,12 +21,13 @@ export const ENGINE_CATALOG = [
 ] as const;
 export type EngineId = typeof ENGINE_CATALOG[number]["id"];
 export const InputSchemas = {
+  "stephon.generate_draft": GenerateStephonDraftSchema,
   "executive.inbox": z.object({}).strict(),
   "company.accounts": z.object({}).strict(),
   "company.analytics": z.object({}).strict(),
   "agents.overview": z.object({}).strict(),
   "bentley.outputs": z.object({ campaignId: z.string().uuid().optional() }).strict(),
-  "stephon.projects": z.object({}).strict(),
+  "stephon.projects": z.object({clientId:z.string().uuid().optional()}).strict(),
   "eleanor.operations": z.object({}).strict(),
   "jarva.smart_trust": z.object({}).strict(),
   "reality.engagement": z.object({}).strict(),
@@ -47,6 +50,7 @@ export function resolveEngineInput(engineId: EngineId, input: unknown) {
 export function writeActionForEngine(id: EngineId, input: Record<string, unknown>) {
   const clean = resolveEngineInput(id, input);
   switch (id) {
+    case "stephon.generate_draft": return {action:"generateStephonDraft",payload:clean};
     case "bentley.market_research": return { action: "triggerBentleyAnalysis", payload: { ...clean, mode: "market_sweep" } };
     case "bentley.campaign_drafts": return { action: "triggerCampaignSync", payload: { ...clean, dryRun: false } };
     case "stephon.intake": return { action: "createSiteBuilderTask", payload: clean };

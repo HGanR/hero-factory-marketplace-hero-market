@@ -1,0 +1,55 @@
+name: SKIPPER Stephon private draft
+on:
+  pull_request:
+    paths:
+      - 'src/lib/executive-agent/stephon-*'
+      - 'src/lib/executive-agent/engine-runtime*'
+      - 'src/lib/executive-agent/executive-action-executors.ts'
+      - 'src/lib/executive-agent/executive-agent-policy.ts'
+      - 'src/lib/site-builder/ai/full-generation.ts'
+      - 'src/pages/api/site-builder/ai/pipeline.ts'
+      - 'src/lib/site-builder/stephon-private-artifact.ts'
+      - 'src/app/api/admin/executive-agent/stephon/**'
+      - 'tests/stephon/**'
+      - '.github/workflows/skipper-stephon-draft.yml'
+permissions:
+  contents: read
+jobs:
+  generation-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, tidb]
+    env:
+      SKIPPER_STEP2_SQL_TEST_ONLY: '1'
+      SKIPPER_STEP2_SQL_ENGINE: ${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Start disposable database
+        run: |
+          if [ "$SKIPPER_STEP2_SQL_ENGINE" = mysql ]; then
+            docker run -d --name skipper-stephon-db -p 127.0.0.1:41306:3306 -e MYSQL_ROOT_HOST=% -e MYSQL_ROOT_PASSWORD=disposable-ci-root mysql:8.0
+          else
+            docker run -d --name skipper-stephon-db -p 127.0.0.1:41306:4000 pingcap/tidb:v8.5.4 --store=unistore --path=/tmp/skipper-stephon --host=0.0.0.0
+          fi
+      - run: node tests/revenue-loop/prepare-disposable-db.mjs
+      - name: Real deterministic generation, SQL/savepoint rollback, private artifact route
+        run: node --test tests/stephon/draft-database.test.mjs
+      - name: Canonical gateway and approval regressions
+        run: node --test tests/engine-integration/gateway.test.mjs tests/executive-approval/approval-boundary.test.mjs tests/step2/*.test.mjs
+      - name: Existing full pipeline endpoint regressions
+        run: ./node_modules/.bin/jest --config jest.config.js --runInBand --runTestsByPath src/lib/site-builder/ai/pages-api-pipeline.handler.spec.ts
+      - name: Database diagnostics
+        if: failure()
+        run: docker logs --tail 40 skipper-stephon-db
+      - name: Remove disposable database
+        if: always()
+        run: docker rm -f skipper-stephon-db || true

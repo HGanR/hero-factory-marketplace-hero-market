@@ -40,6 +40,7 @@ export const WRITE_ACTION_NAMES = [
   "triggerBentleyAnalysis",
   "triggerCampaignSync",
   "createSiteBuilderTask",
+  "generateStephonDraft",
   "createTrustFulfillmentPacket",
   "createRevenueOsCampaignReviewPacket",
   "recordRevenueOsLaunchReadinessCheckpoint",
@@ -58,6 +59,7 @@ export function scopeForWriteAction(action: string): ExecutiveAgentScope | null 
     case "createTodo":
     case "assignFollowUp":
     case "createSiteBuilderTask":
+    case "generateStephonDraft":
     case "createTrustFulfillmentPacket":
     case "createRevenueOsCampaignReviewPacket":
     case "recordRevenueOsLaunchReadinessCheckpoint":
@@ -142,4 +144,5 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
 export function defaultExecutiveReadScopes(): ExecutiveAgentScope[] {
   return [...READ_SCOPES];
 }
+
 

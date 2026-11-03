@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { web3Sites } from "@/lib/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { getExecutiveAdminUserId } from "@/lib/admin/get-executive-admin-user-id";
 import { getDb } from "@/lib/db";
@@ -11,7 +13,13 @@ const headers = {"Cache-Control":"private, no-store", "Vary":"Cookie"};
 export async function GET(req: NextRequest) {
   const accountId = await getExecutiveAdminUserId(req);
   if (accountId == null) return NextResponse.json({ok:false,error:"Unauthorized"},{status:401,headers});
-  return NextResponse.json({ok:true,schema:ENGINE_RUNTIME_VERSION,accountId:String(accountId),observedAt:new Date().toISOString(),engines:ENGINE_CATALOG,
+  let businessContext:Record<string,unknown>={sitesUnavailable:true};
+  try{
+    const db=await getDb();
+    const sites=await db.select({id:web3Sites.id,name:web3Sites.name,clientId:web3Sites.clientId,status:web3Sites.status}).from(web3Sites).where(eq(web3Sites.userId,accountId)).limit(50);
+    businessContext={sites,siteLimit:50};
+  }catch{/* Discovery still works when optional site context is unavailable. */}
+  return NextResponse.json({businessContext,ok:true,schema:ENGINE_RUNTIME_VERSION,accountId:String(accountId),observedAt:new Date().toISOString(),engines:ENGINE_CATALOG,
     limits:["Registered adapters are not proof of provider readiness or completed work.","GitNexus is optional code knowledge, not execution authority.","REN/TAYO modeling and native Coding Agent run through their separately governed local adapters.","Stephon intake records a brief; it does not generate a website."]},{headers});
 }
 export async function POST(req: NextRequest) {
