@@ -13,6 +13,8 @@ process.env.JWT_SECRET='local-fixture-engine-access-not-a-deployment-secret';
 process.env.NODE_ENV='production';
 const root=process.cwd(),dir=mkdtempSync(join(root,'.engine-access-'));
 const adapters={
+ 'next/headers':'export const cookies=async()=>globalThis.__access.pageCookies;',
+ 'next/navigation':"export const redirect=path=>{throw Object.assign(new Error('Redirect'),{kind:'redirect',path});};export const notFound=()=>{throw Object.assign(new Error('Not found'),{kind:'not-found'});};",
  '@/lib/db':'export const getConnection=async()=>{globalThis.__access.opens++;return globalThis.__access.connection;};export const getDb=async()=>{globalThis.__access.opens++;return globalThis.__access.db;};',
  '@/lib/db/schema':`import {mysqlTable,varchar} from 'drizzle-orm/mysql-core';
  export const trooWorlds=mysqlTable('troo_worlds',{id:varchar('id',{length:36})});
@@ -20,12 +22,13 @@ const adapters={
  export const meetingNodePlacements=mysqlTable('meeting_node_placements',{id:varchar('id',{length:36})});
  export const meetingInvites=mysqlTable('meeting_invites',{id:varchar('id',{length:36})});`,
 };
-await build({stdin:{contents:`export * as certificates from './src/app/api/certificates/route.ts';export * as placements from './src/app/api/admin/troo-world/placements/route.ts';`,resolveDir:root,loader:'ts'},outfile:join(dir,'routes.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',plugins:[{name:'real-routes-and-real-jwt',setup(b){
+await build({stdin:{contents:`export * as certificates from './src/app/api/certificates/route.ts';export * as placements from './src/app/api/admin/troo-world/placements/route.ts';export {default as editorLayout} from './src/app/green-terrain/layout.tsx';`,resolveDir:root,loader:'ts'},outfile:join(dir,'routes.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',plugins:[{name:'real-routes-and-real-jwt',setup(b){
+ b.onResolve({filter:/^next\/(headers|navigation)$/},a=>({path:a.path,namespace:'fixture'}));
  b.onResolve({filter:/^next\/server$/},()=>({path:'next/server.js',external:true}));
  b.onResolve({filter:/^@\//},a=>adapters[a.path]?{path:a.path,namespace:'fixture'}:{path:resolve(root,'src',a.path.slice(2)+'.ts')});
  b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:adapters[a.path],loader:'ts',resolveDir:root}));
 }}]});
-const {certificates,placements}=await import(pathToFileURL(join(dir,'routes.mjs')));
+const {certificates,placements,editorLayout}=await import(pathToFileURL(join(dir,'routes.mjs')));
 after(()=>{rmSync(dir,{recursive:true,force:true});delete globalThis.__access;});
 const wallet='0x'+'1'.repeat(40),otherWallet='0x'+'2'.repeat(40);
 async function token(payload={userId:7,isAdmin:false},secret=process.env.JWT_SECRET){return new SignJWT(payload).setProtectedHeader({alg:'HS256'}).setExpirationTime('1h').sign(new TextEncoder().encode(secret));}
@@ -100,4 +103,25 @@ test('missing production JWT secret fails closed before database access',async()
 test('SQL errors are redacted and do not expose connection secrets',async()=>{
  const f=setup();f.fail=true;const response=await certificates.GET(req('/api/certificates?wallet='+wallet,{jwt:await token()}));
  assert.equal(response.status,503);const body=await response.text();assert.ok(!body.includes('private-password'));assert.ok(!body.includes('private-host'));
+});
+
+
+test('editor page redirects anonymous users before returning protected content',async()=>{
+ const f=setup();f.pageCookies=req('/green-terrain').cookies;
+ await assert.rejects(()=>editorLayout({children:'protected-editor'}),error=>error.kind==='redirect'&&error.path==='/admin');assert.equal(f.opens,0);
+});
+test('editor page refuses signed-in members and forged administrator tokens',async()=>{
+ const f=setup();f.pageCookies=req('/green-terrain',{jwt:await token()}).cookies;
+ await assert.rejects(()=>editorLayout({children:'protected-editor'}),error=>error.kind==='not-found');
+ f.pageCookies=req('/green-terrain',{jwt:await token({userId:7,isAdmin:true},'fallback-secret')}).cookies;
+ await assert.rejects(()=>editorLayout({children:'protected-editor'}),error=>error.kind==='redirect');assert.equal(f.opens,0);
+});
+test('editor page permits the authenticated platform administrator',async()=>{
+ const f=setup();f.pageCookies=req('/green-terrain',{jwt:await token({userId:7,isAdmin:true})}).cookies;
+ assert.equal(await editorLayout({children:'protected-editor'}),'protected-editor');assert.equal(f.opens,0);
+});
+test('editor page fails closed when production JWT configuration is absent',async()=>{
+ const f=setup(),secret=process.env.JWT_SECRET;
+ f.pageCookies=req('/green-terrain',{jwt:await token({userId:7,isAdmin:true})}).cookies;delete process.env.JWT_SECRET;
+ try{await assert.rejects(()=>editorLayout({children:'protected-editor'}),/JWT_SECRET/);assert.equal(f.opens,0);}finally{process.env.JWT_SECRET=secret;}
 });

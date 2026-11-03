@@ -4,6 +4,7 @@ on:
     paths:
       - 'src/lib/security/engine-route-access.ts'
       - 'src/lib/admin/admin-session-jwt.ts'
+      - 'src/app/green-terrain/**'
       - 'src/app/api/certificates/**'
       - 'src/app/api/admin/troo-world/placements/**'
       - 'tests/engine-access/**'

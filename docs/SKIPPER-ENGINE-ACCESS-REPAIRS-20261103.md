@@ -33,3 +33,10 @@ No paid provider, live send, database mutation, wallet signing, merge, manual de
 ## Production adapter work after this repair
 
 Muse's 8/8 source audit is accepted as code-reading evidence, separate from live execution. Preserve the explicit distinction between intake and actual website generation. Close Stephon's remaining AI/intelligence/version/action/provider inventory before implementing a duplicate brief-to-schema engine. Its current IPFS deployment publishes publicly and cannot serve as a private preview by renaming it. QR needs a declared encoder, decode tests of actual saved bytes and a client/trust ownership mapping before registration. No production adapter is registered by this repair.
+
+
+## Follow-up: editor page gate
+
+Aura correctly identified that the original six files did not change the page gate. At the initial repair SHA, `src/app/green-terrain/page.tsx` still wrapped the editor in sign-in-only AuthGate. A new server layout now checks the same fail-closed session verifier before returning editor content: anonymous/forged sessions redirect to `/admin`, ordinary members receive not-found, and valid platform administrators enter. Missing production JWT configuration throws rather than revealing editor content. The client AuthGate remains as a sign-in convenience; it no longer constitutes the page authorization boundary. The placement API retains its independent administrator checks. `/troo-town` and the public viewer API are unchanged.
+
+This is platform-administrator authorization, consistent with the repaired API and existing admin login. It does not hardcode Charles's numeric identity or create a separate per-person allowlist. If additional platform administrators exist, they have the same administrative access. Four additional tests execute the actual server layout and real signed-session verifier with only the request-cookie/navigation context doubled. Updated CI counts are recorded in the PR after execution.

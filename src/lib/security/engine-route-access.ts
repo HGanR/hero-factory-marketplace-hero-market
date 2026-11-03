@@ -7,7 +7,7 @@ export class EngineAccessError extends Error {
 export type EngineRouteActor = { userId: number; admin: boolean };
 
 /** Existing HS256 session verification; production missing-secret errors fail closed. */
-export async function engineRouteActor(req: NextRequest): Promise<EngineRouteActor> {
+export async function engineRouteActor(req: { cookies: Pick<NextRequest['cookies'], 'get'> }): Promise<EngineRouteActor> {
   for (const name of ['admin-token', 'auth-token'] as const) {
     const token = req.cookies.get(name)?.value;
     if (!token) continue;
