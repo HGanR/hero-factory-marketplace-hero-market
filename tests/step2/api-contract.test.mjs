@@ -9,7 +9,7 @@ const savedEnv={...process.env};
 after(()=>{rmSync(dir,{recursive:true,force:true});delete globalThis.__step2api;for(const key of Object.keys(process.env))if(!(key in savedEnv))delete process.env[key];Object.assign(process.env,savedEnv);});
 globalThis.__step2api={admin:7,rows:[],opts:null,dbReads:0,owner:7,runs:0};
 const g=globalThis.__step2api;
-await build({stdin:{contents:`export {GET as approvals} from './src/app/api/admin/executive-agent/approvals/route.ts'; export {POST as cron} from './src/app/api/cron/revenue-loop/route.ts';`,resolveDir:root,loader:"ts"},outfile:join(dir,"api.mjs"),bundle:true,platform:"node",format:"esm",packages:"external",plugins:[{name:"HTTP-dependency-fixtures",setup(b){
+await build({stdin:{contents:`export {GET as approvals} from './src/app/api/admin/executive-agent/approvals/route.ts'; export {POST as cron} from './src/app/api/cron/revenue-loop/route.ts'; export {rejectExecutiveAction} from './src/lib/executive-agent/reject-executive-action.ts'; export {approveExecutiveAction} from './src/lib/executive-agent/approve-executive-action.ts';`,resolveDir:root,loader:"ts"},outfile:join(dir,"api.mjs"),bundle:true,platform:"node",format:"esm",packages:"external",plugins:[{name:"HTTP-dependency-fixtures",setup(b){
  b.onResolve({filter:/^drizzle-orm/},a=>({path:a.path,external:true}));
  b.onResolve({filter:/^next\/server$/},()=>({path:"next",namespace:"fixture"}));
  b.onResolve({filter:/^@\//},a=>{
@@ -28,3 +28,19 @@ test("cron rejects absent secret before any database access",async()=>{process.e
 test("authorized cron remains disabled by default",async()=>{delete process.env.SKIPPER_REVENUE_LOOP_ENABLED;g.runs=0;const response=await m.cron(request("http://localhost/cron","unit-cron-secret"));assert.equal((await response.json()).reason,"disabled");assert.equal(g.runs,0);});
 test("enabled cron requires configured owner and verified database identity",async()=>{process.env.SKIPPER_REVENUE_LOOP_ENABLED="true";delete process.env.SKIPPER_REVENUE_LOOP_ADMIN_USER_ID;assert.equal((await m.cron(request("http://localhost/cron","unit-cron-secret"))).status,503);process.env.SKIPPER_REVENUE_LOOP_ADMIN_USER_ID="7";process.env.ADMIN_USERNAME="unit-admin";g.owner=null;assert.equal((await m.cron(request("http://localhost/cron","unit-cron-secret"))).status,503);assert.equal(g.runs,0);});
 test("configured authenticated cron delegates once to propose-only coordinator",async()=>{g.owner=7;const response=await m.cron(request("http://localhost/cron","unit-cron-secret"));assert.equal(response.status,200);assert.equal((await response.json()).proposed,1);assert.equal(g.runs,1);});
+
+test("Website rejection is visible in the next Desktop API read",async()=>{
+ const row={id:"shared",adminUserId:7,proposedAction:"createTodo",status:"pending",payloadJson:"{}",createdAt:new Date()};g.rows=[row];g.admin=7;
+ const before=await (await m.approvals(request("http://localhost/approvals"))).json();assert.equal(before.queue[0].status,"pending");
+ const rejection=new Request("http://localhost/reject",{method:"POST",body:JSON.stringify({humanConfirmed:true})});
+ const result=await m.rejectExecutiveAction(rejection,row.id,7,{read:async()=>row,auditRefusal:async()=>{},rejectPending:async()=>{if(row.status!=="pending")return false;row.status="rejected";return true;}});assert.equal(result.status,200);
+ const after=await (await m.approvals(request("http://localhost/approvals"))).json();assert.equal(after.queue[0].status,"rejected");
+});
+test("Desktop approval execution state is visible in the next Website API read",async()=>{
+ const row={id:"shared",adminUserId:7,proposedAction:"createTodo",status:"pending",payloadJson:"{}",createdAt:new Date()};g.rows=[row];g.admin=7;let executions=0;
+ const approval=()=>new Request("http://localhost/approve",{method:"POST",body:JSON.stringify({humanConfirmed:true})});
+ const deps={read:async()=>row,auditRefusal:async()=>{},claim:async()=>{if(row.status!=="pending")return false;row.status="approved";return true;},execute:async()=>{executions++;row.status="executed";return {ok:true,status:"executed",message:"fixture execution"};}};
+ assert.equal((await m.approveExecutiveAction(approval(),row.id,7,deps)).status,200);
+ const after=await (await m.approvals(request("http://localhost/approvals"))).json();assert.equal(after.queue[0].status,"executed");
+ assert.equal((await m.approveExecutiveAction(approval(),row.id,7,deps)).status,409);assert.equal(executions,1);
+});
