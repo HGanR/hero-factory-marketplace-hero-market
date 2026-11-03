@@ -1,0 +1,25 @@
+name: SKIPPER STEP 0 approval gates
+on:
+  pull_request:
+    paths:
+      - 'src/lib/executive-agent/**'
+      - 'src/app/api/admin/executive-agent/**'
+      - 'src/components/executive-admin/**'
+      - 'tests/executive-approval/**'
+      - '.github/workflows/skipper-step0-approval-checks.yml'
+jobs:
+  caller-trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Trace callers at the pinned pre-patch revision
+        shell: bash
+        run: |
+          for symbol in executeApprovedTodoFromPayload executeExecutiveApprovedAction validateApprovalGate; do
+            echo "Symbol: $symbol"
+            git grep -n -F "$symbol" e26b3dd932fec6b627a5a675725047e381343957 -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' || test "$?" = 1
+          done
+          echo 'Approval-route clients:'
+          git grep -n -E 'approvals/.*approve|humanConfirmed' e26b3dd932fec6b627a5a675725047e381343957 -- src/app/api/admin/executive-agent src/components/executive-admin || test "$?" = 1
