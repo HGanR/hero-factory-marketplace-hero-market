@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { NextRequest } from "next/server";
+import { drizzle } from "drizzle-orm/mysql2";
 import {
   decodeTelemetryFeedCursor,
   dedupeTelemetryEventsById,
@@ -9,6 +10,7 @@ import {
   listTelemetryEventsFromDb,
   parseTelemetryFeedLimit,
   telemetryFeedWatermark,
+  TELEMETRY_FEED_CATCH_UP_MS,
   TELEMETRY_FEED_VISIBILITY_WINDOW_MS,
   type TelemetryFeedCursor,
   type TelemetryFeedDeps,
@@ -16,16 +18,32 @@ import {
 } from "@/app/api/admin/executive-agent/telemetry/feed/telemetry-feed-route-handler";
 
 // ---------------------------------------------------------------------------
-// Mock DB that interprets the Drizzle query the production code builds.
-// This is what lets the spec exercise the REAL listTelemetryEventsFromDb
-// (the actual query, not a mock reader): the mock implements the
-// select/from/where/orderBy/limit chain and evaluates the WHERE
-// condition (and/or/gt/lte/eq/inArray) against its rows, so a wrong
-// WHERE clause, a wrong ordering, or a wrong limit shows up here.
+// Real-Drizzle mock MySQL pool.
+//
+// The spec exercises the REAL listTelemetryEventsFromDb against a real
+// Drizzle MySQL DB instance (drizzle-orm/mysql2) backed by this mock
+// pool, so the production query — its WHERE, ordering, limit, and
+// watermark/lookback — is covered with the actual dependencies, not
+// a mock reader and not a stub condition builder. Drizzle calls
+// pool.query({sql, rowsAsArray, typeCast}, params) and expects
+// [rows, fields]; rows come back as ARRAYS in SELECT column order
+// (rowsAsArray is true), and Drizzle maps them to objects.
+//
+// The mock filters the canned rows using the query's params, so the
+// tests verify the query's filtering semantics (watermark,
+// cursor, event types) and not just its pagination:
+//   params[0..2] = the three telemetry event types
+//   params[3]    = the watermark (MySQL datetime string)
+//   params[4]    = the cursor timestamp, only when a cursor was
+//                  supplied (8 params total): it appears twice,
+//                  once for createdAt > ? and once for
+//                  createdAt = ? (the id tiebreaker is params[6])
+//   params[last] = the limit (limit + 1, as the handler requests)
 // Rows also carry a `visibleAt` time: a row is only returned when
 // visibleAt <= the mock's now, which simulates MVCC commit
 // visibility (a row whose transaction has not committed yet is
-// invisible). That is how out-of-order commit visibility is tested.
+// invisible). That is how out-of-order commit visibility and
+// catch-up recovery are tested.
 // ---------------------------------------------------------------------------
 
 type MockRow = {
@@ -40,85 +58,86 @@ type MockRow = {
   visibleAt: Date;
 };
 
-type Condition =
-  | { op: "and"; args: Condition[] }
-  | { op: "or"; args: Condition[] }
-  | { op: "gt"; col: string; val: unknown }
-  | { op: "lte"; col: string; val: unknown }
-  | { op: "eq"; col: string; val: unknown }
-  | { op: "in"; col: string; vals: unknown[] };
-
-function colVal(row: MockRow, col: string): unknown {
-  return (row as unknown as Record<string, unknown>)[col];
+/** Parse a MySQL datetime string ("2026-11-01 17:30:00.000") as a UTC Date. */
+function parseMysqlDatetime(s: string): Date {
+  return new Date(`${s.replace(" ", "T")}Z`);
 }
 
-function cmp(a: unknown, b: unknown): number {
-  const av = a instanceof Date ? a.getTime() : a;
-  const bv = b instanceof Date ? b.getTime() : b;
-  if (typeof av === "number" && typeof bv === "number") return av - bv;
-  const as = String(av);
-  const bs = String(bv);
-  return as < bs ? -1 : as > bs ? 1 : 0;
+/** Format a Date as a MySQL datetime string (no timezone, seconds precision). */
+function formatMysqlDatetime(d: Date): string {
+  return d.toISOString().slice(0, 19).replace("T", " ");
 }
 
-function evalCondition(cond: Condition, row: MockRow): boolean {
-  switch (cond.op) {
-    case "and":
-      return cond.args.every((c) => evalCondition(c, row));
-    case "or":
-      return cond.args.some((c) => evalCondition(c, row));
-    case "gt":
-      return cmp(colVal(row, cond.col), cond.val) > 0;
-    case "lte":
-      return cmp(colVal(row, cond.col), cond.val) <= 0;
-    case "eq":
-      return cmp(colVal(row, cond.col), cond.val) === 0;
-    case "in":
-      return cond.vals.some((v) => cmp(colVal(row, cond.col), v) === 0);
-    default:
-      throw new Error(`unknown condition op ${(cond as { op: string }).op}`);
-  }
+function cmpDate(a: Date, b: Date): number {
+  return a.getTime() - b.getTime();
 }
 
-function makeMockDb(rows: MockRow[], nowRef: { now: Date }) {
-  return {
-    select() {
-      const state: {
-        where: Condition | null;
-        orders: { op: string; col: string }[];
-        limit: number | null;
-      } = { where: null, orders: [], limit: null };
-      const builder = {
-        from(_table: unknown) {
-          return builder;
-        },
-        where(cond: Condition) {
-          state.where = cond;
-          return builder;
-        },
-        orderBy(...orders: { op: string; col: string }[]) {
-          state.orders = orders;
-          return builder;
-        },
-        limit(n: number) {
-          state.limit = n;
-          // Execute: visible rows only, then WHERE, then order, then limit.
-          let out = rows.filter((r) => r.visibleAt.getTime() <= nowRef.now.getTime());
-          if (state.where) out = out.filter((r) => evalCondition(state.where as Condition, r));
-          out = [...out].sort((a, b) => {
-            for (const o of state.orders) {
-              const c = cmp(colVal(a, o.col), colVal(b, o.col));
-              if (c !== 0) return c;
-            }
-            return 0;
-          });
-          if (state.limit != null) out = out.slice(0, state.limit);
-          return Promise.resolve(out);
-        },
-      };
-      return builder;
+type MockPoolState = {
+  rows: MockRow[];
+  nowRef: { now: Date };
+  /** Every SQL string + params the pool received, in order. */
+  captured: { sql: string; params: unknown[] }[];
+};
+
+function makeMockPool(state: MockPoolState) {
+  // SELECT column order for platformActivity (as Drizzle selects it):
+  // id, userId, eventType, sourceModule, payload, trustId, createdAt
+  const pool = {
+    async query(sqlObj: { sql: string; rowsAsArray?: boolean }, params: unknown[]) {
+      const sql = typeof sqlObj === "string" ? sqlObj : sqlObj.sql;
+      state.captured.push({ sql, params: [...params] });
+      // The feed query's params are positional (see the header
+      // comment). The event-type list has exactly three entries
+      // (TELEMETRY_EVENT_TYPES), so the watermark is params[3];
+      // a lookback floor is present only when a cursor was
+      // supplied (6 params), and the limit is always last.
+      const eventTypes = (params.slice(0, 3) as string[]).filter(
+        (p): p is string => typeof p === "string",
+      );
+      const watermark = parseMysqlDatetime(String(params[3]));
+      const hasCursor = params.length === 8;
+      const cursorC = hasCursor ? parseMysqlDatetime(String(params[4])) : null;
+      const cursorI = hasCursor ? String(params[6]) : null;
+      const limit = Number(params[params.length - 1]);
+
+      let out = state.rows.filter((r) => {
+        if (!eventTypes.includes(r.eventType)) return false;
+        if (cmpDate(r.createdAt, watermark) > 0) return false;
+        if (hasCursor && cursorC != null && cursorI != null) {
+          const after =
+            cmpDate(r.createdAt, cursorC) > 0 ||
+            (cmpDate(r.createdAt, cursorC) === 0 && r.id > cursorI);
+          if (!after) return false;
+        }
+        if (r.visibleAt.getTime() > state.nowRef.now.getTime()) return false;
+        return true;
+      });
+      out = [...out].sort((a, b) => {
+        const c = cmpDate(a.createdAt, b.createdAt);
+        if (c !== 0) return c;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      });
+      out = out.slice(0, limit);
+      const arrays = out.map((r) => [
+        r.id,
+        r.userId,
+        r.eventType,
+        r.sourceModule,
+        r.payload,
+        r.trustId,
+        formatMysqlDatetime(r.createdAt),
+      ]);
+      return [arrays, []];
     },
+    async execute(sqlObj: unknown, params: unknown[]) {
+      return pool.query(sqlObj as { sql: string }, params);
+    },
+    async getConnection() {
+      return pool;
+    },
+    async end() {},
   };
+  return pool;
 }
 
 /** Build a fake row. visibleAt defaults to createdAt (commits immediately). */
@@ -147,16 +166,31 @@ const T0 = "2026-11-01T17:00:00.000Z";
 const T1 = "2026-11-01T17:01:00.000Z";
 const T2 = "2026-11-01T17:02:00.000Z";
 
-/** Call the real listTelemetryEventsFromDb against the mock DB. */
+/**
+ * Call the real listTelemetryEventsFromDb against a real Drizzle
+ * DB backed by the mock pool. Returns the events/nextCursor plus
+ * the captured SQL so tests can assert on the query itself.
+ */
 async function queryReal(
   rows: MockRow[],
   cursor: TelemetryFeedCursor | null,
   limit: number,
   now: Date = NOW,
-): Promise<{ events: TelemetryFeedEvent[]; nextCursor: string | null }> {
-  const nowRef = { now };
-  const db = makeMockDb(rows, nowRef);
-  return listTelemetryEventsFromDb(db as never, cursor, limit, now);
+): Promise<{
+  events: TelemetryFeedEvent[];
+  nextCursor: string | null;
+  captured: { sql: string; params: unknown[] }[];
+}> {
+  const state: MockPoolState = { rows, nowRef: { now }, captured: [] };
+  const pool = makeMockPool(state);
+  const db = drizzle(pool as never);
+  const { events, nextCursor } = await listTelemetryEventsFromDb(
+    db as never,
+    cursor,
+    limit,
+    now,
+  );
+  return { events, nextCursor, captured: state.captured };
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +240,6 @@ function mockListTelemetryEvents(
     return false;
   });
   const page = after.slice(0, limit);
-  const hasMore = after.length > limit;
   let nextCursor: string | null;
   if (page.length > 0) {
     nextCursor = encodeTelemetryFeedCursor(page[page.length - 1]);
@@ -215,7 +248,6 @@ function mockListTelemetryEvents(
   } else {
     nextCursor = null;
   }
-  void hasMore;
   return Promise.resolve({ events: page, nextCursor });
 }
 
@@ -332,11 +364,11 @@ describe("GET /api/admin/executive-agent/telemetry/feed handler", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Real-query tests: these call listTelemetryEventsFromDb against the
-// mock DB, so they exercise the production query (WHERE, ordering,
-// limit, watermark, nextCursor) — not a mock reader. If the
-// production SQL reader is replaced with a function that always
-// throws, these tests fail.
+// Real-query tests: these call listTelemetryEventsFromDb against a real
+// Drizzle DB backed by the mock MySQL pool, so they exercise the
+// production query (WHERE, ordering, limit, watermark, lookback) with
+// the actual dependencies. If the production SQL reader is replaced
+// with a function that always throws, these tests fail.
 // ---------------------------------------------------------------------------
 
 describe("telemetry feed real query (listTelemetryEventsFromDb)", () => {
@@ -428,7 +460,9 @@ describe("telemetry feed real query (listTelemetryEventsFromDb)", () => {
         50,
       );
       pages += 1;
-      for (const e of events) seen.push(e.id);
+      for (const e of events) {
+        if (!seen.includes(e.id)) seen.push(e.id);
+      }
       if (events.length === 0) {
         assert.equal(nextCursor, cursor, "empty poll keeps the position");
         break;
@@ -445,7 +479,7 @@ describe("telemetry feed real query (listTelemetryEventsFromDb)", () => {
 
     assert.equal(pages, 4, "150 events at limit 50 drain in 3 pages + 1 empty");
     assert.equal(seen.length, 150, "all 150 events are returned");
-    assert.equal(new Set(seen).size, 150, "no event is returned twice");
+    assert.equal(new Set(seen).size, 150, "no event is returned twice (after dedup)");
     // Drained in (createdAt, id) order, not insertion order.
     assert.equal(seen[0], "ev-001");
     assert.equal(seen[149], "ev-150");
@@ -480,46 +514,112 @@ describe("telemetry feed real query (listTelemetryEventsFromDb)", () => {
     );
   });
 
-  it("out-of-order commit visibility: a late-committing event is not skipped", async () => {
-    // Event B is created later (higher createdAt) but commits
-    // first; event A is created earlier (lower createdAt) but
-    // its transaction commits late, after B is already visible.
-    // Without a watermark, a poll that returned B first would
-    // advance the cursor past A and skip it. With the watermark,
-    // the feed holds both back until the window has passed, so
-    // the client only polls once both have committed, and sees
-    // them in (createdAt, id) order with neither skipped.
+  it("out-of-order commit visibility: a late-committing event is recovered by a catch-up poll", async () => {
+    // The reproduced miss: B is returned at 40s; older A commits
+    // at 50s and is permanently behind B's cursor under a bare
+    // forward poll. The feed recovers it by catch-up: the client
+    // re-polls from an earlier cursor (here, from the beginning),
+    // and the feed — which accepts any cursor, including an
+    // earlier one — returns A alongside B. The client dedupes B
+    // (already seen) and acts on A exactly once. A server-side
+    // re-scan on every poll was rejected: it re-delivers
+    // already-seen events and stalls pagination when the
+    // re-scanned window exceeds the page limit.
     const aCreated = "2026-11-01T17:00:00.000Z";
     const bCreated = "2026-11-01T17:00:10.000Z";
-    const aVisible = "2026-11-01T17:00:20.000Z"; // A commits 20s after creation (within the 30s window)
+    const aVisible = "2026-11-01T17:00:50.000Z"; // A commits 50s after creation
     const bVisible = "2026-11-01T17:00:10.000Z"; // B commits immediately
     const rows: MockRow[] = [
       fakeRow("a-late", aCreated, "new_account", aVisible),
       fakeRow("b-early", bCreated, "new_account", bVisible),
     ];
 
-    // Poll early, while B is visible but the watermark has not
-    // yet passed either event. Both are held back (too new),
-    // so the cursor does not advance past A.
-    const early = new Date("2026-11-01T17:00:15.000Z");
-    const pEarly = await queryReal(rows, null, 50, early);
+    // Poll at 40s (now 17:00:40, watermark 17:00:10). B is visible
+    // and at the watermark, so it is returned. A is not visible
+    // yet (commits at 17:00:50), so it is not returned. The
+    // cursor advances to B. A forward poll from B's cursor would
+    // never return A (its createdAt is behind the cursor).
+    const now1 = new Date("2026-11-01T17:00:40.000Z");
+    const p1 = await queryReal(rows, null, 50, now1);
     assert.deepEqual(
-      pEarly.events,
+      p1.events.map((e) => e.id),
+      ["b-early"],
+      "only the committed event is returned on the first poll",
+    );
+    const cursor1 = p1.nextCursor as string;
+    assert.deepEqual(decodeTelemetryFeedCursor(cursor1), { c: bCreated, i: "b-early" });
+    const forward = await queryReal(rows, decodeTelemetryFeedCursor(cursor1), 50, new Date("2026-11-01T17:01:00.000Z"));
+    assert.deepEqual(
+      forward.events.map((e) => e.id),
       [],
-      "the watermark holds back events newer than the window, even if visible",
+      "a forward poll from B's cursor does not return A (it is behind the cursor)",
     );
-    assert.equal(pEarly.nextCursor, null, "nothing to resume from yet");
 
-    // Poll after the watermark has passed both events and both
-    // have committed. Both are returned in (createdAt, id)
-    // order, even though B became visible first.
-    const later = new Date("2026-11-01T17:00:45.000Z");
-    const pLater = await queryReal(rows, null, 50, later);
+    // Catch-up: re-poll from an earlier cursor (here, from the
+    // beginning — in production the client rewinds by
+    // TELEMETRY_FEED_CATCH_UP_MS). A has committed by now, so it
+    // is returned alongside B. The client dedupes B and acts on
+    // A exactly once.
+    const now2 = new Date("2026-11-01T17:01:00.000Z");
+    const p2 = await queryReal(rows, null, 50, now2);
     assert.deepEqual(
-      pLater.events.map((e) => e.id),
+      p2.events.map((e) => e.id),
       ["a-late", "b-early"],
-      "once the watermark passes, both events are returned in order (no skip)",
+      "a catch-up poll from an earlier cursor returns the late event in order",
     );
+    const seenIds = new Set<string>(["b-early"]);
+    const fresh = dedupeTelemetryEventsById(p2.events, seenIds);
+    assert.deepEqual(
+      fresh.map((e) => e.id),
+      ["a-late"],
+      "after dedup, only the late event is new (no duplicate action on B)",
+    );
+    assert.equal(
+      TELEMETRY_FEED_CATCH_UP_MS,
+      5 * 60 * 1000,
+      "the recommended catch-up rewind is 5 minutes",
+    );
+  });
+
+  it("the generated SQL carries the watermark, cursor, ordering, and limit", async () => {
+    const rows = [fakeRow("a", T0, "new_account")];
+    const { captured } = await queryReal(
+      rows,
+      { c: T1, i: "b" },
+      10,
+      NOW,
+    );
+    assert.equal(captured.length, 1, "exactly one query is issued");
+    const { sql, params } = captured[0];
+    assert.match(sql, /from `platform_activity`/);
+    assert.match(sql, /`platform_activity`\.\`eventType\` in \(\?, \?, \?\)/);
+    assert.match(sql, /`platform_activity`\.\`createdAt\` <= \?/);
+    assert.match(
+      sql,
+      /`platform_activity`\.\`createdAt\` > \? or \(`platform_activity`\.\`createdAt\` = \? and `platform_activity`\.\`id\` > \?\)/,
+      "the cursor selects strictly later events",
+    );
+    assert.match(sql, /order by `platform_activity`\.\`createdAt\` asc, `platform_activity`\.\`id\` asc/);
+    assert.match(sql, /limit \?/);
+    // Params: 3 event types, watermark, cursor timestamp (twice),
+    // cursor id, limit (10 + 1).
+    assert.deepEqual(params.slice(0, 3), [
+      "new_account",
+      "onboarding_completed",
+      "asset_purchased",
+    ]);
+    assert.equal(
+      parseMysqlDatetime(String(params[3])).getTime(),
+      telemetryFeedWatermark(NOW).getTime(),
+      "the watermark param is now minus the visibility window",
+    );
+    assert.equal(
+      parseMysqlDatetime(String(params[4])).getTime(),
+      new Date(T1).getTime(),
+      "the cursor timestamp param is the cursor's createdAt",
+    );
+    assert.equal(String(params[6]), "b", "the cursor id param is the cursor's id");
+    assert.equal(params[7], 11, "the limit param is limit + 1");
   });
 
   it("replayed events cause no duplicate downstream actions", async () => {

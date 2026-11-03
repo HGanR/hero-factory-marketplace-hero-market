@@ -34,13 +34,30 @@
  * at or below the watermark is closed, so (createdAt, id)
  * pagination inside it cannot skip a later insert and cannot
  * stall: the group is fully formed before the client pages
- * through it. The window (30s) is far longer than any
- * realistic transaction for these single-row inserts
- * (register / onboarding submit), so an event is never
- * returned before its transaction has committed. If a
- * transaction ever ran longer than the window, its event
- * could be missed; that is accepted and documented here
- * (the emit path is a single-row insert, not a long batch).
+ * through it.
+ *
+ * The watermark alone cannot guarantee no skips: a transaction
+ * that commits after the watermark has passed its createdAt
+ * (i.e. a commit delay longer than the window) leaves its event
+ * behind the cursor, and a bare forward cursor would never
+ * return it. That case is handled by a client-driven catch-up,
+ * not by re-scanning on every poll (a server-side re-scan on
+ * every poll would re-deliver already-seen events and can stall
+ * pagination when the re-scanned window exceeds the page limit).
+ * The recovery protocol is: the client periodically re-polls
+ * from an earlier cursor — for example, once per hour, or on
+ * reconnect, poll from (cursor.c minus 5 minutes) — and dedupes
+ * by event id. The feed accepts any cursor, including an earlier
+ * one, so a catch-up poll returns the late event alongside the
+ * events already seen. Delivery is therefore at-least-once with
+ * dedup for events recovered by catch-up, and loss-tolerant
+ * beyond that: an event whose commit is delayed beyond the
+ * watermark AND beyond the client's catch-up window may be
+ * missed by the feed. That is accepted and bounded here — the
+ * emit path is a single-row insert, so a delay of that length
+ * would indicate a serious database problem, and the revenue
+ * loop reconciles from the source tables for critical reads
+ * rather than relying on the feed for completeness.
  *
  * nextCursor is always a valid resume point: the last event's
  * (createdAt, id) on a non-empty page (even the final page),
@@ -48,17 +65,16 @@
  * client never replays from the beginning by re-polling with
  * a null cursor.
  *
- * Replays: the feed returns each event exactly once per cursor
- * chain. If a client re-polls from an earlier cursor (e.g.
- * after losing its position) it may see an event again; the
- * consumer must dedupe by event id. Use dedupeTelemetryEventsById
- * for that (see test 4 in the spec).
+ * Replays: the feed may return an event the client has already
+ * seen when the client re-polls from an earlier cursor (a
+ * catch-up poll). The consumer must dedupe by event id. Use
+ * dedupeTelemetryEventsById for that (see the spec).
  *
  * The handler is factored for testability (same pattern as
  * summary-route-handler): the route wires the real deps, and
  * the spec injects mocks. The spec also exercises the real
- * listTelemetryEventsFromDb against a mock DB that interprets
- * the Drizzle query, so the production query (not just a mock
+ * listTelemetryEventsFromDb against a real Drizzle DB backed by
+ * a mock MySQL pool, so the production query (not just a mock
  * reader) is covered.
  */
 
@@ -113,6 +129,17 @@ export const TELEMETRY_FEED_MAX_LIMIT = 100;
  * far longer than any realistic single-row emit transaction.
  */
 export const TELEMETRY_FEED_VISIBILITY_WINDOW_MS = 30_000;
+
+/**
+ * Recommended catch-up window for the client: when the client
+ * re-polls from an earlier cursor to recover late-committing
+ * events, it should rewind by at least this far. 5 minutes
+ * covers any realistic commit delay for a single-row insert by
+ * a wide margin. This is a client-side recommendation, not a
+ * server filter — the feed itself applies only the watermark
+ * and the cursor.
+ */
+export const TELEMETRY_FEED_CATCH_UP_MS = 5 * 60 * 1000;
 
 export function parseTelemetryFeedLimit(raw: string | null): number {
   const n = raw == null ? NaN : Number(raw);
@@ -191,11 +218,18 @@ export function telemetryFeedWatermark(now: Date): Date {
 /**
  * Read one page of telemetry events from platformActivity.
  * Ordered chronologically (createdAt, then id). The cursor
- * selects strictly later events, so successive polls return
- * disjoint sets. Only events at or below the visibility
- * watermark are returned, so the timestamp group being paged
- * is closed and (createdAt, id) pagination cannot skip a
- * later insert.
+ * selects strictly later events, so successive forward polls
+ * return disjoint sets and the cursor always advances. Only
+ * events at or below the visibility watermark are returned, so
+ * the timestamp group being paged is closed and (createdAt, id)
+ * pagination cannot skip a later insert or stall.
+ *
+ * A late-committing event (one whose transaction commits after
+ * the watermark passed its createdAt) is behind the cursor and
+ * is not returned by a forward poll. It is recovered by a
+ * catch-up poll: the client re-polls from an earlier cursor
+ * (see TELEMETRY_FEED_CATCH_UP_MS) and dedupes by id. The feed
+ * accepts any cursor, including an earlier one.
  *
  * nextCursor is always a valid resume point:
  * - non-empty page: the last event's (createdAt, id), even on
@@ -253,8 +287,11 @@ export async function listTelemetryEventsFromDb(
         : String(row.createdAt),
   }));
   let nextCursor: string | null;
-  if (page.length > 0) {
-    nextCursor = encodeTelemetryFeedCursor(page[page.length - 1]);
+  if (events.length > 0) {
+    // Encode from the normalized event (createdAt is a string
+    // here); the raw row's createdAt is a Date and is not
+    // assignable to the cursor encoder's parameter type.
+    nextCursor = encodeTelemetryFeedCursor(events[events.length - 1]);
   } else if (cursor != null) {
     // Empty poll: keep the caller's position so the next poll
     // resumes from the same point instead of restarting.
