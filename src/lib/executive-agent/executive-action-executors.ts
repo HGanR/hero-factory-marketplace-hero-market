@@ -802,7 +802,7 @@ export type ExecutiveActionExecutor = (
 ) => Promise<ExecutiveActionExecutorResult>;
 
 export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, ExecutiveActionExecutor> = {
-  recordRevenueOpportunityReview,
+  recordRevenueOpportunityReview: recordRevenueOpportunityReview,
   createTodo: runCreateTodo,
   assignFollowUp: runAssignFollowUp,
   createSpecializedAgent: runCreateSpecializedAgent,
