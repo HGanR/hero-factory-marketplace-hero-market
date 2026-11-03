@@ -1,0 +1,25 @@
+name: SKIPPER STEP 2 decision engine
+on:
+  pull_request:
+    paths:
+      - 'policy/**'
+      - 'src/policy/**'
+      - 'src/approvals/**'
+      - 'src/lib/executive-agent/**'
+      - 'src/app/api/cron/revenue-loop/**'
+      - 'tests/step2/**'
+      - '.github/workflows/skipper-step2-checks.yml'
+permissions:
+  contents: read
+jobs:
+  decision-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node --test tests/step2/*.test.mjs

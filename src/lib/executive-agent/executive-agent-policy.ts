@@ -32,6 +32,7 @@ export const WRITE_SCOPES: ExecutiveAgentScope[] = [
 ];
 
 export const WRITE_ACTION_NAMES = [
+  "recordRevenueOpportunityReview",
   "createTodo",
   "assignFollowUp",
   "createSpecializedAgent",
@@ -52,6 +53,8 @@ export type ExecutiveWriteActionName = (typeof WRITE_ACTION_NAMES)[number];
 
 export function scopeForWriteAction(action: string): ExecutiveAgentScope | null {
   switch (action) {
+    case "recordRevenueOpportunityReview":
+      return "write:todos";
     case "createTodo":
     case "assignFollowUp":
     case "createSiteBuilderTask":
@@ -139,3 +142,4 @@ export function canInvokeReadTool(toolName: string, granted: Set<ExecutiveAgentS
 export function defaultExecutiveReadScopes(): ExecutiveAgentScope[] {
   return [...READ_SCOPES];
 }
+

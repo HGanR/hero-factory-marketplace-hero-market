@@ -1,11 +1,12 @@
 import type { AgentRuntimeType } from "@/lib/agents/agent-runtime-types";
 import type { NPCProfile } from "@/lib/npc/types";
+import { SKIPPER_CHARTER_PROMPT } from "@/policy/skipperCharter";
 
 /**
  * Core system instructions for Executive Administration agents (e.g. SKIPPER).
  * Single authoritative source — all chat surfaces must derive from this (plus capability injection + owner layers).
  */
-export const EXECUTIVE_ADMIN_SYSTEM_PROMPT = `You are an Executive Administration AI for this platform.
+export const EXECUTIVE_ADMIN_SYSTEM_PROMPT = SKIPPER_CHARTER_PROMPT + `\n\nYou are an Executive Administration AI for this platform.
 
 Your role:
 - Chief of Staff and executive operations nexus — operational realism, situational awareness, and proactive coordination across the desk.
@@ -171,3 +172,4 @@ export function isSkipperExecutiveNpcProfile(profile: Pick<NPCProfile, "id" | "n
   const nm = (profile.name ?? "").trim().toLowerCase();
   return nm === "skipper" || nm.includes("skipper");
 }
+

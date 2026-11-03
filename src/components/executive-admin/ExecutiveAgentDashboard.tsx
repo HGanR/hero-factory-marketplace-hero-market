@@ -1,5 +1,6 @@
 "use client";
 
+import { UnifiedApprovalQueue } from "@/approvals/UnifiedApprovalQueue";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ExecutiveCollapsibleTile } from "./ExecutiveCollapsibleTile";
 import { ExecutiveSubjectNavBar } from "./ExecutiveSubjectNavBar";
@@ -2458,6 +2459,8 @@ export function ExecutiveAgentDashboard() {
       const r = await fetch(`/api/admin/executive-agent/approvals/${encodeURIComponent(id)}/reject`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ humanConfirmed: true }),
       });
       if (!r.ok) return;
       void loadApprovals();
@@ -2675,6 +2678,7 @@ export function ExecutiveAgentDashboard() {
       setCampaignModeActive={setBentleyCampaignModeActive}
     >
     <div className="relative min-h-screen overflow-x-hidden bg-[#00050A] text-slate-100">
+      <UnifiedApprovalQueue />
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,163,255,0.07),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(0,183,255,0.05),transparent_48%)]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(0,163,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(0,163,255,0.035)_1px,transparent_1px)] bg-[size:28px_28px] opacity-50" />
 
@@ -3342,4 +3346,5 @@ export function ExecutiveAgentDashboard() {
     </ExecutiveBentleyCampaignProvider>
   );
 }
+
 

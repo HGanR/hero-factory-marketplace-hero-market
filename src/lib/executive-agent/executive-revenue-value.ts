@@ -1,7 +1,8 @@
 /** Derived executive revenue display — from real account counts only. */
 
-export const EXECUTIVE_ACCOUNT_SETUP_VALUE = 155;
-export const EXECUTIVE_MRR_PER_APPROVED_ACCOUNT = 20;
+import { SKIPPER_CHARTER } from "@/policy/skipperCharter";
+export const EXECUTIVE_ACCOUNT_SETUP_VALUE = SKIPPER_CHARTER.goal.membershipSetupUsd;
+export const EXECUTIVE_MRR_PER_APPROVED_ACCOUNT = SKIPPER_CHARTER.goal.membershipMonthlyUsd;
 
 export type ExecutiveRevenueValueSnapshot = {
   pendingAccounts: number;
@@ -56,3 +57,4 @@ export function computeExecutiveRevenueValue(input: {
     unavailable: Boolean(input.unavailable ?? (pendingUnavailable && approvedUnavailable)),
   };
 }
+
