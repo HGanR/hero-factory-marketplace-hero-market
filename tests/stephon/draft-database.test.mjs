@@ -69,7 +69,7 @@ test('preview denies anonymous, member and foreign administrator sessions',async
 });
 test('preview rechecks client ownership and expiry against actual stored rows',async()=>{
  const {data}=await run();await db.update(m.schema.clients).set({userId:8});assert.equal((await preview(data)).status,404);await db.update(m.schema.clients).set({userId:7});
- await db.update(m.schema.executiveAgentMemoryItems).set({expiresAt:new Date(0)});assert.equal((await preview(data)).status,404);
+ await db.update(m.schema.executiveAgentMemoryItems).set({expiresAt:new Date(Date.now()-86_400_000)});assert.equal((await preview(data)).status,404);
 });
 test('stored CSS is protected and returned with its actual immutable hash',async()=>{
  const {data}=await run();const r=await preview(data,{path:'assets/site.css'});assert.equal(r.status,200);const css=await r.text();assert.equal(r.headers.get('x-artifact-sha256'),sha(css));assert.match(r.headers.get('content-type'),/text\/css/);
