@@ -189,6 +189,14 @@ test("unauthenticated requests stop before persistence", async () => {
   assert.deepEqual(f.history, []); assert.equal(f.rows.executiveAgentAuditLogs.length, 0);
 });
 
+test("missing persisted approval is refused and audited", async () => {
+  const f = fixture(null);
+  assert.equal((await post(request())).status, 404);
+  assert.equal(f.rows.executiveAgentAuditLogs[0].actionType, "approval_refused");
+  assert.equal(f.rows.clientNotes.length, 0);
+  assert.deepEqual(f.history, []);
+});
+
 test("refusal audit failure cannot fall through to execution", async () => {
   const f = fixture(); f.auditFails = true;
   await assert.rejects(post(request({})), /audit unavailable/);

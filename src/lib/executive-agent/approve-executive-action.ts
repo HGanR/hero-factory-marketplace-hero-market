@@ -32,7 +32,7 @@ export async function approveExecutiveAction(
     humanConfirmed: (
       body !== null && typeof body === "object" && !Array.isArray(body)
       && "humanConfirmed" in body ? body.humanConfirmed : undefined
-    ) as boolean,
+    ),
   });
   if (!gate.ok) return refuse(gate.code, gate.message, gate.httpStatus);
   if (!(await deps.claim(row.id, adminUserId))) {

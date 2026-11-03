@@ -22,7 +22,7 @@ jobs:
             git grep -n -F "$symbol" e26b3dd932fec6b627a5a675725047e381343957 -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' || test "$?" = 1
           done
           echo 'Approval-route clients:'
-          git grep -n -E 'approvals/.*approve|humanConfirmed' e26b3dd932fec6b627a5a675725047e381343957 -- src/app/api/admin/executive-agent src/components/executive-admin || test "$?" = 1
+          git grep -n -E 'approvals/|humanConfirmed|legacy-inline' e26b3dd932fec6b627a5a675725047e381343957 -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' || test "$?" = 1
   approval-regressions:
     runs-on: ubuntu-latest
     steps:
@@ -36,10 +36,18 @@ jobs:
       - name: Existing executive regression tests
         run: node --import tsx --test src/lib/executive-agent/executive-action-executors.spec.ts src/lib/executive-agent/executive-agent-orchestrator-safety.spec.ts src/lib/executive-agent/executive-agent-phase5.spec.ts src/lib/executive-agent/executive-automation.spec.ts
       - name: Full existing test suite
-        run: npm test > step0-existing-tests.log 2>&1
+        run: |
+          status=0
+          npm test > step0-existing-tests.log 2>&1 || status=$?
+          tail -n 120 step0-existing-tests.log
+          exit "$status"
       - name: Full repository TypeScript check
         if: always()
-        run: npm run typecheck:tsc > step0-typecheck.log 2>&1
+        run: |
+          status=0
+          npm run typecheck:tsc > step0-typecheck.log 2>&1 || status=$?
+          tail -n 120 step0-typecheck.log
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

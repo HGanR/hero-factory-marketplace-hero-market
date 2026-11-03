@@ -6,7 +6,7 @@ export type ApprovalGateInput = {
   proposedAction: string;
   adminUserId: number;
   approvalOwnerAdminUserId: number;
-  humanConfirmed: boolean;
+  humanConfirmed: unknown;
 };
 
 export type ApprovalGateResult =
