@@ -1,0 +1,31 @@
+name: SKIPPER audited engine gateway integration
+on:
+  pull_request:
+    paths:
+      - 'src/lib/executive-agent/engine-runtime*'
+      - 'src/app/api/admin/executive-agent/engine-runtime/**'
+      - 'src/app/api/admin/executive-agent/approvals/**'
+      - 'tests/engine-integration/**'
+      - '.github/workflows/skipper-engine-integration.yml'
+permissions:
+  contents: read
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real gateway and canonical decision route wiring
+        run: node --test tests/engine-integration/gateway.test.mjs
+      - name: Contract and coordinator regressions
+        run: node --import tsx --test src/lib/executive-agent/engine-runtime.spec.ts
+      - name: Existing approval and decision engine boundaries
+        run: node --test tests/executive-approval/approval-boundary.test.mjs tests/step2/*.test.mjs
+      - name: Strict gateway contract typecheck
+        run: ./node_modules/.bin/tsc --noEmit --strict --types node --target ES2022 --moduleResolution bundler --module ESNext --esModuleInterop --skipLibCheck src/lib/executive-agent/engine-runtime-contract.ts src/lib/executive-agent/engine-runtime-core.ts src/lib/executive-agent/engine-runtime.spec.ts
