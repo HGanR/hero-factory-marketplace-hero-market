@@ -39,3 +39,9 @@ Each HTML/CSS request to `/api/admin/executive-agent/stephon/preview/[versionId]
 - Existing Pages API full-generation handler Jest regressions run after extraction. Results must be read from CI; no clean full-repository build/typecheck is presumed.
 
 Still open: production schema/table availability, configured-provider pricing and execution, production concurrency/latency, live administrator preview/subresource/visual walkthrough, native Mac, site creation/selection UX, publication approval adapter, QR engine and membership collection. These changes do not verify live production generation or automatic end-to-end client delivery. All PRs remain draft; no merge, manual deployment, spending, production SQL or loop activation is performed.
+
+## Verification infrastructure repairs discovered during execution
+
+The existing Jest runner guard rejected the baseline test command because its manifest predated the two merged telemetry specs; it also had not classified the restored gateway spec. `tests/runner-selection.json` is synchronized with the unchanged package test command: telemetry specs belong to Node, gateway coordinator remains explicitly unlisted-from-npm Node and runs in dedicated CI. No runner guard is disabled or test removed.
+
+The existing source-registry test requires explicit `name: executor` entries, so the new registry entry uses that form. New generic DB type-boundary casts are explicit and settings SQL results are array-checked. Full repository checking also exposed three already-produced planner/voice metadata fields absent from the response type (insightBlockCount, ambientVoiceBriefing and ambientPresenceMode). Their optional declarations now match existing runtime values; no voice/orchestrator behavior changes. Final typecheck comparison evidence belongs in the PR; the known baseline failures are not represented as a clean build.

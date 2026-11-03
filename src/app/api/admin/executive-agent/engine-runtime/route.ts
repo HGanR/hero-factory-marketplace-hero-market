@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   if (req.headers.get("origin") !== new URL(req.url).origin) return NextResponse.json({ok:false,error:"Same-origin engine request required."},{status:403,headers});
   const raw = await req.text();
   if (new TextEncoder().encode(raw).length > 32000) return NextResponse.json({ok:false,error:"Request too large."},{status:413,headers});
-  try { return NextResponse.json({ok:true,receipt:await operateEngine(await getDb(),accountId,JSON.parse(raw), async (id, operation, humanConfirmed) => {
+  try { return NextResponse.json({ok:true,receipt:await operateEngine(await getDb() as unknown as Parameters<typeof operateEngine>[0],accountId,JSON.parse(raw), async (id, operation, humanConfirmed) => {
     // Invoke the existing POST handler in-process; no self-HTTP or alternate dispatcher.
     const url = new URL(req.url);
     url.pathname = `/api/admin/executive-agent/approvals/${encodeURIComponent(id)}/${operation}`;

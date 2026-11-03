@@ -59,6 +59,9 @@ export type ExecutiveOrchestratorResult = {
     reasoningMode: "deterministic" | "llm" | "llm_fallback";
     confidence: number;
     proposedApprovalsCount: number;
+    insightBlockCount?: number;
+    ambientVoiceBriefing?: boolean;
+    ambientPresenceMode?: string;
     /** Voice-only short paths (Executive Administration); never used for write execution. */
     voiceShortCircuit?:
       | "greeting"
@@ -513,3 +516,4 @@ export async function runExecutiveOrchestrator(
     suggestedMemoryItems,
   };
 }
+

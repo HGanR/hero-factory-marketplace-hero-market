@@ -810,7 +810,7 @@ export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, Execut
   triggerBentleyAnalysis: runTriggerBentleyAnalysis,
   triggerCampaignSync: runTriggerCampaignSync,
   createSiteBuilderTask: runCreateSiteBuilderTask,
-  generateStephonDraft,
+  generateStephonDraft: generateStephonDraft,
   createTrustFulfillmentPacket: runCreateTrustFulfillmentPacket,
   createRevenueOsCampaignReviewPacket: runCreateRevenueOsCampaignReviewPacket,
   recordRevenueOsLaunchReadinessCheckpoint: runRecordRevenueOsLaunchReadinessCheckpoint,

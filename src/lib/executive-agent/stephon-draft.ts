@@ -24,12 +24,13 @@ export async function generateStephonDraft(ctx:{db:Db;adminUserId:number;approva
   if(input.generationMode==='configured'){
     // Read only: the legacy getter auto-creates a table, which is forbidden here.
     const [rows]=await ctx.db.execute(sql`SELECT llm_mode, endpoint, model, api_key_enc, fallback_to_platform FROM web3_site_builder_ai_settings WHERE site_id=${site.id} AND user_id=${ctx.adminUserId} LIMIT 1`);
-    const row=(rows as Array<Record<string,unknown>>)[0];
+    if(!Array.isArray(rows))throw Error('Invalid site provider settings result');
+    const row=rows[0] as Record<string,unknown>|undefined;
     selection=selectSiteBuilderLlmInvoke(row?{llmMode:row.llm_mode as 'off'|'platform'|'byok',endpoint:row.endpoint==null?null:String(row.endpoint),model:row.model==null?null:String(row.model),apiKeyEnc:row.api_key_enc==null?null:String(row.api_key_enc),fallbackToPlatform:Boolean(Number(row.fallback_to_platform))}:null);
   }
   const generated=await runFullSiteGeneration({step:'full',input:SitePlannerInputSchema.parse(input.input),siteId:site.id,clientId:client.id,variantCount:1,variantSeed:ctx.approvalId},ctx.adminUserId,
     {invokeLlm:selection.invoke,forceDeterministic:selection.forceDeterministic,llmSource:selection.source},
-    {db:ctx.db as Awaited<ReturnType<typeof import('@/lib/db').getDb>>,skipIntelligence:true});
+    {db:ctx.db as unknown as Awaited<ReturnType<typeof import('@/lib/db').getDb>>,skipIntelligence:true});
   const document=SiteSchemaDocument.parse(generated.schema);
   const vhash=createHash('sha256').update('stephon-version:'+ctx.approvalId).digest('hex');
   const versionId=`${vhash.slice(0,8)}-${vhash.slice(8,12)}-4${vhash.slice(13,16)}-8${vhash.slice(17,20)}-${vhash.slice(20,32)}`;
