@@ -1,3 +1,4 @@
+import { generateStephonDraft } from "@/lib/executive-agent/stephon-draft";
 import "server-only";
 
 import { randomUUID } from "crypto";
@@ -809,6 +810,7 @@ export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, Execut
   triggerBentleyAnalysis: runTriggerBentleyAnalysis,
   triggerCampaignSync: runTriggerCampaignSync,
   createSiteBuilderTask: runCreateSiteBuilderTask,
+  generateStephonDraft: generateStephonDraft,
   createTrustFulfillmentPacket: runCreateTrustFulfillmentPacket,
   createRevenueOsCampaignReviewPacket: runCreateRevenueOsCampaignReviewPacket,
   recordRevenueOsLaunchReadinessCheckpoint: runRecordRevenueOsLaunchReadinessCheckpoint,
@@ -978,5 +980,6 @@ async function dispatchPersistedExecutiveAction(
 
   return result;
 }
+
 
 

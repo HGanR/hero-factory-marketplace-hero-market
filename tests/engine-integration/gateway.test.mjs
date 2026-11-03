@@ -16,6 +16,7 @@ const adapters = {
   '@/lib/db': 'export const getDb = async () => globalThis.__engineFixture.db;',
   '@/lib/db/schema': `import { mysqlTable, varchar, int } from 'drizzle-orm/mysql-core';
     export const clients=mysqlTable('clients',{id:varchar('id',{length:36}),userId:int('userId')});
+    export const web3Sites=mysqlTable('web3_sites',{id:varchar('id',{length:36}),userId:int('userId'),clientId:varchar('clientId',{length:36})});
     export const campaigns=mysqlTable('campaigns',{id:varchar('id',{length:36}),userId:varchar('userId',{length:36})});
     export const executiveAgentApprovals=mysqlTable('executive_agent_approvals',{id:varchar('id',{length:36}),adminUserId:int('adminUserId'),status:varchar('status',{length:20})});
     export const executiveAgentAuditLogs=mysqlTable('executive_agent_audit_logs',{outputJson:varchar('outputJson',{length:500}),adminUserId:int('adminUserId'),targetId:varchar('targetId',{length:36}),actionType:varchar('actionType',{length:64}),createdAt:varchar('createdAt',{length:30})});`,
@@ -49,7 +50,7 @@ after(()=>{rmSync(dir,{recursive:true,force:true});delete globalThis.__engineFix
 const clientId='11111111-1111-4111-8111-111111111111';
 function setup(){
   const f={rows:new Map(),audits:[],executions:[],inboxLimits:[],loseResponse:false,owned:true};
-  function select(){let table;return {from(t){table=getTableName(t);return this;},where(){return this;},limit:async()=> f.owned&&['clients','campaigns'].includes(table)?[{id:clientId}]:[],orderBy(){return this;},then(resolve){return Promise.resolve([]).then(resolve);}};}
+  function select(){let table;return {from(t){table=getTableName(t);return this;},where(){return this;},limit:async()=> f.owned&&['clients','campaigns','web3_sites'].includes(table)?[{id:clientId,clientId,name:'Fixture Draft',status:'DRAFT'}]:[],orderBy(){return this;},then(resolve){return Promise.resolve([]).then(resolve);}};}
   f.db={select,transaction:async fn=>fn(f.db),update:()=>({set:values=>({where:async expression=>{
     const params=dialect.sqlToQuery(expression).params;const [id,owner,status]=params;const row=f.rows.get(id);
     if(!row||row.adminUserId!==owner||row.status!==status)return [{affectedRows:0}];
@@ -66,10 +67,10 @@ async function propose(engineId='bentley.market_research',input={clientId,indust
 }
 const decide=(id,operation='approve',extra={})=>POST(request({operation,requestId:id,humanConfirmed:true,...extra}));
 
-test('catalog restores the twelve adapters plus explicit read-only Executive Inbox',async()=>{
+test('catalog retains existing adapters plus the real Stephon draft adapter',async()=>{
  setup();const r=await GET(new NextRequest('https://example.invalid/api/admin/executive-agent/engine-runtime'));
- const data=await r.json();assert.equal(data.schema,'skipper-engine-runtime-v1');assert.equal(data.engines.length,13);
- assert.equal(data.engines.filter(e=>e.mode==='approval').length,3);assert.equal(data.engines.find(e=>e.id==='executive.inbox').mode,'read');
+ const data=await r.json();assert.equal(data.schema,'skipper-engine-runtime-v1');assert.equal(data.engines.length,14);
+ assert.equal(data.engines.filter(e=>e.mode==='approval').length,4);assert.equal(data.engines.find(e=>e.id==='executive.inbox').mode,'read');
  assert.match(r.headers.get('cache-control'),/no-store/);
 });
 test('authentication and same-origin checks prevent gateway access',async()=>{
@@ -121,4 +122,19 @@ test('read-only adapters reject proposals and intake continues to mean a brief',
  const f=setup();assert.equal((await POST(request({operation:'propose',requestId:randomUUID(),engineId:'executive.inbox',input:{}}))).status,400);
  const id=await propose('stephon.intake',{clientId,title:'Website',instruction:'Build it'});
  assert.equal(f.rows.get(id).proposedAction,'createSiteBuilderTask');assert.equal(f.executions.length,0);
+});
+
+
+test('new Stephon draft proposal preserves the reviewed generation mode and uses canonical approval',async()=>{
+ const f=setup();const id=await propose('stephon.generate_draft',{clientId,siteId:clientId,input:{userPrompt:'Build a local business landing page'},generationMode:'deterministic'});
+ assert.equal(f.executions.length,0);const row=f.rows.get(id);assert.equal(row.proposedAction,'generateStephonDraft');
+ const stored=JSON.parse(row.payloadJson);assert.equal(stored.generationMode,'deterministic');assert.equal(stored.siteId,clientId);
+ assert.equal((await decide(id,'approve',{humanConfirmed:false})).status,400);assert.equal(f.executions.length,0);
+ assert.equal((await decide(id)).status,200);assert.equal(f.executions.length,1);assert.equal(f.executions[0].payloadJson,row.payloadJson);
+});
+test('catalog and project read expose bounded owned site context instead of an empty clientless tool call',async()=>{
+ setup();const catalog=await (await GET(new NextRequest('https://example.invalid/api/admin/executive-agent/engine-runtime'))).json();
+ assert.equal(catalog.businessContext.sites[0].name,'Fixture Draft');assert.equal(catalog.businessContext.siteLimit,50);
+ const result=await (await POST(request({operation:'read',engineId:'stephon.projects',input:{}}))).json();
+ assert.equal(result.receipt.result.sites[0].name,'Fixture Draft');assert.equal(result.receipt.result.limit,50);
 });
