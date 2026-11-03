@@ -109,9 +109,8 @@ describe("orchestrator chat path", () => {
     const p = join(__dirname, "executive-agent-orchestrator.ts");
     const src = readFileSync(p, "utf8");
     const runBlockStart = src.indexOf("export async function runExecutiveOrchestrator");
-    const runBlockEnd = src.indexOf("export async function executeApprovedTodoFromPayload");
-    assert.ok(runBlockStart > 0 && runBlockEnd > runBlockStart);
-    const runBody = src.slice(runBlockStart, runBlockEnd);
+    assert.ok(runBlockStart > 0);
+    const runBody = src.slice(runBlockStart);
     assert.ok(runBody.includes("insertExecutiveApproval"));
     assert.equal(runBody.includes("executeExecutiveApprovedAction"), false);
   });
@@ -146,3 +145,4 @@ describe("LLM system prompt hardening", () => {
     assert.ok(/publish|schedul/i.test(src));
   });
 });
+

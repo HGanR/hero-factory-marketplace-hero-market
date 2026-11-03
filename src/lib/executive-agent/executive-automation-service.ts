@@ -8,7 +8,7 @@ import { executiveAgentAuditLogs } from "@/lib/db/schema";
 import { executeExecutiveApprovedAction } from "@/lib/executive-agent/executive-action-executors";
 import {
   getExecutiveApprovalById,
-  setExecutiveApprovalStatus,
+  claimPendingExecutiveApproval,
 } from "@/lib/executive-agent/executive-agent-approvals-store";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
 import {
@@ -111,15 +111,20 @@ export async function executeGovernedAutomationForAdmin(
   const executionId = randomUUID();
   const executedAt = new Date().toISOString();
 
-  await setExecutiveApprovalStatus(db, row.id, input.adminUserId, "approved");
+  if (!(await claimPendingExecutiveApproval(db, row.id, input.adminUserId))) {
+    await insertExecutiveAgentAuditLog(db, {
+      id: randomUUID(), prompt: null, adminUserId: input.adminUserId,
+      toolName: "executive.automation.execute", actionType: "approval_refused",
+      targetType: "approval", targetId: row.id,
+      outputJson: JSON.stringify({ code: "INVALID_STATE" }),
+      approvalStatus: row.status,
+    });
+    return { ok: false, error: "Approval changed before execution.", code: "INVALID_STATE", httpStatus: 409 };
+  }
 
   const exec = await executeExecutiveApprovedAction(db, {
     adminUserId: input.adminUserId,
     approval: { ...row, status: "approved" },
-  });
-
-  await setExecutiveApprovalStatus(db, row.id, input.adminUserId, exec.ok ? "executed" : "failed", {
-    executedAt: new Date(),
   });
 
   const executionAudit = {
@@ -346,3 +351,4 @@ export async function buildExecutiveAutomationHistoryForSkipper(
     generatedAt: history.generatedAt,
   };
 }
+

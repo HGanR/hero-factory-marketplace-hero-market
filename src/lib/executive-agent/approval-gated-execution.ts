@@ -24,7 +24,7 @@ export function validateApprovalGate(input: ApprovalGateInput): ApprovalGateResu
     };
   }
 
-  if (!input.humanConfirmed) {
+  if (input.humanConfirmed !== true) {
     return {
       ok: false,
       code: "HUMAN_CONFIRMATION_REQUIRED",
@@ -71,3 +71,4 @@ export function validateApprovalGate(input: ApprovalGateInput): ApprovalGateResu
 
   return { ok: true, message: "Approval gate passed — human confirmation and pending state verified." };
 }
+

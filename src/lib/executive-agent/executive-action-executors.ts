@@ -23,6 +23,10 @@ import {
   TriggerCampaignSyncPayloadSchema,
 } from "@/lib/executive-agent/executive-action-payloads";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
+import {
+  lockExecutiveApprovalForExecution,
+  setExecutiveApprovalStatus,
+} from "@/lib/executive-agent/executive-agent-approvals-store";
 import { isWriteAction, type ExecutiveWriteActionName } from "@/lib/executive-agent/executive-agent-policy";
 import { linkSiteBuilderDraftToFulfillmentDeliverable } from "@/lib/fulfillment/fulfillment-deliverable-draft";
 import { linkTrustPacketToFulfillmentDeliverable } from "@/lib/fulfillment/fulfillment-trust-deliverable-draft";
@@ -824,6 +828,36 @@ export async function executeExecutiveApprovedAction(
   db: Db,
   input: { adminUserId: number; approval: ExecutiveApprovalRow }
 ): Promise<ExecutiveActionExecutorResult> {
+  // Only the identifier is accepted from the caller. Action/payload/owner/status
+  // always come from the persisted, locked row, including for automation callers.
+  return db.transaction(async (tx): Promise<ExecutiveActionExecutorResult> => {
+    const approval = await lockExecutiveApprovalForExecution(tx, input.approval.id, input.adminUserId);
+    if (!approval || approval.status !== "approved") {
+      await insertExecutiveAgentAuditLog(tx, {
+        id: randomUUID(), prompt: null, adminUserId: input.adminUserId,
+        toolName: "executive.approvals.execute", actionType: "execution_refused",
+        targetType: "approval", targetId: input.approval.id,
+        outputJson: JSON.stringify({ code: "PERSISTED_APPROVED_ROW_REQUIRED" }),
+        approvalStatus: approval?.status ?? "not_required",
+      });
+      return { ok: false, status: "failed", message: "A persisted, owned approved row is required for execution." };
+    }
+    // Business executor failures are returned and audited by the dispatcher.
+    // Infrastructure/audit exceptions roll back this transaction; do not auto-retry
+    // external operations, which cannot be rolled back by SQL.
+    const result = await dispatchPersistedExecutiveAction(tx, { adminUserId: input.adminUserId, approval });
+    await setExecutiveApprovalStatus(tx, approval.id, input.adminUserId, result.ok ? "executed" : "failed", {
+      executedAt: new Date(),
+    });
+    return result;
+  });
+}
+
+/** Private dispatcher: exported entry point above supplies the canonical locked row. */
+async function dispatchPersistedExecutiveAction(
+  db: Db,
+  input: { adminUserId: number; approval: ExecutiveApprovalRow }
+): Promise<ExecutiveActionExecutorResult> {
   const { adminUserId, approval } = input;
   const action = approval.proposedAction;
   if (!isWriteAction(action)) {
@@ -942,3 +976,4 @@ export async function executeExecutiveApprovedAction(
 
   return result;
 }
+

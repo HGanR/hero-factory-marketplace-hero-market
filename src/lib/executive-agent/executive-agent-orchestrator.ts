@@ -6,8 +6,6 @@ import * as schema from "@/lib/db/schema";
 import { insertExecutiveAgentAuditLog } from "@/lib/executive-agent/executive-agent-audit";
 import { canInvokeReadTool, defaultExecutiveReadScopes, isWriteAction, type ExecutiveAgentScope } from "@/lib/executive-agent/executive-agent-policy";
 import { insertExecutiveApproval } from "@/lib/executive-agent/executive-agent-approvals-store";
-import { executeExecutiveApprovedAction } from "@/lib/executive-agent/executive-action-executors";
-import { executiveAgentApprovals } from "@/lib/db/schema";
 import type { ExecutiveMemorySuggestion } from "@/lib/executive-agent/executive-memory-suggestions";
 import { buildSuggestedExecutiveMemoryItems } from "@/lib/executive-agent/executive-memory-suggestions";
 import { planExecutiveIntent } from "@/lib/executive-agent/executive-agent-intent-planner";
@@ -514,24 +512,4 @@ export async function runExecutiveOrchestrator(
     },
     suggestedMemoryItems,
   };
-}
-
-export async function executeApprovedTodoFromPayload(
-  db: MySql2Database<typeof schema>,
-  adminUserId: number,
-  payload: Record<string, unknown>
-): Promise<{ ok: boolean; message: string }> {
-  const approval: typeof executiveAgentApprovals.$inferSelect = {
-    id: "legacy-inline",
-    adminUserId,
-    proposedAction: "createTodo",
-    targetType: "client",
-    targetId: typeof payload.clientId === "string" ? payload.clientId.trim() || null : null,
-    payloadJson: JSON.stringify(payload).slice(0, 100_000),
-    status: "approved",
-    createdAt: new Date(),
-    executedAt: null,
-  };
-  const r = await executeExecutiveApprovedAction(db, { adminUserId, approval });
-  return { ok: r.ok, message: r.message };
 }

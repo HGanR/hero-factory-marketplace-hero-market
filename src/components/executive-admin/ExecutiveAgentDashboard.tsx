@@ -2428,6 +2428,8 @@ export function ExecutiveAgentDashboard() {
       const r = await fetch(`/api/admin/executive-agent/approvals/${encodeURIComponent(row.id)}/approve`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ humanConfirmed: true }),
       });
       const j = (await r.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -3340,3 +3342,4 @@ export function ExecutiveAgentDashboard() {
     </ExecutiveBentleyCampaignProvider>
   );
 }
+

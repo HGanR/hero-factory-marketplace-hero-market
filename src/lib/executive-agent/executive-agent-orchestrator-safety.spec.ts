@@ -27,9 +27,8 @@ describe("executive-agent-orchestrator safety (source)", () => {
     const p = join(__dirname, "executive-agent-orchestrator.ts");
     const src = readFileSync(p, "utf8");
     const runBlockStart = src.indexOf("export async function runExecutiveOrchestrator");
-    const runBlockEnd = src.indexOf("export async function executeApprovedTodoFromPayload");
-    assert.ok(runBlockStart > 0 && runBlockEnd > runBlockStart);
-    const runBody = src.slice(runBlockStart, runBlockEnd);
+    assert.ok(runBlockStart > 0);
+    const runBody = src.slice(runBlockStart);
     assert.equal(runBody.includes("executeExecutiveApprovedAction"), false);
   });
 
@@ -39,3 +38,4 @@ describe("executive-agent-orchestrator safety (source)", () => {
     assert.ok(src.includes("input.dryRun ? proposedWrites.length : requiresApproval.length"));
   });
 });
+

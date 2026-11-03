@@ -23,3 +23,25 @@ jobs:
           done
           echo 'Approval-route clients:'
           git grep -n -E 'approvals/.*approve|humanConfirmed' e26b3dd932fec6b627a5a675725047e381343957 -- src/app/api/admin/executive-agent src/components/executive-admin || test "$?" = 1
+  approval-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Behavioral approval boundary regressions
+        run: node --test tests/executive-approval/approval-boundary.test.mjs
+      - name: Existing executive regression tests
+        run: node --import tsx --test src/lib/executive-agent/executive-action-executors.spec.ts src/lib/executive-agent/executive-agent-orchestrator-safety.spec.ts src/lib/executive-agent/executive-agent-phase5.spec.ts src/lib/executive-agent/executive-automation.spec.ts
+      - name: Full existing test suite
+        run: npm test > step0-existing-tests.log 2>&1
+      - name: Full repository TypeScript check
+        if: always()
+        run: npm run typecheck:tsc > step0-typecheck.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: step0-validation-logs
+          path: step0-*.log
