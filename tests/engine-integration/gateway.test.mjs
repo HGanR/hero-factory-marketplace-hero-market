@@ -41,7 +41,7 @@ await build({
     b.onResolve({filter:/^server-only$/},()=>({path:'server-only',namespace:'fixture'}));
     b.onResolve({filter:/^next\/server$/},()=>({path:'next/server.js',external:true}));
     b.onResolve({filter:/^@\//},args=>adapters[args.path] ? {path:args.path,namespace:'fixture'} : {path:resolve(root,'src',args.path.slice(2)+'.ts')});
-    b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:adapters[args.path]||'',loader:'ts'}));
+    b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:adapters[args.path]||'',loader:'ts',resolveDir:root}));
   }}],
 });
 const {GET, POST}=await import(pathToFileURL(join(dir,'gateway.mjs')));
