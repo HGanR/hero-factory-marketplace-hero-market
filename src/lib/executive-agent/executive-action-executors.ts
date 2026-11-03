@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
+import { recordRevenueOpportunityReview } from "@/lib/executive-agent/record-revenue-opportunity-review";
 import { eq, and } from "drizzle-orm";
 import type { MySql2Database } from "drizzle-orm/mysql2";
 import * as schema from "@/lib/db/schema";
@@ -801,6 +802,7 @@ export type ExecutiveActionExecutor = (
 ) => Promise<ExecutiveActionExecutorResult>;
 
 export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, ExecutiveActionExecutor> = {
+  recordRevenueOpportunityReview: recordRevenueOpportunityReview,
   createTodo: runCreateTodo,
   assignFollowUp: runAssignFollowUp,
   createSpecializedAgent: runCreateSpecializedAgent,
@@ -976,4 +978,5 @@ async function dispatchPersistedExecutiveAction(
 
   return result;
 }
+
 

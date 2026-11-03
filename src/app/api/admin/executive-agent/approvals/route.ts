@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getExecutiveAdminUserId } from "@/lib/admin/get-executive-admin-user-id";
 import { getDb } from "@/lib/db";
 import { listExecutiveApprovals } from "@/lib/executive-agent/executive-agent-approvals-store";
+import { toUnifiedApproval } from "@/approvals/unifiedApproval";
 
 export const dynamic = "force-dynamic";
 
@@ -15,5 +16,6 @@ export async function GET(req: NextRequest) {
   const st = allowed.includes(status as (typeof allowed)[number]) ? (status as (typeof allowed)[number]) : undefined;
   const db = await getDb();
   const rows = await listExecutiveApprovals(db, { adminUserId, status: st, limit: 100 });
-  return NextResponse.json({ approvals: rows });
+  return NextResponse.json({ approvals: rows, queue: rows.map(toUnifiedApproval), schemaVersion: "skipper-proposal-v1" }, { headers: { "Cache-Control": "private, no-store" } });
 }
+
