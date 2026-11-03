@@ -1,5 +1,8 @@
 # Adapter Specification — Stephon Actual Website Generation — DRAFT
 
+> **CORRECTION (2026-11-03, PR #23 preflight finding — supersedes the "no brief→schema endpoint" conclusion below):** an existing brief→schema pipeline was found at `src/pages/api/site-builder/ai/pipeline.ts` (735 lines, at PR #22 head `c8e29c32`) — a `src/pages/api/` tree this inventory never read; the "not found" statement was scoped to the `src/app/api/site-builder/*` routes read. POST-only, session-auth, `PipelineRequestSchema`, steps `plan`/`full`/`generate`; `full` runs `runSitePlanner` → `generateSiteSchemaFromPlanner` with content intelligence/critique, evaluation, and generation-intelligence persistence, returning schema, alternates, `generationMeta`, `intelligenceRunId`. **The adapter must REUSE/extract this service, not build a duplicate first half.** Still needed: client/site ownership validation before provider use, persisting the generated version, a private preview/receipt without the public IPFS deploy path, and explicit handling of global-provider fallback + deterministic/generic-content warnings. No pipeline/provider invoked, no adapter registered, no runtime generation or quality acceptance claimed.
+
+
 **Date:** 2026-11-03
 **Repo:** `HGanR/hero-factory-marketplace-hero-market`
 **Base head:** PR #21 `0db3b8c58e3d7414603f4439e1a3ca1e1e2adbcf`
@@ -150,42 +153,9 @@ Six handlers read in full. Verdicts:
 | `sites/[siteId]/deploy/route.ts` | **Generates + builds + previews — the reuse anchor.** POST, auth 401; input path `siteId`, body `{ versionId? }` (ad-hoc parse, no zod). Ownership `getOwnedSite` → 404. Target version = `versionId` or the site's `currentVersionId` (400 if neither); version row must belong to the site (404 otherwise). Stored `version.schemaJson` parsed/validated (`SiteSchemaDocument.safeParse`); `generateStaticBundle(schema)` returns `{ files: [{ path, contentType, content, bytes, sha256 }], manifest }` — a real static site bundle generated from the schema. The static generator body (`src/lib/site-builder/static-generator`) was **not read**. The whole bundle is uploaded as one JSON payload via `uploadArbitraryJSONToIPFS(bundlePayload)` (Pinata; `upload.ipfsHash` / `upload.ipfsUrl`); payload includes `siteId`, `versionId`, `version`, `generatedAt`, `metadata`, full `files[]`, `manifest`. Storage writes: `web3SiteVersions` updated with `ipfsCid` + `buildManifestJson`; `web3Sites` updated with `currentVersionId` + `status: "PUBLISHED"`. Preview URL: `gatewayUrl = https://gateway.pinata.cloud/ipfs/${ipfsCid}`, returned with `ipfsCid`, `ipfsUri`, `manifest`. Intelligence hook: `markLatestSiteGenerationRunPublished(db, { userId, siteId, publishedVersionId, deployedUrl: gatewayUrl })` — evidence that a "site generation run" record exists in `src/lib/site-builder/intelligence/` (**not read**). **Approval boundary: NONE — a single authenticated owner call publishes the site to a public gateway URL.** External provider: Pinata IPFS (key/plan/cost not evidenced). |
 | `assistant/execute-intent/route.ts` | **Does not generate** — NL intent analysis against a saved schema; returns analysis only, persists nothing. POST, auth 401; input `ExecuteIntentRequestSchema` (`message`, `siteId`, `versionId`, `schemaSnapshotHash`, `sessionId`, `editContext`). Ownership `getOwnedSite` → 404. Staleness guard: stored schema hash vs `schemaSnapshotHash` → 409 `schema_snapshot_mismatch`. LLM via `resolveSiteBuilderLlmInvokeForSite` + `runExecuteIntentAnalysis` — whether it returns proposed builder actions vs. only prose is **not evidenced** at the route layer (function body unread). |
 
-**Single most important finding: a complete schema → files → public
-preview path EXISTS and is reusable; a brief → schema generation
-endpoint was NOT found in the routes read.** The deploy route already
-does the hard second half: saved version schema → static bundle → IPFS
-upload → public gateway URL. Export proves the same schema→files step
-works without a saved site (ZIP instead of a URL). What is **not
-evidenced anywhere in the six handlers read** is the first half: turning
-a client brief (the `stephon.intake` note) into a `SiteSchemaDocument` /
-version row. None of the six handlers accepts a brief and returns a
-schema: `sites` POST creates an empty DRAFT; `builder-actions` mutates
-an already-existing schema (its action catalogue, including the "full
-regen" action, was not read, so whether a regen action can bootstrap a
-schema from a brief is **unknown, not disproven**); `draft-apply`
-explicitly cannot do full regen on unsaved drafts; `execute-intent`
-analyzes a message against an already-saved schema and persists nothing;
-`deploy` and `export` both consume a schema, neither creates one.
+**Single most important finding (CORRECTED 2026-11-03, PR #23 preflight finding): both halves of the generation path already exist and are reusable — the brief → schema first half was found outside the six-handler inventory, at `src/pages/api/site-builder/ai/pipeline.ts` (735 lines, at PR #22 head `c8e29c32`; a `src/pages/api/` tree this inventory never read).** The deploy route does the second half: saved version schema → static bundle → IPFS upload → public gateway URL. Export proves the same schema→files step works without a saved site (ZIP instead of a URL). The first half: `pipeline.ts` is POST-only, session-authenticated (`marketplaceUserIdFromSessionCookiePair`), validated by `PipelineRequestSchema`, with steps `plan` / `full` / `generate` (plus evaluation and section regeneration); `full` runs `runSitePlanner` → `generateSiteSchemaFromPlanner` with content intelligence/critique, evaluation, and generation-intelligence persistence (`recordSiteGenerationFullRun`), returning schema, optional alternates, `generationMeta`, and `intelligenceRunId`. Its provider resolver (`resolveSiteBuilderLlmInvokeForSite`) and generator are existing modules. **The adapter reuses/extracts this service; it does not build a duplicate first half.** The earlier "not found" statement below was scoped to the six `src/app/api/site-builder/*` handlers read, and is retained as that inventory's record — it is not a repo-wide claim.
 
-**Remaining gap (still open, in priority order):** `ai/intelligence/*`
-(`feedback/`, `variant-selection/` — contents not even listed; a
-`route.ts` at `variant-selection/` is unconfirmed), `sites/[siteId]/versions/`
-(where a version's `schemaJson` gets created — the likely creation point
-of the schema the deploy route consumes), `sites/[siteId]/action-runs/`,
-the `executeBuilderActions` action catalogue (esp. the regen action),
-and `src/lib/site-builder/intelligence/*` (generation runs). Also unread:
-`assets/*`, `assistant/npc-sync`, `deliverables`, `import/*`,
-`sites/[siteId]/route.ts`, all other `sites/[siteId]/*` subdirs,
-`templates/*`, and supporting lib code (`static-generator`,
-`site-builder-project-export`, `provider-resolver`, `intelligence/`,
-`builder-actions/` catalogue, full `web3Sites`/`web3SiteVersions`
-schemas, `uploadArbitraryJSONToIPFS` / Pinata). No live execution
-evidence for any handler. The adapter's first implementation step is
-still to close this gap (§7 step 1): if a brief→schema entry point
-exists there, the adapter is a wiring job (intake note → generation
-entry point → version row → existing deploy for build/preview); if none
-exists, generation is a **new build for the first half only**, reusing
-deploy for build/preview.
+**Remaining gaps (still open, in priority order):** ownership validation before provider use (the pipeline authenticates a user, it does not check that the user owns the selected client/site — the adapter must add that); persisting the generated version (the pipeline returns a schema; the adapter must save it as a `web3SiteVersions` row); a private preview with receipts (see §3.3 step 5 — the deploy route's public IPFS URL is publication, not a private preview); and explicit handling of the global-provider fallback and deterministic/generic-content warnings surfaced in `generationMeta` (`llmUsed`, `fallbackReason`, `genericContentWarning`, `plannerPath`). Also still unread: `ai/intelligence/*`, `sites/[siteId]/versions/*`, `sites/[siteId]/action-runs/*`, the `executeBuilderActions` action catalogue, `assets/*`, `assistant/npc-sync`, `deliverables`, `import/*`, `templates/*`, and supporting lib code (`static-generator`, `site-builder-project-export`, `provider-resolver` body, `intelligence/`, full `web3Sites`/`web3SiteVersions` schemas, `uploadArbitraryJSONToIPFS` / Pinata). **No live execution evidence for any handler or for the pipeline itself — these findings come from source inspection only; live generation remains unverified.**
 
 **Two requirements settled by this inventory regardless of the gap:**
 (a) **approval gating must be added by the adapter** — none of the six
@@ -359,22 +329,27 @@ pipeline and sets status `failed` / `test_failed`):
    Record the selected `templateId` in the project row. If no template
    fits the brief, fail with `failed` and a reason — do not silently
    generate a generic page and call it the client's site.
-3. **File/HTML generation — the brief → schema step, the missing
-   first half.** Generate a `SiteSchemaDocument` (and a
-   `web3SiteVersions` row carrying its `schemaJson`) from the brief +
-   template. The generation mechanism is the open provider decision
-   (§4): the existing per-site LLM invoker
-   (`resolveSiteBuilderLlmInvokeForSite`, already used by
-   `builder-actions` and `execute-intent` — provider/model/key **not
-   evidenced**, resolver body unread), a "full regen" builder action
-   (action catalogue unread — whether it can bootstrap a schema from a
-   brief is **unknown, not disproven**), template rendering, or
-   deterministic layout generation. The spec does **not** choose the
-   mechanism; it requires the choice to be recorded, with its provider,
-   cost, and sandboxing, before the executor is built. **If the
-   remaining gap inventory (§2c) finds a brief→schema entry point
-   (`ai/intelligence/*`, `versions/*`, the regen action), reuse it;
-   otherwise this step is a new build.**
+3. **File/HTML generation — the brief → schema step: REUSE the
+   existing pipeline, do not build a duplicate.** Call (or extract)
+   `src/pages/api/site-builder/ai/pipeline.ts`, step `full`, with the
+   brief + template: it runs `runSitePlanner` →
+   `generateSiteSchemaFromPlanner` with content intelligence/critique,
+   evaluation, and generation-intelligence persistence, and returns a
+   `SiteSchemaDocument` (plus alternates, `generationMeta`,
+   `intelligenceRunId`). The adapter then saves it as a
+   `web3SiteVersions` row carrying its `schemaJson`. Before any provider
+   use, the adapter validates that the selected client/site is owned by
+   the requesting admin (the pipeline authenticates a user; it does not
+   check client/site ownership). The pipeline's `generationMeta` must be
+   carried into the job/receipt: `llmUsed`, `llmProvider`, `llmModel`,
+   `fallbackReason`, `plannerPath` (`llm_enriched` vs
+   `deterministic_fallback`), and `genericContentWarning` — a
+   deterministic fallback or generic-content warning must be surfaced,
+   never silently presented as LLM-generated finished copy. Provider,
+   model, key env, and cost still come from the resolver body (unread)
+   and must be recorded before the executor is built. **Do not
+   introduce a second LLM provider and do not build a parallel
+   brief→schema engine.**
 4. **Test** — run the defined checks on the generated files (see §5.1):
    the site builds/renders, required pages exist, links resolve, no
    placeholder content is shipped as finished copy. A test failure sets
@@ -467,8 +442,11 @@ pipeline and sets status `failed` / `test_failed`):
 
 **Rule: reuse existing engines; do not introduce a paid provider or
 duplicate a builder.** The adapter is built from the §2c inventory, in
-this order. The inventory already settles the second half; the first
-half is the open gap.
+this order. **Both halves are now settled as reuse** — the pipeline
+(`src/pages/api/site-builder/ai/pipeline.ts`, step `full`) is the
+brief→schema engine, and the deploy route is the build/preview engine.
+What the adapter adds is the wiring between them plus ownership,
+persistence, approval, tests, and a private preview.
 
 1. **Build/preview (reuse — settled):** `sites/[siteId]/deploy/route.ts`
    is the reuse anchor: `generateStaticBundle(schema)` →
@@ -478,17 +456,18 @@ half is the open gap.
    flip. `export/route.ts` (`buildDeploymentProjectFromSchema` → ZIP)
    is the fallback schema→files proof and the source of the file format
    if the version path cannot be used.
-2. **Brief → schema (the gap — first close it, then decide):**
-   inventory `ai/intelligence/*`, `sites/[siteId]/versions/*`,
-   `sites/[siteId]/action-runs/*`, the `executeBuilderActions` action
-   catalogue (esp. the regen action), and
-   `src/lib/site-builder/intelligence/*` (generation runs). If a
-   brief→schema generation entry point exists there, the adapter is a
-   wiring job: intake note → generation entry point → version row →
-   existing deploy for build/preview. If none exists, the brief→schema
-   step is a **new build** (LLM via the existing `provider-resolver`,
-   schema assembly/validation against `SiteSchemaDocument`, version-row
-   creation) and only the second half is reused.
+2. **Brief → schema (reuse — settled 2026-11-03):**
+   `src/pages/api/site-builder/ai/pipeline.ts`, step `full`:
+   `runSitePlanner` → `generateSiteSchemaFromPlanner` (+ content
+   intelligence/critique, evaluation, generation-intelligence
+   persistence). The adapter is a wiring job: approved intake note →
+   pipeline `full` (with client/site ownership validated first) →
+   generated schema persisted as a `web3SiteVersions` row → existing
+   deploy path for build/preview (§3.3 step 5, preview-only variant).
+   **No duplicate brief→schema engine is built.** The pipeline's own
+   auth is a session check only — ownership validation, version
+   persistence, and the private preview/receipt are the adapter's new
+   work, not the pipeline's.
 3. **Templates** — `templates/*` is still unread. If it is a usable
    template store (list + read by id, with a schema), the generator
    selects from it. If it is only a CRUD list with no rendering, the
@@ -519,12 +498,13 @@ half is the open gap.
    generation run" record exists in `intelligence/` — the job model
    (§5.2) must align with it, not duplicate it.
 
-If the remaining inventory finds **no** brief→schema path, §3 is a new
-build for the first half only, and the provider decision (LLM via the
-existing resolver vs. deterministic vs. template) is the first
-implementation decision, with cost and sandboxing recorded before code
-is written. Either way, the inventory result must be pasted into §2c
-with file/line references — the spec is not final without it.
+The pipeline finding is pasted into §2c with file references above;
+the remaining open items are the adapter's own work (ownership
+validation, version persistence, private preview/receipt, fallback and
+generic-content handling) plus the still-unread supporting inventory
+(`versions/*`, `intelligence/`, `templates/*`, resolver body, full
+schemas). Provider, model, key env, and cost must be recorded from the
+resolver body before the executor is built.
 
 ## 5. Storage, job/receipt, and tests
 
@@ -687,40 +667,36 @@ adapter extends that dependency, not whether it introduces it.
 
 ## 7. Recommended implementation order
 
-1. **Remaining gap inventory** — `ai/intelligence/*`,
-   `sites/[siteId]/versions/*`, `sites/[siteId]/action-runs/*`, the
-   `executeBuilderActions` action catalogue (regen action), and
-   `src/lib/site-builder/intelligence/*` (generation runs), plus the
-   full `web3Sites`/`web3SiteVersions` schemas, the `provider-resolver`
-   body, and `static-generator`/`site-builder-project-export`. (This is
-   the first step; the second half is already proven reusable, the
-   first half is the unknown.)
-2. **Brief→schema decision** — reuse a found entry point, or build the
-   brief→schema step (LLM via the existing resolver, schema
-   assembly/validation, version-row creation).
-3. **Project model + job/receipt model** (§3.2, §5.2) — extend
-   `web3Sites` + versions; align the job with the existing generation-run
-   record.
-4. **Preview-only deploy variant + tests-first executor** — implement
+1. **Pipeline reuse + ownership/persistence design** — confirm the
+   `pipeline.ts` `full` call contract (inputs, `generationMeta`,
+   `intelligenceRunId`) against the current head; design the
+   client/site ownership check that runs before provider use, the
+   version-row persistence of the returned schema, and the
+   `generationMeta` surfacing (fallback + generic-content warnings).
+   Close the remaining supporting inventory in parallel:
+   `sites/[siteId]/versions/*`, `src/lib/site-builder/intelligence/*`,
+   the `provider-resolver` body (provider/model/key/cost), and the full
+   `web3Sites`/`web3SiteVersions` schemas.
+2. **Project model + job/receipt model** (§3.2, §5.2) — extend
+   `web3Sites` + versions; align the job with the existing
+   generation-run record (`recordSiteGenerationFullRun`).
+3. **Preview-only deploy variant + tests-first executor** — implement
    the pipeline with the §5.1 tests gating the preview URL; no preview
    without passing tests; no `PUBLISHED` flip on preview.
-5. **Gateway adapter** — catalog entry `stephon.generate`, executor
+4. **Gateway adapter** — catalog entry `stephon.generate`, executor
    wiring, approval boundary (§3.5), ownership re-check, receipt
    surface, extended `stephon.projects` read.
-6. **Publish step (separate)** — specified and built only after
+5. **Publish step (separate)** — specified and built only after
    generation + preview are proven; never bundled into generation.
    (In practice: the raw deploy route's `PUBLISHED` flip, behind its
    own approval.)
-7. **Live verification** — real generation against a real DB, preview
+6. **Live verification** — real generation against a real DB, preview
    URL opened, receipt read back. Fixture tests alone do not close this
    adapter.
 
 ## 8. Open questions for Charles / Codex
 
-- Generation mechanism: does a brief→schema entry point exist in
-  `ai/intelligence/*`, `versions/*`, or the regen action — and if LLM,
-  what does the existing per-site invoker (`provider-resolver`) use
-  (provider/model/key/cost)?
+- Generation mechanism: **settled as reuse** — `src/pages/api/site-builder/ai/pipeline.ts`, step `full`. Open: what does the existing per-site invoker (`provider-resolver`) use (provider/model/key/cost), and how is the pipeline invoked from the executor (in-process service call vs. internal HTTP)?
 - Preview vs. publish: is a preview CID that is public-by-URL
   acceptable as the preview, or must previews be gated some other way?
 - File storage: Pinata is already the deploy host — is extending that
