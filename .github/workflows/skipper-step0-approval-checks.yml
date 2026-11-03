@@ -1,0 +1,73 @@
+name: SKIPPER STEP 0 approval gates
+on:
+  pull_request:
+    paths:
+      - 'src/lib/executive-agent/**'
+      - 'src/app/api/admin/executive-agent/**'
+      - 'src/components/executive-admin/**'
+      - 'tests/executive-approval/**'
+      - '.github/workflows/skipper-step0-approval-checks.yml'
+jobs:
+  caller-trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Trace callers at the pinned pre-patch revision
+        shell: bash
+        run: |
+          for symbol in executeApprovedTodoFromPayload executeExecutiveApprovedAction validateApprovalGate; do
+            echo "Symbol: $symbol"
+            git grep -n -F "$symbol" e26b3dd932fec6b627a5a675725047e381343957 -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' || test "$?" = 1
+          done
+          echo 'Approval-route clients:'
+          git grep -n -E 'approvals/|humanConfirmed|legacy-inline' e26b3dd932fec6b627a5a675725047e381343957 -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' || test "$?" = 1
+  approval-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Behavioral approval boundary regressions
+        run: node --test tests/executive-approval/approval-boundary.test.mjs
+      - name: Existing executive regression tests
+        run: node --import tsx --test src/lib/executive-agent/executive-action-executors.spec.ts src/lib/executive-agent/executive-agent-orchestrator-safety.spec.ts src/lib/executive-agent/executive-agent-phase5.spec.ts src/lib/executive-agent/executive-automation.spec.ts
+      - name: Full existing test suite
+        run: |
+          status=0
+          npm test > step0-existing-tests.log 2>&1 || status=$?
+          tail -n 120 step0-existing-tests.log
+          exit "$status"
+      - name: Full repository TypeScript check
+        id: head-types
+        continue-on-error: true
+        if: always()
+        run: |
+          status=0
+          npm run typecheck:tsc > step0-typecheck.log 2>&1 || status=$?
+          tail -n 120 step0-typecheck.log
+          exit "$status"
+      - name: Compare TypeScript diagnostics against pinned baseline
+        if: always() && steps.head-types.outcome == 'failure'
+        shell: bash
+        run: |
+          # Same checkout path avoids TypeScript truncating absolute import paths
+          # differently and reporting false additions from a separate worktree.
+          comparator="$RUNNER_TEMP/step0-compare-typecheck.mjs"
+          cp tests/executive-approval/compare-typecheck.mjs "$comparator"
+          git checkout --detach e26b3dd932fec6b627a5a675725047e381343957
+          rm -f tsconfig.tsbuildinfo
+          status=0
+          npm run typecheck:tsc > step0-baseline-typecheck.log 2>&1 || status=$?
+          echo "Baseline TypeScript exit status: $status"
+          node "$comparator" step0-typecheck.log step0-baseline-typecheck.log "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" | tee step0-typecheck-comparison.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: step0-validation-logs
+          path: step0-*.log

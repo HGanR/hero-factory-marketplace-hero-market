@@ -80,3 +80,36 @@ export async function setExecutiveApprovalStatus(
     })
     .where(and(eq(executiveAgentApprovals.id, id), eq(executiveAgentApprovals.adminUserId, adminUserId)));
 }
+
+/** Internal admin gate only. Never serialize a foreign row in responses or audits. */
+export async function getExecutiveApprovalForGate(
+  db: MySql2Database<typeof schema>, id: string
+) {
+  const [row] = await db.select().from(executiveAgentApprovals)
+    .where(eq(executiveAgentApprovals.id, id)).limit(1);
+  return row ?? null;
+}
+
+/** Reserve pending only after ownership and explicit confirmation pass. */
+export async function claimPendingExecutiveApproval(
+  db: MySql2Database<typeof schema>, id: string, adminUserId: number
+): Promise<boolean> {
+  const [result] = await db.update(executiveAgentApprovals).set({ status: "approved" })
+    .where(and(
+      eq(executiveAgentApprovals.id, id),
+      eq(executiveAgentApprovals.adminUserId, adminUserId),
+      eq(executiveAgentApprovals.status, "pending")
+    ));
+  return result.affectedRows === 1;
+}
+
+/** Must run in the execution transaction; serializes competing dispatch attempts. */
+export async function lockExecutiveApprovalForExecution(
+  db: MySql2Database<typeof schema>, id: string, adminUserId: number
+) {
+  const [row] = await db.select().from(executiveAgentApprovals)
+    .where(and(eq(executiveAgentApprovals.id, id), eq(executiveAgentApprovals.adminUserId, adminUserId)))
+    .limit(1).for("update");
+  return row ?? null;
+}
+
