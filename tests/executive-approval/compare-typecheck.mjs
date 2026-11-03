@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 const [headLog, baseLog, headRoot, baseRoot] = process.argv.slice(2);
 function diagnostics(file, root) {
   const text = readFileSync(file, "utf8").replaceAll(root, "<repo>");
+  if (/^error TS\d+:/m.test(text)) {
+    throw Error("TypeScript reported a global error that requires inspection: " + file);
+  }
   const blocks = [];
   let current;
   for (const line of text.split("\n")) {

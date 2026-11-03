@@ -56,13 +56,16 @@ jobs:
         if: always() && steps.head-types.outcome == 'failure'
         shell: bash
         run: |
-          baseline="$RUNNER_TEMP/step0-baseline"
-          git worktree add --detach "$baseline" e26b3dd932fec6b627a5a675725047e381343957
-          ln -s "$GITHUB_WORKSPACE/node_modules" "$baseline/node_modules"
+          # Same checkout path avoids TypeScript truncating absolute import paths
+          # differently and reporting false additions from a separate worktree.
+          comparator="$RUNNER_TEMP/step0-compare-typecheck.mjs"
+          cp tests/executive-approval/compare-typecheck.mjs "$comparator"
+          git checkout --detach e26b3dd932fec6b627a5a675725047e381343957
+          rm -f tsconfig.tsbuildinfo
           status=0
-          (cd "$baseline" && npm run typecheck:tsc) > step0-baseline-typecheck.log 2>&1 || status=$?
+          npm run typecheck:tsc > step0-baseline-typecheck.log 2>&1 || status=$?
           echo "Baseline TypeScript exit status: $status"
-          node tests/executive-approval/compare-typecheck.mjs step0-typecheck.log step0-baseline-typecheck.log "$GITHUB_WORKSPACE" "$baseline" | tee step0-typecheck-comparison.log
+          node "$comparator" step0-typecheck.log step0-baseline-typecheck.log "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" | tee step0-typecheck-comparison.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
