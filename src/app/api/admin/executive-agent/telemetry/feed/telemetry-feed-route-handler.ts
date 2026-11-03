@@ -5,12 +5,35 @@
  * event feed the Desktop polls on the existing gated pattern
  * (behind explicit operator engagement or a relevant panel).
  * Returns the telemetry events (new_account, onboarding_completed,
- * asset_purchased) from platformActivity in chronological order,
+ * asset_purchased) from platformActivity in insertion order,
  * with a cursor so the Desktop can poll incrementally.
  *
  * Admin-gated: the same NPC admin JWT (admin-token / auth-token
  * cookies, isAdmin: true) as the existing executive-agent reads.
- * No push sockets. No new database tables.
+ * No push sockets.
+ *
+ * Pagination — why a monotonic sequence, not (createdAt, id):
+ * platformActivity's createdAt is second-precision and its id is
+ * a random UUID, so (createdAt, id) is NOT insertion-ordered.
+ * A later insert can share the cursor's timestamp yet sort below
+ * the cursor's id, and the (createdAt = c AND id > i) filter then
+ * skips it forever. Inclusive timestamp filtering (createdAt >= c)
+ * with client-side dedup does not fix it either: within one
+ * timestamp group larger than a page it returns the same first
+ * page repeatedly and pagination stalls. So the feed orders by
+ * the monotonic insertion sequence `seq` (added by migration
+ * 0136_platform_activity_seq; see the PR description). The cursor
+ * is the last event's seq, the filter is seq > cursor, and the
+ * nextCursor is always a valid resume point — the last event's
+ * seq on a non-empty page (even the final page), and the incoming
+ * cursor on an empty poll — so a client never replays from the
+ * beginning by re-polling with a null cursor.
+ *
+ * Replays: the feed returns each event exactly once for a given
+ * cursor chain (seq > is strict). If a client re-polls from an
+ * earlier cursor (e.g. after losing its position) it may see an
+ * event again; the consumer must dedupe by event id. Use
+ * dedupeTelemetryEventsById for that (see test 4 in the spec).
  *
  * The handler is factored for testability (same pattern as
  * summary-route-handler): the route wires the real deps, and
@@ -18,18 +41,22 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, eq, gt, inArray, or } from "drizzle-orm";
+import { and, asc, gt, inArray } from "drizzle-orm";
 import { platformActivity } from "@/lib/db/schema";
 import { TELEMETRY_EVENT_TYPES } from "@/lib/telemetry/telemetry-events";
 import type { getDb } from "@/lib/db";
 
 export type TelemetryFeedDb = Awaited<ReturnType<typeof getDb>>;
 
+/**
+ * Cursor: the monotonic insertion sequence of the last event seen.
+ * A single number, because `seq` is a total order by insertion.
+ * (The pre-fix cursor was {c: createdAt, i: id}; that format is
+ * rejected as invalid now that the feed orders by seq.)
+ */
 export interface TelemetryFeedCursor {
-  /** ISO timestamp of the last event seen. */
-  c: string;
-  /** Id of the last event seen (tiebreaker for equal timestamps). */
-  i: string;
+  /** Insertion sequence of the last event seen. */
+  s: number;
 }
 
 export interface TelemetryFeedEvent {
@@ -40,6 +67,8 @@ export interface TelemetryFeedEvent {
   userId: number;
   trustId: string | null;
   createdAt: string;
+  /** Monotonic insertion sequence (the pagination order). */
+  seq: number;
 }
 
 export interface TelemetryFeedTools {
@@ -70,12 +99,9 @@ export function parseTelemetryFeedLimit(raw: string | null): number {
 }
 
 /** Encode a cursor from the last event of a page. */
-export function encodeTelemetryFeedCursor(event: {
-  createdAt: string;
-  id: string;
-}): string {
+export function encodeTelemetryFeedCursor(event: { seq: number }): string {
   return Buffer.from(
-    JSON.stringify({ c: event.createdAt, i: event.id }),
+    JSON.stringify({ s: event.seq }),
     "utf8",
   ).toString("base64url");
 }
@@ -83,7 +109,9 @@ export function encodeTelemetryFeedCursor(event: {
 /**
  * Decode a cursor. Returns null when no cursor was supplied.
  * Throws when a supplied cursor is malformed (the handler
- * turns that into a 400).
+ * turns that into a 400). The pre-fix {c, i} format is
+ * rejected: it cannot be mapped to a seq, so a client holding
+ * one must re-poll from the beginning.
  */
 export function decodeTelemetryFeedCursor(
   raw: string | null,
@@ -98,21 +126,43 @@ export function decodeTelemetryFeedCursor(
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error("Invalid cursor");
   }
-  const { c, i } = parsed as { c?: unknown; i?: unknown };
-  if (typeof c !== "string" || typeof i !== "string") {
+  const { s } = parsed as { s?: unknown };
+  if (typeof s !== "number" || !Number.isInteger(s) || s < 0) {
     throw new Error("Invalid cursor");
   }
-  if (Number.isNaN(new Date(c).getTime())) {
-    throw new Error("Invalid cursor");
-  }
-  return { c, i };
+  return { s };
+}
+
+/**
+ * Drop events the consumer has already acted on, by event id.
+ * The feed returns each event exactly once per cursor chain, but
+ * a client that re-polls from an earlier cursor (e.g. after
+ * losing its position) may see an event again. The consumer
+ * dedupes by id so a replay never causes a duplicate downstream
+ * action. `seenIds` is the set of event ids already processed.
+ */
+export function dedupeTelemetryEventsById(
+  events: TelemetryFeedEvent[],
+  seenIds: ReadonlySet<string>,
+): TelemetryFeedEvent[] {
+  return events.filter((e) => !seenIds.has(e.id));
 }
 
 /**
  * Read one page of telemetry events from platformActivity.
- * Ordered chronologically (createdAt, then id). The cursor
- * selects strictly later events, so successive polls return
- * disjoint sets.
+ * Ordered by insertion sequence (seq). The cursor selects
+ * strictly later events (seq > cursor), so successive polls
+ * return disjoint sets and no event is skipped: a later insert
+ * always gets a higher seq, whatever its timestamp or UUID.
+ *
+ * nextCursor is always a valid resume point:
+ * - non-empty page: the last event's seq (even on the final
+ *   page, when hasMore is false), so the client resumes after
+ *   the last event it received instead of restarting;
+ * - empty page: the incoming cursor re-encoded, so the client
+ *   keeps its position and the next poll resumes from the same
+ *   point (no replay). When there was no incoming cursor and
+ *   the feed is empty, nextCursor is null (nothing to resume).
  */
 export async function listTelemetryEventsFromDb(
   db: TelemetryFeedDb,
@@ -123,23 +173,14 @@ export async function listTelemetryEventsFromDb(
     ...TELEMETRY_EVENT_TYPES,
   ]);
   const where = cursor
-    ? and(
-        eventTypeFilter,
-        or(
-          gt(platformActivity.createdAt, new Date(cursor.c)),
-          and(
-            eq(platformActivity.createdAt, new Date(cursor.c)),
-            gt(platformActivity.id, cursor.i),
-          ),
-        ),
-      )
+    ? and(eventTypeFilter, gt(platformActivity.seq, cursor.s))
     : eventTypeFilter;
 
   const rows = await db
     .select()
     .from(platformActivity)
     .where(where)
-    .orderBy(asc(platformActivity.createdAt), asc(platformActivity.id))
+    .orderBy(asc(platformActivity.seq))
     .limit(limit + 1);
 
   const hasMore = rows.length > limit;
@@ -155,11 +196,18 @@ export async function listTelemetryEventsFromDb(
       row.createdAt instanceof Date
         ? row.createdAt.toISOString()
         : String(row.createdAt),
+    seq: row.seq,
   }));
-  const nextCursor =
-    hasMore && page.length > 0
-      ? encodeTelemetryFeedCursor(page[page.length - 1])
-      : null;
+  let nextCursor: string | null;
+  if (page.length > 0) {
+    nextCursor = encodeTelemetryFeedCursor(page[page.length - 1]);
+  } else if (cursor != null) {
+    // Empty poll: keep the caller's position so the next poll
+    // resumes from the same point instead of restarting.
+    nextCursor = encodeTelemetryFeedCursor({ seq: cursor.s });
+  } else {
+    nextCursor = null;
+  }
   return { events, nextCursor };
 }
 

@@ -1,0 +1,32 @@
+-- 0136_platform_activity_seq: add a monotonic insertion sequence to
+-- platform_activity so the STEP 1 telemetry feed can paginate by
+-- insertion order.
+--
+-- FINDING (recorded in PR #14): platformActivity's (createdAt, UUID)
+-- cannot support correct cursor pagination. createdAt is
+-- second-precision and id is a random UUID, so (createdAt, id) is
+-- NOT insertion-ordered. A later insert can share the cursor's
+-- timestamp yet sort below the cursor's id, and the
+-- (createdAt = c AND id > i) filter then skips it forever.
+-- Inclusive timestamp filtering (createdAt >= c) with client-side
+-- dedup does not fix it either: within one timestamp group larger
+-- than a page it returns the same first page repeatedly and
+-- pagination stalls. A monotonic insertion sequence is required.
+--
+-- The feed (GET /api/admin/executive-agent/telemetry/feed) orders
+-- by seq ASC and the cursor is the last event's seq (filter
+-- seq > cursor). The seq column is assigned by the database on
+-- insert; no application code writes it.
+--
+-- EXISTING ROWS: adding an AUTO_INCREMENT column assigns seq
+-- values to existing rows in primary-key (UUID) order, which is
+-- NOT true insertion order. New rows inserted after this
+-- migration get increasing seq in insertion order. The feed is
+-- for polling new events, so historical ordering may differ
+-- slightly from true insertion order; no event is lost.
+--
+-- DEPLOYMENT: this migration MUST be run before the code that
+-- queries platform_activity.seq is deployed (the feed selects
+-- and orders by seq). It is a proposal in draft PR #14 and needs
+-- explicit approval before production application.
+ALTER TABLE `platform_activity` ADD COLUMN IF NOT EXISTS `seq` int NOT NULL AUTO_INCREMENT, ADD INDEX `platform_activity_seq_idx` (`seq`);

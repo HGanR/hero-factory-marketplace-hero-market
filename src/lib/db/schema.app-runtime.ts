@@ -1,4 +1,4 @@
-import { boolean, int, json, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, index, int, json, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 export const aiAgents = mysqlTable("ai_agents", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -218,7 +218,17 @@ export const platformActivity = mysqlTable("platform_activity", {
   payload: json("payload").$type<Record<string, unknown> | null>(),
   trustId: varchar("trustId", { length: 36 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+  // Monotonic insertion sequence for the STEP 1 telemetry feed.
+  // (createdAt, UUID) is not insertion-ordered (second-precision
+  // timestamps + random UUIDs), so a cursor on it can skip a
+  // later insert or stall within a large same-timestamp group.
+  // seq is assigned by the database on insert; the feed orders
+  // by seq and the cursor is the last event's seq. Added by
+  // migration 0136_platform_activity_seq.
+  seq: int("seq").autoincrement(),
+}, (t) => ({
+  platformActivitySeqIdx: index("platform_activity_seq_idx").on(t.seq),
+}));
 
 export const trustDebtInstruments = mysqlTable("trust_debt_instruments", {
   id: varchar("id", { length: 36 }).primaryKey(),
