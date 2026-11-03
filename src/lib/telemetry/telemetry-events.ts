@@ -10,7 +10,10 @@
  * raw prompt string.
  */
 
-import type { emitPlatformEvent } from "@/lib/workflow-engine/emit-platform-event";
+import type {
+  emitPlatformEvent,
+  EmitPayload,
+} from "@/lib/workflow-engine/emit-platform-event";
 
 /** Telemetry event types surfaced by the STEP 1 polling feed. */
 export const TELEMETRY_EVENT_TYPES = [
@@ -21,13 +24,13 @@ export const TELEMETRY_EVENT_TYPES = [
 
 export type TelemetryEventType = (typeof TELEMETRY_EVENT_TYPES)[number];
 
-export interface NewAccountEventPayload {
+export interface NewAccountEventPayload extends EmitPayload {
   accountId: number;
   isApproved: boolean;
   registeredAt: string;
 }
 
-export interface OnboardingCompletedEventPayload {
+export interface OnboardingCompletedEventPayload extends EmitPayload {
   onboardingId: number;
   onboardingStatus: string;
 }

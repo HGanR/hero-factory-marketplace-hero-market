@@ -5,58 +5,76 @@
  * event feed the Desktop polls on the existing gated pattern
  * (behind explicit operator engagement or a relevant panel).
  * Returns the telemetry events (new_account, onboarding_completed,
- * asset_purchased) from platformActivity in insertion order,
+ * asset_purchased) from platformActivity in chronological order,
  * with a cursor so the Desktop can poll incrementally.
  *
  * Admin-gated: the same NPC admin JWT (admin-token / auth-token
  * cookies, isAdmin: true) as the existing executive-agent reads.
- * No push sockets.
+ * No push sockets. No new database tables. No schema change.
  *
- * Pagination — why a monotonic sequence, not (createdAt, id):
- * platformActivity's createdAt is second-precision and its id is
- * a random UUID, so (createdAt, id) is NOT insertion-ordered.
- * A later insert can share the cursor's timestamp yet sort below
- * the cursor's id, and the (createdAt = c AND id > i) filter then
- * skips it forever. Inclusive timestamp filtering (createdAt >= c)
- * with client-side dedup does not fix it either: within one
- * timestamp group larger than a page it returns the same first
- * page repeatedly and pagination stalls. So the feed orders by
- * the monotonic insertion sequence `seq` (added by migration
- * 0136_platform_activity_seq; see the PR description). The cursor
- * is the last event's seq, the filter is seq > cursor, and the
- * nextCursor is always a valid resume point — the last event's
- * seq on a non-empty page (even the final page), and the incoming
- * cursor on an empty poll — so a client never replays from the
- * beginning by re-polling with a null cursor.
+ * Delivery semantics (TiDB-compatible):
+ * The feed orders by (createdAt, id) and paginates by that
+ * cursor. Two TiDB facts shape this:
+ * - TiDB does not support adding an AUTO_INCREMENT column via
+ *   ALTER TABLE, and its AUTO_INCREMENT allocation is
+ *   per-server (not globally monotonic) and does not reflect
+ *   commit order, so a sequence column is not a safe delivery
+ *   watermark here. (An earlier draft used a `seq` column;
+ *   it was reverted for exactly these reasons.)
+ * - createdAt is second-precision and id is a random UUID, so
+ *   (createdAt, id) alone is not insertion-ordered: a later
+ *   insert can share the cursor's timestamp yet sort below the
+ *   cursor's id and be skipped, and inclusive timestamp
+ *   filtering stalls within a large same-timestamp group.
+ * The feed therefore applies a visibility watermark: it only
+ * returns events with createdAt <= now - VISIBILITY_WINDOW.
+ * New inserts have createdAt = now, which is after the
+ * watermark, so no new event will ever be inserted with a
+ * createdAt inside the range being polled. The set of events
+ * at or below the watermark is closed, so (createdAt, id)
+ * pagination inside it cannot skip a later insert and cannot
+ * stall: the group is fully formed before the client pages
+ * through it. The window (30s) is far longer than any
+ * realistic transaction for these single-row inserts
+ * (register / onboarding submit), so an event is never
+ * returned before its transaction has committed. If a
+ * transaction ever ran longer than the window, its event
+ * could be missed; that is accepted and documented here
+ * (the emit path is a single-row insert, not a long batch).
  *
- * Replays: the feed returns each event exactly once for a given
- * cursor chain (seq > is strict). If a client re-polls from an
- * earlier cursor (e.g. after losing its position) it may see an
- * event again; the consumer must dedupe by event id. Use
- * dedupeTelemetryEventsById for that (see test 4 in the spec).
+ * nextCursor is always a valid resume point: the last event's
+ * (createdAt, id) on a non-empty page (even the final page),
+ * and the incoming cursor re-encoded on an empty poll, so a
+ * client never replays from the beginning by re-polling with
+ * a null cursor.
+ *
+ * Replays: the feed returns each event exactly once per cursor
+ * chain. If a client re-polls from an earlier cursor (e.g.
+ * after losing its position) it may see an event again; the
+ * consumer must dedupe by event id. Use dedupeTelemetryEventsById
+ * for that (see test 4 in the spec).
  *
  * The handler is factored for testability (same pattern as
  * summary-route-handler): the route wires the real deps, and
- * the spec injects mocks.
+ * the spec injects mocks. The spec also exercises the real
+ * listTelemetryEventsFromDb against a mock DB that interprets
+ * the Drizzle query, so the production query (not just a mock
+ * reader) is covered.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, gt, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lte, or } from "drizzle-orm";
 import { platformActivity } from "@/lib/db/schema";
 import { TELEMETRY_EVENT_TYPES } from "@/lib/telemetry/telemetry-events";
 import type { getDb } from "@/lib/db";
 
 export type TelemetryFeedDb = Awaited<ReturnType<typeof getDb>>;
 
-/**
- * Cursor: the monotonic insertion sequence of the last event seen.
- * A single number, because `seq` is a total order by insertion.
- * (The pre-fix cursor was {c: createdAt, i: id}; that format is
- * rejected as invalid now that the feed orders by seq.)
- */
 export interface TelemetryFeedCursor {
-  /** Insertion sequence of the last event seen. */
-  s: number;
+  /** ISO timestamp of the last event seen. */
+  c: string;
+  /** Id of the last event seen (tiebreaker for equal timestamps). */
+  i: string;
 }
 
 export interface TelemetryFeedEvent {
@@ -67,8 +85,6 @@ export interface TelemetryFeedEvent {
   userId: number;
   trustId: string | null;
   createdAt: string;
-  /** Monotonic insertion sequence (the pagination order). */
-  seq: number;
 }
 
 export interface TelemetryFeedTools {
@@ -89,6 +105,15 @@ export interface TelemetryFeedDeps {
 export const TELEMETRY_FEED_DEFAULT_LIMIT = 50;
 export const TELEMETRY_FEED_MAX_LIMIT = 100;
 
+/**
+ * Visibility window: the feed only returns events whose
+ * createdAt is at least this old, so the timestamp group being
+ * polled is closed (no new insert will carry a createdAt in
+ * that range) and its transaction has committed. 30 seconds is
+ * far longer than any realistic single-row emit transaction.
+ */
+export const TELEMETRY_FEED_VISIBILITY_WINDOW_MS = 30_000;
+
 export function parseTelemetryFeedLimit(raw: string | null): number {
   const n = raw == null ? NaN : Number(raw);
   if (!Number.isFinite(n)) return TELEMETRY_FEED_DEFAULT_LIMIT;
@@ -99,9 +124,12 @@ export function parseTelemetryFeedLimit(raw: string | null): number {
 }
 
 /** Encode a cursor from the last event of a page. */
-export function encodeTelemetryFeedCursor(event: { seq: number }): string {
+export function encodeTelemetryFeedCursor(event: {
+  createdAt: string;
+  id: string;
+}): string {
   return Buffer.from(
-    JSON.stringify({ s: event.seq }),
+    JSON.stringify({ c: event.createdAt, i: event.id }),
     "utf8",
   ).toString("base64url");
 }
@@ -109,9 +137,7 @@ export function encodeTelemetryFeedCursor(event: { seq: number }): string {
 /**
  * Decode a cursor. Returns null when no cursor was supplied.
  * Throws when a supplied cursor is malformed (the handler
- * turns that into a 400). The pre-fix {c, i} format is
- * rejected: it cannot be mapped to a seq, so a client holding
- * one must re-poll from the beginning.
+ * turns that into a 400).
  */
 export function decodeTelemetryFeedCursor(
   raw: string | null,
@@ -126,11 +152,14 @@ export function decodeTelemetryFeedCursor(
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error("Invalid cursor");
   }
-  const { s } = parsed as { s?: unknown };
-  if (typeof s !== "number" || !Number.isInteger(s) || s < 0) {
+  const { c, i } = parsed as { c?: unknown; i?: unknown };
+  if (typeof c !== "string" || typeof i !== "string") {
     throw new Error("Invalid cursor");
   }
-  return { s };
+  if (Number.isNaN(new Date(c).getTime())) {
+    throw new Error("Invalid cursor");
+  }
+  return { c, i };
 }
 
 /**
@@ -149,15 +178,28 @@ export function dedupeTelemetryEventsById(
 }
 
 /**
+ * The newest createdAt the feed will return. Events newer than
+ * this are still within the visibility window (their timestamp
+ * group is not yet closed / their transaction may not have
+ * committed) and are held for a later poll. `now` is injected
+ * so tests can control time.
+ */
+export function telemetryFeedWatermark(now: Date): Date {
+  return new Date(now.getTime() - TELEMETRY_FEED_VISIBILITY_WINDOW_MS);
+}
+
+/**
  * Read one page of telemetry events from platformActivity.
- * Ordered by insertion sequence (seq). The cursor selects
- * strictly later events (seq > cursor), so successive polls
- * return disjoint sets and no event is skipped: a later insert
- * always gets a higher seq, whatever its timestamp or UUID.
+ * Ordered chronologically (createdAt, then id). The cursor
+ * selects strictly later events, so successive polls return
+ * disjoint sets. Only events at or below the visibility
+ * watermark are returned, so the timestamp group being paged
+ * is closed and (createdAt, id) pagination cannot skip a
+ * later insert.
  *
  * nextCursor is always a valid resume point:
- * - non-empty page: the last event's seq (even on the final
- *   page, when hasMore is false), so the client resumes after
+ * - non-empty page: the last event's (createdAt, id), even on
+ *   the final page (hasMore false), so the client resumes after
  *   the last event it received instead of restarting;
  * - empty page: the incoming cursor re-encoded, so the client
  *   keeps its position and the next poll resumes from the same
@@ -168,19 +210,32 @@ export async function listTelemetryEventsFromDb(
   db: TelemetryFeedDb,
   cursor: TelemetryFeedCursor | null,
   limit: number,
+  now: Date = new Date(),
 ): Promise<{ events: TelemetryFeedEvent[]; nextCursor: string | null }> {
+  const watermark = telemetryFeedWatermark(now);
   const eventTypeFilter = inArray(platformActivity.eventType, [
     ...TELEMETRY_EVENT_TYPES,
   ]);
+  const visibleFilter = lte(platformActivity.createdAt, watermark);
   const where = cursor
-    ? and(eventTypeFilter, gt(platformActivity.seq, cursor.s))
-    : eventTypeFilter;
+    ? and(
+        eventTypeFilter,
+        visibleFilter,
+        or(
+          gt(platformActivity.createdAt, new Date(cursor.c)),
+          and(
+            eq(platformActivity.createdAt, new Date(cursor.c)),
+            gt(platformActivity.id, cursor.i),
+          ),
+        ),
+      )
+    : and(eventTypeFilter, visibleFilter);
 
   const rows = await db
     .select()
     .from(platformActivity)
     .where(where)
-    .orderBy(asc(platformActivity.seq))
+    .orderBy(asc(platformActivity.createdAt), asc(platformActivity.id))
     .limit(limit + 1);
 
   const hasMore = rows.length > limit;
@@ -196,7 +251,6 @@ export async function listTelemetryEventsFromDb(
       row.createdAt instanceof Date
         ? row.createdAt.toISOString()
         : String(row.createdAt),
-    seq: row.seq,
   }));
   let nextCursor: string | null;
   if (page.length > 0) {
@@ -204,7 +258,10 @@ export async function listTelemetryEventsFromDb(
   } else if (cursor != null) {
     // Empty poll: keep the caller's position so the next poll
     // resumes from the same point instead of restarting.
-    nextCursor = encodeTelemetryFeedCursor({ seq: cursor.s });
+    nextCursor = encodeTelemetryFeedCursor({
+      createdAt: cursor.c,
+      id: cursor.i,
+    });
   } else {
     nextCursor = null;
   }

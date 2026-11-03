@@ -253,13 +253,6 @@
       "when": 1778900000000,
       "tag": "0135_neuro_network",
       "breakpoints": true
-    },
-    {
-      "idx": 36,
-      "version": "5",
-      "when": 1793684436681,
-      "tag": "0136_platform_activity_seq",
-      "breakpoints": true
     }
   ]
 }
