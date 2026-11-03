@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { executiveAgentMemoryItems, executiveAgentApprovals, executiveAgentBriefings, marketplaceUsers, entityOnboardings } from "@/lib/db/schema";
+import { executiveAgentMemoryItems, executiveAgentApprovals, marketplaceUsers, entityOnboardings } from "@/lib/db/schema";
 import { insertExecutiveApproval } from "./executive-agent-approvals-store";
 import { insertExecutiveAgentAuditLog } from "./executive-agent-audit";
 import { getPendingAccounts, getApprovedAccounts } from "./executive-agent-tools";
@@ -71,7 +71,7 @@ export async function runRevenueLoop(adminUserId: number, now = new Date()) {
             billingVerified: false, description: "Record an internal review only; no account approval, next-step offer, outreach, billing or publishing." }),
         });
         await insertExecutiveAgentAuditLog(tx as unknown as Parameters<typeof insertExecutiveAgentAuditLog>[0], {
-          id: randomUUID(), adminUserId, toolName: "revenue_loop.propose", actionType: "write_request", targetType: review.kind,
+          id: randomUUID(), adminUserId, prompt: null, toolName: "revenue_loop.propose", actionType: "write_request", targetType: review.kind,
           targetId: review.subjectId, inputJson: null, outputJson: JSON.stringify({ approvalId: id }), approvalStatus: "pending",
         });
         return true;
@@ -82,9 +82,9 @@ export async function runRevenueLoop(adminUserId: number, now = new Date()) {
       },
     }, now);
     if (!result.skipped) {
-      await tx.insert(executiveAgentBriefings).values({ id: randomUUID(), adminUserId, briefingDate: now.toISOString().slice(0,10), summaryJson: JSON.stringify({ source: "revenue_loop", ...result }) });
+      await tx.insert(executiveAgentMemoryItems).values({ id: randomUUID(), adminUserId, memoryType: "system_note", source: "system", subjectType: "revenue_loop_briefing", title: "Revenue review snapshot " + now.toISOString().slice(0,10), summary: JSON.stringify({ source: "revenue_loop", ...result }) });
       await insertExecutiveAgentAuditLog(tx as unknown as Parameters<typeof insertExecutiveAgentAuditLog>[0], {
-        id: randomUUID(), adminUserId, toolName: "revenue_loop.read_and_reconcile", actionType: "read", targetType: "telemetry",
+        id: randomUUID(), adminUserId, prompt: null, toolName: "revenue_loop.read_and_reconcile", actionType: "read", targetType: "telemetry",
         inputJson: null, outputJson: JSON.stringify(result), approvalStatus: "not_required",
       });
     }

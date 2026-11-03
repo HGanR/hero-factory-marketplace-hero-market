@@ -15,15 +15,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const db = await getDb();
   return rejectExecutiveAction(req, id, adminUserId, {
     read: key => getExecutiveApprovalForGate(db, key),
-    auditRefusal: refusal => insertExecutiveAgentAuditLog(db, { id: randomUUID(), adminUserId,
+    auditRefusal: refusal => insertExecutiveAgentAuditLog(db, { id: randomUUID(), adminUserId, prompt: null,
       toolName: "approval.reject", actionType: "approval_refused", targetType: "approval_queue", targetId: id,
-      inputJson: null, outputJson: JSON.stringify({ code: refusal.code }), approvalStatus: "refused" }),
+      inputJson: null, outputJson: JSON.stringify({ code: refusal.code }), approvalStatus: "not_required" }),
     rejectPending: (key, owner) => db.transaction(async tx => {
       const [result] = await tx.update(executiveAgentApprovals).set({ status: "rejected" })
         .where(and(eq(executiveAgentApprovals.id, key), eq(executiveAgentApprovals.adminUserId, owner), eq(executiveAgentApprovals.status, "pending")));
       if (result.affectedRows !== 1) return false;
       await insertExecutiveAgentAuditLog(tx as unknown as Parameters<typeof insertExecutiveAgentAuditLog>[0], {
-        id: randomUUID(), adminUserId: owner, toolName: "approval.reject", actionType: "approval_rejected",
+        id: randomUUID(), adminUserId: owner, prompt: null, toolName: "approval.reject", actionType: "approval_rejected",
         targetType: "approval_queue", targetId: key, inputJson: null, outputJson: JSON.stringify({ status: "rejected" }), approvalStatus: "rejected" });
       return true;
     }),
