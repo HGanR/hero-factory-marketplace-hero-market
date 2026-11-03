@@ -153,7 +153,7 @@ Six handlers read in full. Verdicts:
 | `sites/[siteId]/deploy/route.ts` | **Generates + builds + previews — the reuse anchor.** POST, auth 401; input path `siteId`, body `{ versionId? }` (ad-hoc parse, no zod). Ownership `getOwnedSite` → 404. Target version = `versionId` or the site's `currentVersionId` (400 if neither); version row must belong to the site (404 otherwise). Stored `version.schemaJson` parsed/validated (`SiteSchemaDocument.safeParse`); `generateStaticBundle(schema)` returns `{ files: [{ path, contentType, content, bytes, sha256 }], manifest }` — a real static site bundle generated from the schema. The static generator body (`src/lib/site-builder/static-generator`) was **not read**. The whole bundle is uploaded as one JSON payload via `uploadArbitraryJSONToIPFS(bundlePayload)` (Pinata; `upload.ipfsHash` / `upload.ipfsUrl`); payload includes `siteId`, `versionId`, `version`, `generatedAt`, `metadata`, full `files[]`, `manifest`. Storage writes: `web3SiteVersions` updated with `ipfsCid` + `buildManifestJson`; `web3Sites` updated with `currentVersionId` + `status: "PUBLISHED"`. Preview URL: `gatewayUrl = https://gateway.pinata.cloud/ipfs/${ipfsCid}`, returned with `ipfsCid`, `ipfsUri`, `manifest`. Intelligence hook: `markLatestSiteGenerationRunPublished(db, { userId, siteId, publishedVersionId, deployedUrl: gatewayUrl })` — evidence that a "site generation run" record exists in `src/lib/site-builder/intelligence/` (**not read**). **Approval boundary: NONE — a single authenticated owner call publishes the site to a public gateway URL.** External provider: Pinata IPFS (key/plan/cost not evidenced). |
 | `assistant/execute-intent/route.ts` | **Does not generate** — NL intent analysis against a saved schema; returns analysis only, persists nothing. POST, auth 401; input `ExecuteIntentRequestSchema` (`message`, `siteId`, `versionId`, `schemaSnapshotHash`, `sessionId`, `editContext`). Ownership `getOwnedSite` → 404. Staleness guard: stored schema hash vs `schemaSnapshotHash` → 409 `schema_snapshot_mismatch`. LLM via `resolveSiteBuilderLlmInvokeForSite` + `runExecuteIntentAnalysis` — whether it returns proposed builder actions vs. only prose is **not evidenced** at the route layer (function body unread). |
 
-**Single most important finding (CORRECTED 2026-11-03, PR #23 preflight finding): both halves of the generation path already exist and are reusable — the brief → schema first half was found outside the six-handler inventory, at `src/pages/api/site-builder/ai/pipeline.ts` (735 lines, at PR #22 head `c8e29c32`; a `src/pages/api/` tree this inventory never read).** The deploy route does the second half: saved version schema → static bundle → IPFS upload → public gateway URL. Export proves the same schema→files step works without a saved site (ZIP instead of a URL). The first half: `pipeline.ts` is POST-only, session-authenticated (`marketplaceUserIdFromSessionCookiePair`), validated by `PipelineRequestSchema`, with steps `plan` / `full` / `generate` (plus evaluation and section regeneration); `full` runs `runSitePlanner` → `generateSiteSchemaFromPlanner` with content intelligence/critique, evaluation, and generation-intelligence persistence (`recordSiteGenerationFullRun`), returning schema, optional alternates, `generationMeta`, and `intelligenceRunId`. Its provider resolver (`resolveSiteBuilderLlmInvokeForSite`) and generator are existing modules. **The adapter reuses/extracts this service; it does not build a duplicate first half.** The earlier "not found" statement below was scoped to the six `src/app/api/site-builder/*` handlers read, and is retained as that inventory's record — it is not a repo-wide claim.
+**Single most important finding (CORRECTED 2026-11-03, PR #23 preflight finding): both halves of the generation path already exist and are reusable — the brief → schema first half was found outside the six-handler inventory, at `src/pages/api/site-builder/ai/pipeline.ts` (735 lines, at PR #22 head `c8e29c32`; a `src/pages/api/` tree this inventory never read).** The deploy route does the second half for publication: saved version schema → static bundle → IPFS upload → public gateway URL. For preview, only the bundle-generation part (`generateStaticBundle`) is reused — the upload is publication-only (§4, §5.4). Export proves the same schema→files step works without a saved site (ZIP instead of a URL). The first half: `pipeline.ts` is POST-only, session-authenticated (`marketplaceUserIdFromSessionCookiePair`), validated by `PipelineRequestSchema`, with steps `plan` / `full` / `generate` (plus evaluation and section regeneration); `full` runs `runSitePlanner` → `generateSiteSchemaFromPlanner` with content intelligence/critique, evaluation, and generation-intelligence persistence (`recordSiteGenerationFullRun`), returning schema, optional alternates, `generationMeta`, and `intelligenceRunId`. Its provider resolver (`resolveSiteBuilderLlmInvokeForSite`) and generator are existing modules. **The adapter reuses/extracts this service; it does not build a duplicate first half.** The earlier "not found" statement below was scoped to the six `src/app/api/site-builder/*` handlers read, and is retained as that inventory's record — it is not a repo-wide claim.
 
 **Remaining gaps (still open, in priority order):** ownership validation before provider use (the pipeline authenticates a user, it does not check that the user owns the selected client/site — the adapter must add that); persisting the generated version (the pipeline returns a schema; the adapter must save it as a `web3SiteVersions` row); a private preview with receipts (see §3.3 step 5 — the deploy route's public IPFS URL is publication, not a private preview); and explicit handling of the global-provider fallback and deterministic/generic-content warnings surfaced in `generationMeta` (`llmUsed`, `fallbackReason`, `genericContentWarning`, `plannerPath`). Also still unread: `ai/intelligence/*`, `sites/[siteId]/versions/*`, `sites/[siteId]/action-runs/*`, the `executeBuilderActions` action catalogue, `assets/*`, `assistant/npc-sync`, `deliverables`, `import/*`, `templates/*`, and supporting lib code (`static-generator`, `site-builder-project-export`, `provider-resolver` body, `intelligence/`, full `web3Sites`/`web3SiteVersions` schemas, `uploadArbitraryJSONToIPFS` / Pinata). **No live execution evidence for any handler or for the pipeline itself — these findings come from source inspection only; live generation remains unverified.**
 
@@ -161,12 +161,15 @@ Six handlers read in full. Verdicts:
 (a) **approval gating must be added by the adapter** — none of the six
 handlers has any approval boundary; deploy in particular publishes to a
 public URL on a single owner call, so a Skipper-called adapter must not
-expose raw deploy; (b) **the preview-URL contract is fixed** —
-`gatewayUrl = https://gateway.pinata.cloud/ipfs/<cid>`, with `ipfsCid` +
-`buildManifestJson` stored on `web3SiteVersions` and `status:
-"PUBLISHED"` on `web3Sites` — **but see §3.5: deploy conflates preview
-and publish, so the adapter must add a preview-only path rather than
-calling raw deploy for a preview.**
+expose raw deploy; (b) **the publication contract is fixed, the preview contract is not** —
+for publication, `gatewayUrl = https://gateway.pinata.cloud/ipfs/<cid>`,
+with `ipfsCid` + `buildManifestJson` stored on `web3SiteVersions` and
+`status: "PUBLISHED"` on `web3Sites`. That public gateway URL is
+**publication, not a preview**: omitting the `PUBLISHED` flag does not
+make files uploaded there private. A preview must be delivered through
+an **authenticated, ownership-checked** route (see §3.3 step 5 and
+§5.4); the private storage mechanism for preview files is **unresolved
+until designed** and is a design step before the executor is built.
 
 Cross-cutting (tree): auth pattern everywhere is `getAuthedUserId()` →
 401, ownership via `getOwnedSite` / `getOwnedClientRow` /
@@ -355,23 +358,29 @@ pipeline and sets status `failed` / `test_failed`):
    placeholder content is shipped as finished copy. A test failure sets
    status `test_failed` and the receipt carries the failure log — the
    preview URL is **not** minted.
-5. **Preview URL — reuse the deploy route's second half, without its
-   publish side-effect.** Only after tests pass: generate the static
-   bundle from the saved version schema (`generateStaticBundle` —
-   body unread), upload it to IPFS via Pinata
-   (`uploadArbitraryJSONToIPFS`), record `ipfsCid` +
-   `buildManifestJson` on the version row, and return the gateway URL
-   `https://gateway.pinata.cloud/ipfs/<cid>`. **Do not call the raw
-   deploy route for this step** — raw deploy sets `status: "PUBLISHED"`
-   and calls `markLatestSiteGenerationRunPublished`. The adapter needs
-   a preview-only variant (upload + record CID, no `PUBLISHED` flip,
-   no publish-intelligence call — or an explicit decision, recorded,
-   that a preview CID is public-by-URL and is acceptable as the
-   preview). The preview URL must resolve to the generated files
-   just tested — never to a different build. (Export's
-   `buildDeploymentProjectFromSchema` proves the same schema→files
-   step works without a saved site; it is the fallback if the version
-   path cannot be used, but it produces a ZIP download, not a URL.)
+5. **Preview — authenticated, ownership-checked delivery; never a
+   public upload.** Only after tests pass: generate the static bundle
+   from the saved version schema by reusing `generateStaticBundle`
+   (body unread) — **bundle generation only**. Then deliver the tested
+   files through an **authenticated preview route that checks the
+   requesting admin owns the client/site** (admin JWT + ownership
+   re-check, same as §3.4; a preview URL that anyone holding it can
+   open is not a preview). **Do not upload preview files to public
+   IPFS** (`uploadArbitraryJSONToIPFS` / Pinata gateway URL) and **do
+   not call the raw deploy route for this step** — raw deploy sets
+   `status: "PUBLISHED"` and calls `markLatestSiteGenerationRunPublished`.
+   Omitting the `PUBLISHED` flag does not make a public upload private.
+   The private storage mechanism for preview files (where the bundle
+   lives, how the preview route serves it, how long it lives) is
+   **unresolved until designed** — it is a design step before the
+   executor is built (§5.4), not a detail to improvise in code. Public
+   IPFS upload is reserved for **separately approved publication**
+   (step 6). The preview URL must resolve to the generated files just
+   tested — never to a different build, and never to a public gateway
+   URL. (Export's `buildDeploymentProjectFromSchema` proves the same
+   schema→files step works without a saved site; it is the fallback
+   bundle-generation proof if the version path cannot be used, but it
+   produces a ZIP download, not a preview URL.)
 6. **Publish (separate step, separate approval)** — publishing is **not**
    part of generation. A published URL is set only by a separate,
    separately approved publish action (§3.5) — in practice, the raw
@@ -423,11 +432,14 @@ pipeline and sets status `failed` / `test_failed`):
      when publishing is built; not in this adapter), authorising a
      previewed site to go live. No publish step is specified here, and
      generation must never publish. **Note:** the existing deploy route
-     conflates preview and publish — one call uploads, records the CID,
-     flips `status` to `PUBLISHED`, and calls
-     `markLatestSiteGenerationRunPublished`. The adapter must split
-     that: a preview-only variant for step 5, and the full deploy
-     (with its `PUBLISHED` flip) only behind the publish approval.
+     conflates preview and publish — one call uploads to public IPFS,
+     records the CID, flips `status` to `PUBLISHED`, and calls
+     `markLatestSiteGenerationRunPublished`. The adapter must not split
+     that call into a "preview deploy": a preview is **not a deploy
+     variant at all** — it is authenticated, ownership-checked delivery
+     of the tested bundle with nothing uploaded publicly (§3.3 step 5).
+     The full deploy (public IPFS upload + `PUBLISHED` flip) happens
+     only behind the separate publish approval.
 - **The generated output itself is not approved by the generation
   approval** — the approval covers the instruction (brief + template),
   not the output. The output is verified by the tests in §5.1 and
@@ -444,26 +456,35 @@ pipeline and sets status `failed` / `test_failed`):
 duplicate a builder.** The adapter is built from the §2c inventory, in
 this order. **Both halves are now settled as reuse** — the pipeline
 (`src/pages/api/site-builder/ai/pipeline.ts`, step `full`) is the
-brief→schema engine, and the deploy route is the build/preview engine.
-What the adapter adds is the wiring between them plus ownership,
-persistence, approval, tests, and a private preview.
+brief→schema engine, and the deploy route's `generateStaticBundle` is
+the bundle-generation engine. Preview **delivery** is not a reuse of
+the deploy route — it is new, authenticated, ownership-checked work
+(§3.3 step 5, §5.4), because the deploy route's only delivery is a
+public IPFS upload. What the adapter adds is the wiring between them
+plus ownership, persistence, approval, tests, and a private preview.
 
-1. **Build/preview (reuse — settled):** `sites/[siteId]/deploy/route.ts`
-   is the reuse anchor: `generateStaticBundle(schema)` →
-   `uploadArbitraryJSONToIPFS` (Pinata) → gateway URL, with `ipfsCid` +
-   `buildManifestJson` on `web3SiteVersions`. The adapter reuses this
-   path for the preview step (§3.3 step 5) **minus** the `PUBLISHED`
-   flip. `export/route.ts` (`buildDeploymentProjectFromSchema` → ZIP)
-   is the fallback schema→files proof and the source of the file format
-   if the version path cannot be used.
+1. **Build (reuse — settled):** `sites/[siteId]/deploy/route.ts`
+   is the reuse anchor for **bundle generation only**:
+   `generateStaticBundle(schema)` produces `{ files, manifest }`. The
+   adapter reuses that function for the preview step (§3.3 step 5) and
+   for publication (step 6). It does **not** reuse the route's upload
+   step for previews: `uploadArbitraryJSONToIPFS` (Pinata) → public
+   gateway URL is the **publication** path, used only behind the
+   separate publish approval. Preview files are delivered through an
+   authenticated, ownership-checked route; their private storage
+   mechanism is unresolved until designed (§5.4). `export/route.ts`
+   (`buildDeploymentProjectFromSchema` → ZIP) is the fallback
+   schema→files proof and the source of the file format if the version
+   path cannot be used.
 2. **Brief → schema (reuse — settled 2026-11-03):**
    `src/pages/api/site-builder/ai/pipeline.ts`, step `full`:
    `runSitePlanner` → `generateSiteSchemaFromPlanner` (+ content
    intelligence/critique, evaluation, generation-intelligence
    persistence). The adapter is a wiring job: approved intake note →
    pipeline `full` (with client/site ownership validated first) →
-   generated schema persisted as a `web3SiteVersions` row → existing
-   deploy path for build/preview (§3.3 step 5, preview-only variant).
+   generated schema persisted as a `web3SiteVersions` row →
+   `generateStaticBundle` for the bundle → authenticated preview
+   delivery (§3.3 step 5).
    **No duplicate brief→schema engine is built.** The pipeline's own
    auth is a session check only — ownership validation, version
    persistence, and the private preview/receipt are the adapter's new
@@ -580,39 +601,75 @@ must be owner-scoped per client (see §3.4). The OASIS overview service
 conversation history) and must not be conflated with it; its
 `engineId: "site-builder-engine"` is not a gateway engine id.
 
-### 5.4 Generated-file storage (settled in outline by the inventory — details open)
+### 5.4 Generated-file storage and preview delivery (CORRECTED 2026-11-03 — the earlier version wrongly prescribed public IPFS for previews)
 
-The deploy route fixes the storage contract: the bundle is uploaded to
-IPFS via Pinata (`uploadArbitraryJSONToIPFS`, whole bundle as one JSON
-payload including full `files[]` + `manifest`), `ipfsCid` +
-`buildManifestJson` are stored on the `web3SiteVersions` row, and the
-public URL is `https://gateway.pinata.cloud/ipfs/<cid>`. The adapter
-**reuses this contract** — it does not invent a new file store. Open
-details for Codex: Pinata key/plan/cost/limits (not evidenced —
-`uploadArbitraryJSONToIPFS` body unread); whether a preview CID (not
-marked `PUBLISHED`) is acceptable as a preview, given any holder of the
-gateway URL can fetch it; and whether the bundle payload (which embeds
-the full files) is the right shape for a preview, or a preview-only
-upload shape is needed. The inbox attachment path also uses IPFS via
-Pinata — if that is the same credential/plan, say so; if it is a
-separate one, say so. **No silent external host:** Pinata is already
-the platform's deploy host, but its cost/credentials for
-Skipper-generated previews must still be recorded explicitly, and the
-"no outside services unless completely required" rule addressed — the
-deploy route already depends on it, so the question is whether the
-adapter extends that dependency, not whether it introduces it.
+Two different destinations, never conflated:
+
+- **Publication (settled):** the deploy route fixes the storage
+  contract — the bundle is uploaded to IPFS via Pinata
+  (`uploadArbitraryJSONToIPFS`, whole bundle as one JSON payload
+  including full `files[]` + `manifest`), `ipfsCid` +
+  `buildManifestJson` are stored on the `web3SiteVersions` row, and the
+  public URL is `https://gateway.pinata.cloud/ipfs/<cid>`. This
+  contract is reused **for publication only**, behind the separate
+  publish approval (§3.5). Open details for Codex: Pinata
+  key/plan/cost/limits (not evidenced — `uploadArbitraryJSONToIPFS`
+  body unread). The inbox attachment path also uses IPFS via Pinata —
+  if that is the same credential/plan, say so; if it is a separate one,
+  say so.
+- **Preview (UNRESOLVED until designed):** preview files are **never
+  uploaded to public IPFS**. Omitting the `PUBLISHED` flag does not make
+  a public upload private, and a gateway URL any holder can fetch is
+  publication, not a preview. The preview is delivered through an
+  **authenticated, ownership-checked route** (§3.3 step 5) that serves
+  the tested bundle only to the admin who owns the client/site. Where
+  the bundle lives until then (DB, app file store, signed short-lived
+  object storage, or another mechanism), how the preview route serves
+  it, and how long it lives, is a **design decision that must be made
+  and recorded before the executor is built** — it is not settled by
+  this spec, and it must not be settled by reusing the publication
+  upload. The design must state the mechanism, its auth/ownership
+  checks, its lifetime/expiry, and its cost.
+
+**No silent external host:** Pinata is already the platform's deploy
+host, but its cost/credentials must still be recorded explicitly for
+the publication path, and the "no outside services unless completely
+required" rule addressed — the deploy route already depends on it, so
+for publication the question is whether the adapter extends that
+dependency, not whether it introduces it. No external host is adopted
+for preview delivery by this spec.
 
 ### 5.5 Dependencies
 
 - Internal: Drizzle/MySQL (`clientNotes`, `web3Sites` / new project
   table, new job table), approvals store, audit log, the `site-builder/*`
   handlers reused per §4.
-- Generation mechanism: **open** — template renderer, deterministic
-  layout generator, or LLM (provider/model/key/cost to be recorded from
-  the §2c inventory; if an LLM is chosen, it is a new provider decision
-  for Charles/Codex, with cost and sandboxing stated).
-- **No paid provider is introduced by this spec.** Any provider in the
-  implementation is a decision to be recorded, not a default.
+- Generation mechanism: **settled as reuse (CORRECTED 2026-11-03 — no
+  longer "open")** — the existing pipeline
+  (`src/pages/api/site-builder/ai/pipeline.ts`, step `full`) and the
+  existing provider resolver (`resolveSiteBuilderLlmInvokeForSite`,
+  already used by `builder-actions` and `execute-intent`). No template
+  renderer, deterministic generator, or second LLM provider is
+  introduced. Provider, model, key env, and cost come from the
+  resolver body (still unread) and must be recorded before the executor
+  is built.
+- **Fallback handling (explicit, mandatory):** the pipeline's
+  `generationMeta` is carried into the job and the receipt —
+  `llmUsed`, `llmProvider`, `llmModel`, `fallbackReason`,
+  `plannerPath` (`llm_enriched` vs `deterministic_fallback`), and
+  `contentIntelligence.genericContentWarning`. A deterministic fallback
+  (no LLM configured, parse failed, site `llmMode: off`) or a
+  generic-content warning must be **surfaced, never silently presented
+  as LLM-generated finished copy**; the receipt states which path
+  produced the schema, and the operator reviews the preview knowing
+  it. If the fallback output fails the §5.1 tests (including the
+  no-placeholder-copy check), the run is `test_failed` and no preview
+  is minted.
+- **Provider costs:** the resolver's provider is the platform's
+  existing one (global managed LLM via `invokeNpcLlm` when
+  `OPENAI_API_KEY` or `NPC_LLM_ENDPOINT` is set, else per-site
+  settings); its cost is a recorded fact before the executor is built,
+  not a default. **No paid provider is introduced by this spec.**
 
 ### 5.6 What the adapter must NOT do
 
@@ -620,6 +677,12 @@ adapter extends that dependency, not whether it introduces it.
   generation trigger.
 - Never publish, deploy, or mutate a live site as part of generation.
 - Never mint a preview URL for untested or failed output.
+- Never upload preview files to public IPFS, and never treat omitting
+  the `PUBLISHED` flag as making a preview private — a public gateway
+  URL is publication, not a preview.
+- Never treat the generation mechanism as open — it is the existing
+  pipeline (`pipeline.ts`, step `full`) plus the existing provider
+  resolver; no parallel brief→schema engine and no second LLM provider.
 - Never register the catalog entry before the executor exists.
 - Never adopt an external host/LLM silently as the generator or file
   store.
@@ -637,13 +700,20 @@ adapter extends that dependency, not whether it introduces it.
       parallel model, unless a reason is recorded.
 - [ ] `linkSiteBuilderDraftToFulfillmentDeliverable` body read; whether
       a generated site becomes a fulfillment deliverable stated.
-- [ ] Brief→schema entry point found or built (§3.3 step 3, §4 step 2);
-      generation mechanism chosen with provider, cost, sandboxing
-      recorded — reusing the existing per-site LLM invoker if an LLM is
-      used; no second LLM provider.
-- [ ] Preview-only deploy variant defined (§3.3 step 5, §3.5): bundle
-      uploaded, CID recorded on the version row, site **not** marked
-      `PUBLISHED` by a preview; raw deploy never called for a preview.
+- [ ] Brief→schema reuses the existing pipeline (§3.3 step 3, §4 step 2)
+      — `pipeline.ts` step `full` + provider resolver
+      `resolveSiteBuilderLlmInvokeForSite`; provider, model, key env,
+      and cost recorded from the resolver body; fallback behaviour
+      (`generationMeta`: `llmUsed`, `fallbackReason`, `plannerPath`,
+      `genericContentWarning`) surfaced in job/receipt; no second LLM
+      provider, no parallel engine.
+- [ ] Authenticated, ownership-checked preview delivery defined (§3.3
+      step 5, §3.5, §5.4): bundle generated with `generateStaticBundle`;
+      preview served only to the owning admin; **no public IPFS upload
+      for previews**; private preview storage mechanism designed and
+      recorded (or explicitly carried as a design step before the
+      executor); raw deploy never called for a preview; public IPFS
+      reserved for separately approved publication.
 - [ ] Project model + job/receipt model implemented (§3.2, §5.2),
       aligned with the existing "generation run" record in
       `intelligence/`; `stephon.projects` extended (§5.3) with
@@ -658,21 +728,28 @@ adapter extends that dependency, not whether it introduces it.
       execution per proposal).
 - [ ] Receipt (§5.2) returns a resolving preview URL and file hashes
       matching the stored files; audit entry written.
-- [ ] File-storage decision (§5.4) recorded with Pinata cost/credential
-      consequences; preview CID public-by-URL accepted or mitigated
-      explicitly; no silent external host.
+- [ ] File-storage decisions (§5.4) recorded: private preview storage
+      mechanism designed (mechanism, auth/ownership checks,
+      lifetime/expiry, cost); Pinata cost/credentials recorded for the
+      publication path only; no public preview upload; no silent
+      external host.
 - [ ] Live execution evidence: a real generation against a real DB, with
       the preview URL opened and the receipt read back — not fixtures only.
 - [ ] Persona copy grounded or corrected (§3.5).
 
 ## 7. Recommended implementation order
 
-1. **Pipeline reuse + ownership/persistence design** — confirm the
-   `pipeline.ts` `full` call contract (inputs, `generationMeta`,
+1. **Pipeline reuse + ownership/persistence/preview design** — confirm
+   the `pipeline.ts` `full` call contract (inputs, `generationMeta`,
    `intelligenceRunId`) against the current head; design the
    client/site ownership check that runs before provider use, the
-   version-row persistence of the returned schema, and the
-   `generationMeta` surfacing (fallback + generic-content warnings).
+   version-row persistence of the returned schema, the
+   `generationMeta` surfacing (fallback + generic-content warnings),
+   and the **private preview storage/delivery mechanism** (§5.4:
+   where the bundle lives, how the authenticated preview route serves
+   it, lifetime/expiry, cost). No executor work starts until the
+   preview mechanism is designed — it must not be improvised as a
+   public upload.
    Close the remaining supporting inventory in parallel:
    `sites/[siteId]/versions/*`, `src/lib/site-builder/intelligence/*`,
    the `provider-resolver` body (provider/model/key/cost), and the full
@@ -680,9 +757,11 @@ adapter extends that dependency, not whether it introduces it.
 2. **Project model + job/receipt model** (§3.2, §5.2) — extend
    `web3Sites` + versions; align the job with the existing
    generation-run record (`recordSiteGenerationFullRun`).
-3. **Preview-only deploy variant + tests-first executor** — implement
+3. **Authenticated preview delivery + tests-first executor** — implement
    the pipeline with the §5.1 tests gating the preview URL; no preview
-   without passing tests; no `PUBLISHED` flip on preview.
+   without passing tests; preview served only through the authenticated,
+   ownership-checked route (§3.3 step 5); **no public IPFS upload for
+   previews**; no `PUBLISHED` flip on preview.
 4. **Gateway adapter** — catalog entry `stephon.generate`, executor
    wiring, approval boundary (§3.5), ownership re-check, receipt
    surface, extended `stephon.projects` read.
@@ -697,11 +776,14 @@ adapter extends that dependency, not whether it introduces it.
 ## 8. Open questions for Charles / Codex
 
 - Generation mechanism: **settled as reuse** — `src/pages/api/site-builder/ai/pipeline.ts`, step `full`. Open: what does the existing per-site invoker (`provider-resolver`) use (provider/model/key/cost), and how is the pipeline invoked from the executor (in-process service call vs. internal HTTP)?
-- Preview vs. publish: is a preview CID that is public-by-URL
-  acceptable as the preview, or must previews be gated some other way?
-- File storage: Pinata is already the deploy host — is extending that
-  dependency to Skipper-generated previews acceptable, at what
-  cost/plan, and under which credentials?
+- Preview vs. publish: **decided 2026-11-03** — a preview CID that is
+  public-by-URL is NOT acceptable as a preview; previews are
+  authenticated, ownership-checked delivery (§3.3 step 5). Open: which
+  private storage/delivery mechanism (§5.4 — to be designed before the
+  executor is built)?
+- File storage: Pinata is the **publication** host only — it is not
+  extended to previews. Open: Pinata cost/plan/credentials for the
+  publication path, and the private preview storage mechanism (§5.4).
 - Project-model home: extend `web3Sites` + `web3SiteVersions` (the
   inventory's finding) or a separate model — and what are the full
   schemas/status values?
