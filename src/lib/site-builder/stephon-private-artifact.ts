@@ -37,7 +37,11 @@ export function preparePrivateBundle(bundle: Bundle, versionId: string) {
         if (href.startsWith('#')) return;
         const local = href.replace(/^\.\//,'').replace(/^\//,'');
         const target=paths.has(local)?local:paths.has(local+'.html')?local+'.html':local===''?'index.html':null;
-        if (target) $(el).attr('href',previewPrefix(versionId)+target);
+        if (target && el.tagName === 'link' && target.endsWith('.css')) {
+          // An opaque sandbox must not depend on cookie-bearing stylesheet subrequests.
+          const css=bundle.files.find(f=>f.path===target)?.content || '';
+          $(el).replaceWith($('<style>').text(css.replace(/<\/style/gi,'<\\/style')));
+        } else if (target) $(el).attr('href',previewPrefix(versionId)+target);
         else if (el.tagName === 'link') $(el).remove();
         else $(el).attr('href','#');
       });

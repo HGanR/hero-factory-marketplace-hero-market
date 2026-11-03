@@ -58,7 +58,7 @@ test('real planner/generator creates saved version, private artifact and client 
  const [site]=await db.select().from(m.schema.web3Sites);assert.equal(site.status,'DRAFT');assert.equal(site.currentVersionId,null);
  const [version]=await db.select().from(m.schema.web3SiteVersions);assert.equal(version.ipfsCid,null);assert.equal(version.id,receipt.versionId);assert.equal(version.schemaHash,receipt.schemaHash);
  const [memory]=await db.select().from(m.schema.executiveAgentMemoryItems);assert.ok(memory.archivedAt);assert.ok(memory.expiresAt>Date.now());
- const response=await preview(receipt);assert.equal(response.status,200);const html=await response.text();assert.match(html,/Fixture Gardens|landscap/i);assert.ok(!html.includes('<script'));
+ const response=await preview(receipt);assert.equal(response.status,200);const html=await response.text();assert.match(html,/Fixture Gardens|landscap/i);assert.ok(!html.includes('<script'));assert.match(html,/<style>/);assert.ok(!/<link[^>]*site\.css/.test(html));
  assert.equal(response.headers.get('x-artifact-sha256'),sha(html));assert.match(response.headers.get('content-security-policy'),/sandbox/);assert.match(response.headers.get('cache-control'),/no-store/);
 });
 test('foreign owner, wrong client and published site fail before generation or draft writes',async()=>{
