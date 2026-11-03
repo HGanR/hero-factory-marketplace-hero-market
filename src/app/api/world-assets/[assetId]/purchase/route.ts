@@ -1,6 +1,11 @@
 /**
  * POST /api/world-assets/[assetId]/purchase — Purchase a world library asset
- * Creates user_world_assets entry. For tokenPrice > 0, payment wiring is future work.
+ * Creates user_world_assets entry.
+ *
+ * SAFEGUARD: priced assets (tokenPrice > 0) are rejected until server-side
+ * payment verification exists. Previously this route created ownership from
+ * an unverified client-supplied (or fabricated) transaction reference.
+ * Free assets proceed unchanged and existing ownership is preserved.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
@@ -60,6 +65,21 @@ export async function POST(
         alreadyOwned: true,
         ownershipId: existing.id,
       });
+    }
+
+    // SAFEGUARD: do not create paid ownership without server-side payment
+    // verification. No receipt, amount, recipient, or replay check exists
+    // yet, so any priced purchase — with or without a supplied txRef — is
+    // refused. Free assets (tokenPrice 0) fall through unchanged.
+    if (asset.tokenPrice > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Paid asset purchases are unavailable until server-side payment verification is implemented.",
+          code: "PAYMENT_VERIFICATION_UNAVAILABLE",
+        },
+        { status: 503 }
+      );
     }
 
     if (asset.supplyLimit != null) {
