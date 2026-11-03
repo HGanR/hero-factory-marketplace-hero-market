@@ -20,7 +20,9 @@ export type WorkflowTriggerEvent =
   | "commerce_transaction"
   | "app_published"
   | "app_installed"
-  | "asset_purchased";
+  | "asset_purchased"
+  | "new_account"
+  | "onboarding_completed";
 
 const ACCOUNTING_TO_TRIGGER: Record<string, WorkflowTriggerEvent> = {
   INSTRUMENT_ISSUED: "instrument_issued",
