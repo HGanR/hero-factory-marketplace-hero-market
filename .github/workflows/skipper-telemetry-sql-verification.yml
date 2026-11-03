@@ -1,0 +1,48 @@
+name: SKIPPER merged telemetry SQL verification
+on:
+  pull_request:
+    paths:
+      - 'tests/telemetry/**'
+      - 'src/app/api/admin/executive-agent/telemetry/**'
+      - 'src/lib/telemetry/**'
+      - 'src/lib/db/schema*.ts'
+      - '.github/workflows/skipper-telemetry-sql-verification.yml'
+permissions:
+  contents: read
+jobs:
+  feed-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, tidb]
+    env:
+      SKIPPER_TELEMETRY_SQL_TEST_ONLY: '1'
+      SKIPPER_TELEMETRY_SQL_ENGINE: ${{ matrix.engine }}
+      SKIPPER_TELEMETRY_SQL_PASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Start disposable database bound only to localhost
+        shell: bash
+        run: |
+          if [ "$SKIPPER_TELEMETRY_SQL_ENGINE" = mysql ]; then
+            docker run -d --name skipper-telemetry-db -p 127.0.0.1:41306:3306 -e MYSQL_ROOT_HOST=% -e MYSQL_ROOT_PASSWORD=disposable-ci-root mysql:8.0
+          else
+            docker run -d --name skipper-telemetry-db -p 127.0.0.1:41306:4000 pingcap/tidb:v8.5.4 --store=unistore --path=/tmp/skipper-telemetry --host=0.0.0.0
+          fi
+      - run: node tests/telemetry/prepare-disposable-db.mjs
+      - name: Actual SQL query against the disposable engine
+        run: node --test tests/telemetry/feed-database.test.mjs
+      - name: Existing telemetry tests with actual dependencies
+        run: node --import tsx --test src/app/api/admin/executive-agent/telemetry/feed/telemetry-feed-route-handler.spec.ts src/lib/telemetry/telemetry-events.spec.ts
+      - name: Database diagnostics on failure
+        if: failure()
+        run: docker logs --tail 80 skipper-telemetry-db
+      - name: Remove disposable database
+        if: always()
+        run: docker rm -f skipper-telemetry-db || true
