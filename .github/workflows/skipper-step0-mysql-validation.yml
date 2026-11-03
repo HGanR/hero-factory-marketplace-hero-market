@@ -1,0 +1,43 @@
+name: SKIPPER STEP 0 disposable MySQL verification
+on:
+  pull_request:
+    paths:
+      - 'src/lib/executive-agent/**'
+      - 'src/app/api/admin/executive-agent/approvals/**'
+      - 'src/lib/db/schema*.ts'
+      - 'tests/executive-approval/**'
+      - '.github/workflows/skipper-step0-mysql-validation.yml'
+permissions:
+  contents: read
+jobs:
+  real-mysql-approval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: disposable-ci-root
+          MYSQL_DATABASE: skipper_step0_ci
+          MYSQL_USER: skipper_test
+          MYSQL_PASSWORD: disposable-ci-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Existing simulated approval boundary
+        run: node --test tests/executive-approval/approval-boundary.test.mjs
+      - name: Real MySQL approval, row-lock, audit and business-write checks
+        env:
+          SKIPPER_MYSQL_TEST_ONLY: '1'
+          SKIPPER_MYSQL_TEST_PASSWORD: disposable-ci-only
+        run: node --test tests/executive-approval/mysql-boundary.test.mjs
