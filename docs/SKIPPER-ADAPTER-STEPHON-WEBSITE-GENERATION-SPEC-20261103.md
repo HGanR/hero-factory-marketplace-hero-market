@@ -278,11 +278,15 @@ SiteGenerationProject {
   never be reported as `preview_ready`. **Note the existing deploy
   conflates preview and publish:** it sets `status: "PUBLISHED"` and
   returns a public gateway URL in one call. The adapter must add a
-  preview state (a version with a gateway URL that is **not** marked
-  `PUBLISHED` — e.g. a preview-only deploy that uploads the bundle and
-  records the CID on the version row without flipping the site status —
-  or an explicit `preview_ready` status, Codex's call) and must never
-  call raw deploy for a preview. See §3.5.
+  preview state — a tested version whose files are available only
+  through an **authenticated, ownership-checked preview route** (admin
+  JWT + client/site ownership re-check; see §3.3 step 5 and §5.4), with
+  `status: "preview_ready"` (Codex's call on the exact representation)
+  — and must never call raw deploy for a preview. **No preview bundle
+  is uploaded to public IPFS and no CID is recorded for a preview;**
+  the private storage mechanism for preview files is still to be
+  designed (§5.4). A public gateway URL is publication, not a preview.
+  See §3.5.
 - The project row is created by the executor **after** approval, not at
   propose time. Proposing creates only the approval row. (Today a site
   row can also be created directly via `sites/route.ts` POST as an empty
