@@ -44,20 +44,38 @@
  * not by re-scanning on every poll (a server-side re-scan on
  * every poll would re-deliver already-seen events and can stall
  * pagination when the re-scanned window exceeds the page limit).
- * The recovery protocol is: the client periodically re-polls
- * from an earlier cursor — for example, once per hour, or on
- * reconnect, poll from (cursor.c minus 5 minutes) — and dedupes
- * by event id. The feed accepts any cursor, including an earlier
- * one, so a catch-up poll returns the late event alongside the
- * events already seen. Delivery is therefore at-least-once with
- * dedup for events recovered by catch-up, and loss-tolerant
- * beyond that: an event whose commit is delayed beyond the
- * watermark AND beyond the client's catch-up window may be
- * missed by the feed. That is accepted and bounded here — the
- * emit path is a single-row insert, so a delay of that length
- * would indicate a serious database problem, and the revenue
- * loop reconciles from the source tables for critical reads
- * rather than relying on the feed for completeness.
+ * A fixed rewind from the latest forward cursor is NOT
+ * sufficient for catch-up: the forward cursor keeps advancing,
+ * so by the time an hourly catch-up runs, the cursor may be far
+ * more than the rewind window past a late event's createdAt, and
+ * the rewind misses it — even for a commit delay of only 50
+ * seconds. (An earlier draft recommended rewinding 5 minutes
+ * from the latest forward cursor; that contract was corrected
+ * because it misses exactly this case.)
+ * The catch-up contract is: the client maintains its OWN
+ * persisted catch-up checkpoint, separate from the forward
+ * cursor, recording the timestamp up to which catch-up has been
+ * completed. On a catch-up run, the client paginates COMPLETELY
+ * (page by page, following nextCursor until an empty page) over
+ * the interval from the catch-up checkpoint up to the current
+ * watermark, deduping by event id. When the interval is drained
+ * it persists the new checkpoint. Replay coverage therefore
+ * spans the entire interval since the previous successful
+ * catch-up — not merely a fixed window before the latest forward
+ * cursor — so any event in that interval, including one delayed
+ * only 50 seconds, is recovered regardless of how far the
+ * forward cursor has advanced. Delivery is at-least-once with
+ * dedup for events in the catch-up interval. An event whose
+ * commit is delayed beyond the catch-up interval (it commits
+ * after catch-up has already covered its createdAt) may be
+ * missed by the feed; the revenue loop reconciles from the
+ * source tables for critical reads rather than relying on the
+ * feed for completeness. Catch-up scheduling (when to run it),
+ * durable deduplication (persisting seen ids), and source
+ * reconciliation are STEP 2 implementation requirements, not
+ * part of this feed. The feed's part is only that it accepts
+ * any cursor, including a catch-up checkpoint cursor, and
+ * paginates from there.
  *
  * nextCursor is always a valid resume point: the last event's
  * (createdAt, id) on a non-empty page (even the final page),
@@ -129,17 +147,6 @@ export const TELEMETRY_FEED_MAX_LIMIT = 100;
  * far longer than any realistic single-row emit transaction.
  */
 export const TELEMETRY_FEED_VISIBILITY_WINDOW_MS = 30_000;
-
-/**
- * Recommended catch-up window for the client: when the client
- * re-polls from an earlier cursor to recover late-committing
- * events, it should rewind by at least this far. 5 minutes
- * covers any realistic commit delay for a single-row insert by
- * a wide margin. This is a client-side recommendation, not a
- * server filter — the feed itself applies only the watermark
- * and the cursor.
- */
-export const TELEMETRY_FEED_CATCH_UP_MS = 5 * 60 * 1000;
 
 export function parseTelemetryFeedLimit(raw: string | null): number {
   const n = raw == null ? NaN : Number(raw);
@@ -227,9 +234,11 @@ export function telemetryFeedWatermark(now: Date): Date {
  * A late-committing event (one whose transaction commits after
  * the watermark passed its createdAt) is behind the cursor and
  * is not returned by a forward poll. It is recovered by a
- * catch-up poll: the client re-polls from an earlier cursor
- * (see TELEMETRY_FEED_CATCH_UP_MS) and dedupes by id. The feed
- * accepts any cursor, including an earlier one.
+ * catch-up poll: the client re-polls from its own persisted
+ * catch-up checkpoint (see the delivery semantics above) and
+ * paginates completely over the interval since the previous
+ * catch-up, deduping by id. The feed accepts any cursor,
+ * including an earlier one.
  *
  * nextCursor is always a valid resume point:
  * - non-empty page: the last event's (createdAt, id), even on

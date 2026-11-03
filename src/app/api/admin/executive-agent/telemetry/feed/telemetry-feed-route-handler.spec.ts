@@ -10,7 +10,6 @@ import {
   listTelemetryEventsFromDb,
   parseTelemetryFeedLimit,
   telemetryFeedWatermark,
-  TELEMETRY_FEED_CATCH_UP_MS,
   TELEMETRY_FEED_VISIBILITY_WINDOW_MS,
   type TelemetryFeedCursor,
   type TelemetryFeedDeps,
@@ -514,31 +513,33 @@ describe("telemetry feed real query (listTelemetryEventsFromDb)", () => {
     );
   });
 
-  it("out-of-order commit visibility: a late-committing event is recovered by a catch-up poll", async () => {
+  it("out-of-order commit visibility: a late event is recovered by a checkpoint catch-up, not by a fixed rewind", async () => {
     // The reproduced miss: B is returned at 40s; older A commits
     // at 50s and is permanently behind B's cursor under a bare
-    // forward poll. The feed recovers it by catch-up: the client
-    // re-polls from an earlier cursor (here, from the beginning),
-    // and the feed — which accepts any cursor, including an
-    // earlier one — returns A alongside B. The client dedupes B
-    // (already seen) and acts on A exactly once. A server-side
-    // re-scan on every poll was rejected: it re-delivers
-    // already-seen events and stalls pagination when the
-    // re-scanned window exceeds the page limit.
+    // forward poll. A fixed rewind from the latest forward cursor
+    // does NOT recover it either: the forward cursor keeps
+    // advancing, so by the time an hourly catch-up runs, the
+    // cursor may be far more than the rewind window past A's
+    // createdAt — even for a delay of only 50 seconds. The
+    // correct contract is a persisted catch-up checkpoint: the
+    // client paginates COMPLETELY over the interval since the
+    // previous successful catch-up, so replay coverage spans
+    // that whole interval, not merely a fixed window before the
+    // latest forward cursor.
     const aCreated = "2026-11-01T17:00:00.000Z";
     const bCreated = "2026-11-01T17:00:10.000Z";
+    const cCreated = "2026-11-01T17:10:00.000Z"; // 10 minutes later
     const aVisible = "2026-11-01T17:00:50.000Z"; // A commits 50s after creation
-    const bVisible = "2026-11-01T17:00:10.000Z"; // B commits immediately
     const rows: MockRow[] = [
       fakeRow("a-late", aCreated, "new_account", aVisible),
-      fakeRow("b-early", bCreated, "new_account", bVisible),
+      fakeRow("b-early", bCreated, "new_account", bCreated),
+      fakeRow("c-later", cCreated, "new_account", cCreated),
     ];
 
-    // Poll at 40s (now 17:00:40, watermark 17:00:10). B is visible
-    // and at the watermark, so it is returned. A is not visible
-    // yet (commits at 17:00:50), so it is not returned. The
-    // cursor advances to B. A forward poll from B's cursor would
-    // never return A (its createdAt is behind the cursor).
+    // Forward poll at 40s (now 17:00:40, watermark 17:00:10).
+    // B is visible and at the watermark, so it is returned. A is
+    // not visible yet (commits at 17:00:50). The cursor advances
+    // to B. A is behind the cursor.
     const now1 = new Date("2026-11-01T17:00:40.000Z");
     const p1 = await queryReal(rows, null, 50, now1);
     assert.deepEqual(
@@ -548,37 +549,80 @@ describe("telemetry feed real query (listTelemetryEventsFromDb)", () => {
     );
     const cursor1 = p1.nextCursor as string;
     assert.deepEqual(decodeTelemetryFeedCursor(cursor1), { c: bCreated, i: "b-early" });
-    const forward = await queryReal(rows, decodeTelemetryFeedCursor(cursor1), 50, new Date("2026-11-01T17:01:00.000Z"));
-    assert.deepEqual(
-      forward.events.map((e) => e.id),
-      [],
-      "a forward poll from B's cursor does not return A (it is behind the cursor)",
-    );
 
-    // Catch-up: re-poll from an earlier cursor (here, from the
-    // beginning — in production the client rewinds by
-    // TELEMETRY_FEED_CATCH_UP_MS). A has committed by now, so it
-    // is returned alongside B. The client dedupes B and acts on
-    // A exactly once.
-    const now2 = new Date("2026-11-01T17:01:00.000Z");
-    const p2 = await queryReal(rows, null, 50, now2);
+    // Forward poll later (now 17:10:40, watermark 17:10:10).
+    // C is returned; A is visible by now but is behind the
+    // cursor, so a forward poll does not return it. The forward
+    // cursor is now 10 minutes past A's createdAt.
+    const now2 = new Date("2026-11-01T17:10:40.000Z");
+    const p2 = await queryReal(rows, decodeTelemetryFeedCursor(cursor1), 50, now2);
     assert.deepEqual(
       p2.events.map((e) => e.id),
-      ["a-late", "b-early"],
-      "a catch-up poll from an earlier cursor returns the late event in order",
+      ["c-later"],
+      "the forward poll returns only the new event, not the late one",
     );
-    const seenIds = new Set<string>(["b-early"]);
-    const fresh = dedupeTelemetryEventsById(p2.events, seenIds);
+    const forwardCursor = p2.nextCursor as string;
+    assert.deepEqual(decodeTelemetryFeedCursor(forwardCursor), { c: cCreated, i: "c-later" });
+
+    // The flawed contract: rewind 5 minutes from the latest
+    // forward cursor (17:10:00 -> floor 17:05:00) and poll.
+    // A's createdAt (17:00:00) is before the floor, so the
+    // rewind MISSES A — even though A was delayed only 50s.
+    // (The client would pass a cursor at the floor; here it is
+    // simulated directly.)
+    const rewindFloor = new Date(
+      new Date(cCreated).getTime() - 5 * 60 * 1000,
+    ).toISOString();
+    const rewind = await queryReal(
+      rows,
+      { c: rewindFloor, i: "" },
+      50,
+      now2,
+    );
     assert.deepEqual(
-      fresh.map((e) => e.id),
-      ["a-late"],
-      "after dedup, only the late event is new (no duplicate action on B)",
+      rewind.events.map((e) => e.id),
+      ["c-later"],
+      "a 5-minute rewind from the forward cursor misses the late event (its createdAt is before the floor)",
     );
     assert.equal(
-      TELEMETRY_FEED_CATCH_UP_MS,
-      5 * 60 * 1000,
-      "the recommended catch-up rewind is 5 minutes",
+      rewind.events.some((e) => e.id === "a-late"),
+      false,
+      "the rewind does not recover A",
     );
+
+    // The correct contract: catch-up from the client's own
+    // persisted checkpoint, paginating COMPLETELY over the
+    // interval since the previous successful catch-up. Here the
+    // previous checkpoint is the beginning (no prior catch-up),
+    // and the catch-up paginates with limit 2, so it must drain
+    // two pages to cover the whole interval [start, watermark].
+    // Replay coverage spans the interval, so A is recovered even
+    // though the forward cursor is 10 minutes past it.
+    const seenCatchUp: string[] = [];
+    let catchUpCursor: TelemetryFeedCursor | null = null;
+    let catchUpPages = 0;
+    for (;;) {
+      const { events, nextCursor } = await queryReal(rows, catchUpCursor, 2, now2);
+      catchUpPages += 1;
+      for (const e of events) {
+        if (!seenCatchUp.includes(e.id)) seenCatchUp.push(e.id);
+      }
+      if (events.length === 0) break;
+      assert.equal(typeof nextCursor, "string");
+      catchUpCursor = decodeTelemetryFeedCursor(nextCursor);
+      if (catchUpPages > 10) throw new Error("catch-up pagination stalled");
+    }
+    assert.deepEqual(
+      seenCatchUp,
+      ["a-late", "b-early", "c-later"],
+      "a complete catch-up from the persisted checkpoint covers the whole interval and recovers the late event",
+    );
+    assert.equal(catchUpPages, 3, "3 events at limit 2 drain in 2 pages + 1 empty");
+    // The client dedupes against what the forward polls already
+    // delivered (B and C); only A is new, so it acts once.
+    const alreadySeen = new Set<string>(["b-early", "c-later"]);
+    const fresh = seenCatchUp.filter((id) => !alreadySeen.has(id));
+    assert.deepEqual(fresh, ["a-late"]);
   });
 
   it("the generated SQL carries the watermark, cursor, ordering, and limit", async () => {
