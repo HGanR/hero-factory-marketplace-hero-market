@@ -31,10 +31,10 @@ export function buildRevenueOverviewVoiceAnswer(snap: ExecutiveRevenueValueSnaps
   const approvedWord = snap.approvedAccounts === 1 ? "account" : "accounts";
 
   return (
-    `Here's the revenue overview, Boss. ` +
-    `With ${snap.pendingAccounts} pending ${pendingWord}, potential earnings are ${formatExecutiveCurrency(snap.potentialEarnings)}. ` +
-    `Approved account value from ${snap.approvedAccounts} active approved ${approvedWord} is ${formatExecutiveCurrency(snap.approvedAccountValue)}. ` +
-    `Monthly recurring revenue is ${formatExecutiveCurrency(snap.monthlyRecurringRevenue)}.`
+    `Here's the modeled revenue overview, Boss. These figures are account-based display math, not verified billing or collections. ` +
+    `With ${snap.pendingAccounts} pending ${pendingWord}, modeled one-time setup value is ${formatExecutiveCurrency(snap.potentialEarnings)}. ` +
+    `Modeled one-time setup value from ${snap.approvedAccounts} active approved ${approvedWord} is ${formatExecutiveCurrency(snap.approvedAccountValue)}. ` +
+    `Modeled monthly membership value is ${formatExecutiveCurrency(snap.monthlyRecurringRevenue)}. Setup fees do not count toward ARR.`
   );
 }
 

@@ -105,6 +105,8 @@ describe("Skipper and policy", () => {
   it("registers delegate and escalate write actions", () => {
     assert.ok(WRITE_ACTION_NAMES.includes("delegateOperationalTask"));
     assert.ok(WRITE_ACTION_NAMES.includes("escalateOperationalTask"));
-    assert.equal(WRITE_ACTION_NAMES.length, 14);
+    assert.ok(WRITE_ACTION_NAMES.includes("recordRevenueOpportunityReview"));
+    assert.equal(WRITE_ACTION_NAMES.length, 15);
   });
 });
+
