@@ -16,7 +16,7 @@ import {
   oasisNpcs,
 } from "@/lib/db/schema";
 import { summarizeBentleyExecutiveBridge, summarizeBentleyLaunchReadinessForClient } from "@/lib/executive-agent/bentley-executive-bridge";
-import { rollupSiteAnalyticsForExecutive } from "@/lib/analytics/site-analytics-store";
+import { monthVisitSeries, rollupSiteAnalyticsForExecutive } from "@/lib/analytics/site-analytics-store";
 import { rollupApprovedUserActivity } from "@/lib/analytics/approved-user-activity";
 
 export type ExecutiveToolContext = {
@@ -302,6 +302,7 @@ export async function getPlatformAnalyticsSummary(ctx: ExecutiveToolContext) {
     socialCampaigns: Number(camps?.n ?? 0),
     generatedAt: new Date().toISOString(),
     siteTraffic,
+    monthVisits: await monthVisitSeries(ctx.db).catch(() => null),
     approvedUserActivity,
   };
 }
@@ -952,3 +953,4 @@ export async function getNeuroSourceAnswer(ctx: ExecutiveToolContext, prompt?: s
     subjectArea,
   });
 }
+

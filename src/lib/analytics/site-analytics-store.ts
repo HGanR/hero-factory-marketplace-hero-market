@@ -271,3 +271,25 @@ export async function rollupSiteAnalyticsForExecutive(
     return null;
   }
 }
+
+
+// UTC calendar month through the snapshot instant. Only anonymous counts leave SQL.
+export async function monthVisitSeries(db: Db, through = new Date()) {
+  const first = Date.UTC(through.getUTCFullYear(), through.getUTCMonth(), 1);
+  const date = sql<number>`FLOOR(UNIX_TIMESTAMP(${siteAnalyticsEvents.createdAt}) / 86400)`;
+  const rows = await db.select({ day:date, views:count(),
+    visitors:sql<number>`COUNT(DISTINCT NULLIF(${siteAnalyticsEvents.visitorId}, ''))` })
+    .from(siteAnalyticsEvents).where(and(eq(siteAnalyticsEvents.eventType,'page_view'),
+      sql`${siteAnalyticsEvents.createdAt} >= FROM_UNIXTIME(${first/1000})`,
+      sql`${siteAnalyticsEvents.createdAt} <= FROM_UNIXTIME(${through.getTime()/1000})`))
+    .groupBy(date).orderBy(date);
+  const days = Array.from({length:through.getUTCDate()},(_,i)=>({
+    date:new Date(first+i*86400000).toISOString().slice(0,10),views:0,visitors:0
+  }));
+  for(const row of rows){
+    const day=days[Number(row.day)-first/86400000], views=Number(row.views), visitors=Number(row.visitors);
+    if(!day || !Number.isSafeInteger(views)||!Number.isSafeInteger(visitors)||visitors<0||views<visitors) throw Error('Invalid daily traffic aggregate');
+    day.views=views; day.visitors=visitors;
+  }
+  return {through:through.toISOString(),days};
+}
