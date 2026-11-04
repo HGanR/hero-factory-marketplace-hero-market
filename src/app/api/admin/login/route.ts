@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
     const canonicalUsername = adminUsername;
     const cookieBase = sessionCookieBase(cookieHostFromRequest(request));
 
-    // Fail before any account lookup or automatic admin creation.\n    resolveAdminJwtSecret();\n    const db = await getDb();
+    // Fail before any account lookup or automatic admin creation.
+    resolveAdminJwtSecret();
+    const db = await getDb();
     let adminUser = await db
       .select()
       .from(marketplaceUsers)
@@ -104,7 +106,8 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {\n    if(error instanceof AdminJwtSecretNotConfiguredError)return NextResponse.json({error:"Administrator session verification is not configured for this deployment.",code:"ADMIN_AUTH_NOT_CONFIGURED"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+  } catch (error) {
+    if(error instanceof AdminJwtSecretNotConfiguredError)return NextResponse.json({error:"Administrator session verification is not configured for this deployment.",code:"ADMIN_AUTH_NOT_CONFIGURED"},{status:503,headers:{"Cache-Control":"private, no-store"}});
     const message = error instanceof Error ? error.message : String(error);
     console.error("[admin-login] error", {
       message,
