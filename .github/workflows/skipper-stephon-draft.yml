@@ -12,6 +12,8 @@ on:
       - 'src/lib/site-builder/stephon-download.ts'
       - 'src/app/api/admin/executive-agent/stephon/**'
       - 'tests/stephon/**'
+      - 'tests/engine-integration/auth-configuration.test.mjs'
+      - 'src/app/api/admin/login/route.ts'
       - '.github/workflows/skipper-stephon-draft.yml'
 permissions:
   contents: read
@@ -34,6 +36,8 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real auth configuration failure and session boundaries
+        run: node --test tests/engine-integration/auth-configuration.test.mjs
       - name: Start disposable database
         run: |
           if [ "$SKIPPER_STEP2_SQL_ENGINE" = mysql ]; then
