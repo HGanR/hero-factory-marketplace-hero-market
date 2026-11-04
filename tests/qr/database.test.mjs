@@ -17,7 +17,7 @@ process.env.JWT_SECRET='fixture-qr-session-not-deployment-secret';
 const pool=mysql.createPool({host:'127.0.0.1',port:41306,user:'skipper_step2_test',password:'disposable-step2-only',database:'skipper_step2_ci',timezone:'Z',connectionLimit:8});
 const db=drizzle(pool);globalThis.__qrDb=db;
 const root=process.cwd(),dir=mkdtempSync(join(root,'.qr-sql-test-'));
-const realNames=['engine-runtime-service','engine-runtime-core','engine-runtime-contract','qr-artifact','qr-artifact-contract','qr-artifact-renderer','approve-executive-action','approval-gated-execution','executive-action-executors','executive-action-payloads','executive-agent-policy','executive-agent-approvals-store','executive-agent-audit'];
+const realNames=['engine-runtime-service','engine-runtime-core','engine-runtime-contract','qr-artifact','qr-artifact-contract','qr-artifact-renderer','approve-executive-action','reject-executive-action','approval-gated-execution','executive-action-executors','executive-action-payloads','executive-agent-policy','executive-agent-approvals-store','executive-agent-audit'];
 const real=new Set(realNames.map(n=>'@/lib/executive-agent/'+n));
 const sources=realNames.map(n=>readFileSync(resolve(root,'src/lib/executive-agent/'+n+'.ts'),'utf8')).join('\n');
 const originalFetch=globalThis.fetch;globalThis.fetch=async()=>{throw Error('No target URL, model or provider fetch permitted');};
@@ -126,4 +126,17 @@ test('same-origin and administrator checks remain mandatory on gateway',async()=
   const body={operation:'propose',requestId:randomUUID(),engineId:'qr.generate',input};
   assert.equal((await gateway(body,{anonymous:true})).status,401);assert.equal((await gateway(body,{admin:false})).status,401);
   assert.equal((await gateway(body,{origin:'https://evil.invalid'})).status,403);assert.equal(await count('executiveAgentApprovals'),0);
+});
+test('canonical rejection closes the proposal without generating files',async()=>{
+  const id=await proposal();const r=await gateway({operation:'reject',requestId:id,humanConfirmed:true});
+  assert.equal(r.status,200);assert.equal((await receipt(id)).status,'rejected');assert.equal(await count('trustAssets'),0);
+  assert.equal((await approve(id)).status,409);
+});
+test('ownership changed after rendering is refused by the locked persistence check',async()=>{
+  const proxy=new Proxy(db,{get(target,key){
+    if(key==='transaction')return async fn=>{await db.update(m.schema.trusts).set({userId:8});return db.transaction(fn);};
+    const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;
+  }});
+  await assert.rejects(()=>m.generateQrCode({db:proxy,adminUserId:7,approvalId:randomUUID()},input),/ownership changed/);
+  assert.equal(await count('trustAssets'),0);assert.equal(await count('executiveAgentMemoryItems'),0);
 });
