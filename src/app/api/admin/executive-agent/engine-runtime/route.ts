@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { web3Sites, trusts, clients } from "@/lib/db/schema";
 import { NextRequest, NextResponse } from "next/server";
+import { AdminJwtSecretNotConfiguredError } from "@/lib/admin/admin-session-jwt";
 import { getExecutiveAdminUserId } from "@/lib/admin/get-executive-admin-user-id";
 import { getDb } from "@/lib/db";
 import { ENGINE_CATALOG, ENGINE_RUNTIME_VERSION } from "@/lib/executive-agent/engine-runtime-contract";
@@ -11,7 +12,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 const headers = {"Cache-Control":"private, no-store", "Vary":"Cookie"};
 export async function GET(req: NextRequest) {
-  const accountId = await getExecutiveAdminUserId(req);
+  let accountId:number|null;
+  try { accountId = await getExecutiveAdminUserId(req); }
+  catch(error) {
+    if(error instanceof AdminJwtSecretNotConfiguredError)return NextResponse.json({ok:false,code:"ADMIN_AUTH_NOT_CONFIGURED",error:"Administrator session verification is not configured for this deployment."},{status:503,headers});
+    throw error;
+  }
   if (accountId == null) return NextResponse.json({ok:false,error:"Unauthorized"},{status:401,headers});
   let businessContext:Record<string,unknown>={sitesUnavailable:true};
   try{
@@ -28,7 +34,12 @@ export async function GET(req: NextRequest) {
     limits:["Registered adapters are not proof of provider readiness or completed work.","GitNexus is optional code knowledge, not execution authority.","REN/TAYO modeling and native Coding Agent run through their separately governed local adapters.","Stephon intake records a brief; it does not generate a website."]},{headers});
 }
 export async function POST(req: NextRequest) {
-  const accountId = await getExecutiveAdminUserId(req);
+  let accountId:number|null;
+  try { accountId = await getExecutiveAdminUserId(req); }
+  catch(error) {
+    if(error instanceof AdminJwtSecretNotConfiguredError)return NextResponse.json({ok:false,code:"ADMIN_AUTH_NOT_CONFIGURED",error:"Administrator session verification is not configured for this deployment."},{status:503,headers});
+    throw error;
+  }
   if (accountId == null) return NextResponse.json({ok:false,error:"Unauthorized"},{status:401,headers});
   if (req.headers.get("origin") !== new URL(req.url).origin) return NextResponse.json({ok:false,error:"Same-origin engine request required."},{status:403,headers});
   const raw = await req.text();

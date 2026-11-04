@@ -1,6 +1,6 @@
 // src/app/api/admin/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createToken } from "@/lib/auth";
+import { resolveAdminJwtSecret, signNpcAdminSessionTokens, AdminJwtSecretNotConfiguredError } from "@/lib/admin/admin-session-jwt";
 import { cookieHostFromRequest, sessionCookieBase } from "@/lib/auth-cookie-options";
 import { getDb } from "@/lib/db";
 import { marketplaceUsers } from "@/lib/db/schema";
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const canonicalUsername = adminUsername;
     const cookieBase = sessionCookieBase(cookieHostFromRequest(request));
 
-    const db = await getDb();
+    // Fail before any account lookup or automatic admin creation.\n    resolveAdminJwtSecret();\n    const db = await getDb();
     let adminUser = await db
       .select()
       .from(marketplaceUsers)
@@ -82,12 +82,7 @@ export async function POST(request: NextRequest) {
 
     const userId = adminUser[0].id;
 
-    const adminToken = createToken({
-      userId,
-      isAdmin: true,
-      username: canonicalUsername,
-    });
-    const userToken = createToken({ userId, username: canonicalUsername, isAdmin: true });
+    const {adminToken,userToken} = await signNpcAdminSessionTokens({userId,username:canonicalUsername});
 
     const response = NextResponse.json({
       success: true,
@@ -109,7 +104,7 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error) {\n    if(error instanceof AdminJwtSecretNotConfiguredError)return NextResponse.json({error:"Administrator session verification is not configured for this deployment.",code:"ADMIN_AUTH_NOT_CONFIGURED"},{status:503,headers:{"Cache-Control":"private, no-store"}});
     const message = error instanceof Error ? error.message : String(error);
     console.error("[admin-login] error", {
       message,
