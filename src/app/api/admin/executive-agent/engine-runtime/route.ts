@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import { web3Sites } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { web3Sites, trusts, clients } from "@/lib/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { getExecutiveAdminUserId } from "@/lib/admin/get-executive-admin-user-id";
 import { getDb } from "@/lib/db";
@@ -19,6 +19,11 @@ export async function GET(req: NextRequest) {
     const sites=await db.select({id:web3Sites.id,name:web3Sites.name,clientId:web3Sites.clientId,status:web3Sites.status}).from(web3Sites).where(eq(web3Sites.userId,accountId)).limit(50);
     businessContext={sites,siteLimit:50};
   }catch{/* Discovery still works when optional site context is unavailable. */}
+  try{
+    const db=await getDb();
+    const workspaces=await db.select({id:trusts.id,name:trusts.name,clientId:trusts.clientId}).from(trusts).innerJoin(clients,and(eq(clients.id,trusts.clientId),eq(clients.userId,accountId))).where(eq(trusts.userId,accountId)).limit(50);
+    businessContext={...businessContext,workspaces,workspaceLimit:50};
+  }catch{businessContext={...businessContext,workspacesUnavailable:true};}
   return NextResponse.json({businessContext,ok:true,schema:ENGINE_RUNTIME_VERSION,accountId:String(accountId),observedAt:new Date().toISOString(),engines:ENGINE_CATALOG,
     limits:["Registered adapters are not proof of provider readiness or completed work.","GitNexus is optional code knowledge, not execution authority.","REN/TAYO modeling and native Coding Agent run through their separately governed local adapters.","Stephon intake records a brief; it does not generate a website."]},{headers});
 }

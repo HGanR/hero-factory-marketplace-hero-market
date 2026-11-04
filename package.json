@@ -28,7 +28,8 @@
     "test:jest": "node scripts/test-selection.cjs && jest --config jest.config.js --runInBand",
     "test:jest:browser": "node scripts/test-selection.cjs && jest --config jest.browser.config.js --runInBand",
     "test:playwright": "playwright test",
-    "test:playwright:update": "playwright test --update-snapshots"
+    "test:playwright:update": "playwright test --update-snapshots",
+    "test:qr": "node --test tests/qr/renderer.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-sns": "^3.1045.0",
@@ -100,7 +101,11 @@
     "xrpl": "^4.4.3",
     "zod": "^4.1.13",
     "date-fns": "4.4.0",
-    "socket.io": "4.8.4"
+    "socket.io": "4.8.4",
+    "qrcode": "1.5.4",
+    "pngjs": "7.0.0",
+    "sharp": "0.34.5",
+    "jsqr": "1.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -126,7 +131,6 @@
     "@types/jest": "30.0.0",
     "@playwright/test": "1.64.1",
     "pixelmatch": "8.0.0",
-    "pngjs": "7.0.0",
     "@types/pngjs": "6.0.5"
   }
 }

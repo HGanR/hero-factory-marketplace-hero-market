@@ -41,6 +41,7 @@ export const WRITE_ACTION_NAMES = [
   "triggerCampaignSync",
   "createSiteBuilderTask",
   "generateStephonDraft",
+  "generateQrCode",
   "createTrustFulfillmentPacket",
   "createRevenueOsCampaignReviewPacket",
   "recordRevenueOsLaunchReadinessCheckpoint",
@@ -59,6 +60,7 @@ export function scopeForWriteAction(action: string): ExecutiveAgentScope | null 
     case "createTodo":
     case "assignFollowUp":
     case "createSiteBuilderTask":
+    case "generateQrCode":
     case "generateStephonDraft":
     case "createTrustFulfillmentPacket":
     case "createRevenueOsCampaignReviewPacket":

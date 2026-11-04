@@ -1,9 +1,11 @@
+import { GenerateQrInputSchema } from "./qr-artifact-contract";
 import { GenerateStephonDraftSchema } from "./stephon-draft-contract";
 import { z } from "zod";
 
 /** Registered server adapters only. These descriptors do not grant execution authority. */
 export const ENGINE_RUNTIME_VERSION = "skipper-engine-runtime-v1";
 export const ENGINE_CATALOG = [
+  {id:"qr.generate",agent:"skipper",mode:"approval",purpose:"Generate private PNG/SVG QR artifacts for an owned client-linked workspace, independently decode both files and save download pointers/hashes. Black square modules only. Does not visit the URL or certify destination content.",fields:"{clientId:UUID,workspaceId:UUID (use businessContext.workspaces),url:http(s) string (max 600 characters),name?:string,ecc?:L|M|Q|H,sizePx?:128..2048,quietZone?:4..16,uniqueMode?:boolean}"},
   { id: "stephon.generate_draft", agent: "stephon", mode: "approval", purpose: "Generate an owned client-linked DRAFT site version and inert private seven-day preview. Requires review; no publication. Configured mode may incur existing provider charges; deterministic mode never invokes a model.", fields: "{clientId: UUID, siteId: UUID (use stephon.projects), input:{userPrompt:string,...existing planner inputs}, generationMode:deterministic|configured}" },
   { id: "executive.inbox", agent: "skipper", mode: "read", purpose: "Read the latest 120 Executive Inbox messages and up to 2500 approved active recipients. This does not send a message or read external email.", fields: "{}" },
   { id: "company.accounts", agent: "skipper", mode: "read", purpose: "Current pending and approved account counts; not collected payments.", fields: "{}" },
@@ -21,6 +23,7 @@ export const ENGINE_CATALOG = [
 ] as const;
 export type EngineId = typeof ENGINE_CATALOG[number]["id"];
 export const InputSchemas = {
+  "qr.generate": GenerateQrInputSchema,
   "stephon.generate_draft": GenerateStephonDraftSchema,
   "executive.inbox": z.object({}).strict(),
   "company.accounts": z.object({}).strict(),
@@ -50,6 +53,7 @@ export function resolveEngineInput(engineId: EngineId, input: unknown) {
 export function writeActionForEngine(id: EngineId, input: Record<string, unknown>) {
   const clean = resolveEngineInput(id, input);
   switch (id) {
+    case "qr.generate":return {action:"generateQrCode",payload:clean};
     case "stephon.generate_draft": return {action:"generateStephonDraft",payload:clean};
     case "bentley.market_research": return { action: "triggerBentleyAnalysis", payload: { ...clean, mode: "market_sweep" } };
     case "bentley.campaign_drafts": return { action: "triggerCampaignSync", payload: { ...clean, dryRun: false } };
