@@ -17,6 +17,7 @@ const adapters = {
   '@/lib/db/schema': `import { mysqlTable, varchar, int } from 'drizzle-orm/mysql-core';
     export const clients=mysqlTable('clients',{id:varchar('id',{length:36}),userId:int('userId')});
     export const web3Sites=mysqlTable('web3_sites',{id:varchar('id',{length:36}),userId:int('userId'),clientId:varchar('clientId',{length:36})});
+    export const trusts=mysqlTable('trusts',{id:varchar('id',{length:36}),userId:int('userId'),clientId:varchar('clientId',{length:36})});
     export const campaigns=mysqlTable('campaigns',{id:varchar('id',{length:36}),userId:varchar('userId',{length:36})});
     export const executiveAgentApprovals=mysqlTable('executive_agent_approvals',{id:varchar('id',{length:36}),adminUserId:int('adminUserId'),status:varchar('status',{length:20})});
     export const executiveAgentAuditLogs=mysqlTable('executive_agent_audit_logs',{outputJson:varchar('outputJson',{length:500}),adminUserId:int('adminUserId'),targetId:varchar('targetId',{length:36}),actionType:varchar('actionType',{length:64}),createdAt:varchar('createdAt',{length:30})});`,
@@ -69,8 +70,8 @@ const decide=(id,operation='approve',extra={})=>POST(request({operation,requestI
 
 test('catalog retains existing adapters plus the real Stephon draft adapter',async()=>{
  setup();const r=await GET(new NextRequest('https://example.invalid/api/admin/executive-agent/engine-runtime'));
- const data=await r.json();assert.equal(data.schema,'skipper-engine-runtime-v1');assert.equal(data.engines.length,14);
- assert.equal(data.engines.filter(e=>e.mode==='approval').length,4);assert.equal(data.engines.find(e=>e.id==='executive.inbox').mode,'read');
+ const data=await r.json();assert.equal(data.schema,'skipper-engine-runtime-v1');assert.equal(data.engines.length,15);
+ assert.equal(data.engines.filter(e=>e.mode==='approval').length,5);assert.equal(data.engines.find(e=>e.id==='executive.inbox').mode,'read');
  assert.match(r.headers.get('cache-control'),/no-store/);
 });
 test('authentication and same-origin checks prevent gateway access',async()=>{

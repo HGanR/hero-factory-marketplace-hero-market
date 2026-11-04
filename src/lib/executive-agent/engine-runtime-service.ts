@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
-import { clients, campaigns, executiveAgentAuditLogs, web3Sites } from "@/lib/db/schema";
+import { clients, trusts, campaigns, executiveAgentAuditLogs, web3Sites } from "@/lib/db/schema";
 import { getExecutiveApprovalById, insertExecutiveApproval } from "@/lib/executive-agent/executive-agent-approvals-store";
 import { buildExecutiveAgentCoordinationOverviewForAdmin } from "@/lib/executive-agent/executive-agent-coordination-service";
 import * as tools from "@/lib/executive-agent/executive-agent-tools";
@@ -14,6 +14,10 @@ async function ownedInput(db: Db, adminUserId: number, input: Record<string, unk
   if (typeof input.clientId === "string") {
     const [row] = await db.select({id: clients.id}).from(clients).where(and(eq(clients.id,input.clientId),eq(clients.userId,adminUserId))).limit(1);
     if (!row) throw new EngineRuntimeError("Client unavailable to this account.",404);
+  }
+  if (typeof input.workspaceId === "string") {
+    const [workspace]=await db.select({id:trusts.id}).from(trusts).where(and(eq(trusts.id,input.workspaceId),eq(trusts.userId,adminUserId),eq(trusts.clientId,String(input.clientId)))).limit(1);
+    if(!workspace)throw new EngineRuntimeError("Workspace unavailable to this client/account.",404);
   }
   if (typeof input.siteId === "string") {
     const [site]=await db.select({id:web3Sites.id}).from(web3Sites).where(and(eq(web3Sites.id,input.siteId),eq(web3Sites.userId,adminUserId),eq(web3Sites.clientId,String(input.clientId)))).limit(1);
@@ -39,7 +43,7 @@ export async function operateEngine(db: Db, adminUserId: number, raw: unknown, d
   return operateEngineWithPorts(raw,{
     get: id => getExecutiveApprovalById(db,id,adminUserId),
     owned: input => ownedInput(db,adminUserId,input),
-    create: (id,engineId,action,payload,input) => insertExecutiveApproval(db,{id,adminUserId,proposedAction:action,targetType:"engine:"+engineId,targetId:typeof input.clientId === "string" ? input.clientId : typeof input.campaignId === "string" ? input.campaignId:null,payloadJson:JSON.stringify(payload)}),
+    create: (id,engineId,action,payload,input) => insertExecutiveApproval(db,{id,adminUserId,proposedAction:action,targetType:"engine:"+engineId,targetId:typeof input.clientId === "string" ? input.clientId : typeof input.workspaceId === "string" ? input.workspaceId : typeof input.campaignId === "string" ? input.campaignId:null,payloadJson:JSON.stringify(payload)}),
     decide,
     receipt: id => engineReceipt(db,adminUserId,id),
     read: async (id,input) => {

@@ -188,7 +188,7 @@ describe("orchestration integration", () => {
     assert.ok(isWriteAction("createRevenueOsCampaignReviewPacket"));
     assert.ok(isWriteAction("recordRevenueOsLaunchReadinessCheckpoint"));
     assert.ok(isWriteAction("recordRevenueOpportunityReview"));
-    assert.equal(WRITE_ACTION_NAMES.length, 16);
+    assert.equal(WRITE_ACTION_NAMES.length, 17);
     assert.ok(WRITE_ACTION_NAMES.includes("generateStephonDraft"));
   });
 

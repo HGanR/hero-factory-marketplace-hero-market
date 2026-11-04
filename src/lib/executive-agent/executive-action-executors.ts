@@ -1,3 +1,4 @@
+import { generateQrCode } from "@/lib/executive-agent/qr-artifact";
 import { generateStephonDraft } from "@/lib/executive-agent/stephon-draft";
 import "server-only";
 
@@ -811,6 +812,7 @@ export const EXECUTIVE_ACTION_EXECUTORS: Record<ExecutiveWriteActionName, Execut
   triggerCampaignSync: runTriggerCampaignSync,
   createSiteBuilderTask: runCreateSiteBuilderTask,
   generateStephonDraft: generateStephonDraft,
+  generateQrCode: generateQrCode,
   createTrustFulfillmentPacket: runCreateTrustFulfillmentPacket,
   createRevenueOsCampaignReviewPacket: runCreateRevenueOsCampaignReviewPacket,
   recordRevenueOsLaunchReadinessCheckpoint: runRecordRevenueOsLaunchReadinessCheckpoint,
