@@ -7,6 +7,8 @@ import { GenerateStephonDraftSchema } from './stephon-draft-contract';
 import { runFullSiteGeneration } from '@/lib/site-builder/ai/full-generation';
 import { selectSiteBuilderLlmInvoke } from '@/lib/site-builder/ai/providers/select-provider';
 import { generateStaticBundle } from '@/lib/site-builder/static-generator';
+import { packagePrivateDraft } from '@/lib/site-builder/stephon-download';
+import { readPrivateBundle } from '@/lib/site-builder/stephon-private-artifact';
 import { hashSiteSchema } from '@/lib/site-builder/hash';
 import { SitePlannerInputSchema } from '@/lib/site-builder/ai/schemas';
 import { SiteSchemaDocument } from '@/lib/site-builder/schema';
@@ -35,11 +37,12 @@ export async function generateStephonDraft(ctx:{db:Db;adminUserId:number;approva
   const vhash=createHash('sha256').update('stephon-version:'+ctx.approvalId).digest('hex');
   const versionId=`${vhash.slice(0,8)}-${vhash.slice(8,12)}-4${vhash.slice(13,16)}-8${vhash.slice(17,20)}-${vhash.slice(20,32)}`;
   const artifact=preparePrivateBundle(generateStaticBundle(document),versionId);
+  const download=packagePrivateDraft(readPrivateBundle(artifact.packed),versionId);
   const schemaJson=JSON.stringify(document),schemaHash=hashSiteSchema(document);
   assertTextFits(schemaJson);
   const expiresAt=new Date(Date.now()+PREVIEW_LIFETIME_MS);
   const receipt={kind:'stephon_private_draft_v1',approvalId:ctx.approvalId,clientId:client.id,siteId:site.id,versionId,schemaHash,
-    previewUrl:previewPrefix(versionId)+'index.html',expiresAt:expiresAt.toISOString(),qualityStatus:'review_required',publication:'not_published',
+    previewUrl:previewPrefix(versionId)+'index.html',download:{pointer:previewPrefix(versionId)+'index.html?download=1',format:'tar.gz',sha256:download.sha256,bytes:download.bytes},expiresAt:expiresAt.toISOString(),qualityStatus:'review_required',publication:'not_published',
     generationMode:input.generationMode,providerSource:selection.source,providerCost:input.generationMode==='configured'?'Unmeasured; existing configured provider may charge':'No model invocation requested',
     generationMeta:generated.generationMeta,evaluation:generated.evaluation,files:artifact.files,
     previewLimits:'Inert preview: scripts, external assets, embeds, forms and outgoing links are disabled. Visual and functional review remain required.'};

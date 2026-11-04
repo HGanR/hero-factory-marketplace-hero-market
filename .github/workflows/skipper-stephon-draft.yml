@@ -9,6 +9,7 @@ on:
       - 'src/lib/site-builder/ai/full-generation.ts'
       - 'src/pages/api/site-builder/ai/pipeline.ts'
       - 'src/lib/site-builder/stephon-private-artifact.ts'
+      - 'src/lib/site-builder/stephon-download.ts'
       - 'src/app/api/admin/executive-agent/stephon/**'
       - 'tests/stephon/**'
       - '.github/workflows/skipper-stephon-draft.yml'

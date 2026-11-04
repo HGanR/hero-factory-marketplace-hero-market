@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID, createHash } from 'node:crypto';
 import { NextRequest } from 'next/server.js';
+import { spawnSync } from 'node:child_process';
 import { SignJWT } from 'jose';
 
 assert.equal(process.env.CI,'true');assert.equal(process.env.SKIPPER_STEP2_SQL_TEST_ONLY,'1');
@@ -44,8 +45,8 @@ beforeEach(async()=>{
 after(async()=>{await pool.end();delete globalThis.__stephonDb;globalThis.fetch=fetchBefore;rmSync(dir,{recursive:true,force:true});});
 const run=(payload=input,owner=7)=>db.transaction(tx=>m.generateStephonDraft({db:tx,adminUserId:owner,approvalId:randomUUID()},payload));
 async function token(admin=true,userId=7){return new SignJWT({userId,isAdmin:admin}).setProtectedHeader({alg:'HS256'}).setExpirationTime('1h').sign(new TextEncoder().encode(process.env.JWT_SECRET));}
-async function preview(receipt,{admin=true,userId=7,path='index.html',anonymous=false}={}){
- const req=new NextRequest('https://example.invalid'+receipt.previewUrl,{headers:anonymous?{}:{cookie:'auth-token='+await token(admin,userId)}});
+async function preview(receipt,{admin=true,userId=7,path='index.html',anonymous=false,download=false}={}){
+ const req=new NextRequest('https://example.invalid'+receipt.previewUrl+(download?'?download=1':''),{headers:anonymous?{}:{cookie:'auth-token='+await token(admin,userId)}});
  return m.GET(req,{params:Promise.resolve({versionId:receipt.versionId,file:path.split('/')})});
 }
 async function counts(){return {versions:(await db.select().from(m.schema.web3SiteVersions)).length,artifacts:(await db.select().from(m.schema.executiveAgentMemoryItems)).length,notes:(await db.select().from(m.schema.clientNotes)).length};}
@@ -104,4 +105,42 @@ test('configured site mode off reuses the provider selector and remains determin
  await pool.query('CREATE TABLE web3_site_builder_ai_settings (site_id VARCHAR(36),user_id INT,llm_mode VARCHAR(16),endpoint TEXT,model TEXT,api_key_enc TEXT,fallback_to_platform INT)');
  await pool.query("INSERT INTO web3_site_builder_ai_settings VALUES (?,7,'off',NULL,NULL,NULL,0)",[siteId]);
  const result=await run({...input,generationMode:'configured'});assert.equal(result.ok,true);assert.equal(result.data.providerSource,'deterministic');assert.equal(result.data.generationMeta.llmUsed,false);
+});
+
+
+test('download is a portable inert archive independently opened by Python tarfile with matching hashes',async()=>{
+ const {data}=await run();const response=await preview(data,{download:true});assert.equal(response.status,200);
+ assert.match(response.headers.get('content-disposition'),/attachment; filename="stephon-draft-.*\.tar\.gz"/);
+ assert.match(response.headers.get('cache-control'),/no-store/);
+ const bytes=Buffer.from(await response.arrayBuffer());assert.equal(sha(bytes),data.download.sha256);assert.equal(bytes.length,data.download.bytes);
+ assert.equal(response.headers.get('x-artifact-sha256'),sha(bytes));
+ const python=spawnSync('python3',['-c',`import io,sys,tarfile,json,base64
+with tarfile.open(fileobj=io.BytesIO(sys.stdin.buffer.read()),mode='r:gz') as archive:
+ print(json.dumps({m.name:base64.b64encode(archive.extractfile(m).read()).decode() for m in archive.getmembers()}))`],{input:bytes});
+ assert.equal(python.status,0,python.stderr.toString());const entries=JSON.parse(python.stdout.toString());
+ const manifest=JSON.parse(Buffer.from(entries['REVIEW-MANIFEST.json'],'base64').toString());
+ assert.equal(manifest.publication,'not_published');assert.equal(manifest.qualityStatus,'review_required');
+ for(const file of manifest.files){const content=Buffer.from(entries[file.path],'base64');assert.equal(sha(content),file.sha256);assert.equal(content.length,file.bytes);}
+ const html=Buffer.from(entries['index.html'],'base64').toString();assert.match(html,/Content-Security-Policy/);assert.match(html,/script-src 'none'/);assert.ok(!html.includes('/api/admin/'));
+ const again=await preview(data,{download:true});assert.equal(sha(Buffer.from(await again.arrayBuffer())),sha(bytes));
+});
+
+test('download requires authenticated owning admin and current client ownership',async()=>{
+ const {data}=await run();assert.equal((await preview(data,{download:true,anonymous:true})).status,401);
+ assert.equal((await preview(data,{download:true,admin:false})).status,403);assert.equal((await preview(data,{download:true,userId:8})).status,404);
+ await db.update(m.schema.clients).set({userId:8});assert.equal((await preview(data,{download:true})).status,404);
+});
+
+test('expired or corrupted download cannot be handed off',async()=>{
+ const {data}=await run();const [memory]=await db.select().from(m.schema.executiveAgentMemoryItems);
+ const record=JSON.parse(memory.summary);record.download.sha256='a'.repeat(64);
+ await db.update(m.schema.executiveAgentMemoryItems).set({summary:JSON.stringify(record)});assert.equal((await preview(data,{download:true})).status,503);
+ await db.update(m.schema.executiveAgentMemoryItems).set({summary:memory.summary,expiresAt:new Date(Date.now()-86400000)});assert.equal((await preview(data,{download:true})).status,404);
+});
+
+test('older preview without download receipt remains viewable without fabricated download',async()=>{
+ const {data}=await run();const [memory]=await db.select().from(m.schema.executiveAgentMemoryItems);
+ const record=JSON.parse(memory.summary);delete record.download;
+ await db.update(m.schema.executiveAgentMemoryItems).set({summary:JSON.stringify(record)});
+ assert.equal((await preview(data)).status,200);assert.equal((await preview(data,{download:true})).status,404);
 });
