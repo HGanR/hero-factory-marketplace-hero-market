@@ -5,6 +5,8 @@ import { clients, web3Sites, web3SiteVersions, executiveAgentMemoryItems } from 
 import { engineRouteActor, EngineAccessError } from '@/lib/security/engine-route-access';
 import { previewMemoryId, readPrivateBundle, safeArtifactPath } from '@/lib/site-builder/stephon-private-artifact';
 
+import { packagePrivateDraft } from '@/lib/site-builder/stephon-download';
+
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff',
@@ -27,7 +29,15 @@ export async function GET(req:NextRequest,context:{params:Promise<{versionId:str
     if(!memory||!memory.expiresAt||memory.expiresAt.getTime()<=Date.now())return Response.json({error:'Preview unavailable or expired'},{status:404,headers});
     const record=JSON.parse(memory.summary);
     if(record.versionId!==versionId||record.siteId!==site.id||record.clientId!==client.id||record.schemaHash!==version.schemaHash)throw Error('Invalid preview binding');
-    const artifact=readPrivateBundle(record.packed).find(f=>f.path===path);
+    const files=readPrivateBundle(record.packed);
+    if(req.nextUrl.searchParams.get('download')==='1'){
+      if(path!=='index.html'||!record.download)return Response.json({error:'Download unavailable'},{status:404,headers});
+      const download=packagePrivateDraft(files,versionId);
+      if(record.download.sha256!==download.sha256||record.download.bytes!==download.bytes)throw Error('Invalid download integrity');
+      return new Response(new Uint8Array(download.archive),{headers:{...headers,'Content-Type':'application/gzip',
+        'Content-Disposition':`attachment; filename="stephon-draft-${versionId}.tar.gz"`,'X-Artifact-SHA256':download.sha256}});
+    }
+    const artifact=files.find(f=>f.path===path);
     if(!artifact)return Response.json({error:'Not found'},{status:404,headers});
     return new Response(artifact.content,{headers:{...headers,'Content-Type':artifact.contentType+'; charset=utf-8','X-Artifact-SHA256':artifact.sha256}});
   }catch(error){
