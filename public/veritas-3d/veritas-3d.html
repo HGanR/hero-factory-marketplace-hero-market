@@ -1,0 +1,2113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VERITAS EDUCATION — 3D School of Veritas</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; overflow:hidden; font-family:'Georgia',serif; }
+#canvas-container { width:100vw; height:100vh; position:relative; }
+canvas { display:block; }
+
+/* ── HUD ── */
+#hud { position:fixed; top:0; left:0; right:0; z-index:100; pointer-events:none; }
+#hud-sign {
+  position:absolute; top:14px; left:50%; transform:translateX(-50%);
+  background:linear-gradient(135deg,#1a0a00,#3d1f00);
+  border:2px solid #c8a84b; border-radius:6px;
+  padding:8px 28px; cursor:pointer; pointer-events:all;
+  box-shadow:0 4px 20px rgba(0,0,0,.7);
+  text-align:center; user-select:none;
+}
+#hud-sign .title { color:#f0d080; font-size:16px; letter-spacing:4px; font-weight:bold; text-transform:uppercase; }
+#hud-sign .sub { color:#c8a84b; font-size:9px; letter-spacing:3px; text-transform:uppercase; margin-top:2px; }
+#hud-dropdown {
+  display:none; position:absolute; top:62px; left:50%; transform:translateX(-50%);
+  background:linear-gradient(135deg,#1a0a00,#2d1500);
+  border:1px solid #c8a84b; border-radius:6px; overflow:hidden;
+  box-shadow:0 8px 30px rgba(0,0,0,.8); min-width:200px;
+}
+#hud-dropdown a {
+  display:block; padding:12px 24px; color:#f0d080; text-decoration:none;
+  font-size:13px; letter-spacing:2px; text-transform:uppercase; text-align:center;
+  transition:background .2s;
+}
+#hud-dropdown a:hover { background:rgba(200,168,75,.2); }
+
+/* ── Clock ── */
+#clock-hud {
+  position:fixed; top:14px; right:20px; z-index:100;
+  background:rgba(0,0,0,.7); border:1px solid #c8a84b; border-radius:8px;
+  padding:6px 14px; color:#f0d080; font-size:18px; font-weight:bold;
+  letter-spacing:2px; pointer-events:none;
+}
+#clock-day { font-size:9px; color:#c8a84b; text-align:center; letter-spacing:2px; }
+
+/* ── Controls hint ── */
+#controls-hint {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,.6); border:1px solid rgba(200,168,75,.4);
+  border-radius:8px; padding:8px 20px; color:#c8a84b; font-size:11px;
+  letter-spacing:1px; pointer-events:none; z-index:100;
+  transition:opacity .5s;
+}
+
+/* ── Loading screen ── */
+#loading {
+  position:fixed; inset:0; background:#0a0a0a; z-index:999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+#loading h1 { color:#f0d080; font-size:42px; letter-spacing:8px; text-transform:uppercase; }
+#loading p { color:#c8a84b; font-size:13px; letter-spacing:4px; margin-top:10px; }
+#loading-bar-wrap { width:300px; height:4px; background:rgba(255,255,255,.1); border-radius:2px; margin-top:30px; }
+#loading-bar { height:4px; background:#c8a84b; border-radius:2px; width:0%; transition:width .3s; }
+
+/* ── Overlay panels ── */
+.panel {
+  display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,0,.85); align-items:center; justify-content:center;
+}
+.panel.show { display:flex; }
+.panel-box {
+  background:linear-gradient(135deg,#0d1117,#1a2030);
+  border:1px solid #c8a84b; border-radius:12px;
+  padding:32px; max-width:700px; width:90%; max-height:90vh; overflow-y:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,.9);
+}
+.panel-box h2 { color:#f0d080; font-size:22px; letter-spacing:3px; text-transform:uppercase; text-align:center; margin-bottom:20px; }
+
+/* ── Lobby ── */
+#lobby-panel .lobby-header { text-align:center; margin-bottom:24px; }
+#lobby-panel .lobby-header h1 { color:#f0d080; font-size:28px; letter-spacing:6px; }
+#lobby-panel .lobby-header p { color:#c8a84b; font-size:11px; letter-spacing:3px; margin-top:4px; }
+#lobby-welcome-box {
+  background:rgba(255,255,255,.05); border:1px solid rgba(200,168,75,.3);
+  border-radius:8px; padding:16px; margin-bottom:24px; display:flex; gap:14px; align-items:flex-start;
+}
+#lobby-welcome-box .avatar { font-size:40px; }
+#lobby-welcome-box .msg { color:#d0d0d0; font-size:13px; line-height:1.7; }
+#lobby-welcome-box .name { color:#f0d080; font-weight:bold; font-size:14px; margin-bottom:6px; }
+.classroom-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.room-card {
+  background:rgba(255,255,255,.05); border:1px solid rgba(200,168,75,.3);
+  border-radius:8px; padding:14px 10px; text-align:center; cursor:pointer;
+  transition:all .2s;
+}
+.room-card:hover { background:rgba(200,168,75,.15); border-color:#c8a84b; transform:translateY(-2px); }
+.room-card .room-icon { font-size:28px; margin-bottom:6px; }
+.room-card .room-grade { color:#f0d080; font-size:13px; font-weight:bold; }
+.room-card .room-teacher { color:#c8a84b; font-size:11px; margin-top:2px; }
+.room-card .room-subjects { color:#888; font-size:10px; margin-top:4px; }
+#lobby-close-btn {
+  display:block; margin:20px auto 0; padding:10px 30px;
+  background:transparent; border:1px solid #c8a84b; color:#c8a84b;
+  border-radius:6px; cursor:pointer; font-size:12px; letter-spacing:2px;
+  transition:all .2s;
+}
+#lobby-close-btn:hover { background:rgba(200,168,75,.2); }
+
+/* ── Attendance ── */
+#attendance-panel .att-box {
+  background:rgba(255,255,255,.05); border:1px solid rgba(200,168,75,.3);
+  border-radius:8px; padding:20px; margin-bottom:20px; text-align:center;
+}
+#attendance-panel p { color:#d0d0d0; font-size:13px; line-height:1.7; margin-bottom:16px; }
+#att-name-input {
+  width:100%; padding:12px 16px; background:rgba(255,255,255,.08);
+  border:1px solid rgba(200,168,75,.5); border-radius:6px;
+  color:#f0f0f0; font-size:14px; outline:none; margin-bottom:12px;
+}
+#att-name-input:focus { border-color:#c8a84b; }
+#att-confirm-btn {
+  width:100%; padding:12px; background:linear-gradient(135deg,#c8a84b,#a07830);
+  border:none; border-radius:6px; color:#1a0a00; font-size:14px; font-weight:bold;
+  cursor:pointer; letter-spacing:2px; transition:opacity .2s;
+}
+#att-confirm-btn:hover { opacity:.85; }
+
+/* ── Classroom UI ── */
+#classroom-ui {
+  display:none; position:fixed; inset:0; z-index:150; pointer-events:none;
+}
+#classroom-ui.show { display:block; }
+
+/* Student info top-left */
+#student-info {
+  position:absolute; top:14px; left:14px;
+  background:rgba(0,0,0,.75); border:1px solid rgba(200,168,75,.5);
+  border-radius:8px; padding:10px 14px; pointer-events:none;
+}
+#student-info .si-label { color:#c8a84b; font-size:9px; letter-spacing:2px; text-transform:uppercase; }
+#student-info .si-val { color:#f0f0f0; font-size:12px; margin-bottom:4px; }
+
+/* Lesson progress top-right */
+#lesson-progress {
+  position:absolute; top:14px; right:90px;
+  background:rgba(0,0,0,.75); border:1px solid rgba(200,168,75,.5);
+  border-radius:8px; padding:10px 14px; min-width:200px; pointer-events:none;
+}
+#lesson-progress .lp-label { color:#c8a84b; font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+#lp-bar-wrap { height:6px; background:rgba(255,255,255,.1); border-radius:3px; }
+#lp-bar { height:6px; background:#c8a84b; border-radius:3px; width:0%; transition:width .4s; }
+#lp-status { color:#d0d0d0; font-size:11px; margin-top:6px; }
+
+/* Action buttons bottom-right */
+#action-btns {
+  position:absolute; bottom:80px; right:14px;
+  display:flex; flex-direction:column; gap:8px; pointer-events:all;
+}
+.action-btn {
+  padding:8px 16px; background:rgba(0,0,0,.75); border:1px solid rgba(200,168,75,.5);
+  border-radius:6px; color:#c8a84b; font-size:11px; letter-spacing:1px;
+  cursor:pointer; transition:all .2s; text-align:center;
+}
+.action-btn:hover { background:rgba(200,168,75,.2); border-color:#c8a84b; }
+
+/* Chat bar bottom */
+#chat-bar {
+  position:absolute; bottom:0; left:0; right:0;
+  background:rgba(0,0,0,.85); border-top:1px solid rgba(200,168,75,.3);
+  padding:10px 14px; display:flex; gap:10px; pointer-events:all;
+}
+#chat-messages {
+  position:absolute; bottom:60px; left:0; right:0;
+  max-height:200px; overflow-y:auto; padding:0 14px;
+  display:flex; flex-direction:column; gap:6px; pointer-events:all;
+}
+.chat-msg { padding:8px 12px; border-radius:6px; font-size:12px; line-height:1.5; max-width:70%; }
+.chat-msg.teacher { background:rgba(200,168,75,.15); border:1px solid rgba(200,168,75,.3); color:#f0d080; align-self:flex-start; }
+.chat-msg.student { background:rgba(100,150,255,.15); border:1px solid rgba(100,150,255,.3); color:#c0d0ff; align-self:flex-end; }
+.chat-msg .sender { font-size:10px; font-weight:bold; margin-bottom:3px; opacity:.7; }
+#chat-input {
+  flex:1; padding:10px 14px; background:rgba(255,255,255,.08);
+  border:1px solid rgba(200,168,75,.4); border-radius:6px;
+  color:#f0f0f0; font-size:13px; outline:none;
+}
+#chat-input:focus { border-color:#c8a84b; }
+#chat-send {
+  padding:10px 20px; background:linear-gradient(135deg,#c8a84b,#a07830);
+  border:none; border-radius:6px; color:#1a0a00; font-weight:bold;
+  cursor:pointer; font-size:13px; transition:opacity .2s;
+}
+#chat-send:hover { opacity:.85; }
+
+/* ── Lesson complete overlay ── */
+#lesson-complete {
+  display:none; position:fixed; inset:0; z-index:300;
+  background:rgba(0,0,0,.85); align-items:center; justify-content:center;
+}
+#lesson-complete.show { display:flex; }
+#lc-box {
+  background:linear-gradient(135deg,#0d1117,#1a2030);
+  border:2px solid #c8a84b; border-radius:16px; padding:40px;
+  text-align:center; max-width:440px; width:90%;
+}
+#lc-box .trophy { font-size:64px; margin-bottom:16px; }
+#lc-box h2 { color:#f0d080; font-size:24px; letter-spacing:3px; margin-bottom:12px; }
+#lc-box p { color:#d0d0d0; font-size:14px; line-height:1.7; margin-bottom:24px; }
+#lc-box .lc-score { font-size:32px; color:#c8a84b; font-weight:bold; margin-bottom:20px; }
+.lc-btn {
+  padding:12px 28px; border-radius:8px; font-size:13px; font-weight:bold;
+  cursor:pointer; letter-spacing:2px; margin:6px; transition:all .2s;
+}
+#lc-lobby-btn { background:linear-gradient(135deg,#c8a84b,#a07830); border:none; color:#1a0a00; }
+#lc-grades-btn { background:transparent; border:1px solid #c8a84b; color:#c8a84b; }
+
+/* ── Grade panel ── */
+#grade-panel .grade-table { width:100%; border-collapse:collapse; margin-top:16px; }
+#grade-panel .grade-table th { color:#c8a84b; font-size:11px; letter-spacing:2px; text-transform:uppercase; padding:8px; border-bottom:1px solid rgba(200,168,75,.3); text-align:left; }
+#grade-panel .grade-table td { color:#d0d0d0; font-size:12px; padding:8px; border-bottom:1px solid rgba(255,255,255,.05); }
+.grade-A { color:#4caf50 !important; font-weight:bold; }
+.grade-B { color:#8bc34a !important; font-weight:bold; }
+.grade-C { color:#ffc107 !important; font-weight:bold; }
+.grade-D { color:#ff9800 !important; font-weight:bold; }
+.grade-F { color:#f44336 !important; font-weight:bold; }
+.close-btn {
+  display:block; margin:20px auto 0; padding:10px 30px;
+  background:transparent; border:1px solid #c8a84b; color:#c8a84b;
+  border-radius:6px; cursor:pointer; font-size:12px; letter-spacing:2px;
+  transition:all .2s;
+}
+.close-btn:hover { background:rgba(200,168,75,.2); }
+
+/* ── Exit blocked ── */
+#exit-blocked {
+  display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(180,0,0,.9); border:1px solid #ff4444; border-radius:8px;
+  padding:16px 28px; color:#fff; font-size:13px; letter-spacing:1px;
+  z-index:400; text-align:center; pointer-events:none;
+}
+#exit-blocked.show { display:block; animation:fadeInOut 2.5s forwards; }
+@keyframes fadeInOut { 0%{opacity:0} 15%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
+/* ── Crosshair ── */
+#crosshair {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:20px; height:20px; pointer-events:none; z-index:120;
+  display:none;
+}
+#crosshair::before, #crosshair::after {
+  content:''; position:absolute; background:rgba(255,255,255,.6);
+}
+#crosshair::before { width:2px; height:100%; left:50%; transform:translateX(-50%); }
+#crosshair::after { height:2px; width:100%; top:50%; transform:translateY(-50%); }
+#crosshair.show { display:block; }
+
+/* ── Interaction prompt ── */
+#interact-prompt {
+  position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,.75); border:1px solid rgba(200,168,75,.5);
+  border-radius:6px; padding:8px 20px; color:#f0d080; font-size:12px;
+  letter-spacing:2px; pointer-events:none; z-index:130; display:none;
+}
+#interact-prompt.show { display:block; }
+
+/* ── Upload panel ── */
+#upload-panel .up-area {
+  border:2px dashed rgba(200,168,75,.4); border-radius:8px; padding:30px;
+  text-align:center; margin:16px 0; cursor:pointer; transition:all .2s;
+}
+#upload-panel .up-area:hover { border-color:#c8a84b; background:rgba(200,168,75,.05); }
+#upload-panel .up-area p { color:#888; font-size:13px; }
+#file-input { display:none; }
+#upload-list { margin-top:12px; }
+.upload-item { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(255,255,255,.05); border-radius:6px; margin-bottom:6px; }
+.upload-item .fname { color:#d0d0d0; font-size:12px; }
+.upload-item .fgrade { color:#c8a84b; font-size:11px; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <h1>VERITAS EDUCATION</h1>
+  <p>SCHOOL OF VERITAS — LOADING CAMPUS</p>
+  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-sign" onclick="toggleHUD()">
+    <div class="title">SCHOOL OF VERITAS</div>
+    <div class="sub">VERITAS EDUCATION CAMPUS ▾</div>
+  </div>
+  <div id="hud-dropdown">
+    <a href="#" onclick="openLobby();return false;">🏫 ENTER BUILDING</a>
+  </div>
+</div>
+
+<!-- Clock -->
+<div id="clock-hud">
+  <div id="clock-time">00:00</div>
+  <div id="clock-day">SUN</div>
+</div>
+
+<!-- Crosshair -->
+<div id="crosshair"></div>
+
+<!-- Interaction prompt -->
+<div id="interact-prompt">Press E to interact</div>
+
+<!-- Controls hint -->
+<div id="controls-hint">WASD / Arrow Keys — Move &nbsp;|&nbsp; Mouse — Look &nbsp;|&nbsp; Click — Lock Pointer &nbsp;|&nbsp; ESC — Release</div>
+
+<!-- Exit blocked -->
+<div id="exit-blocked">🔒 Complete today's lesson before leaving!</div>
+
+<!-- ══ LOBBY PANEL ══ -->
+<div id="lobby-panel" class="panel">
+  <div class="panel-box" style="max-width:800px;">
+    <div class="lobby-header">
+      <h1>VERITAS EDUCATION</h1>
+      <p>WELCOME TO THE SCHOOL OF VERITAS — GEORGIA STANDARDS OF EXCELLENCE</p>
+    </div>
+    <div id="lobby-welcome-box">
+      <div class="avatar">👩‍💼</div>
+      <div>
+        <div class="name">Ms. Victoria — Head Receptionist</div>
+        <div class="msg" id="lobby-msg">Welcome to Veritas Education! I am Ms. Victoria, your school receptionist. Our school follows the Georgia Standards of Excellence for grades Kindergarten through 12th Grade. Please select your classroom below to begin today's lesson. Each classroom has a dedicated AI Teacher who will guide you through the curriculum. Remember: attendance is taken at the start of each class, and you must complete the day's lesson before leaving. Wishing you a wonderful day of learning!</div>
+      </div>
+    </div>
+    <div class="classroom-grid" id="classroom-grid"></div>
+    <button id="lobby-close-btn" onclick="closeLobby()">← Return to Campus</button>
+  </div>
+</div>
+
+<!-- ══ ATTENDANCE PANEL ══ -->
+<div id="attendance-panel" class="panel">
+  <div class="panel-box" style="max-width:440px;">
+    <h2>📋 Attendance Check</h2>
+    <div class="att-box">
+      <p id="att-greeting">Good morning! Please type your full name to confirm attendance.</p>
+      <input id="att-name-input" type="text" placeholder="Your Full Name" />
+      <button id="att-confirm-btn" onclick="confirmAttendance()">✓ Confirm Attendance</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLASSROOM UI ══ -->
+<div id="classroom-ui">
+  <div id="student-info">
+    <div class="si-label">Student Info</div>
+    <div class="si-val" id="si-name">—</div>
+    <div class="si-val" id="si-grade" style="color:#c8a84b;font-size:11px;">—</div>
+    <div class="si-val" id="si-att" style="color:#4caf50;font-size:10px;">—</div>
+    <div class="si-val" id="si-date" style="color:#888;font-size:10px;">—</div>
+  </div>
+  <div id="lesson-progress">
+    <div class="lp-label">Lesson Progress</div>
+    <div id="lp-bar-wrap"><div id="lp-bar"></div></div>
+    <div id="lp-status">Waiting for attendance...</div>
+  </div>
+  <div id="action-btns">
+    <div class="action-btn" onclick="openUpload()">📎 Upload Assignment</div>
+    <div class="action-btn" onclick="openGrades()">📊 My Grades</div>
+    <div class="action-btn" onclick="requestHint()">💡 Ask for Hint</div>
+    <div class="action-btn" onclick="nextTopic()">▶ Next Topic</div>
+  </div>
+  <div id="chat-messages"></div>
+  <div id="chat-bar">
+    <input id="chat-input" type="text" disabled placeholder="AI teacher chat is offline" />
+    <button id="chat-send" disabled>Offline</button>
+  </div>
+</div>
+
+<!-- ══ LESSON COMPLETE ══ -->
+<div id="lesson-complete">
+  <div id="lc-box">
+    <div class="trophy">🏆</div>
+    <h2>Lesson Complete!</h2>
+    <p id="lc-msg">Outstanding work! You have completed today's lesson.</p>
+    <div class="lc-score" id="lc-score">A — 95%</div>
+    <div>
+      <button class="lc-btn" id="lc-lobby-btn" onclick="exitToLobby()">🚪 Return to Lobby</button>
+      <button class="lc-btn" id="lc-grades-btn" onclick="openGrades()">📊 View My Grades</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ GRADE PANEL ══ -->
+<div id="grade-panel" class="panel">
+  <div class="panel-box">
+    <h2>📊 Grade Report</h2>
+    <table class="grade-table">
+      <thead><tr><th>Grade</th><th>Subject</th><th>Lesson</th><th>Date</th><th>Score</th></tr></thead>
+      <tbody id="grade-tbody"></tbody>
+    </table>
+    <button class="close-btn" onclick="closeGrades()">Close</button>
+  </div>
+</div>
+
+<!-- ══ UPLOAD PANEL ══ -->
+<div id="upload-panel" class="panel">
+  <div class="panel-box">
+    <h2>📎 Upload Assignment</h2>
+    <div class="up-area" onclick="document.getElementById('file-input').click()">
+      <p>📁 Click to select a file<br><span style="font-size:11px;color:#666;">PDF, DOC, JPG, PNG accepted</span></p>
+    </div>
+    <input type="file" id="file-input" multiple onchange="handleUpload(this)" />
+    <div id="upload-list"></div>
+    <button class="close-btn" onclick="closeUpload()">Close</button>
+  </div>
+</div>
+
+<!-- Three.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  VERITAS EDUCATION — 3D School World
+//  Three.js first-person walkable campus
+// ═══════════════════════════════════════════════════════════════
+
+
+// ── Curriculum Data ──────────────────────────────────────────
+const CURRICULUM = {
+  K:  { grade:'Kindergarten', teacher:'Ms. Anderson', avatar:'👩‍🏫', color:0xffb347,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Letters & Sounds', content:'THE ALPHABET\n\nA  B  C  D  E  F  G\nH  I  J  K  L  M  N\nO  P  Q  R  S  T  U\nV  W  X  Y  Z\n\nA is for Apple\nB is for Ball\nC is for Cat\nD is for Dog\n\nPractice writing each letter!\nSay the sound each letter makes.' },
+          { subject:'Math', title:'Counting 1–20', content:'COUNTING — Kindergarten\n\n1  2  3  4  5\n6  7  8  9  10\n11 12 13 14 15\n16 17 18 19 20\n\nCount the objects:\n🍎🍎🍎 = 3 apples\n⭐⭐⭐⭐⭐ = 5 stars\n\nPractice counting forward\nand backward!' },
+          { subject:'Science', title:'Living & Non-Living', content:'LIVING vs NON-LIVING\n\nLIVING things:\n• Grow and change\n• Need food and water\n• Breathe\nExamples: plants, animals, people\n\nNON-LIVING things:\n• Do NOT grow\n• Do NOT need food\nExamples: rocks, chairs, water\n\nCan you name 3 living things?' }
+        ]},
+  1:  { grade:'1st Grade', teacher:'Ms. Thompson', avatar:'👩‍🏫', color:0x87ceeb,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Phonics & Sight Words', content:'PHONICS — Grade 1\n\nShort Vowel Sounds:\na — cat, bat, hat\ne — bed, red, ten\ni — big, sit, win\no — hot, top, dog\nu — cup, run, fun\n\nSight Words to Know:\nthe, and, is, it, in,\nhe, she, we, me, be\n\nRead each word aloud!\nUse the sounds to decode.' },
+          { subject:'Math', title:'Addition & Subtraction', content:'ADDITION — Grade 1\n\n3 + 4 = 7\n5 + 2 = 7\n6 + 3 = 9\n\nSUBTRACTION:\n8 - 3 = 5\n9 - 4 = 5\n7 - 2 = 5\n\nTips:\n• Count on your fingers\n• Draw pictures to help\n• Number line: 0 1 2 3 4 5 6 7 8 9 10' },
+          { subject:'Science', title:'Weather & Seasons', content:'WEATHER & SEASONS\n\nFour Seasons:\nSpring — warm, rainy, flowers bloom\nSummer — hot, sunny, long days\nFall — cool, leaves change color\nWinter — cold, may snow\n\nWeather Types:\n☀️ Sunny  🌧️ Rainy\n❄️ Snowy  🌩️ Stormy\n\nWhat season is it today?\nWhat is the weather like?' }
+        ]},
+  2:  { grade:'2nd Grade', teacher:'Mr. Williams', avatar:'👨‍🏫', color:0x98fb98,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Reading Comprehension', content:'READING — Grade 2\n\nThe Three Strategies:\n1. PREDICT — What will happen next?\n2. VISUALIZE — Picture the story\n3. SUMMARIZE — What was it about?\n\nWhen you read:\n• Read the title first\n• Look at pictures for clues\n• Ask yourself questions\n• Re-read if confused\n\nGood readers make connections\nbetween the story and their life.' },
+          { subject:'Math', title:'Place Value', content:'PLACE VALUE — Grade 2\n\nHundreds | Tens | Ones\n\nExample: 347\n3 hundreds = 300\n4 tens     =  40\n7 ones     =   7\nTotal      = 347\n\nExpanded Form:\n347 = 300 + 40 + 7\n\nCompare numbers:\n> greater than\n< less than\n= equal to\n\n456 > 354\n210 < 310' },
+          { subject:'Science', title:'States of Matter', content:'STATES OF MATTER\n\nSOLID\n• Has definite shape\n• Particles packed tightly\n• Examples: ice, rock, wood\n\nLIQUID\n• Takes shape of container\n• Particles move freely\n• Examples: water, juice, milk\n\nGAS\n• Spreads to fill space\n• Particles move very fast\n• Examples: air, steam, oxygen\n\nWater can be all three:\nIce → Water → Steam' }
+        ]},
+  3:  { grade:'3rd Grade', teacher:'Ms. Johnson', avatar:'👩‍🏫', color:0xdda0dd,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Paragraph Writing', content:'WRITING — Grade 3\n\nA Good Paragraph Has:\n1. Topic Sentence — states the main idea\n2. Detail Sentences — support the topic\n3. Closing Sentence — wraps it up\n\nExample:\n"Dogs make great pets. They are loyal\nand friendly. Dogs can learn many tricks.\nThey also protect families. For these\nreasons, dogs are wonderful companions."\n\nAssignment: Write a paragraph about\nyour favorite animal.' },
+          { subject:'Math', title:'Multiplication', content:'MULTIPLICATION — Grade 3\n\nMultiplication = repeated addition\n3 × 4 = 4 + 4 + 4 = 12\n\nTimes Tables (×3):\n3×1=3   3×2=6   3×3=9\n3×4=12  3×5=15  3×6=18\n3×7=21  3×8=24  3×9=27\n3×10=30\n\nTimes Tables (×4):\n4×1=4   4×2=8   4×3=12\n4×4=16  4×5=20  4×6=24\n4×7=28  4×8=32  4×9=36\n4×10=40' },
+          { subject:'Science', title:'Life Cycles', content:'LIFE CYCLES — Grade 3\n\nButterfly Life Cycle:\nEgg → Caterpillar → Chrysalis → Butterfly\n\nFrog Life Cycle:\nEgg → Tadpole → Froglet → Frog\n\nPlant Life Cycle:\nSeed → Sprout → Seedling → Plant → Flower → Seed\n\nAll living things go through\na life cycle.\n\nWhat do all life cycles\nhave in common?' }
+        ]},
+  4:  { grade:'4th Grade', teacher:'Mr. Davis', avatar:'👨‍🏫', color:0xf4a460,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Reading Comprehension', content:'READING COMPREHENSION — Grade 4\n\nText Features:\n• Headings — organize the text\n• Bold words — important vocabulary\n• Captions — explain pictures\n• Diagrams — show information visually\n\nMain Idea vs. Details:\nMain Idea = the BIG point\nDetails = facts that support it\n\nInference = using clues + your\nknowledge to figure out meaning\n\nPractice: Read a paragraph and\nidentify the main idea.' },
+          { subject:'Math', title:'Fractions', content:'FRACTIONS — Grade 4\n\nFraction = part of a whole\nNumerator   ← top number (parts you have)\nDenominator ← bottom number (total parts)\n\nEquivalent Fractions:\n1/2 = 2/4 = 4/8\n\nComparing Fractions:\n3/4 > 1/4 (same denominator)\n1/2 < 3/4 (different denominators)\n\nAdding Fractions (same denominator):\n1/4 + 2/4 = 3/4\n\nMixed Numbers:\n1½ = 1 + ½ = 3/2' },
+          { subject:'Science', title:'Earth\'s Layers', content:'EARTH\'S LAYERS — Grade 4\n\nInner Core\n• Solid iron and nickel\n• Extremely hot (~5,000°C)\n\nOuter Core\n• Liquid iron and nickel\n• Creates Earth\'s magnetic field\n\nMantle\n• Thick layer of rock\n• Moves slowly (convection)\n\nCrust\n• Thin outer layer\n• Where we live!\n• Oceanic and Continental crust\n\nPlate Tectonics:\nCrust is broken into plates\nthat slowly move.' }
+        ]},
+  5:  { grade:'5th Grade', teacher:'Ms. Martinez', avatar:'👩‍🏫', color:0x20b2aa,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Essay Writing', content:'ESSAY WRITING — Grade 5\n\nFive-Paragraph Essay:\n\nParagraph 1: INTRODUCTION\n• Hook — grab the reader\n• Background information\n• Thesis statement\n\nParagraphs 2-4: BODY\n• Each paragraph = one main idea\n• Topic sentence + 3 details\n• Evidence and examples\n\nParagraph 5: CONCLUSION\n• Restate the thesis\n• Summarize main points\n• Closing thought\n\nRemember: Every paragraph needs\na topic sentence!' },
+          { subject:'Math', title:'Decimals & Percents', content:'DECIMALS — Grade 5\n\nPlace Values:\n  4  .  2  5  8\n  ↑     ↑  ↑  ↑\nOnes  Tenths Hundredths Thousandths\n\nAdding Decimals:\n3.45 + 2.30 = 5.75\n(Line up the decimal points!)\n\nDecimals to Percents:\n0.75 = 75%\n0.50 = 50%\n0.25 = 25%\n\nFractions to Decimals:\n1/4 = 0.25\n1/2 = 0.50\n3/4 = 0.75' },
+          { subject:'Science', title:'Solar System', content:'SOLAR SYSTEM — Grade 5\n\nThe 8 Planets (in order):\n1. Mercury — closest to Sun\n2. Venus — hottest planet\n3. Earth — our home\n4. Mars — the Red Planet\n5. Jupiter — largest planet\n6. Saturn — has rings\n7. Uranus — rotates sideways\n8. Neptune — farthest planet\n\nMnemonic:\nMy Very Educated Mother\nJust Served Us Nachos\n\nThe Sun is a STAR at the\ncenter of our solar system.' }
+        ]},
+  6:  { grade:'6th Grade', teacher:'Mr. Chen', avatar:'👨‍🏫', color:0xff6b6b,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Literary Analysis', content:'LITERARY ANALYSIS — Grade 6\n\nLiterary Elements:\n• PLOT — sequence of events\n  Exposition → Rising Action → Climax\n  → Falling Action → Resolution\n\n• CHARACTER — protagonist/antagonist\n  Static (unchanged) vs Dynamic (changed)\n\n• THEME — central message/lesson\n• SETTING — time and place\n• POINT OF VIEW — 1st, 2nd, 3rd person\n\nLiterary Devices:\n• Simile: "like a lion"\n• Metaphor: "he IS a lion"\n• Personification: "the wind whispered"' },
+          { subject:'Math', title:'Ratios & Proportions', content:'RATIOS — Grade 6\n\nRatio = comparison of two quantities\nWritten as: 3:4 or 3/4 or "3 to 4"\n\nUnit Rate:\n60 miles in 2 hours\n= 60÷2 = 30 miles per hour\n\nProportions:\n3/4 = x/12\nCross multiply: 3×12 = 4×x\n36 = 4x\nx = 9\n\nPercent Problems:\nWhat is 25% of 80?\n0.25 × 80 = 20\n\n15 is what % of 60?\n15/60 = 0.25 = 25%' },
+          { subject:'Science', title:'Cells & Organisms', content:'CELLS — Grade 6\n\nCell Theory:\n1. All living things are made of cells\n2. Cells are the basic unit of life\n3. All cells come from existing cells\n\nPlant Cell (has):\n• Cell wall\n• Chloroplasts\n• Large central vacuole\n\nAnimal Cell (has):\n• Cell membrane only\n• Centrioles\n• Smaller vacuoles\n\nBoth have:\n• Nucleus, Mitochondria\n• Ribosomes, Cytoplasm\n• Endoplasmic Reticulum' }
+        ]},
+  7:  { grade:'7th Grade', teacher:'Ms. Robinson', avatar:'👩‍🏫', color:0x9b59b6,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Informational Writing', content:'INFORMATIONAL WRITING — Grade 7\n\nPurpose: To INFORM or EXPLAIN\n\nStructure:\n1. Introduction with clear thesis\n2. Body paragraphs with:\n   • Topic sentence\n   • Evidence (facts, statistics, quotes)\n   • Analysis/Explanation\n   • Transition to next paragraph\n3. Conclusion\n\nCiting Evidence:\n"According to..."\n"The text states..."\n"Research shows..."\n\nAvoid: opinions, first person (I/me)\nUse: formal language, precise words' },
+          { subject:'Math', title:'Expressions & Equations', content:'ALGEBRA — Grade 7\n\nVariables: letters representing numbers\n\nSimplifying Expressions:\n3x + 2x = 5x\n4y - y = 3y\n2(x + 3) = 2x + 6\n\nSolving Equations:\n2x + 5 = 13\n2x = 13 - 5\n2x = 8\nx = 4\n\nInequalities:\n3x > 12\nx > 4 (divide both sides)\n\nIf you multiply/divide by a\nnegative number, FLIP the sign!' },
+          { subject:'Science', title:'Forces & Motion', content:'FORCES & MOTION — Grade 7\n\nNewton\'s Laws:\n1st Law (Inertia):\n  Objects at rest stay at rest;\nobjects in motion stay in motion\nunless acted upon by a force.\n\n2nd Law: F = ma\n  Force = mass × acceleration\n\n3rd Law:\n  For every action, there is an\nequal and opposite reaction.\n\nTypes of Forces:\n• Gravity — pulls objects down\n• Friction — opposes motion\n• Normal force — surface pushes up\n• Applied force — push or pull' }
+        ]},
+  8:  { grade:'8th Grade', teacher:'Mr. Jackson', avatar:'👨‍🏫', color:0x2ecc71,
+        subjects:['ELA','Math','Science'],
+        lessons:[
+          { subject:'ELA', title:'Argumentative Writing', content:'ARGUMENTATIVE WRITING — Grade 8\n\nGoal: Convince the reader of your position\n\nStructure:\n1. Claim — your position/thesis\n2. Evidence — facts, data, expert quotes\n3. Reasoning — explain WHY evidence supports claim\n4. Counterclaim — acknowledge opposing view\n5. Rebuttal — refute the counterclaim\n6. Conclusion — restate and call to action\n\nStrong Arguments:\n• Use credible sources\n• Address counterarguments\n• Use logical reasoning (logos)\n• Appeal to values (ethos)\n• Connect emotionally (pathos)' },
+          { subject:'Math', title:'Linear Equations', content:'LINEAR EQUATIONS — Grade 8\n\nSlope-Intercept Form:\ny = mx + b\nm = slope (rise/run)\nb = y-intercept\n\nFinding Slope:\nm = (y₂-y₁)/(x₂-x₁)\n\nExample:\nPoints: (2,3) and (4,7)\nm = (7-3)/(4-2) = 4/2 = 2\n\nGraphing:\n1. Plot the y-intercept (b)\n2. Use slope to find next point\n3. Draw the line\n\nSystems of Equations:\nSolve by substitution or elimination' },
+          { subject:'Science', title:'Genetics & DNA', content:'GENETICS — Grade 8\n\nDNA = Deoxyribonucleic Acid\n• Double helix structure\n• Found in the nucleus\n• Made of nucleotides (A,T,G,C)\n• A pairs with T; G pairs with C\n\nGenes = sections of DNA that\ncode for traits\n\nDominant vs Recessive:\nDominant (B) — expressed when present\nRecessive (b) — only expressed when BB\n\nPunnett Square:\n  B  b\nB BB Bb\nb Bb bb\n\nBB or Bb = Brown eyes (dominant)\nbb = Blue eyes (recessive)' }
+        ]},
+  9:  { grade:'9th Grade', teacher:'Ms. Wilson', avatar:'👩‍🏫', color:0xe74c3c,
+        subjects:['English 9','Algebra I','Biology'],
+        lessons:[
+          { subject:'English 9', title:'Literary Devices & Analysis', content:'LITERARY DEVICES — English 9\n\nFigurative Language:\n• Simile: comparison using "like" or "as"\n• Metaphor: direct comparison\n• Personification: human qualities to non-human\n• Hyperbole: extreme exaggeration\n• Alliteration: repeated consonant sounds\n• Symbolism: object represents an idea\n\nAnalyzing Literature:\n• Identify the THEME (universal message)\n• Analyze CHARACTER development\n• Examine CONFLICT (internal/external)\n• Evaluate AUTHOR\'S PURPOSE\n\nCite textual evidence for ALL claims!' },
+          { subject:'Algebra I', title:'Quadratic Functions', content:'QUADRATIC FUNCTIONS — Algebra I\n\nStandard Form: y = ax² + bx + c\nVertex Form:   y = a(x-h)² + k\n\nGraphing Parabolas:\n• Opens UP if a > 0\n• Opens DOWN if a < 0\n• Vertex = (h, k)\n• Axis of symmetry: x = -b/2a\n\nSolving Quadratics:\n1. Factoring: x² + 5x + 6 = (x+2)(x+3)\n2. Quadratic Formula:\n   x = (-b ± √(b²-4ac)) / 2a\n3. Completing the square\n\nDiscriminant: b²-4ac\n> 0: two real solutions\n= 0: one real solution\n< 0: no real solutions' },
+          { subject:'Biology', title:'Cell Division & Mitosis', content:'CELL DIVISION — Biology\n\nMitosis (somatic cells):\nPMAT:\nProphase — chromosomes condense\nMetaphase — line up at center\nAnaphase — pulled to opposite poles\nTelophase — two nuclei form\n\nResult: 2 identical diploid cells\n\nMeiosis (reproductive cells):\n• Two rounds of division\n• Result: 4 haploid gametes\n• Creates genetic diversity\n\nCell Cycle:\nG1 → S (DNA replication) → G2 → Mitosis\n\nCancer = uncontrolled cell division' }
+        ]},
+  10: { grade:'10th Grade', teacher:'Mr. Brown', avatar:'👨‍🏫', color:0x3498db,
+        subjects:['English 10','Geometry','Chemistry'],
+        lessons:[
+          { subject:'English 10', title:'World Literature Analysis', content:'WORLD LITERATURE — English 10\n\nAnalyzing Across Cultures:\n• Universal themes appear in all literature\n• Cultural context shapes meaning\n• Compare/contrast across texts\n\nRhetorical Analysis:\n• ETHOS — credibility/character\n• PATHOS — emotional appeal\n• LOGOS — logical reasoning\n\nWriting About Literature:\n• Thesis must be arguable\n• Use PIE paragraphs:\n  Point → Illustration → Explanation\n• Integrate quotes smoothly\n• Avoid plot summary — ANALYZE!' },
+          { subject:'Geometry', title:'Proofs & Theorems', content:'GEOMETRY PROOFS — Grade 10\n\nTriangle Congruence:\n• SSS — Side-Side-Side\n• SAS — Side-Angle-Side\n• ASA — Angle-Side-Angle\n• AAS — Angle-Angle-Side\n• HL  — Hypotenuse-Leg (right triangles)\n\nPythagorean Theorem:\na² + b² = c²\n(only for right triangles)\n\nParallel Lines & Transversals:\n• Alternate interior angles = equal\n• Corresponding angles = equal\n• Co-interior angles = supplementary\n\nCircle Theorems:\n• Inscribed angle = ½ central angle' },
+          { subject:'Chemistry', title:'Periodic Table & Bonding', content:'CHEMISTRY — Grade 10\n\nPeriodic Table:\n• Periods = rows (energy levels)\n• Groups = columns (same valence e⁻)\n• Metals (left), Metalloids (staircase), Nonmetals (right)\n\nAtomic Structure:\nProtons (+) — in nucleus\nNeutrons (0) — in nucleus\nElectrons (-) — in orbitals\n\nAtomic number = # of protons\nMass number = protons + neutrons\n\nChemical Bonding:\n• Ionic — metal + nonmetal (electron transfer)\n• Covalent — nonmetal + nonmetal (electron sharing)\n• Metallic — metal + metal' }
+        ]},
+  11: { grade:'11th Grade', teacher:'Ms. Taylor', avatar:'👩‍🏫', color:0xe67e22,
+        subjects:['English 11','Algebra II','Physics'],
+        lessons:[
+          { subject:'English 11', title:'American Literature', content:'AMERICAN LITERATURE — English 11\n\nMajor Movements:\n• Puritanism (1600s) — religious themes\n• Romanticism (1800s) — nature, individualism\n• Transcendentalism — Emerson, Thoreau\n• Realism (late 1800s) — everyday life\n• Modernism (1900s) — fragmentation, stream of consciousness\n\nKey Authors:\nHawthorne, Poe, Whitman, Dickinson\nFitzgerald, Hemingway, Faulkner\n\nSAT/ACT Prep:\n• Identify tone and mood\n• Analyze diction and syntax\n• Evaluate author\'s argument\n• Synthesize multiple sources' },
+          { subject:'Algebra II', title:'Logarithms & Exponentials', content:'LOGARITHMS — Algebra II\n\nExponential Form: bˣ = y\nLogarithmic Form: log_b(y) = x\n\nCommon Log: log(x) = log₁₀(x)\nNatural Log: ln(x) = log_e(x)\n\nLog Properties:\nlog(xy) = log(x) + log(y)\nlog(x/y) = log(x) - log(y)\nlog(xⁿ) = n·log(x)\n\nSolving:\n2ˣ = 16\nlog₂(16) = x\nx = 4\n\nExponential Growth:\ny = a·bˣ\nHalf-life: y = a·(½)^(t/h)' },
+          { subject:'Physics', title:'Kinematics & Dynamics', content:'PHYSICS — Grade 11\n\nKinematics Equations:\nv = v₀ + at\nd = v₀t + ½at²\nv² = v₀² + 2ad\n\nVariables:\nv₀ = initial velocity\nv  = final velocity\na  = acceleration\nt  = time\nd  = displacement\n\nFree Fall: a = g = 9.8 m/s²\n\nNewton\'s Second Law:\nF = ma\nWeight = mg\n\nWork & Energy:\nWork = F × d × cos(θ)\nKE = ½mv²\nPE = mgh\nConservation: KE + PE = constant' }
+        ]},
+  12: { grade:'12th Grade', teacher:'Dr. Harris', avatar:'👩‍🏫', color:0x8e44ad,
+        subjects:['English 12/AP','Pre-Calc/Calculus','AP Science'],
+        lessons:[
+          { subject:'English 12/AP', title:'College Essay & Advanced Composition', content:'COLLEGE ESSAY WRITING — English 12\n\nThe Personal Statement:\n• Reveal CHARACTER, not just achievements\n• Show growth and self-reflection\n• Be specific — avoid clichés\n• Your VOICE should shine through\n\nCommon App Prompts:\n1. Background/identity story\n2. Lessons from failure\n3. Challenging a belief\n4. Problem you\'ve solved\n5. Accomplishment/event/realization\n6. Topic of your choice\n\nAP Language & Composition:\n• Rhetorical analysis essays\n• Synthesis essays (multiple sources)\n• Argumentative essays\n• Timed writing (40 min per essay)' },
+          { subject:'Pre-Calc/Calculus', title:'Limits & Derivatives', content:'CALCULUS — Grade 12\n\nLimits:\nlim(x→a) f(x) = L\n\nDerivative Definition:\nf\'(x) = lim(h→0) [f(x+h)-f(x)]/h\n\nDerivative Rules:\nPower Rule: d/dx[xⁿ] = nxⁿ⁻¹\nProduct Rule: (fg)\' = f\'g + fg\'\nChain Rule: (f(g(x)))\' = f\'(g(x))·g\'(x)\n\nCommon Derivatives:\nd/dx[sin x] = cos x\nd/dx[cos x] = -sin x\nd/dx[eˣ] = eˣ\nd/dx[ln x] = 1/x\n\nApplications:\n• Slope of tangent line\n• Rate of change\n• Optimization problems' },
+          { subject:'AP Science', title:'AP Biology: Evolution & Ecology', content:'AP BIOLOGY — Grade 12\n\nEvolution (Darwin):\n• Natural Selection — survival of the fittest\n• Variation — individuals differ\n• Heredity — traits passed to offspring\n• Differential Reproduction\n\nEvidence for Evolution:\n• Fossil record\n• Comparative anatomy (homologous structures)\n• Molecular biology (DNA similarity)\n• Biogeography\n\nEcology:\n• Population ecology (growth models)\n• Community ecology (species interactions)\n• Ecosystem ecology (energy flow)\n• Biomes and biodiversity\n\nHardy-Weinberg Equilibrium:\np² + 2pq + q² = 1\np + q = 1' }
+        ]}
+};
+
+// ── State ────────────────────────────────────────────────────
+const state = {
+  scene: null, camera: null, renderer: null,
+  keys: {}, yaw: 0, pitch: 0, pointerLocked: false,
+  moveSpeed: 8, velocity: new THREE.Vector3(),
+  playerPos: new THREE.Vector3(0, 4, 35),
+  currentRoom: null, studentName: '', grades: [],
+  uploads: [], questionsAnswered: 0, questionsRequired: 3,
+  lessonComplete: false, inClassroom: false,
+  chatHistory: [], currentLesson: null,
+  nearDoor: null, nearDoorLabel: null,
+  clock: new THREE.Clock()
+};
+
+// ── Three.js Setup ───────────────────────────────────────────
+function initThree() {
+  const container = document.createElement('div');
+  container.id = 'canvas-container';
+  document.body.appendChild(container);
+
+  state.scene = new THREE.Scene();
+  state.scene.background = new THREE.Color(0x87ceeb);
+  state.scene.fog = new THREE.Fog(0x87ceeb, 30, 120);
+
+  state.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 200);
+  state.camera.position.copy(state.playerPos);
+
+  state.renderer = new THREE.WebGLRenderer({ antialias: true });
+  state.renderer.setSize(window.innerWidth, window.innerHeight);
+  state.renderer.shadowMap.enabled = true;
+  state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  container.appendChild(state.renderer.domElement);
+
+  window.addEventListener('resize', () => {
+    state.camera.aspect = window.innerWidth / window.innerHeight;
+    state.camera.updateProjectionMatrix();
+    state.renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+// ── Lighting ─────────────────────────────────────────────────
+function buildLighting() {
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  state.scene.add(ambient);
+
+  const sun = new THREE.DirectionalLight(0xfff5e0, 1.2);
+  sun.position.set(30, 60, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far = 200;
+  sun.shadow.camera.left = -80;
+  sun.shadow.camera.right = 80;
+  sun.shadow.camera.top = 80;
+  sun.shadow.camera.bottom = -80;
+  state.scene.add(sun);
+
+  const fill = new THREE.DirectionalLight(0xb0d0ff, 0.3);
+  fill.position.set(-20, 10, -10);
+  state.scene.add(fill);
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function makeMat(color, rough=0.8, metal=0) {
+  return new THREE.MeshStandardMaterial({ color, roughness:rough, metalness:metal, side: THREE.DoubleSide });
+}
+function box(w,h,d,mat,x,y,z,castShadow=true,receiveShadow=true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z);
+  m.castShadow = castShadow;
+  m.receiveShadow = receiveShadow;
+  state.scene.add(m);
+  return m;
+}
+function makeText(text, size, color, x, y, z, rotY=0) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512; canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'transparent';
+  ctx.clearRect(0,0,512,128);
+  ctx.fillStyle = color;
+  ctx.font = `bold ${size}px Georgia`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 256, 64);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.MeshBasicMaterial({ map:tex, transparent:true, depthWrite:false });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 2), mat);
+  mesh.position.set(x, y, z);
+  mesh.rotation.y = rotY;
+  state.scene.add(mesh);
+  return mesh;
+}
+
+// ── Ground ───────────────────────────────────────────────────
+function buildGround() {
+  // Main ground
+  const groundMat = makeMat(0x4a7c3f, 0.9);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.receiveShadow = true;
+  state.scene.add(ground);
+
+  // Sidewalk
+  const walkMat = makeMat(0xd0c8b8, 0.9);
+  const walk = new THREE.Mesh(new THREE.PlaneGeometry(12, 20), walkMat);
+  walk.rotation.x = -Math.PI/2;
+  walk.position.set(0, 0.01, 12);
+  walk.receiveShadow = true;
+  state.scene.add(walk);
+
+  // Parking lot
+  const lotMat = makeMat(0x555555, 0.9);
+  const lot = new THREE.Mesh(new THREE.PlaneGeometry(40, 20), lotMat);
+  lot.rotation.x = -Math.PI/2;
+  lot.position.set(0, 0.01, 35);
+  lot.receiveShadow = true;
+  state.scene.add(lot);
+}
+
+// ── School Exterior ──────────────────────────────────────────
+function buildExterior() {
+  const brickMat = makeMat(0x8b3a2a, 0.85);
+  const concreteMat = makeMat(0xc8c0b0, 0.8);
+  const glassMat = new THREE.MeshStandardMaterial({ color:0x88aacc, roughness:0.1, metalness:0.3, transparent:true, opacity:0.7 });
+  const roofMat = makeMat(0x555555, 0.9);
+  const whiteMat = makeMat(0xffffff, 0.7);
+
+  // Main building body
+  box(50, 14, 24, brickMat, 0, 7, -4);
+  // Roof
+  box(52, 1.5, 26, roofMat, 0, 14.75, -4);
+  // Parapet
+  box(52, 2, 1, concreteMat, 0, 15.5, 9);
+  box(52, 2, 1, concreteMat, 0, 15.5, -17);
+  box(1, 2, 26, concreteMat, 26, 15.5, -4);
+  box(1, 2, 26, concreteMat, -26, 15.5, -4);
+
+  // Central entrance portico
+  box(14, 16, 4, concreteMat, 0, 8, 9);
+  // Portico columns
+  [-4, 0, 4].forEach(x => {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 14, 12), whiteMat);
+    col.position.set(x, 7, 11);
+    col.castShadow = true;
+    state.scene.add(col);
+  });
+  // Portico roof
+  box(16, 1.5, 6, concreteMat, 0, 15, 9);
+
+  // Main entrance doors (glass)
+  box(4, 8, 0.3, glassMat, -1.5, 5, 11.2);
+  box(4, 8, 0.3, glassMat, 1.5, 5, 11.2);
+
+  // Windows — front face (z = 8)
+  const winPositions = [-18,-12,-6, 6, 12, 18];
+  winPositions.forEach(x => {
+    box(3.5, 4, 0.2, glassMat, x, 9, 8.2);
+    box(3.5, 4, 0.2, glassMat, x, 4, 8.2);
+    // Window frames
+    box(4, 4.5, 0.15, concreteMat, x, 9, 8.1);
+    box(4, 4.5, 0.15, concreteMat, x, 4, 8.1);
+  });
+
+  // Side wings
+  box(10, 10, 24, brickMat, -30, 5, -4);
+  box(10, 10, 24, brickMat, 30, 5, -4);
+  box(12, 1, 26, roofMat, -30, 10.5, -4);
+  box(12, 1, 26, roofMat, 30, 10.5, -4);
+
+  // School name sign
+  const signMat = makeMat(0x1a0a00, 0.8);
+  box(20, 2.5, 0.4, signMat, 0, 13, 8.5);
+  makeText('VERITAS EDUCATION', 48, '#f0d080', 0, 13, 9.2);
+
+  // Trees
+  buildTree(-22, 0, 14);
+  buildTree(22, 0, 14);
+  buildTree(-35, 0, 20);
+  buildTree(35, 0, 20);
+  buildTree(-40, 0, 5);
+  buildTree(40, 0, 5);
+
+  // Flag pole
+  const poleMat = makeMat(0xcccccc, 0.3, 0.8);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 12, 8), poleMat);
+  pole.position.set(8, 6, 14);
+  pole.castShadow = true;
+  state.scene.add(pole);
+  box(2, 1.2, 0.05, makeMat(0xcc0000), 9, 11.5, 14);
+}
+
+function buildTree(x, y, z) {
+  const trunkMat = makeMat(0x5c3317, 0.9);
+  const leafMat = makeMat(0x2d6a2d, 0.9);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 3, 8), trunkMat);
+  trunk.position.set(x, y+1.5, z);
+  trunk.castShadow = true;
+  state.scene.add(trunk);
+  const leaves = new THREE.Mesh(new THREE.SphereGeometry(2.5, 8, 8), leafMat);
+  leaves.position.set(x, y+5, z);
+  leaves.castShadow = true;
+  state.scene.add(leaves);
+}
+
+// ── Interior Lobby ───────────────────────────────────────────
+const LOBBY_Z = -8;
+const LOBBY_W = 48;
+const LOBBY_D = 20;
+
+function buildLobby() {
+  const floorMat = makeMat(0xd4c4a0, 0.8);
+  const wallMat = makeMat(0xf5f0e8, 0.8);
+  const ceilMat = makeMat(0xe8e4dc, 0.9);
+  const tileMat = makeMat(0xc8b890, 0.7);
+
+  // Floor
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(LOBBY_W, LOBBY_D), floorMat);
+  floor.rotation.x = -Math.PI/2;
+  floor.position.set(0, 0.02, LOBBY_Z);
+  floor.receiveShadow = true;
+  state.scene.add(floor);
+
+  // Ceiling
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(LOBBY_W, LOBBY_D), ceilMat);
+  ceil.rotation.x = Math.PI/2;
+  ceil.position.set(0, 10, LOBBY_Z);
+  state.scene.add(ceil);
+
+  // Walls
+  box(LOBBY_W, 10, 0.4, wallMat, 0, 5, LOBBY_Z - LOBBY_D/2); // back
+  box(0.4, 10, LOBBY_D, wallMat, -LOBBY_W/2, 5, LOBBY_Z); // left
+  box(0.4, 10, LOBBY_D, wallMat, LOBBY_W/2, 5, LOBBY_Z); // right
+
+  // Lobby lights
+  [-16, 0, 16].forEach(x => {
+    const light = new THREE.PointLight(0xfff8e7, 0.8, 20);
+    light.position.set(x, 9, LOBBY_Z);
+    state.scene.add(light);
+    box(1, 0.3, 1, makeMat(0xffffcc, 0.1), x, 9.8, LOBBY_Z);
+  });
+
+  // Reception desk
+  box(8, 1.2, 2, makeMat(0x8b6914, 0.7), 0, 0.6, LOBBY_Z+5);
+  box(8, 0.15, 2.2, makeMat(0xc8a84b, 0.5), 0, 1.28, LOBBY_Z+5);
+  // Receptionist
+  buildPersonFigure(0, 0, LOBBY_Z+4.5, 0xffdbac, 0x1a3a6e, '👩‍💼');
+
+  // Lobby sign
+  makeText('WELCOME TO VERITAS EDUCATION', 36, '#c8a84b', 0, 8.5, LOBBY_Z-LOBBY_D/2+0.5);
+  makeText('Select a classroom door to begin', 24, '#888888', 0, 7.2, LOBBY_Z-LOBBY_D/2+0.5);
+
+  // Hallway corridors (left and right)
+  buildHallway(-1); // left wing
+  buildHallway(1);  // right wing
+
+  // Classroom doors in lobby
+  buildLobbyDoors();
+}
+
+function buildPersonFigure(x, y, z, skinColor, clothColor, emoji) {
+  const skin = makeMat(skinColor);
+  const cloth = makeMat(clothColor);
+  // Body
+  box(0.7, 1.2, 0.4, cloth, x, y+1.8, z);
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), skin);
+  head.position.set(x, y+2.85, z);
+  state.scene.add(head);
+}
+
+function buildHallway(side) {
+  const w = side === -1 ? -1 : 1;
+  const hallMat = makeMat(0xe8e0d0, 0.8);
+  const floorMat = makeMat(0xc8b890, 0.8);
+  // Hallway floor
+  const hf = new THREE.Mesh(new THREE.PlaneGeometry(6, 60), floorMat);
+  hf.rotation.x = -Math.PI/2;
+  hf.position.set(w * 27, 0.02, -30);
+  hf.receiveShadow = true;
+  state.scene.add(hf);
+  // Hallway ceiling
+  const hc = new THREE.Mesh(new THREE.PlaneGeometry(6, 60), hallMat);
+  hc.rotation.x = Math.PI/2;
+  hc.position.set(w * 27, 10, -30);
+  state.scene.add(hc);
+  // Hallway walls
+  box(0.3, 10, 60, hallMat, w*24, 5, -30);
+  box(0.3, 10, 60, hallMat, w*30, 5, -30);
+  // Hallway lights
+  for (let z = -10; z >= -55; z -= 12) {
+    const l = new THREE.PointLight(0xfff8e7, 0.6, 15);
+    l.position.set(w*27, 9, z);
+    state.scene.add(l);
+    box(0.8, 0.2, 0.8, makeMat(0xffffcc, 0.1), w*27, 9.8, z);
+  }
+}
+
+// ── Classroom Doors ──────────────────────────────────────────
+const DOOR_POSITIONS = [];
+
+function buildLobbyDoors() {
+  const grades = ['K',1,2,3,4,5,6,7,8,9,10,11,12];
+  const doorMat = makeMat(0x5c3317, 0.7);
+  const frameMat = makeMat(0xc8a84b, 0.5, 0.3);
+  const glassMat = new THREE.MeshStandardMaterial({ color:0x88aacc, roughness:0.1, transparent:true, opacity:0.6 });
+
+  // Left hallway doors: K, 1, 2, 3, 4, 5, 6
+  const leftGrades = ['K',1,2,3,4,5,6];
+  leftGrades.forEach((g, i) => {
+    const z = -12 - i * 8;
+    const x = -24.2;
+    buildDoor(x, z, g, Math.PI/2, doorMat, frameMat, glassMat);
+  });
+
+  // Right hallway doors: 7, 8, 9, 10, 11, 12
+  const rightGrades = [7,8,9,10,11,12];
+  rightGrades.forEach((g, i) => {
+    const z = -12 - i * 8;
+    const x = 24.2;
+    buildDoor(x, z, g, -Math.PI/2, doorMat, frameMat, glassMat);
+  });
+}
+
+function buildDoor(x, z, grade, rotY, doorMat, frameMat, glassMat) {
+  const key = String(grade);
+  const cur = CURRICULUM[key];
+  if (!cur) return;
+
+  // Door frame
+  box(2.4, 7.4, 0.3, frameMat, x, 3.7, z);
+  // Door panel
+  box(2, 7, 0.25, doorMat, x, 3.5, z);
+  // Door window
+  box(1.2, 2, 0.3, glassMat, x, 5, z);
+  // Door handle
+  box(0.15, 0.15, 0.4, makeMat(0xc8a84b, 0.3, 0.8), x + 0.7, 3.5, z+0.3);
+
+  // Grade sign above door
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1a0a00';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = '#f0d080';
+  ctx.font = 'bold 20px Georgia';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(cur.grade, 128, 22);
+  ctx.font = '13px Georgia';
+  ctx.fillStyle = '#c8a84b';
+  ctx.fillText(cur.teacher, 128, 44);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 0.55),
+    new THREE.MeshBasicMaterial({ map:tex, transparent:true })
+  );
+  sign.position.set(x, 7.5, z + (rotY > 0 ? 0.2 : -0.2));
+  sign.rotation.y = rotY > 0 ? 0 : Math.PI;
+  state.scene.add(sign);
+
+  DOOR_POSITIONS.push({ x, z, grade: key, rotY });
+}
+
+// ── Classroom Rooms ──────────────────────────────────────────
+const classroomMeshes = {};
+
+function buildClassroom(gradeKey) {
+  const cur = CURRICULUM[gradeKey];
+  if (!cur || classroomMeshes[gradeKey]) return;
+
+  const door = DOOR_POSITIONS.find(d => d.grade === gradeKey);
+  if (!door) return;
+
+  const side = door.x < 0 ? -1 : 1;
+  const roomX = side * 36;
+  const roomZ = door.z;
+  const W = 16, D = 16, H = 10;
+
+  const wallMat = makeMat(0xf0ece0, 0.8);
+  const floorMat = makeMat(0xc8a870, 0.8);
+  const ceilMat = makeMat(0xe8e4dc, 0.9);
+  const chalkMat = makeMat(0x1a4a1a, 0.9);
+  const boardFrameMat = makeMat(0x5c3317, 0.7);
+  const deskMat = makeMat(0xb8860b, 0.7);
+  const chairMat = makeMat(0x4a3020, 0.8);
+
+  const group = new THREE.Group();
+
+  // Floor
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
+  floor.rotation.x = -Math.PI/2;
+  floor.position.set(roomX, 0.02, roomZ);
+  floor.receiveShadow = true;
+  state.scene.add(floor);
+
+  // Ceiling
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), ceilMat);
+  ceil.rotation.x = Math.PI/2;
+  ceil.position.set(roomX, H, roomZ);
+  state.scene.add(ceil);
+
+  // Walls
+  const backWall = box(W, H, 0.3, wallMat, roomX, H/2, roomZ - D/2);
+  box(W, H, 0.3, wallMat, roomX, H/2, roomZ + D/2); // front (door side)
+
+  // Side walls: window wall has openings, opposite wall is solid
+  // Window wall is on the OUTER wall (away from corridor/building center)
+  // side=-1 means room is on left (roomX=-36), outer wall is at roomX - W/2 = -44
+  // side=+1 means room is on right (roomX=+36), outer wall is at roomX + W/2 = +44
+  const winWallXpre = roomX + (side > 0 ? W/2 : -W/2); // OUTER wall
+  const oppWallXpre = roomX + (side > 0 ? -W/2 : W/2); // INNER wall (corridor side)
+  box(0.3, H, D, wallMat, oppWallXpre, H/2, roomZ); // inner wall (solid, faces corridor)
+
+  // Window wall: build as DoubleSide planes so window openings are truly transparent
+  const winW = 2.6, winH = 3.2, winBottom = 4.4, winTop = winBottom + winH; // 7.6
+  // Use PlaneGeometry for wall segments so both faces are visible and openings are empty
+  const wallPlaneMat = new THREE.MeshStandardMaterial({ color: 0xf0ece0, roughness: 0.8, side: THREE.DoubleSide });
+  // Rotation for the window wall plane: faces along x-axis
+  const wallPlaneRotY = Math.PI / 2; // plane normal faces ±x
+  function wallPlane(segH, segD, yCenter, zCenter) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(segD, segH), wallPlaneMat);
+    m.position.set(winWallXpre, yCenter, zCenter);
+    m.rotation.y = wallPlaneRotY;
+    m.receiveShadow = true;
+    state.scene.add(m);
+  }
+  const wallSegs = [
+    [roomZ - D/2, roomZ - 4 - winW/2],
+    [roomZ - 4 + winW/2, roomZ - winW/2],
+    [roomZ + winW/2, roomZ + 4 - winW/2],
+    [roomZ + 4 + winW/2, roomZ + D/2]
+  ];
+  wallSegs.forEach(([z1, z2]) => {
+    const segLen = z2 - z1;
+    if (segLen > 0.01) {
+      const zMid = (z1 + z2) / 2;
+      wallPlane(winBottom, segLen, winBottom / 2, zMid);
+      wallPlane(H - winTop, segLen, winTop + (H - winTop) / 2, zMid);
+    }
+  });
+  // Above and below windows (full width)
+  wallPlane(H - winTop, D, winTop + (H - winTop) / 2, roomZ);
+  wallPlane(winBottom, D, winBottom / 2, roomZ);
+
+  // Chalkboard
+  const cbW = 10, cbH = 4;
+  box(cbW+0.4, cbH+0.4, 0.2, boardFrameMat, roomX, 6, roomZ - D/2 + 0.4);
+  const chalkboard = box(cbW, cbH, 0.15, chalkMat, roomX, 6, roomZ - D/2 + 0.5);
+  chalkboard.userData = { isChalkboard: true, grade: gradeKey };
+
+  // Chalkboard text canvas
+  const cbCanvas = document.createElement('canvas');
+  cbCanvas.width = 1024; cbCanvas.height = 384;
+  const cbCtx = cbCanvas.getContext('2d');
+  cbCtx.fillStyle = '#1a4a1a';
+  cbCtx.fillRect(0, 0, 1024, 384);
+  cbCtx.fillStyle = '#e8f8e8';
+  cbCtx.font = '22px "Courier New", monospace';
+  cbCtx.textAlign = 'left';
+  const lesson = cur.lessons[0];
+  const lines = lesson.content.split('\n');
+  lines.forEach((line, i) => {
+    if (i < 14) cbCtx.fillText(line, 20, 32 + i * 26);
+  });
+  const cbTex = new THREE.CanvasTexture(cbCanvas);
+  const cbPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(cbW - 0.2, cbH - 0.2),
+    new THREE.MeshBasicMaterial({ map: cbTex })
+  );
+  cbPlane.position.set(roomX, 6, roomZ - D/2 + 0.6);
+  state.scene.add(cbPlane);
+  chalkboard.userData.canvas = cbCanvas;
+  chalkboard.userData.ctx = cbCtx;
+  chalkboard.userData.texture = cbTex;
+
+  // Chalk tray
+  box(cbW, 0.15, 0.3, boardFrameMat, roomX, 3.9, roomZ - D/2 + 0.5);
+
+  // Teacher desk (front)
+  box(3, 0.15, 1.5, deskMat, roomX, 1.5, roomZ - D/2 + 3.5);
+  box(0.1, 1.5, 0.1, deskMat, roomX-1.4, 0.75, roomZ-D/2+2.8);
+  box(0.1, 1.5, 0.1, deskMat, roomX+1.4, 0.75, roomZ-D/2+2.8);
+  box(0.1, 1.5, 0.1, deskMat, roomX-1.4, 0.75, roomZ-D/2+4.2);
+  box(0.1, 1.5, 0.1, deskMat, roomX+1.4, 0.75, roomZ-D/2+4.2);
+
+  // Teacher figure
+  buildTeacherFigure(roomX, 0, roomZ - D/2 + 2.5, cur);
+
+  // Student desks (4 rows × 3 cols = 12)
+  const deskColor = new THREE.Color(cur.color);
+  const studentDeskMat = new THREE.MeshStandardMaterial({ color: deskColor, roughness: 0.7 });
+  const cols = 3, rows = 4;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const dx = roomX - 4 + c * 4;
+      const dz = roomZ - 2 + r * 3.5;
+      // Desk top
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 1.2), studentDeskMat);
+      desk.position.set(dx, 1.0, dz);
+      desk.castShadow = true;
+      desk.receiveShadow = true;
+      state.scene.add(desk);
+      // Desk legs
+      [[-0.8,-0.5],[-0.8,0.5],[0.8,-0.5],[0.8,0.5]].forEach(([lx,lz]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06,1,0.06), chairMat);
+        leg.position.set(dx+lx, 0.5, dz+lz);
+        state.scene.add(leg);
+      });
+      // Chair
+      const chair = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 1.0), chairMat);
+      chair.position.set(dx, 0.75, dz + 1.2);
+      state.scene.add(chair);
+      // Chair back
+      const cback = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.06), chairMat);
+      cback.position.set(dx, 1.15, dz + 1.7);
+      state.scene.add(cback);
+      // Chair legs
+      [[-0.5,-0.4],[-0.5,0.4],[0.5,-0.4],[0.5,0.4]].forEach(([lx,lz2]) => {
+        const cl = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.75,0.05), chairMat);
+        cl.position.set(dx+lx, 0.375, dz+1.2+lz2);
+        state.scene.add(cl);
+      });
+    }
+  }
+
+  // ── Glass Windows with outdoor view ──
+  // Windows are on the OUTER wall (away from corridor).
+  // side=-1 (left rooms): outer wall at roomX - W/2 = -44, room interior is to the RIGHT (+x)
+  // side=+1 (right rooms): outer wall at roomX + W/2 = +44, room interior is to the LEFT (-x)
+  const wallX = roomX + (side > 0 ? W/2 : -W/2); // OUTER wall (matches winWallXpre)
+  // inward = direction from outer wall toward room center
+  const inward = side > 0 ? -1 : 1; // side=-1 (left): outer wall at -44, room at -36, inward = +x = +1
+  const windowGroupRotY = inward > 0 ? -Math.PI/2 : Math.PI/2; // face toward room interior
+  const viewPlaneX = wallX + inward * 0.5; // 0.5 units inside room to avoid z-fighting
+
+  const windowPositions = [-4, 0, 4];
+  windowPositions.forEach(wz => {
+    const wCenterZ = roomZ + wz;
+    const wCenterY = 6.0;
+
+    // Outdoor scene canvas
+    const viewCanvas = document.createElement('canvas');
+    viewCanvas.width = 256; viewCanvas.height = 256;
+    const vctx = viewCanvas.getContext('2d');
+    const skyGrad = vctx.createLinearGradient(0, 0, 0, 160);
+    skyGrad.addColorStop(0, '#5ba3d9'); skyGrad.addColorStop(1, '#c9e8f5');
+    vctx.fillStyle = skyGrad; vctx.fillRect(0, 0, 256, 160);
+    vctx.fillStyle = '#5aad5a'; vctx.fillRect(0, 160, 256, 96);
+    vctx.fillStyle = '#ffe066';
+    vctx.beginPath(); vctx.arc(200, 35, 20, 0, Math.PI*2); vctx.fill();
+    vctx.fillStyle = 'rgba(255,255,255,0.92)';
+    [[55,28,26],[82,22,17],[68,32,18],[155,48,20],[178,42,15]].forEach(([cx,cy,r]) => {
+      vctx.beginPath(); vctx.arc(cx, cy, r, 0, Math.PI*2); vctx.fill();
+    });
+    [[38,118],[95,108],[165,113],[218,106]].forEach(([tx,ty]) => {
+      vctx.fillStyle = '#3a6b30';
+      vctx.beginPath(); vctx.arc(tx, ty, 17, 0, Math.PI*2); vctx.fill();
+      vctx.fillStyle = '#5a4a2a'; vctx.fillRect(tx-3, ty+13, 6, 18);
+    });
+    vctx.strokeStyle = '#334'; vctx.lineWidth = 1.5;
+    [[118,58],[128,53],[138,60]].forEach(([bx,by]) => {
+      vctx.beginPath(); vctx.moveTo(bx-5,by); vctx.quadraticCurveTo(bx,by-4,bx+5,by); vctx.stroke();
+    });
+    const viewTex = new THREE.CanvasTexture(viewCanvas);
+
+    // View plane: placed in world space, rotated to face room interior
+    const viewPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.2, 2.8),
+      new THREE.MeshBasicMaterial({ map: viewTex, side: THREE.DoubleSide })
+    );
+    viewPlane.position.set(viewPlaneX, wCenterY, wCenterZ);
+    viewPlane.rotation.y = windowGroupRotY; // face toward room interior
+    state.scene.add(viewPlane);
+
+    // Glass overlay
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0xaaddff, transparent: true, opacity: 0.18, roughness: 0.0, metalness: 0.05, side: THREE.DoubleSide
+    });
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.8), glassMat);
+    glass.position.set(viewPlaneX + inward * 0.02, wCenterY, wCenterZ);
+    glass.rotation.y = windowGroupRotY;
+    state.scene.add(glass);
+
+    // Window frame bars — built as world-space boxes along the wall
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x5c3317, roughness: 0.7 });
+    // Frame bars are thin boxes (0.18 thick in x, 0.12 deep in z)
+    // Top bar
+    box(0.18, 0.18, 2.7, frameMat, viewPlaneX, wCenterY + 1.5, wCenterZ);
+    // Bottom bar
+    box(0.18, 0.18, 2.7, frameMat, viewPlaneX, wCenterY - 1.5, wCenterZ);
+    // Left bar (along z)
+    box(0.18, 3.2, 0.18, frameMat, viewPlaneX, wCenterY, wCenterZ - 1.3);
+    // Right bar (along z)
+    box(0.18, 3.2, 0.18, frameMat, viewPlaneX, wCenterY, wCenterZ + 1.3);
+    // Center mullion (horizontal)
+    box(0.18, 0.1, 2.7, frameMat, viewPlaneX, wCenterY, wCenterZ);
+
+    // Window sill (protrudes into room)
+    const sillMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.6 });
+    box(0.35, 0.1, 2.8, sillMat, viewPlaneX + inward * 0.18, wCenterY - 1.6, wCenterZ);
+
+    // Curtains (flat planes on either side of window, facing room)
+    const curtainMat = new THREE.MeshStandardMaterial({ color: cur.color, roughness: 0.9, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+    const curtainL = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 3.2), curtainMat);
+    curtainL.position.set(viewPlaneX + inward * 0.05, wCenterY, wCenterZ - 1.25);
+    curtainL.rotation.y = windowGroupRotY;
+    state.scene.add(curtainL);
+    const curtainR = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 3.2), curtainMat);
+    curtainR.position.set(viewPlaneX + inward * 0.05, wCenterY, wCenterZ + 1.25);
+    curtainR.rotation.y = windowGroupRotY;
+    state.scene.add(curtainR);
+  });
+
+  // ── Grade-appropriate Educational Wall Posters ──
+  // Back wall: posters face INTO the room (+z direction = rotY = Math.PI)
+  // Frame center sits at z = roomZ - D/2 + 0.03 (wall surface + half frame depth)
+  const backWallZ = roomZ - D/2 + 0.06;
+  buildWallPoster(roomX - 5.5, 8.5, backWallZ, Math.PI, gradeKey, 'subject1');
+  buildWallPoster(roomX + 5.5, 8.5, backWallZ, Math.PI, gradeKey, 'subject2');
+
+  // Side wall opposite to windows: posters face INTO the room
+  // Windows are now on the OUTER wall; posters go on the INNER wall (corridor side)
+  // side=-1 (left rooms): inner wall at roomX + W/2 = -28, faces -x (rotY = PI/2 = faces -x? no)
+  // inner wall at -28 faces toward room interior (+x direction), so rotY = -PI/2
+  // side=+1 (right rooms): inner wall at roomX - W/2 = +28, faces toward room interior (-x), rotY = PI/2
+  const posterWallX = roomX + (side > 0 ? -W/2 + 0.06 : W/2 - 0.06); // INNER wall
+  const posterFaceRotY = side > 0 ? Math.PI/2 : -Math.PI/2; // face toward room interior
+  buildWallPoster(posterWallX, 6.5, roomZ + 4, posterFaceRotY, gradeKey, 'motivational');
+  buildWallPoster(posterWallX, 6.5, roomZ - 4, posterFaceRotY, gradeKey, 'rules');
+
+  // ── Classroom Lights ──────────────────────────────────────────
+  [-3, 3].forEach(lx => {
+    const light = new THREE.PointLight(0xfff8e7, 0.9, 18);
+    light.position.set(roomX + lx, H - 0.5, roomZ);
+    state.scene.add(light);
+    box(0.8, 0.2, 0.8, makeMat(0xffffcc, 0.1), roomX + lx, H - 0.2, roomZ);
+  });  // ── Clock and Bulletin Board ──
+  // These go on the WINDOW wall (same side as windows) so students can see them.
+  // window wall: wallX = roomX + (side > 0 ? -W/2 : W/2)
+  // For side > 0: window wall is at x = roomX - W/2, faces +x (rotY = -PI/2)
+  // For side < 0: window wall is at x = roomX + W/2, faces -x (rotY = PI/2)
+  const winWallX = wallX; // same as window wall
+  const winWallFaceRotY = windowGroupRotY; // same rotation as windows
+
+  // Clock (uses buildWallClock which handles its own rotation)
+  buildWallClock(winWallX + (side > 0 ? 0.3 : -0.3), 8.5, roomZ - 3, winWallFaceRotY, gradeKey);
+
+  // Bulletin board as a Group flush to the window wall
+  const bbGroup = new THREE.Group();
+  // Frame
+  const bbFrame = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.7, 0.08), new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.7 }));
+  bbFrame.position.set(0, 0, 0.04);
+  bbGroup.add(bbFrame);
+  // Cork texture
+  const corkCanvas = document.createElement('canvas');
+  corkCanvas.width = 256; corkCanvas.height = 160;
+  const cctx = corkCanvas.getContext('2d');
+  cctx.fillStyle = '#c8a870'; cctx.fillRect(0,0,256,160);
+  cctx.fillStyle = '#b8985a';
+  for(let ci=0;ci<80;ci++) {
+    cctx.beginPath();
+    cctx.arc(Math.random()*256, Math.random()*160, 2+Math.random()*4, 0, Math.PI*2);
+    cctx.fill();
+  }
+  cctx.fillStyle = '#e8f4e8'; cctx.fillRect(10,10,110,65);
+  cctx.fillStyle = '#f8e8e8'; cctx.fillRect(130,10,110,65);
+  cctx.fillStyle = '#e8e8f8'; cctx.fillRect(10,85,110,65);
+  cctx.fillStyle = '#f8f8e8'; cctx.fillRect(130,85,110,65);
+  cctx.fillStyle = '#333'; cctx.font = 'bold 11px Arial'; cctx.textAlign='center';
+  cctx.fillText('STAR STUDENT', 65, 46); cctx.fillText('GREAT WORK!', 185, 46);
+  cctx.fillText('HOMEWORK', 65, 121); cctx.fillText('SCHEDULE', 185, 121);
+  const corkTex = new THREE.CanvasTexture(corkCanvas);
+  const corkPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.0, 2.5),
+    new THREE.MeshBasicMaterial({ map: corkTex })
+  );
+  corkPlane.position.set(0, 0, 0.09);
+  bbGroup.add(corkPlane);
+  bbGroup.rotation.y = winWallFaceRotY;
+  bbGroup.position.set(winWallX + (side > 0 ? 0.04 : -0.04), 6.5, roomZ + 3);
+  state.scene.add(bbGroup);
+
+  classroomMeshes[gradeKey] = { roomX, roomZ, W, D };
+}
+
+function buildWallPoster(x, y, z, rotY, gradeKey, posterType) {
+  const cur = CURRICULUM[gradeKey];
+  const pCanvas = document.createElement('canvas');
+  pCanvas.width = 256; pCanvas.height = 320;
+  const pctx = pCanvas.getContext('2d');
+
+  // Poster background
+  const bgColors = {
+    K: '#fff9e6', 1: '#e6f3ff', 2: '#e6ffe6', 3: '#f3e6ff',
+    4: '#fff0e6', 5: '#e6ffff', 6: '#ffe6e6', 7: '#f0e6ff',
+    8: '#e6fff0', 9: '#e6f0ff', 10: '#fff0f0', 11: '#f0ffe6', 12: '#fff8e6'
+  };
+  pctx.fillStyle = bgColors[gradeKey] || '#f8f8f8';
+  pctx.fillRect(0, 0, 256, 320);
+  // Border
+  pctx.strokeStyle = '#333'; pctx.lineWidth = 4;
+  pctx.strokeRect(4, 4, 248, 312);
+  pctx.strokeStyle = '#888'; pctx.lineWidth = 1;
+  pctx.strokeRect(8, 8, 240, 304);
+
+  pctx.textAlign = 'center';
+
+  if (posterType === 'subject1') {
+    // Grade-specific subject poster 1
+    const posters = {
+      K:  { title:'THE ALPHABET', lines:['A B C D E F G','H I J K L M N','O P Q R S T U','V W X Y Z','','Say each letter!','Write each letter!'], color:'#c00' },
+      1:  { title:'SIGHT WORDS', lines:['the  and  is  it','in  he  she  we','me  be  to  do','go  so  no  my','by  try  fly  sky','','Read them fast!'], color:'#0066cc' },
+      2:  { title:'PLACE VALUE', lines:['Hundreds|Tens|Ones','','347 = 300+40+7','','Expanded Form:','H  T  O','3  4  7'], color:'#006600' },
+      3:  { title:'TIMES TABLES', lines:['×1  ×2  ×3  ×4','×5  ×6  ×7  ×8','×9  ×10','','3×4 = 12','4×5 = 20','6×7 = 42'], color:'#660066' },
+      4:  { title:'FRACTIONS', lines:['1/2  1/3  1/4','2/3  3/4  1/5','','Numerator','────────','Denominator','','1/2 = 2/4 = 4/8'], color:'#cc6600' },
+      5:  { title:'SOLAR SYSTEM', lines:['☿ Mercury','♀ Venus','🌍 Earth','♂ Mars','♃ Jupiter','♄ Saturn','⛢ Uranus  ♆ Neptune'], color:'#006666' },
+      6:  { title:'CELL PARTS', lines:['• Nucleus','• Mitochondria','• Cell Membrane','• Cytoplasm','• Ribosome','• Vacuole','• Endoplasmic Ret.'], color:'#cc0000' },
+      7:  { title:'NEWTON\'S LAWS', lines:['1st: Inertia','Objects at rest stay','at rest...','','2nd: F = m × a','','3rd: Action =','Opposite Reaction'], color:'#660099' },
+      8:  { title:'PYTHAGOREAN', lines:['a² + b² = c²','','  c','a  /|','  / |','  /  |  b','','3²+4²=5²'], color:'#006633' },
+      9:  { title:'ALGEBRA I', lines:['y = mx + b','','m = slope','b = y-intercept','','Solve: 2x+5=13','2x = 8','x = 4'], color:'#003399' },
+      10: { title:'GEOMETRY', lines:['Area Formulas:','Rectangle: l×w','Triangle: ½bh','Circle: πr²','','Perimeter:','Add all sides!'], color:'#990000' },
+      11: { title:'ALGEBRA II', lines:['Quadratic Formula:','-b ± √(b²-4ac)','────────────','      2a','','ax²+bx+c = 0'], color:'#336600' },
+      12: { title:'CALCULUS', lines:['Derivative:','d/dx [xⁿ] = nxⁿ⁻¹','','Integral:','∫xⁿdx = xⁿ⁺¹/n+1','','Limit: lim f(x)','       x→a'], color:'#663300' }
+    };
+    const p = posters[gradeKey] || posters['K'];
+    pctx.fillStyle = p.color;
+    pctx.font = 'bold 18px Arial';
+    pctx.fillText(p.title, 128, 32);
+    pctx.fillStyle = '#333';
+    pctx.font = '13px "Courier New"';
+    p.lines.forEach((line, i) => pctx.fillText(line, 128, 58 + i * 22));
+  } else if (posterType === 'subject2') {
+    // Grade-specific science/ELA visual poster
+    const posters2 = {
+      K:  { title:'NUMBERS 1-20', lines:['1  2  3  4  5','6  7  8  9  10','11 12 13 14 15','16 17 18 19 20','','Count everything!'], color:'#cc6600' },
+      1:  { title:'WEATHER', lines:['☀️ Sunny','🌧️ Rainy','❄️ Snowy','🌩️ Stormy','🌈 Rainbow','','What\'s today\'s weather?'], color:'#0066cc' },
+      2:  { title:'MATTER', lines:['SOLID','Has definite shape','','LIQUID','Takes container shape','','GAS','Fills all space'], color:'#006600' },
+      3:  { title:'LIFE CYCLES', lines:['Butterfly:','Egg→Caterpillar','→Chrysalis→Butterfly','','Frog:','Egg→Tadpole','→Froglet→Frog'], color:'#660066' },
+      4:  { title:'EARTH\'S LAYERS', lines:['Crust (thin)','Mantle (thick)','Outer Core (liquid)','Inner Core (solid)','','We live on the crust!'], color:'#cc6600' },
+      5:  { title:'ESSAY STRUCTURE', lines:['Introduction','  • Hook','  • Thesis','Body Paragraphs (3)','  • Evidence','Conclusion','  • Restate thesis'], color:'#006666' },
+      6:  { title:'LITERARY TERMS', lines:['Simile: like/as','Metaphor: IS','Personification','Alliteration','Hyperbole','Onomatopoeia','Imagery'], color:'#cc0000' },
+      7:  { title:'EQUATIONS', lines:['2x + 5 = 13','2x = 8','x = 4','','Check: 2(4)+5=13','     8+5=13 ✓','','Always check work!'], color:'#660099' },
+      8:  { title:'PERIODIC TABLE', lines:['H  He','Li Be  B  C  N  O','Na Mg  Al Si  P  S','K  Ca  ...','','118 Elements!','Learn the symbols!'], color:'#006633' },
+      9:  { title:'BIOLOGY', lines:['Cell → Tissue','Tissue → Organ','Organ → System','System → Organism','','DNA carries genetic','information'], color:'#003399' },
+      10: { title:'CHEMISTRY', lines:['Atoms make molecules','Molecules make matter','','H₂O = Water','CO₂ = Carbon Dioxide','NaCl = Table Salt','','Periodic Table!'], color:'#990000' },
+      11: { title:'PHYSICS', lines:['Speed = d/t','Velocity = d/t + dir','Acceleration = Δv/t','','KE = ½mv²','PE = mgh','','Energy is conserved'], color:'#336600' },
+      12: { title:'AP ENGLISH', lines:['Rhetorical Devices:','• Ethos (credibility)','• Pathos (emotion)','• Logos (logic)','','Analyze author\'s','purpose & audience'], color:'#663300' }
+    };
+    const p2 = posters2[gradeKey] || posters2['K'];
+    pctx.fillStyle = p2.color;
+    pctx.font = 'bold 18px Arial';
+    pctx.fillText(p2.title, 128, 32);
+    pctx.fillStyle = '#333';
+    pctx.font = '13px "Courier New"';
+    p2.lines.forEach((line, i) => pctx.fillText(line, 128, 58 + i * 22));
+  } else if (posterType === 'motivational') {
+    const quotes = [
+      ['"The more that you read,','the more things you will know."','— Dr. Seuss'],
+      ['"Education is the','most powerful weapon','you can use to','change the world."','— Nelson Mandela'],
+      ['"Believe you can','and you\'re halfway there."','— Theodore Roosevelt'],
+      ['"Learning never','exhausts the mind."','— Leonardo da Vinci'],
+      ['"The beautiful thing','about learning is that','no one can take it','away from you."','— B.B. King']
+    ];
+    const q = quotes[parseInt(gradeKey === 'K' ? 0 : gradeKey) % quotes.length];
+    pctx.fillStyle = '#c8a84b';
+    pctx.font = 'bold 16px Georgia';
+    pctx.fillText('✦ VERITAS ✦', 128, 30);
+    pctx.fillStyle = '#222';
+    pctx.font = 'italic 14px Georgia';
+    q.forEach((line, i) => pctx.fillText(line, 128, 70 + i * 26));
+  } else if (posterType === 'rules') {
+    pctx.fillStyle = '#003366';
+    pctx.font = 'bold 16px Arial';
+    pctx.fillText('CLASSROOM RULES', 128, 28);
+    const rules = ['1. Be Respectful','2. Be Responsible','3. Be Ready to Learn','4. Listen Actively','5. Do Your Best','6. Help Others','7. Stay Positive'];
+    pctx.fillStyle = '#222';
+    pctx.font = '13px Arial';
+    rules.forEach((rule, i) => pctx.fillText(rule, 128, 60 + i * 30));
+    pctx.fillStyle = '#c8a84b';
+    pctx.font = 'bold 13px Georgia';
+    pctx.fillText('VERITAS EDUCATION', 128, 300);
+  }
+
+  const pTex = new THREE.CanvasTexture(pCanvas);
+
+  // ── Poster frame and plane, correctly flush against wall ──
+  // rotY=0 means back wall (poster faces +z into room)
+  // rotY=±PI/2 means side wall (poster faces ±x into room)
+  const frameGroup = new THREE.Group();
+
+  // Frame box (thin, 0.06 deep)
+  const frameMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(2.8, 3.6, 0.06),
+    new THREE.MeshStandardMaterial({ color: 0x5c3317, roughness: 0.7 })
+  );
+  frameGroup.add(frameMesh);
+
+  // Poster plane sits on front face of frame (+z local = 0.03 offset)
+  const pPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.5, 3.2),
+    new THREE.MeshBasicMaterial({ map: pTex })
+  );
+  pPlane.position.set(0, 0, 0.04); // just in front of frame face
+  frameGroup.add(pPlane);
+
+  // Rotate and position the whole group
+  frameGroup.rotation.y = rotY;
+  // For back wall (rotY=0): push against back wall (z = roomZ - D/2 + 0.03)
+  // The caller passes z = roomZ - D/2 + 0.25, so we just place it there
+  // For side walls (rotY=±PI/2): the frame depth becomes x-depth
+  frameGroup.position.set(x, y, z);
+  state.scene.add(frameGroup);
+}
+
+function buildTeacherFigure(x, y, z, cur) {
+  // ── Skin tone varies by teacher for diversity ──
+  // Skin tone selection based on teacher name
+  // Pick skin tone based on teacher name hash
+  let skinHex = 0xf5cba7;
+  const tname = cur.teacher || '';
+  if (tname.includes('Williams') || tname.includes('Davis') || tname.includes('Jackson') || tname.includes('Brown') || tname.includes('Harris')) skinHex = 0xc68642;
+  else if (tname.includes('Chen') || tname.includes('Martinez')) skinHex = 0xd4a574;
+
+  const skinMat = new THREE.MeshStandardMaterial({ color: skinHex, roughness: 0.8 });
+
+  // Blouse color — each teacher has a unique professional color
+  const blouseColors = {
+    K: 0xb03060, 1: 0x1a5276, 2: 0x1e8449, 3: 0x7d3c98,
+    4: 0xb7770d, 5: 0x117a65, 6: 0x922b21, 7: 0x6c3483,
+    8: 0x1a5276, 9: 0x1e8449, 10: 0x922b21, 11: 0x117a65, 12: 0x1a3a6e
+  };
+  // Determine grade key for blouse color
+  let gradeNum = 'K';
+  if (cur.grade) {
+    if (cur.grade.includes('Kindergarten') || cur.grade === 'K') gradeNum = 'K';
+    else { const m = cur.grade.match(/\d+/); if (m) gradeNum = parseInt(m[0]); }
+  }
+  const blouseHex = blouseColors[gradeNum] || 0x1a3a6e;
+  const blouseMat = new THREE.MeshStandardMaterial({ color: blouseHex, roughness: 0.7 });
+
+  // Hair colors — varied
+  const hairColors = [0x1a0a00, 0x3d2b1f, 0x8b4513, 0xd2691e, 0x2c1810, 0x4a3728];
+  const hairHex = hairColors[Math.abs(tname.charCodeAt(4) || 0) % hairColors.length];
+  const hairMat = new THREE.MeshStandardMaterial({ color: hairHex, roughness: 0.9 });
+
+  // ── LEGS ──
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2c2c4a, roughness: 0.8 });
+  [-0.18, 0.18].forEach(sx => {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.0, 0.24), pantsMat);
+    leg.position.set(x + sx, y + 0.5, z);
+    leg.castShadow = true;
+    state.scene.add(leg);
+    // Shoes
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.12, 0.34), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 }));
+    shoe.position.set(x + sx, y + 0.06, z + 0.05);
+    state.scene.add(shoe);
+  });
+
+  // ── SKIRT / lower body ──
+  const skirtMat = new THREE.MeshStandardMaterial({ color: blouseHex, roughness: 0.8, opacity: 0.9, transparent: true });
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 0.6, 12), skirtMat);
+  skirt.position.set(x, y + 1.1, z);
+  state.scene.add(skirt);
+
+  // ── BODY / BLOUSE ──
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 1.1, 0.42), blouseMat);
+  body.position.set(x, y + 1.85, z);
+  body.castShadow = true;
+  state.scene.add(body);
+
+  // Blouse collar (white V-neck)
+  const collarMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+  const collarL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.35, 0.08), collarMat);
+  collarL.position.set(x - 0.1, y + 2.3, z - 0.18);
+  collarL.rotation.z = 0.3;
+  state.scene.add(collarL);
+  const collarR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.35, 0.08), collarMat);
+  collarR.position.set(x + 0.1, y + 2.3, z - 0.18);
+  collarR.rotation.z = -0.3;
+  state.scene.add(collarR);
+
+  // Blouse buttons
+  for (let bi = 0; bi < 3; bi++) {
+    const btn = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }));
+    btn.position.set(x, y + 2.25 - bi * 0.22, z - 0.21);
+    state.scene.add(btn);
+  }
+
+  // ── ARMS ──
+  [-1, 1].forEach(sx => {
+    // Upper arm (blouse sleeve)
+    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.55, 8), blouseMat);
+    upperArm.position.set(x + sx * 0.44, y + 2.05, z);
+    upperArm.rotation.z = sx * 0.25;
+    upperArm.castShadow = true;
+    state.scene.add(upperArm);
+    // Forearm (skin)
+    const foreArm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.5, 8), skinMat);
+    foreArm.position.set(x + sx * 0.52, y + 1.62, z);
+    foreArm.rotation.z = sx * 0.18;
+    state.scene.add(foreArm);
+    // Hand
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), skinMat);
+    hand.position.set(x + sx * 0.57, y + 1.38, z);
+    state.scene.add(hand);
+  });
+
+  // ── NECK ──
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.22, 10), skinMat);
+  neck.position.set(x, y + 2.52, z);
+  state.scene.add(neck);
+
+  // ── HEAD ──
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.33, 16, 16), skinMat);
+  head.scale.set(1.0, 1.15, 0.95); // slightly oval
+  head.position.set(x, y + 2.88, z);
+  head.castShadow = true;
+  state.scene.add(head);
+
+  // ── HAIR ──
+  // Main hair cap (covers top and back of head)
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.345, 16, 12, 0, Math.PI*2, 0, Math.PI*0.65), hairMat);
+  hairCap.position.set(x, y + 2.92, z);
+  hairCap.scale.set(1.0, 1.15, 0.95);
+  state.scene.add(hairCap);
+  // Hair bun or side styling
+  const hairSide = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), hairMat);
+  hairSide.position.set(x + 0.28, y + 2.95, z + 0.05);
+  state.scene.add(hairSide);
+  const hairSide2 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), hairMat);
+  hairSide2.position.set(x - 0.28, y + 2.95, z + 0.05);
+  state.scene.add(hairSide2);
+  // Hair back flow
+  const hairBack = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.7, 0.12), hairMat);
+  hairBack.position.set(x, y + 2.65, z + 0.3);
+  state.scene.add(hairBack);
+  // Hair bun at back
+  const bun = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), hairMat);
+  bun.position.set(x, y + 3.1, z + 0.28);
+  state.scene.add(bun);
+
+  // ── FACE FEATURES (canvas texture on a plane in front of head) ──
+  const faceCanvas = document.createElement('canvas');
+  faceCanvas.width = 256; faceCanvas.height = 320;
+  const fctx = faceCanvas.getContext('2d');
+  fctx.clearRect(0, 0, 256, 320);
+  const skinCSS = '#' + skinHex.toString(16).padStart(6,'0');
+  const hairCSS = '#' + hairHex.toString(16).padStart(6,'0');
+
+  // Skin base
+  fctx.fillStyle = skinCSS;
+  fctx.beginPath(); fctx.ellipse(128, 160, 100, 128, 0, 0, Math.PI*2); fctx.fill();
+
+  // ─ EYES ─
+  // Eye whites
+  fctx.fillStyle = '#ffffff';
+  fctx.beginPath(); fctx.ellipse(88, 130, 22, 14, 0, 0, Math.PI*2); fctx.fill();
+  fctx.beginPath(); fctx.ellipse(168, 130, 22, 14, 0, 0, Math.PI*2); fctx.fill();
+  // Irises
+  const irisColor = (tname.includes('Chen') || tname.includes('Martinez') || skinHex === 0xc68642) ? '#4a3020' : '#3d5a80';
+  fctx.fillStyle = irisColor;
+  fctx.beginPath(); fctx.arc(88, 132, 12, 0, Math.PI*2); fctx.fill();
+  fctx.beginPath(); fctx.arc(168, 132, 12, 0, Math.PI*2); fctx.fill();
+  // Pupils
+  fctx.fillStyle = '#111';
+  fctx.beginPath(); fctx.arc(88, 132, 6, 0, Math.PI*2); fctx.fill();
+  fctx.beginPath(); fctx.arc(168, 132, 6, 0, Math.PI*2); fctx.fill();
+  // Eye shine
+  fctx.fillStyle = 'rgba(255,255,255,0.8)';
+  fctx.beginPath(); fctx.arc(92, 128, 3, 0, Math.PI*2); fctx.fill();
+  fctx.beginPath(); fctx.arc(172, 128, 3, 0, Math.PI*2); fctx.fill();
+  // Eyelashes (upper lid)
+  fctx.strokeStyle = '#222'; fctx.lineWidth = 2.5;
+  for (let li = -3; li <= 3; li++) {
+    fctx.beginPath(); fctx.moveTo(88 + li*3.5, 118); fctx.lineTo(88 + li*3.2, 112); fctx.stroke();
+    fctx.beginPath(); fctx.moveTo(168 + li*3.5, 118); fctx.lineTo(168 + li*3.2, 112); fctx.stroke();
+  }
+  // Eyebrows
+  fctx.strokeStyle = hairHex > 0x888888 ? '#8b6914' : hairCSS;
+  fctx.lineWidth = 4; fctx.lineCap = 'round';
+  fctx.beginPath(); fctx.moveTo(68, 108); fctx.quadraticCurveTo(88, 102, 110, 108); fctx.stroke();
+  fctx.beginPath(); fctx.moveTo(148, 108); fctx.quadraticCurveTo(168, 102, 188, 108); fctx.stroke();
+
+  // ─ NOSE ─
+  fctx.strokeStyle = 'rgba(0,0,0,0.25)'; fctx.lineWidth = 2;
+  fctx.beginPath(); fctx.moveTo(128, 148); fctx.lineTo(118, 168); fctx.quadraticCurveTo(128, 174, 138, 168); fctx.stroke();
+  // Nose tip highlight
+  fctx.fillStyle = 'rgba(255,255,255,0.15)';
+  fctx.beginPath(); fctx.arc(128, 162, 6, 0, Math.PI*2); fctx.fill();
+
+  // ─ LIPS ─
+  // Upper lip
+  fctx.fillStyle = '#c0506a';
+  fctx.beginPath();
+  fctx.moveTo(98, 196);
+  fctx.quadraticCurveTo(108, 188, 128, 192);
+  fctx.quadraticCurveTo(148, 188, 158, 196);
+  fctx.quadraticCurveTo(148, 202, 128, 200);
+  fctx.quadraticCurveTo(108, 202, 98, 196);
+  fctx.fill();
+  // Lower lip
+  fctx.fillStyle = '#d4607a';
+  fctx.beginPath();
+  fctx.moveTo(98, 196);
+  fctx.quadraticCurveTo(128, 218, 158, 196);
+  fctx.quadraticCurveTo(148, 210, 128, 212);
+  fctx.quadraticCurveTo(108, 210, 98, 196);
+  fctx.fill();
+  // Lip highlight
+  fctx.fillStyle = 'rgba(255,200,200,0.4)';
+  fctx.beginPath(); fctx.ellipse(128, 206, 16, 5, 0, 0, Math.PI*2); fctx.fill();
+  // Smile line
+  fctx.strokeStyle = 'rgba(0,0,0,0.3)'; fctx.lineWidth = 1.5;
+  fctx.beginPath(); fctx.moveTo(98, 196); fctx.lineTo(158, 196); fctx.stroke();
+
+  // ─ EARS ─
+  fctx.fillStyle = skinCSS;
+  // Left ear
+  fctx.beginPath(); fctx.ellipse(28, 155, 12, 18, 0.2, 0, Math.PI*2); fctx.fill();
+  fctx.strokeStyle = 'rgba(0,0,0,0.2)'; fctx.lineWidth = 1.5;
+  fctx.beginPath(); fctx.ellipse(28, 155, 7, 12, 0.2, 0, Math.PI*2); fctx.stroke();
+  // Right ear
+  fctx.fillStyle = skinCSS;
+  fctx.beginPath(); fctx.ellipse(228, 155, 12, 18, -0.2, 0, Math.PI*2); fctx.fill();
+  fctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  fctx.beginPath(); fctx.ellipse(228, 155, 7, 12, -0.2, 0, Math.PI*2); fctx.stroke();
+
+  // ─ EARRINGS ─
+  // Gold drop earrings
+  fctx.fillStyle = '#ffd700';
+  fctx.beginPath(); fctx.arc(28, 172, 5, 0, Math.PI*2); fctx.fill();
+  fctx.strokeStyle = '#b8860b'; fctx.lineWidth = 1.5;
+  fctx.beginPath(); fctx.arc(28, 172, 5, 0, Math.PI*2); fctx.stroke();
+  fctx.fillStyle = '#ffd700';
+  fctx.beginPath(); fctx.arc(228, 172, 5, 0, Math.PI*2); fctx.fill();
+  fctx.strokeStyle = '#b8860b';
+  fctx.beginPath(); fctx.arc(228, 172, 5, 0, Math.PI*2); fctx.stroke();
+  // Earring hook
+  fctx.strokeStyle = '#ffd700'; fctx.lineWidth = 2;
+  fctx.beginPath(); fctx.moveTo(28, 163); fctx.lineTo(28, 167); fctx.stroke();
+  fctx.beginPath(); fctx.moveTo(228, 163); fctx.lineTo(228, 167); fctx.stroke();
+
+  // ─ CHEEK BLUSH ─
+  fctx.fillStyle = 'rgba(255, 150, 150, 0.18)';
+  fctx.beginPath(); fctx.ellipse(70, 160, 22, 14, 0, 0, Math.PI*2); fctx.fill();
+  fctx.beginPath(); fctx.ellipse(186, 160, 22, 14, 0, 0, Math.PI*2); fctx.fill();
+
+  const faceTex = new THREE.CanvasTexture(faceCanvas);
+  const facePlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 0.78),
+    new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, depthWrite: false, side: THREE.DoubleSide })
+  );
+  // Face toward students (+z direction) — rotate PI around Y
+  facePlane.rotation.y = Math.PI;
+  facePlane.position.set(x, y + 2.88, z + 0.3);
+  state.scene.add(facePlane);
+
+  // ── NECKLACE ──
+  const necklaceMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.9 });
+  for (let ni = -3; ni <= 3; ni++) {
+    const bead = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 6), necklaceMat);
+    bead.position.set(x + ni * 0.04, y + 2.42 - Math.abs(ni) * 0.02, z - 0.19);
+    state.scene.add(bead);
+  }
+  // Necklace pendant
+  const pendant = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), necklaceMat);
+  pendant.position.set(x, y + 2.36, z - 0.19);
+  state.scene.add(pendant);
+
+  // ── NAME LABEL ──
+  const labelCanvas = document.createElement('canvas');
+  labelCanvas.width = 320; labelCanvas.height = 56;
+  const lctx = labelCanvas.getContext('2d');
+  const lgrad = lctx.createLinearGradient(0,0,320,0);
+  lgrad.addColorStop(0, 'rgba(26,10,0,0.9)');
+  lgrad.addColorStop(0.5, 'rgba(61,31,0,0.95)');
+  lgrad.addColorStop(1, 'rgba(26,10,0,0.9)');
+  lctx.fillStyle = lgrad;
+  lctx.roundRect(0, 0, 320, 56, 8);
+  lctx.fill();
+  lctx.strokeStyle = '#c8a84b'; lctx.lineWidth = 2;
+  lctx.roundRect(2, 2, 316, 52, 7);
+  lctx.stroke();
+  lctx.fillStyle = '#f0d080';
+  lctx.font = 'bold 20px Georgia';
+  lctx.textAlign = 'center';
+  lctx.textBaseline = 'middle';
+  lctx.fillText(cur.teacher, 160, 28);
+  const lTex = new THREE.CanvasTexture(labelCanvas);
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 0.42),
+    new THREE.MeshBasicMaterial({ map: lTex, transparent: true, depthWrite: false })
+  );
+  label.position.set(x, y + 3.65, z);
+  label.userData.isLabel = true;
+  state.scene.add(label);
+}
+
+function buildWallClock(x, y, z, rotY, gradeKey) {
+  const clockCanvas = document.createElement('canvas');
+  clockCanvas.width = 128; clockCanvas.height = 128;
+  const clockTex = new THREE.CanvasTexture(clockCanvas);
+  const clockMesh = new THREE.Mesh(
+    new THREE.CircleGeometry(0.5, 32),
+    new THREE.MeshBasicMaterial({ map: clockTex })
+  );
+  clockMesh.position.set(x, y, z);
+  clockMesh.rotation.y = rotY;
+  clockMesh.userData.isClock = true;
+  clockMesh.userData.canvas = clockCanvas;
+  clockMesh.userData.texture = clockTex;
+  state.scene.add(clockMesh);
+  drawClock(clockCanvas, clockTex);
+}
+
+function drawClock(canvas, tex) {
+  const ctx = canvas.getContext('2d');
+  const now = new Date();
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, r = W/2 - 4;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+
+  // Hour marks
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 - Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a)*(r-8), cy + Math.sin(a)*(r-8));
+    ctx.lineTo(cx + Math.cos(a)*(r-2), cy + Math.sin(a)*(r-2));
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  const h = now.getHours() % 12, m = now.getMinutes(), s = now.getSeconds();
+  const hAngle = ((h + m/60) / 12) * Math.PI*2 - Math.PI/2;
+  const mAngle = ((m + s/60) / 60) * Math.PI*2 - Math.PI/2;
+  const sAngle = (s / 60) * Math.PI*2 - Math.PI/2;
+
+  // Hour hand
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(hAngle)*(r*0.5), cy + Math.sin(hAngle)*(r*0.5));
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 4; ctx.stroke();
+
+  // Minute hand
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(mAngle)*(r*0.7), cy + Math.sin(mAngle)*(r*0.7));
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 3; ctx.stroke();
+
+  // Second hand
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(sAngle)*(r*0.8), cy + Math.sin(sAngle)*(r*0.8));
+  ctx.strokeStyle = '#cc0000'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Center dot
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2);
+  ctx.fillStyle = '#333'; ctx.fill();
+
+  tex.needsUpdate = true;
+}
+
+// ── Input ────────────────────────────────────────────────────
+function initInput() {
+  document.addEventListener('keydown', e => {
+    state.keys[e.code] = true;
+    if (e.code === 'KeyE') tryInteract();
+    if (e.code === 'Escape') releasePointer();
+  });
+  document.addEventListener('keyup', e => { state.keys[e.code] = false; });
+
+  document.addEventListener('mousemove', e => {
+    if (!state.pointerLocked) return;
+    const sens = 0.002;
+    state.yaw -= e.movementX * sens;
+    state.pitch -= e.movementY * sens;
+    state.pitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, state.pitch));
+  });
+
+  document.addEventListener('pointerlockchange', () => {
+    state.pointerLocked = !!document.pointerLockElement;
+    document.getElementById('crosshair').classList.toggle('show', state.pointerLocked);
+    document.getElementById('controls-hint').style.opacity = state.pointerLocked ? '0' : '1';
+  });
+
+  state.renderer.domElement.addEventListener('click', () => {
+    if (!state.inClassroom && !document.getElementById('lobby-panel').classList.contains('show')) {
+      state.renderer.domElement.requestPointerLock();
+    }
+  });
+}
+
+function releasePointer() {
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+
+// ── Movement ─────────────────────────────────────────────────
+function updateMovement(dt) {
+  if (!state.pointerLocked || state.inClassroom) return;
+
+  const speed = state.moveSpeed * dt;
+  const forward = new THREE.Vector3(Math.sin(state.yaw), 0, Math.cos(state.yaw));
+  const right = new THREE.Vector3(Math.cos(state.yaw), 0, -Math.sin(state.yaw));
+
+  const move = new THREE.Vector3();
+  if (state.keys['KeyW'] || state.keys['ArrowUp']) move.addScaledVector(forward, speed);
+  if (state.keys['KeyS'] || state.keys['ArrowDown']) move.addScaledVector(forward, -speed);
+  if (state.keys['KeyA'] || state.keys['ArrowLeft']) move.addScaledVector(right, -speed);
+  if (state.keys['KeyD'] || state.keys['ArrowRight']) move.addScaledVector(right, speed);
+
+  state.camera.position.add(move);
+  state.camera.position.y = 1.7; // fixed eye height
+
+  // Boundary clamp
+  state.camera.position.x = Math.max(-55, Math.min(55, state.camera.position.x));
+  state.camera.position.z = Math.max(-75, Math.min(25, state.camera.position.z));
+
+  state.camera.rotation.order = 'YXZ';
+  state.camera.rotation.y = state.yaw;
+  state.camera.rotation.x = state.pitch;
+
+  // Check proximity to doors
+  checkDoorProximity();
+}
+
+function checkDoorProximity() {
+  const pos = state.camera.position;
+  let nearest = null, nearestDist = 4;
+  DOOR_POSITIONS.forEach(d => {
+    const dist = Math.sqrt((pos.x-d.x)**2 + (pos.z-d.z)**2);
+    if (dist < nearestDist) { nearest = d; nearestDist = dist; }
+  });
+  state.nearDoor = nearest;
+  const prompt = document.getElementById('interact-prompt');
+  if (nearest) {
+    const cur = CURRICULUM[nearest.grade];
+    prompt.textContent = `Press E — Enter ${cur.grade} (${cur.teacher})`;
+    prompt.classList.add('show');
+  } else {
+    prompt.classList.remove('show');
+  }
+}
+
+function tryInteract() {
+  if (state.nearDoor) {
+    enterClassroom(state.nearDoor.grade);
+  }
+}
+
+// ── Classroom Entry ──────────────────────────────────────────
+function enterClassroom(gradeKey) {
+  const cur = CURRICULUM[String(gradeKey)];
+  if (!cur) return;
+  state.currentRoom = String(gradeKey);
+  state.lessonComplete = false;
+  state.questionsAnswered = 0;
+  state.chatHistory = [];
+  state.currentLesson = cur.lessons[0];
+
+  // Build classroom if not yet built
+  buildClassroom(String(gradeKey));
+
+  // Move camera into classroom
+  const room = classroomMeshes[String(gradeKey)];
+  if (room) {
+    // Sit student at back of room (near front/door wall), facing chalkboard (at roomZ - D/2)
+    // Room front wall at roomZ + D/2, back wall (chalkboard) at roomZ - D/2
+    // Student sits 4 units from front wall, inside the room
+    state.camera.position.set(room.roomX, 5.5, room.roomZ + room.D/2 - 4);
+    state.yaw = 0; // yaw=0 looks toward -z (toward chalkboard)
+    state.pitch = -0.05; // slight downward tilt
+    state.camera.rotation.order = 'YXZ';
+    state.camera.rotation.y = 0;
+    state.camera.rotation.x = -0.05;
+  }
+
+  releasePointer();
+  state.inClassroom = true;
+
+  // Show attendance
+  const att = document.getElementById('attendance-panel');
+  document.getElementById('att-greeting').textContent =
+    `Good ${getTimeOfDay()}! I am ${cur.teacher}, your ${cur.grade} teacher. Please type your full name to confirm attendance for today's class.`;
+  att.classList.add('show');
+}
+
+function confirmAttendance() {
+  const name = document.getElementById('att-name-input').value.trim();
+  if (!name) { alert('Please enter your full name.'); return; }
+  state.studentName = name;
+
+  document.getElementById('attendance-panel').classList.remove('show');
+  document.getElementById('classroom-ui').classList.add('show');
+
+  // Update student info
+  const cur = CURRICULUM[state.currentRoom];
+  document.getElementById('si-name').textContent = name;
+  document.getElementById('si-grade').textContent = cur.grade;
+  document.getElementById('si-att').textContent = '✓ Present';
+  const now = new Date();
+  document.getElementById('si-date').textContent = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+
+  // Update progress
+  updateProgress();
+
+  // Clear chat
+  document.getElementById('chat-messages').innerHTML = '';
+
+  // Teacher greeting
+  addTeacherMessage(`Good ${getTimeOfDay()}, ${name}! Welcome to ${cur.grade}. I'm ${cur.teacher}. Today we're studying ${cur.lessons[0].subject}: "${cur.lessons[0].title}". Please read the chalkboard carefully, then I'll ask you some questions to check your understanding. Are you ready to begin?`);
+}
+
+function exitToLobby() {
+  if (!state.lessonComplete) {
+    showExitBlocked();
+    return;
+  }
+  document.getElementById('lesson-complete').classList.remove('show');
+  document.getElementById('classroom-ui').classList.remove('show');
+  state.inClassroom = false;
+  state.currentRoom = null;
+
+  // Return camera to lobby
+  state.camera.position.set(0, 1.7, LOBBY_Z + 5);
+  state.yaw = 0; // face toward lobby back wall
+  state.camera.rotation.order = 'YXZ';
+  state.camera.rotation.y = 0;
+  openLobby();
+}
+
+function showExitBlocked() {
+  const el = document.getElementById('exit-blocked');
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ── Chat / AI Teacher ────────────────────────────────────────
+function addTeacherMessage(text) {
+  const cur = CURRICULUM[state.currentRoom];
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg teacher';
+  const sender = document.createElement("div"); sender.className="sender"; sender.textContent=cur.teacher; div.append(sender,document.createTextNode(text));
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  state.chatHistory.push({ role:'assistant', content: text });
+}
+
+function updateProgress() {
+  const pct = (state.questionsAnswered / state.questionsRequired) * 100;
+  document.getElementById('lp-bar').style.width = pct + '%';
+  if (state.questionsAnswered >= state.questionsRequired) {
+    document.getElementById('lp-status').textContent = 'Lesson Complete! 🎉';
+    document.getElementById('lp-status').style.color = '#4caf50';
+  } else {
+    document.getElementById('lp-status').textContent = `${state.questionsAnswered}/${state.questionsRequired} responses recorded`;
+    document.getElementById('lp-status').style.color = '#d0d0d0';
+  }
+}
+
+function completeLesson() {
+  state.lessonComplete = true;
+  const cur = CURRICULUM[state.currentRoom];
+  const score = Math.floor(75 + Math.random() * 25);
+  const letter = score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : score >= 60 ? 'D' : 'F';
+
+  // Record grade
+  state.grades.push({
+    grade: cur.grade,
+    subject: state.currentLesson.subject,
+    lesson: state.currentLesson.title,
+    date: new Date().toLocaleDateString(),
+    score: `${score}%`,
+    letter
+  });
+
+  document.getElementById('lc-msg').textContent = `You completed "${state.currentLesson.title}" in ${cur.grade}. Your score has been recorded. Great job, ${state.studentName}!`;
+  document.getElementById('lc-score').textContent = `${letter} — ${score}%`;
+  document.getElementById('lc-score').className = `lc-score grade-${letter}`;
+  document.getElementById('lesson-complete').classList.add('show');
+}
+
+function requestHint() {
+  const lesson = state.currentLesson;
+  addTeacherMessage(`Here's a hint for "${lesson.title}": Review the chalkboard carefully — the key concepts are highlighted there. Focus on understanding the main idea first, then the supporting details. You're doing great!`);
+}
+
+function nextTopic() {
+  const cur = CURRICULUM[state.currentRoom];
+  const idx = cur.lessons.findIndex(l => l.title === state.currentLesson.title);
+  const next = cur.lessons[(idx + 1) % cur.lessons.length];
+  state.currentLesson = next;
+  addTeacherMessage(`Let's move on to our next topic: ${next.subject} — "${next.title}". I've updated the chalkboard for you. Please read it carefully!`);
+  updateChalkboard(state.currentRoom, next);
+}
+
+function updateChalkboard(gradeKey, lesson) {
+  // Find the chalkboard mesh and update its canvas
+  state.scene.traverse(obj => {
+    if (obj.userData.isChalkboard && obj.userData.grade === gradeKey) {
+      const ctx = obj.userData.ctx;
+      const tex = obj.userData.texture;
+      if (ctx && tex) {
+        ctx.fillStyle = '#1a4a1a';
+        ctx.fillRect(0, 0, 1024, 384);
+        ctx.fillStyle = '#e8f8e8';
+        ctx.font = '22px "Courier New", monospace';
+        const lines = lesson.content.split('\n');
+        lines.forEach((line, i) => {
+          if (i < 14) ctx.fillText(line, 20, 32 + i * 26);
+        });
+        tex.needsUpdate = true;
+      }
+    }
+  });
+}
+
+// ── Grades ───────────────────────────────────────────────────
+function openGrades() {
+  const tbody = document.getElementById('grade-tbody');
+  tbody.innerHTML = '';
+  if (state.grades.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#888;text-align:center;padding:20px;">No grades recorded yet. Complete a lesson to see your grades here.</td></tr>';
+  } else {
+    state.grades.forEach(g => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${g.grade}</td><td>${g.subject}</td><td>${g.lesson}</td><td>${g.date}</td><td class="grade-${g.letter}">${g.letter} (${g.score})</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  document.getElementById('grade-panel').classList.add('show');
+}
+function closeGrades() { document.getElementById('grade-panel').classList.remove('show'); }
+
+// ── Upload ───────────────────────────────────────────────────
+function openUpload() { document.getElementById('upload-panel').classList.add('show'); }
+function closeUpload() { document.getElementById('upload-panel').classList.remove('show'); }
+function handleUpload(input) {
+  const list = document.getElementById('upload-list');
+  Array.from(input.files).forEach(file => {
+    state.uploads.push({ name: file.name, grade: state.currentRoom, date: new Date().toLocaleDateString() });
+    const div = document.createElement('div');
+    div.className = 'upload-item';
+    const label=document.createElement("span"); label.className="fname"; label.textContent="📄 "+file.name; div.append(label,document.createTextNode(" · Selected locally"));
+    list.appendChild(div);
+  });
+}
+
+// ── Lobby ────────────────────────────────────────────────────
+function buildClassroomGrid() {
+  const grid = document.getElementById('classroom-grid');
+  grid.innerHTML = '';
+  const icons = { K:'🌟', 1:'📚', 2:'✏️', 3:'🔬', 4:'🌍', 5:'⚗️', 6:'🧮', 7:'🧬', 8:'🔭', 9:'📐', 10:'🧪', 11:'📊', 12:'🎓' };
+  Object.keys(CURRICULUM).forEach(key => {
+    const cur = CURRICULUM[key];
+    const card = document.createElement('div');
+    card.className = 'room-card';
+    card.innerHTML = `<div class="room-icon">${icons[key]||'📖'}</div><div class="room-grade">${cur.grade}</div><div class="room-teacher">${cur.teacher}</div><div class="room-subjects">${cur.subjects.join(' • ')}</div>`;
+    card.onclick = () => { closeLobby(); enterClassroom(key); };
+    grid.appendChild(card);
+  });
+}
+
+function openLobby() {
+  releasePointer();
+  buildClassroomGrid();
+  document.getElementById('lobby-panel').classList.add('show');
+}
+function closeLobby() { document.getElementById('lobby-panel').classList.remove('show'); }
+
+// ── HUD ──────────────────────────────────────────────────────
+function toggleHUD() {
+  const dd = document.getElementById('hud-dropdown');
+  dd.style.display = dd.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', e => {
+  if (!document.getElementById('hud-sign').contains(e.target)) {
+    document.getElementById('hud-dropdown').style.display = 'none';
+  }
+});
+
+// ── Clock HUD ────────────────────────────────────────────────
+function updateClockHUD() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,'0');
+  const m = now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('clock-time').textContent = `${h}:${m}`;
+  const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  document.getElementById('clock-day').textContent = days[now.getDay()];
+}
+
+function getTimeOfDay() {
+  const h = new Date().getHours();
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  return 'evening';
+}
+
+// ── Skybox / Environment ─────────────────────────────────────
+function buildEnvironment() {
+  // Sky gradient via background color (already set)
+  // Clouds
+  const cloudMat = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:1, transparent:true, opacity:0.85 });
+  [[30,25,-40],[-20,28,-50],[50,22,-30],[-40,26,-60]].forEach(([x,y,z]) => {
+    [0, 2, -2].forEach(ox => {
+      const cloud = new THREE.Mesh(new THREE.SphereGeometry(3+Math.random()*2, 8, 8), cloudMat);
+      cloud.position.set(x+ox, y, z);
+      state.scene.add(cloud);
+    });
+  });
+}
+
+// ── Animation Loop ───────────────────────────────────────────
+let clockUpdateTimer = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(state.clock.getDelta(), 0.05);
+
+  updateMovement(dt);
+
+  // Update wall clocks every second
+  clockUpdateTimer += dt;
+  if (clockUpdateTimer > 1) {
+    clockUpdateTimer = 0;
+    updateClockHUD();
+    state.scene.traverse(obj => {
+      if (obj.userData.isClock) drawClock(obj.userData.canvas, obj.userData.texture);
+    });
+  }
+
+  // Billboard labels always face camera
+  state.scene.traverse(obj => {
+    if (obj.userData.isLabel) {
+      obj.lookAt(state.camera.position);
+    }
+  });
+
+  state.renderer.render(state.scene, state.camera);
+}
+
+// ── Loading Progress ─────────────────────────────────────────
+function simulateLoading(cb) {
+  let p = 0;
+  const bar = document.getElementById('loading-bar');
+  const iv = setInterval(() => {
+    p += Math.random() * 15;
+    if (p >= 100) { p = 100; clearInterval(iv); setTimeout(cb, 300); }
+    bar.style.width = p + '%';
+  }, 120);
+}
+
+// ── Init ─────────────────────────────────────────────────────
+function init() {
+  window._veritas = state; // expose for debugging
+  simulateLoading(() => {
+    initThree();
+    buildLighting();
+    buildGround();
+    buildExterior();
+    buildLobby();
+    buildEnvironment();
+    initInput();
+    updateClockHUD();
+    animate();
+
+    document.getElementById('loading').style.transition = 'opacity 0.8s';
+    document.getElementById('loading').style.opacity = '0';
+    setTimeout(() => document.getElementById('loading').style.display = 'none', 800);
+
+    // Position camera to face the school exterior
+    state.camera.position.set(0, 8, 38);
+    state.yaw = 0; // yaw=0 looks toward -z (toward school)
+    state.camera.rotation.order = 'YXZ';
+    state.camera.rotation.y = 0;
+    state.camera.rotation.x = 0;
+    // Auto-open lobby after a short delay
+    setTimeout(openLobby, 1800);
+  });
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
