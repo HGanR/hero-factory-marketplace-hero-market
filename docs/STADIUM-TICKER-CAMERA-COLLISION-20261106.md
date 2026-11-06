@@ -22,7 +22,7 @@ apply to either exterior mode.
 Measure actual shell vertices through their model transforms; position the band
 1.5 local units outside their maximum horizontal radius. Scaling/rotation follow
 the same parent placement as the stadium. Text is TROOTHHURTZ STADIUM, four
-bounded repeats on a 4096px texture. Scroll continues outside without requiring
+bounded repeats on a 4096×64 texture wrapped twice around the band to keep letter proportions readable. Scroll continues outside without requiring
 Enter Stadium. Normal depth testing remains enabled; no render-order trick hides
 the original geometry.
 
@@ -49,7 +49,7 @@ Automated checks exercise swept long-step collision, wall sliding, low obstacles
 roof clearance, mode-switch recovery, overlapping bounds, movement away and
 repeated steps. A real GLTFLoader reads the actual model in CI; the production
 Stadium component is invoked with hooked render dependencies to assert outside
-radius, exact text, bounded text repeats and exterior scroll. Real Three.js bounds
+radius, exact text, bounded text repeats and exterior scroll. The actual shared camera hook is exercised for zoom, walking recovery and explicit interior bypass. Real Three.js bounds
 are checked after translation, rotation, resizing and hiding. Shared editor/public
 source graph compilation and strict geometry/collision helper types are checked.
 

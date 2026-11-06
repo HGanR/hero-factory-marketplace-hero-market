@@ -32,7 +32,7 @@ export interface StadiumElyseumProps {
 // Build TROO STADIUM holographic signage — bold white text with bright glow on dark blue band (matches inner ring style)
 function buildSignageTexture(): THREE.CanvasTexture {
   const CW = 4096;
-  const CH = 320;
+  const CH = 64;
   const cvs = document.createElement("canvas");
   cvs.width = CW;
   cvs.height = CH;
@@ -40,7 +40,7 @@ function buildSignageTexture(): THREE.CanvasTexture {
   ctx.fillStyle = "#0a1628";
   ctx.fillRect(0, 0, CW, CH);
   const text = STADIUM_TICKER_TEXT;
-  const fontSize = 90;
+  const fontSize = 44;
   ctx.font = `900 ${fontSize}px "Arial Black", Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -48,10 +48,10 @@ function buildSignageTexture(): THREE.CanvasTexture {
     const cx = (CW / 4) * rep + CW / 8;
     const cy = CH / 2;
     ctx.shadowColor = "#a0d8ff";
-    ctx.shadowBlur = 48;
+    ctx.shadowBlur = 8;
     ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
     ctx.fillText(text, cx, cy, CW/4-100);
-    ctx.shadowBlur = 24;
+    ctx.shadowBlur = 4;
     ctx.fillStyle = "rgba(200, 230, 255, 0.95)";
     ctx.fillText(text, cx, cy, CW/4-100);
     ctx.shadowBlur = 0;
@@ -61,7 +61,8 @@ function buildSignageTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(cvs);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.repeat.set(1, 1);
+  // Two texture wraps keep letter proportions close to the 461-unit exterior circumference.
+  tex.repeat.set(2, 1);
   return tex;
 }
 
