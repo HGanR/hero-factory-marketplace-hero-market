@@ -71,7 +71,7 @@ export default function HostEventPage() {
       const roomId = json.roomId ?? `default:${json.id}`;
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const directUrl = `${origin}/meet/${roomId}`;
-      let inviteUrl = directUrl;
+      let inviteUrl = accessType==='public' ? directUrl : '';
       try {
         const invRes = await fetch(`/api/troo-world/meeting-nodes/${json.id}/invites`, {
           method: "POST",
@@ -123,10 +123,12 @@ export default function HostEventPage() {
             <div className="flex gap-2">
               <input
                 readOnly
+                placeholder="Invitation unavailable — do not share the host link"
                 value={created.inviteUrl ?? `${typeof window !== "undefined" ? window.location.origin : ""}/meet/${created.roomId}`}
                 className="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-slate-200"
               />
               <button
+                disabled={!created.inviteUrl}
                 onClick={() => {
                   navigator.clipboard?.writeText(created.inviteUrl ?? `${window.location.origin}/meet/${created.roomId}`);
                   toast.success("Link copied");

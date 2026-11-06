@@ -3,6 +3,7 @@
  * Returns participant list from LiveKit when configured; otherwise empty.
  */
 import { NextRequest, NextResponse } from "next/server";
+import {stadiumNode,stadiumAccess,physical} from '@/lib/stadium/server';
 import { eq } from "drizzle-orm";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { getDb } from "@/lib/db";
@@ -26,6 +27,8 @@ export async function GET(
       return NextResponse.json({ error: "Meeting node not found" }, { status: 404 });
     }
 
+    const venue=await stadiumNode(nodeId);
+    if(venue && !(await stadiumAccess(request,venue)).host) return NextResponse.json({error:'Host required'},{status:403});
     const url = process.env.LIVEKIT_URL;
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -44,7 +47,7 @@ export async function GET(
 
     let participants: Awaited<ReturnType<RoomServiceClient["listParticipants"]>> = [];
     try {
-      participants = await roomClient.listParticipants(node.roomId);
+      participants = await roomClient.listParticipants(venue?physical(nodeId):node.roomId);
     } catch (err) {
       // Room may not exist yet (no one has joined); treat as empty
       const msg = err instanceof Error ? err.message : String(err);

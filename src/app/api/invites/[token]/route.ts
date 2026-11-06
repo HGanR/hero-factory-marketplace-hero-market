@@ -2,6 +2,7 @@
  * GET /api/invites/[token] — Resolve invite, return roomId for redirect
  */
 import { NextRequest, NextResponse } from "next/server";
+import { stadiumNode } from '@/lib/stadium/server';
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { meetingInvites, meetingNodePlacements } from "@/lib/db/schema";
@@ -48,12 +49,15 @@ export async function GET(
       return NextResponse.json({ error: "Meeting room unavailable" }, { status: 410 });
     }
 
-    return NextResponse.json({
+    const response=NextResponse.json({
       ok: true,
       roomId: node.roomId,
       roomName: node.title,
       nodeId: invite.meetingNodeId,
     });
+    if(await stadiumNode(invite.meetingNodeId)) response.cookies.set('stadium-pass-'+invite.meetingNodeId,token,{httpOnly:true,secure:request.nextUrl.protocol==='https:',sameSite:'lax',path:'/',expires:invite.expiresAt?new Date(invite.expiresAt):undefined});
+    response.headers.set('Cache-Control','no-store');
+    return response;
   } catch (e) {
     console.error("[invites resolve]", e);
     return NextResponse.json({ error: "Failed to resolve invite" }, { status: 500 });

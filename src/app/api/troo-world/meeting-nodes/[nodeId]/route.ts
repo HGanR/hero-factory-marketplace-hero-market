@@ -4,6 +4,7 @@
  * DELETE /api/troo-world/meeting-nodes/[nodeId] — Delete node (admin or auth)
  */
 import { NextRequest, NextResponse } from "next/server";
+import {stadiumNode} from '@/lib/stadium/server';
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { meetingNodePlacements, trooWorldPlacements } from "@/lib/db/schema";
@@ -97,10 +98,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Meeting node not found" }, { status: 404 });
     }
 
+    const venue=await stadiumNode(nodeId);
+    if(venue && venue.createdByUserId!==userId) return NextResponse.json({error:'Host required'},{status:403});
     const patch: Record<string, unknown> = {};
     if (body.title !== undefined) patch.title = String(body.title).trim().slice(0, 120);
     if (body.accessType !== undefined && ["public", "private", "invite_only"].includes(body.accessType)) patch.accessType = body.accessType;
-    if (body.capacity !== undefined) patch.capacity = Math.max(2, Math.min(100, Number(body.capacity) || 12));
+    if (body.capacity !== undefined) patch.capacity = Math.max(venue?12:2, Math.min(venue?500:100, Number(body.capacity) || 12));
     if (body.webEnabled !== undefined) patch.webEnabled = !!body.webEnabled;
     if (body.webxrEnabled !== undefined) patch.webxrEnabled = !!body.webxrEnabled;
     if (body.vrEnabled !== undefined) patch.vrEnabled = !!body.vrEnabled;
@@ -150,6 +153,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Meeting node not found" }, { status: 404 });
     }
 
+    const venue=await stadiumNode(nodeId);
+    if(venue && venue.createdByUserId!==userId) return NextResponse.json({error:'Host required'},{status:403});
     await db.delete(meetingNodePlacements).where(eq(meetingNodePlacements.id, nodeId));
 
     return NextResponse.json({ success: true, message: "Meeting node deleted" });

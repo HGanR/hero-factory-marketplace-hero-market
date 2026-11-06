@@ -338,7 +338,9 @@ function MeridianLabel({ position, isSelected, onSelect, onViewAgents, onEnter }
   );
 }
 
-function StadiumLabel({ position, isSelected, onSelect, onEnter }: {
+type StadiumEvent={id:string;title:string;roomId:string};
+function StadiumLabel({ events, position, isSelected, onSelect, onEnter }: {
+  events:StadiumEvent[]|null;
   position: [number, number, number];
   isSelected: boolean;
   onSelect: () => void;
@@ -386,7 +388,9 @@ function StadiumLabel({ position, isSelected, onSelect, onEnter }: {
                 color: "#fff", fontSize: 13, fontWeight: 700,
                 cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8,
               }}
-            >🚪 Enter Stadium</button>
+            >Explore Stadium</button>
+            {events===null ? <small>Event status unavailable</small> : !events.length ? <small>No public event in session</small> : events.map(event=><a key={event.id} style={{display:'block',padding:8,color:'white'}} href={'/meet/'+encodeURIComponent(event.roomId)}>Join Event: {event.title}</a>)}
+            <a style={{display:'block',padding:8,color:'#86deff'}} href="/troo-town/host-event">Host an event</a>
           </div>
         )}
       </div>
@@ -979,6 +983,17 @@ function BuildingPresentation({state,alreadyScaled=false,children}:{state:Buildi
 }
 
 function Scene(props: SceneProps) {
+  const [events,setEvents]=useState<StadiumEvent[]|null>(null);
+  useEffect(()=>{
+    const controller=new AbortController();
+    const refresh=async()=>{try{
+      const res=await fetch('/api/troo-world/stadium-events',{cache:'no-store',signal:controller.signal});
+      if(!res.ok) throw Error();
+      const data=await res.json();if(!controller.signal.aborted)setEvents(data.events);
+    }catch{if(!controller.signal.aborted)setEvents(null)}};
+    void refresh();const timer=setInterval(()=>{if(!document.hidden) void refresh()},30000);
+    return ()=>{controller.abort();clearInterval(timer)};
+  },[]);
   const orbitRef = useRef<any>(null);
   const { camera } = useThree();
   
@@ -1122,7 +1137,7 @@ function Scene(props: SceneProps) {
 
       <BuildingPresentation state={props.layout.buildings["stadium-elyseum"]} alreadyScaled >
       <Suspense fallback={null}>
-        <StadiumElyseum
+        <StadiumElyseum activeEventTitle={events?.[0]?.title}
           position={props.stadiumPos}
           scale={props.stadiumScale}
           isSelected={props.stadiumSelected}
@@ -1130,7 +1145,7 @@ function Scene(props: SceneProps) {
           animate={props.insideBuilding === "stadium"}
         />
       </Suspense>
-      <StadiumLabel
+      <StadiumLabel events={events}
         position={props.stadiumPos}
         isSelected={props.stadiumSelected}
         onSelect={props.onSelectStadium}
