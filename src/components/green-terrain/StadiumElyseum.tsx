@@ -31,36 +31,27 @@ export interface StadiumElyseumProps {
 // Build TROO STADIUM holographic signage — bold white text with bright glow on dark blue band (matches inner ring style)
 function buildSignageTexture(): THREE.CanvasTexture {
   const CW = 2048;
-  const CH = 320;
+  const CH = 256;
   const cvs = document.createElement("canvas");
   cvs.width = CW;
   cvs.height = CH;
   const ctx = cvs.getContext("2d")!;
-  ctx.fillStyle = "#0a1628";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, CW, CH);
   const text = "TROO STADIUM";
   const fontSize = 140;
   ctx.font = `900 ${fontSize}px "Arial Black", Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (let rep = 0; rep < 5; rep++) {
-    const cx = (CW / 5) * rep + CW / 10;
-    const cy = CH / 2;
-    ctx.shadowColor = "#a0d8ff";
-    ctx.shadowBlur = 48;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
-    ctx.fillText(text, cx, cy);
-    ctx.shadowBlur = 24;
-    ctx.fillStyle = "rgba(200, 230, 255, 0.95)";
-    ctx.fillText(text, cx, cy);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(text, cx, cy);
-  }
+  ctx.shadowColor = "#0077ff";
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = "#159dff";
+  ctx.fillText(text, CW / 2, CH / 2, CW * 0.86);
   const tex = new THREE.CanvasTexture(cvs);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.repeat.set(1, 1);
+  tex.repeat.set(12, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -95,7 +86,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
   const groupRef = useRef<THREE.Group>(null);
   const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
 
-  const signageRef = useRef<THREE.Mesh>(null);
+
   const signageTex = useMemo(() => buildSignageTexture(), []);
 
   const screenTex = useMemo(() => activeEventTitle ? buildScreenTexture(activeEventTitle) : null, [activeEventTitle]);
@@ -167,11 +158,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
         }
       });
     }
-    if (signageRef.current?.material) {
-      const m = signageRef.current.material as THREE.MeshStandardMaterial;
-      if (m.map) m.map.offset.x = (t * 0.04) % 1;
-      m.emissiveIntensity = 2.8 + 0.5 * Math.sin(t * 2);
-    }
+    signageTex.offset.x = -(t * 0.22 % 1);
   });
 
   return (
@@ -196,16 +183,9 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
       </group>
       {/* TROO STADIUM holographic band — matches outer black ring diameter at top of stadium */}
       <group position={position} scale={scale} renderOrder={100}>
-        <mesh ref={signageRef} position={[0, 26, 0]} renderOrder={10}>
-          <cylinderGeometry args={[41, 41, 4, 64, 1, true]} />
-          <meshStandardMaterial
-            map={signageTex}
-            emissiveMap={signageTex}
-            emissive={new THREE.Color(0xa0d8ff)}
-            emissiveIntensity={4}
-            side={THREE.FrontSide}
-            depthWrite={true}
-          />
+        <mesh position={[0, 26, 0]} renderOrder={10}>
+          <cylinderGeometry args={[72.7, 72.7, 4, 144, 1, true]} />
+          <meshBasicMaterial map={signageTex} toneMapped={false} fog={false} />
         </mesh>
       </group>
     </>

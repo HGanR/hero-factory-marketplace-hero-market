@@ -387,6 +387,7 @@ function StadiumLabel({ position, isSelected, onSelect, onEnter }: {
                 cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8,
               }}
             >🚪 Enter Stadium</button>
+            <a href="/troo-town/host-event" style={{display:"block",padding:"10px 16px",textAlign:"left",color:"#91dcff"}}>Host an Event</a>
           </div>
         )}
       </div>
@@ -864,11 +865,6 @@ function getNexusCollisionBoxes(
 }
 
 // Stage area — non-hosts cannot enter (blocks Conference/Seminar/Concert)
-function getStadiumCollisionBoxes(stadiumPos: [number, number, number], isHost: boolean): CollisionBox[] {
-  if (isHost) return [];
-  const [sx, , sz] = stadiumPos;
-  return [{ minX: sx - 6, maxX: sx + 6, minZ: sz - 5, maxZ: sz + 5 }];
-}
 
 function getMeridianCollisionBoxes(
   buildingPos: [number, number, number],
@@ -1260,6 +1256,7 @@ function Scene(props: SceneProps) {
       />
 
       <FirstPersonControls
+        stadiumFloor={props.insideBuilding==="stadium"?{x:props.stadiumPos[0],z:props.stadiumPos[2],scale:props.stadiumScale,yaw:props.layout.buildings["stadium-elyseum"].rotationY}:undefined}
         active={props.cameraState === "inside"}
         bounds={props.insideBuilding === "nexus" ? {
           minX: props.nexusPos[0] - 5.5, maxX: props.nexusPos[0] + 5.5,
@@ -1270,8 +1267,8 @@ function Scene(props: SceneProps) {
           minZ: props.meridianPos[2] - 5.5, maxZ: props.meridianPos[2] + 6.5,
           floorY: props.meridianPos[1] + props.meridianElevatorFloor * 4.0,
         } : props.insideBuilding === "stadium" ? {
-          minX: props.stadiumPos[0] - 50, maxX: props.stadiumPos[0] + 50,
-          minZ: props.stadiumPos[2] - 50, maxZ: props.stadiumPos[2] + 50,
+          minX: props.stadiumPos[0] - 28 * props.stadiumScale, maxX: props.stadiumPos[0] + 28 * props.stadiumScale,
+          minZ: props.stadiumPos[2] - 28 * props.stadiumScale, maxZ: props.stadiumPos[2] + 28 * props.stadiumScale,
           floorY: props.stadiumPos[1],
         } : {
           minX: props.troothhertzPos[0] - 7, maxX: props.troothhertzPos[0] + 7,
@@ -1633,7 +1630,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const handleEnterStadium = useCallback(() => {
     // Spawn inside stadium, in audience area, facing the stage (center)
     setBuildingTarget({
-      position: new THREE.Vector3(stadiumPos[0], stadiumPos[1] + 1.7, stadiumPos[2] + 15),
+      position: new THREE.Vector3(stadiumPos[0] + 15*stadiumScale*Math.sin(presentation["stadium-elyseum"].rotationY), stadiumPos[1] + 1.7, stadiumPos[2] + 15*stadiumScale*Math.cos(presentation["stadium-elyseum"].rotationY)),
       lookAt: new THREE.Vector3(stadiumPos[0], stadiumPos[1] + 1, stadiumPos[2]),
     });
     setInsideBuilding("stadium");
@@ -1642,7 +1639,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setNexusSelected(false);
     setMeridianSelected(false);
     setTroothhertzSelected(false);
-  }, [stadiumPos]);
+  }, [stadiumPos, stadiumScale, presentation]);
 
   const handleEnterPlain = useCallback((_name: string, position: [number, number, number]) => {
     if (cameraState === "inside" || cameraState === "flying-in" || cameraState === "flying-out") return;
@@ -2062,7 +2059,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
               : insideBuilding === "meridian"
               ? getMeridianCollisionBoxes(meridianPos, meridianElevatorFloor)
               : insideBuilding === "stadium"
-              ? getStadiumCollisionBoxes(stadiumPos, false)
+              ? []
               : []
           }
           snapToPosition={snapToPosition}
