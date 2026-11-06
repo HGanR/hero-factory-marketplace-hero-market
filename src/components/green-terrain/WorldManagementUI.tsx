@@ -163,6 +163,8 @@ const OBJECT_LIBRARY: LibraryItem[] = [
 ];
 
 interface WorldManagementUIProps {
+  onSaveSnapshot?:()=>Promise<void>;
+  saveReady?:boolean;
   isEditorMode: boolean;
   onToggleEditor: () => void;
   currentWorldId: string;
@@ -191,6 +193,7 @@ interface WorldManagementUIProps {
 }
 
 export default function WorldManagementUI({
+  onSaveSnapshot,saveReady=true,
   isEditorMode,
   onToggleEditor,
   currentWorldId,
@@ -314,6 +317,12 @@ export default function WorldManagementUI({
     setIsSaving(true);
     setSaveStatus("idle");
     setSaveErrorMessage("");
+    if(onSaveSnapshot){
+      try{await onSaveSnapshot();setSaveStatus("success");}
+      catch(error){setSaveStatus("error");setSaveErrorMessage(error instanceof Error?error.message:"World was not saved");}
+      finally{setIsSaving(false);}
+      return;
+    }
     try {
       const targetWorldId = currentWorldId.trim() || "green-terrain";
 
@@ -472,6 +481,7 @@ export default function WorldManagementUI({
       setIsSaving(false);
     }
   }, [
+    onSaveSnapshot,
     currentWorldId,
     nexusPosition,
     meridianPosition,
@@ -737,7 +747,7 @@ export default function WorldManagementUI({
           {/* ── Worlds tab ── */}
           {activeTab === "worlds" && (
             <>
-              {worlds.map(w => (
+              {worlds.filter(w=>!onSaveSnapshot||["green-terrain","default"].includes(w.id)).map(w => (
                 <div
                   key={w.id}
                   onClick={() => onWorldChange(w.id)}
@@ -761,7 +771,7 @@ export default function WorldManagementUI({
               ))}
 
               {/* Create new world */}
-              <div style={{ marginTop: 4, padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 8 }}>
+              {!onSaveSnapshot&&<div style={{ marginTop: 4, padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 8 }}>
                 <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 6 }}>+ New World</div>
                 <input
                   type="text"
@@ -776,7 +786,7 @@ export default function WorldManagementUI({
                   disabled={!newWorldName.trim() || isCreating}
                   style={{ marginTop: 6, width: "100%", background: "#2a6fbd", border: "none", borderRadius: 6, color: "#fff", padding: "6px", cursor: "pointer", fontSize: 12 }}
                 >Create World</button>
-              </div>
+              </div>}
             </>
           )}
 
@@ -860,18 +870,18 @@ export default function WorldManagementUI({
             <>
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, lineHeight: 1.6, marginBottom: 8 }}>
                 Save and publish the current world layout to the public{" "}
-                <strong style={{ color: "#4ade80" }}>/troo-world</strong> page.
+                <strong style={{ color: "#4ade80" }}>{currentWorldId === "green-terrain" ? "/troo-town" : "/troo-world"}</strong> page.
               </div>
 
               <div style={{ background: "rgba(28,107,58,0.15)", border: "1px solid rgba(28,107,58,0.3)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                <div style={{ color: "#4ade80", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>🌐 Publishes to: /troo-world</div>
+                <div style={{ color: "#4ade80", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>🌐 Publishes to: {currentWorldId === "green-terrain" ? "/troo-town" : "/troo-world"}</div>
                 <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, lineHeight: 1.5 }}>
-                  Changes will be visible to all visitors on the public Troo World page.
+                  The complete saved layout will be visible on the public page shown above.
                 </div>
               </div>
 
               <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 6 }}>Current layout</div>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 6 }}>Editable base buildings and environment</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>🏢 Nexus Corporate Tower</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>🏙️ Meridian Tower</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>🏛️ TROOTHHERTZ LLC.</div>
@@ -886,8 +896,8 @@ export default function WorldManagementUI({
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <input
                     type="range"
-                    min={0.3}
-                    max={1.5}
+                    min={0.05}
+                    max={20}
                     step={0.05}
                     value={stadiumScale}
                     onChange={(e) => onStadiumScaleChange(parseFloat(e.target.value))}
@@ -913,7 +923,7 @@ export default function WorldManagementUI({
 
               <button
                 onClick={handleSaveWorld}
-                disabled={isSaving}
+                disabled={isSaving||!saveReady}
                 style={{
                   background: isSaving ? "rgba(42,111,189,0.4)" : "#2a6fbd",
                   border: "none",
@@ -929,7 +939,7 @@ export default function WorldManagementUI({
 
               {saveStatus === "success" && (
                 <div style={{ background: "rgba(28,107,58,0.3)", border: "1px solid rgba(28,107,58,0.5)", borderRadius: 8, padding: "8px 12px", color: "#4ade80", fontSize: 12 }}>
-                  ✓ World saved successfully
+                  ✓ {onSaveSnapshot ? "Complete town layout saved for public Troo Town" : "World saved successfully"}
                 </div>
               )}
               {saveStatus === "error" && (

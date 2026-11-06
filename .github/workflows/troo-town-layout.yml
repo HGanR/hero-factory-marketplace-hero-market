@@ -1,0 +1,49 @@
+name: Green Terrain to Troo Town
+on:
+  pull_request:
+    paths:
+      - 'src/components/green-terrain/**'
+      - 'src/app/green-terrain/**'
+      - 'src/app/troo-town/**'
+      - 'src/app/api/**/green-terrain-layout/**'
+      - 'src/lib/troo-world/green-terrain-*'
+      - 'src/lib/troo-world/ambient-town.ts'
+      - 'src/lib/db/schema.green-terrain.ts'
+      - 'sql/green-terrain-layouts.sql'
+      - 'tests/troo-town/**'
+      - '.github/workflows/troo-town-layout.yml'
+jobs:
+  layout-and-sql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fixture
+          MYSQL_DATABASE: town_layout_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pfixture"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6
+      - name: Contracts, shared-renderer boundaries and sidewalk safety
+        run: node --test tests/troo-town/layout.test.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Bundle both pages and shared 3D scene with reachable local modules
+        run: node tests/troo-town/compile-ui.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Real MySQL transactions, public reads and canonical signed-session gate
+        run: node --test tests/troo-town/sql.test.cjs
+        env:
+          TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules

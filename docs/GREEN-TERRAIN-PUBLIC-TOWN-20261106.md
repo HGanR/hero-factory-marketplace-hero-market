@@ -1,0 +1,23 @@
+# Green Terrain saves → public Troo Town; ambient presentation
+
+## Contract and repair
+
+Green Terrain is the authoritative town editor. `/troo-town` mounts the same GreenTerrainExperience in read-only mode. Existing procedural buildings, Veritas's `/veritas-3d/veritas-3d.html` new-tab link, and interactive building agents use the existing Green Terrain components. The legacy urban `/modeling` experience remains separate; it no longer appears as the public town's edit link. Public viewers cannot open editing controls or mutate the local layout through keyboard shortcuts. Save requires the existing verified administrator session and same-origin request.
+
+Positions, size, rotation, visibility, trees, environment objects, additional hosted GLB buildings and presentation switches are one validated snapshot. A complete JSON row and revision commit atomically in a transaction. Row locking and an expected revision prevent a stale editor overwriting a newer save. Public reads use the same row, with no-store, and reload on return to the tab. Failed saves remain failed in the UI; public load errors have a visible Retry control, not an old browser-only layout. No runtime DDL or GET seeding/copying. Invalid layouts are rejected before writes.
+
+If no snapshot exists, the reader converts only existing `green-terrain` placements/elements, without changing them or copying `default`. An empty saved snapshot stays empty. No original placement rows are deleted. Source proof at deployed `77bed1c0`: the old Green Terrain page loaded `default` while saving `green-terrain`; the public Three.js viewer handled Apex/Harborview procedurals only and attempted to fetch the other procedural identifiers as GLBs. Sharing the original renderer removes that conversion mismatch.
+
+## Presentation life
+
+Editor-only Sidewalks and Ambient pedestrians switches are saved with the scene. Sidewalks run alongside the existing four road bridges and placed street segments. Routes are split at road intersections and conservative building/import/water footprints. Pedestrians reverse on their own sidewalk segment and pause; there are two/three-person gesturing groups and seated waiting figures. These are local visual extras, not AI agents, conversations, visitors or provider calls. Interactive building agents remain separate. V1 does not simulate entering building interiors, crossing roads, bus schedules or conversational AI. No ambient NPC is automatically enabled on an old saved layout. Reduced-motion preference gives static poses, off unmounts the figures, and hidden documents stop animation updates.
+
+## Additive storage prerequisite — approval before production
+
+`sql/green-terrain-layouts.sql` creates only `green_terrain_layouts`. It is supplied for review and disposable tests; it has NOT been applied to production and no existing records are migrated automatically. Deployment must not proceed before this table is approved and applied in the target database. Missing storage gives 503 and leaves the old records intact. Reverting the application leaves both old placement records and new snapshots available. A backup and explicit decision are required before ever deleting either.
+
+## Validation and limits
+
+Local contract/navigation checks: exact geometry and switch round-trip; invalid numbers, types, IDs and model URLs; legacy-only conversion; empty scene; path sampling against rotated/intersecting roads and conservative building bounds; shared renderer and preserved Veritas tab link. Real MySQL CI runs the actual snapshot store and API routes, real Drizzle and real HS256 session verifier, with disposable schema and credentials. Tests cover legacy reads without writes, role/origin refusals, save→public read, stale revision, concurrent saves, rollback and empty saves. SQL tables for legacy records are reduced fixtures; TiDB Cloud behavior and existing live records are not certified by these checks.
+
+The shared existing Green scene has its prior interior camera/collision assumptions. Arbitrary building rescaling does not certify all interior navigation/collision dimensions. Additional models must already have durable hosting; the old ephemeral filesystem upload route is not reused or repaired here. Conservative route footprints may suppress pedestrians near large or unknown-shaped models; they do not prove clearance from every mesh triangle. Native browser/WebGL, mobile performance and a signed-in save/reopen walkthrough are still required before production acceptance. No production save, migration, publication, deployment promotion, external model use or spending occurred.
