@@ -11,6 +11,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ElevatorState, ElevatorPhase } from "./FunctionalElevator";
 
+import { audienceMove, type StadiumFloor } from './stadiumFloor';
+
 export interface BuildingBounds {
   minX: number; maxX: number;
   minZ: number; maxZ: number;
@@ -42,6 +44,7 @@ interface FirstPersonControlsProps {
   onHoverAgent?: (info: HoveredAgentInfo | null) => void;
   elevatorState?: ElevatorState | null;
   elevatorWorldPos?: [number, number, number];
+  stadiumFloor?: StadiumFloor;
   collisionBoxes?: CollisionBox[];
 }
 
@@ -115,6 +118,7 @@ export default function FirstPersonControls({
   onHoverAgent,
   elevatorState,
   elevatorWorldPos,
+  stadiumFloor,
   collisionBoxes = [],
 }: FirstPersonControlsProps) {
   const { camera, scene, gl } = useThree();
@@ -323,6 +327,7 @@ export default function FirstPersonControls({
       );
     }
     
+    if (stadiumFloor) [newX,newZ]=audienceMove(camera.position.x,camera.position.z,newX,newZ,stadiumFloor);
     camera.position.set(newX, currentEyeY.current!, newZ);
 
     if (elevatorPos && onElevatorNear) {
