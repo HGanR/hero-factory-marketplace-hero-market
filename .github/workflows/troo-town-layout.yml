@@ -36,6 +36,11 @@ jobs:
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Bundle both pages and shared 3D scene with reachable local modules
+        run: node tests/troo-town/compile-ui.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Real MySQL transactions, public reads and canonical signed-session gate
         run: node --test tests/troo-town/sql.test.cjs
         env:

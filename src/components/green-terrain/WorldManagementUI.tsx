@@ -747,7 +747,7 @@ export default function WorldManagementUI({
           {/* ── Worlds tab ── */}
           {activeTab === "worlds" && (
             <>
-              {worlds.map(w => (
+              {worlds.filter(w=>!onSaveSnapshot||["green-terrain","default"].includes(w.id)).map(w => (
                 <div
                   key={w.id}
                   onClick={() => onWorldChange(w.id)}
@@ -771,7 +771,7 @@ export default function WorldManagementUI({
               ))}
 
               {/* Create new world */}
-              <div style={{ marginTop: 4, padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 8 }}>
+              {!onSaveSnapshot&&<div style={{ marginTop: 4, padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 8 }}>
                 <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 6 }}>+ New World</div>
                 <input
                   type="text"
@@ -786,7 +786,7 @@ export default function WorldManagementUI({
                   disabled={!newWorldName.trim() || isCreating}
                   style={{ marginTop: 6, width: "100%", background: "#2a6fbd", border: "none", borderRadius: 6, color: "#fff", padding: "6px", cursor: "pointer", fontSize: 12 }}
                 >Create World</button>
-              </div>
+              </div>}
             </>
           )}
 
@@ -939,7 +939,7 @@ export default function WorldManagementUI({
 
               {saveStatus === "success" && (
                 <div style={{ background: "rgba(28,107,58,0.3)", border: "1px solid rgba(28,107,58,0.5)", borderRadius: 8, padding: "8px 12px", color: "#4ade80", fontSize: 12 }}>
-                  ✓ Complete town layout saved for public Troo Town
+                  ✓ {onSaveSnapshot ? "Complete town layout saved for public Troo Town" : "World saved successfully"}
                 </div>
               )}
               {saveStatus === "error" && (

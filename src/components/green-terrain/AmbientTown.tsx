@@ -31,7 +31,7 @@ export default function AmbientTown({layout}:{layout:GreenLayout}){
   {layout.ambient.enabled&&paths.slice(0,2).flatMap((w,i)=>Array.from({length:i?3:2},(_,j)=><Person key={'talk'+w.id+j} walkway={w} index={j+i*3} mode="talk" reduced={reduced}/>))}
   {layout.ambient.enabled&&paths.slice(2,4).map((w,i)=><group key={'seat'+w.id}>
    <Person walkway={w} index={i} mode="sit" reduced={reduced}/>
-   <mesh position={pointOn(w,(i%3-1)*.7,.65)} rotation={[0,w.yaw,0]}><boxGeometry args={[.7,.4,.55]}/><meshLambertMaterial color="#79604a"/></mesh>
+   <mesh position={(()=>{const p=pointOn(w,(i%3-1)*.7,.65);p[1]+=.5;return p})()} rotation={[0,w.yaw,0]}><boxGeometry args={[.7,.4,.55]}/><meshLambertMaterial color="#79604a"/></mesh>
   </group>)}
  </group>;
 }
