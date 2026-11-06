@@ -569,7 +569,8 @@ function TrooVideoMeeting() {
   const gatePending = Boolean(isConnected && address?.startsWith("0x") && heroLoadingAny);
 
   // Check if user is host
-  const isHost = address === DEV_TREASURY_ADDRESS || isTokenHolder;
+  const [stadiumRole,setStadiumRole]=useState<'host'|'audience'|null>(null);
+  const isHost = stadiumRole ? stadiumRole==='host' : address === DEV_TREASURY_ADDRESS || isTokenHolder;
 
   // Generate random room ID
   const generateRoomId = useCallback(() => {
@@ -923,7 +924,7 @@ function TrooVideoMeeting() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        if (res.status === 503) {
+        if (res.status === 503 && !roomId.includes(':')) {
           setLivekitError(
             'LiveKit not configured. Using demo mode—participants won\'t see each other. Set LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET for real video calls.'
           );
@@ -953,6 +954,7 @@ function TrooVideoMeeting() {
       localStream?.getTracks().forEach((t) => t.stop());
       setLocalStream(null);
 
+      setStadiumRole(data.stadiumRole || null);
       setLivekitToken(data.token);
       setLivekitServerUrl(data.serverUrl);
       setMeetingState('meeting');
@@ -1185,7 +1187,7 @@ function TrooVideoMeeting() {
     setScreenStream(null);
     setIsScreenSharing(false);
     setParticipants([]);
-    setLivekitToken(null);
+    setLivekitToken(null);setStadiumRole(null);
     setLivekitServerUrl(null);
     setLivekitError(null);
     setEgressId(null);
@@ -1616,8 +1618,8 @@ function TrooVideoMeeting() {
               egressId={egressId}
               setEgressId={setEgressId}
               selectedAvatar={selectedAvatar}
-              isAudioOn={isAudioOn}
-              isVideoOn={isVideoOn}
+              isAudioOn={isAudioOn && stadiumRole!=='audience'}
+              isVideoOn={isVideoOn && stadiumRole!=='audience'}
               cameraOptional={cameraOptional}
               onLeave={leaveMeeting}
               hostWalletAddress={address ?? ''}
