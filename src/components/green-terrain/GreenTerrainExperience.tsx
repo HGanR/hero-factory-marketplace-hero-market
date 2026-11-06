@@ -25,6 +25,7 @@ import AgentChatPanel from "@/components/green-terrain/AgentChatPanel";
 import { TROOTHHERTZ_AGENTS, type TroothAgent } from "@/components/green-terrain/TroothhertzTower";
 import CameraController, { type CameraState, type BuildingTarget, type PlainTarget } from "@/components/green-terrain/CameraController";
 import FirstPersonControls, { type BuildingBounds, type HoveredAgentInfo, type CollisionBox } from "@/components/green-terrain/FirstPersonControls";
+import TownCameraCollision from "@/components/green-terrain/TownCameraCollision";
 import WorldFirstPersonControls from "@/components/green-terrain/WorldFirstPersonControls";
 import FunctionalElevator from "@/components/green-terrain/FunctionalElevator";
 import SeatedAgent from "@/components/green-terrain/SeatedAgent";
@@ -150,7 +151,7 @@ function Tree({data,isSelected}:{data:TreeData;isSelected:boolean}) {
   const f3=isSelected?0x66cc55:0x4a8a3a;
   return (
     <group position={data.pos} scale={data.scale}>
-      <mesh position={[0,0.6,0]} castShadow><cylinderGeometry args={[0.08,0.14,1.2,6]}/><meshLambertMaterial color={0x5c3a1e}/></mesh>
+      <mesh userData={{townSolid:true}} position={[0,0.6,0]} castShadow><cylinderGeometry args={[0.08,0.14,1.2,6]}/><meshLambertMaterial color={0x5c3a1e}/></mesh>
       <group ref={ref} position={[0,1.2,0]}>
         <mesh castShadow><coneGeometry args={[0.9,1.6,7]}/><meshLambertMaterial color={f1}/></mesh>
         <mesh position={[0,0.8,0]} castShadow><coneGeometry args={[0.65,1.3,7]}/><meshLambertMaterial color={f2}/></mesh>
@@ -211,7 +212,7 @@ function GrassTufts() {
 function Rocks() {
   const rng=(s:number)=>{s=(s^0x1234abcd)>>>0;s=Math.imul(s^(s>>>16),0x45d9f3b);return((s^(s>>>16))>>>0)/0xffffffff;};
   const rocks=Array.from({length:30},(_,i)=>{const a=rng(i*4)*Math.PI*2,r=35+rng(i*4+1)*60;const x=Math.cos(a)*r,z=Math.sin(a)*r;return{pos:[x,terrainHeight(x,z)-0.1,z] as [number,number,number],scale:[0.3+rng(i*4+2)*0.5,0.2+rng(i*4+3)*0.3,0.3+rng(i*4)*0.5] as [number,number,number],ry:rng(i)*Math.PI};});
-  return <>{rocks.map((r,i)=><mesh key={i} position={r.pos} scale={r.scale} rotation={[0,r.ry,0]} castShadow><dodecahedronGeometry args={[0.5,0]}/><meshLambertMaterial color={0x8a8a7a}/></mesh>)}</>;
+  return <>{rocks.map((r,i)=><mesh userData={{townSolid:true}} key={i} position={r.pos} scale={r.scale} rotation={[0,r.ry,0]} castShadow><dodecahedronGeometry args={[0.5,0]}/><meshLambertMaterial color={0x8a8a7a}/></mesh>)}</>;
 }
 
 // ─── Building labels (dropdown with Enter Building + View Agents) ─────────────
@@ -975,7 +976,7 @@ interface SceneProps {
 
 function BuildingPresentation({state,alreadyScaled=false,children}:{state:BuildingState;alreadyScaled?:boolean;children:React.ReactNode}){
  if(!state.visible)return null;
- return <group position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
+ return <group userData={{townSolid:true}} position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
 }
 
 function Scene(props: SceneProps) {
@@ -1048,7 +1049,7 @@ function Scene(props: SceneProps) {
       {props.trees.map(t => <Tree key={t.id} data={t} isSelected={t.id === props.selectedTreeId}/>)}
 
       {props.placedObjects.map(obj => (
-        <group key={obj.id} position={obj.position} scale={obj.scale??1}><WorldObjectRenderer
+        <group userData={{townSolid:obj.type==='bench'||obj.type==='lightpost'}} key={obj.id} position={obj.position} scale={obj.scale??1}><WorldObjectRenderer
           key={obj.id}
           type={obj.type}
           position={[0,0,0]}
@@ -1328,6 +1329,7 @@ function Scene(props: SceneProps) {
         target={[0,0,0]}
         enableDamping={false}
       />
+      <TownCameraCollision active={props.cameraState === "world" && !props.isEditorMode} walking={props.worldFirstPerson} revision={props.layout} orbitRef={orbitRef}/>
     </>
   );
 }

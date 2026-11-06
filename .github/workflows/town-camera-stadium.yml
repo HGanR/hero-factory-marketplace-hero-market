@@ -1,0 +1,23 @@
+name: Stadium ticker and visitor collisions
+on:
+  pull_request:
+    paths: ['src/components/green-terrain/**', 'src/lib/troo-world/town-collision.ts', 'src/lib/troo-world/stadium-signage.ts', 'tests/troo-town/**', '.github/workflows/town-camera-stadium.yml']
+jobs:
+  model-and-camera:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/town-view-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 three@0.182.0 typescript@5.9.3 @types/three@0.182.0
+      - run: node --test tests/troo-town/camera-collision.test.cjs tests/troo-town/stadium-model.test.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-view-deps/node_modules
+      - run: node tests/troo-town/compile-ui.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-view-deps/node_modules
+      - run: node tests/troo-town/check-camera-types.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-view-deps/node_modules

@@ -1,0 +1,12 @@
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),os=require('node:os'),fs=require('node:fs');
+const deps=process.env.TOWN_TEST_DEPS||'/workspace/scratch/afbf3881614c/service/node_modules';
+const out=path.join(fs.mkdtempSync(path.join(os.tmpdir(),'town-collision-')),'core.cjs');require(deps+'/esbuild').buildSync({entryPoints:['src/lib/troo-world/town-collision.ts'],bundle:true,platform:'node',format:'cjs',outfile:out});
+const {constrainTownCamera:move}=require(out);const box={min:[-2,0,-2],max:[2,10,2]};
+test('scroll and sprint cannot tunnel through a building even when the final position is beyond it',()=>{const p=move([-20,2,0],[20,2,0],[box]);assert.ok(p[0]<-2.65&&p[0]>-2.66);});
+test('diagonal movement slides along the wall instead of entering it',()=>{const p=move([-10,2,-1],[10,2,8],[box]);assert.ok(p[0]<-2.65);assert.ok(p[2]>7.99);});
+test('orbit camera is blocked from above and can freely fly above a roof',()=>{assert.ok(move([0,30,0],[0,-10,0],[box])[1]>10.65);assert.deepEqual(move([-10,20,0],[10,20,0],[box]),[10,20,0]);});
+test('walking body catches low objects below eye height',()=>{const low={min:[-1,0,-1],max:[1,0.5,1]};assert.ok(move([-5,2,0],[5,2,0],[low],true)[0]<-1.65);assert.deepEqual(move([-5,2,0],[5,2,0],[low]),[5,2,0]);});
+test('already enclosed camera recovers and can leave rather than remaining stuck',()=>{const p=move([0,2,0],[0,2,0],[box],true);assert.equal(p[1],2);assert.ok(Math.abs(p[0])>2.65||Math.abs(p[2])>2.65);const next=move(p,[p[0]*2,2,p[2]*2],[box],true);assert.ok(Math.hypot(next[0],next[2])>Math.hypot(p[0],p[2]));});
+test('empty/invisible volumes permit normal travel and overlapping solids recover outside all',()=>{assert.deepEqual(move([0,2,0],[5,2,5],[]),[5,2,5]);const p=move([0,2,0],[0,2,0],[box,{min:[-5,0,-5],max:[5,10,5]}],true);assert.ok(Math.abs(p[0])>5.65||Math.abs(p[2])>5.65);});
+test('near-wall movement away does not stick to the surface',()=>{const p=move([-2.651,2,0],[-5,2,0],[box]);assert.ok(p[0]<-4.99);});
+test('a second obstacle stops a slide and repeated small steps remain outside',()=>{const b={min:[-10,0,5],max:[-2,10,6]};const p=move([-8,2,-8],[8,2,12],[box,b]);assert.ok(p[0]<-2.65);assert.ok(p[2]<4.35);let q=[-5,2,0];for(let i=0;i<200;i++)q=move(q,[q[0]+0.1,2,q[2]],[box],true);assert.ok(q[0]<-2.65);});
