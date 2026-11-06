@@ -7,18 +7,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { trooWorlds, trooWorldPlacements, meetingNodePlacements, meetingInvites } from "@/lib/db/schema";
-import { verifyToken } from "@/lib/auth";
+import { engineRouteActor, requireSameOrigin, EngineAccessError } from "@/lib/security/engine-route-access";
 
+export const dynamic = "force-dynamic";
 const DEFAULT_WORLD_ID = "default";
 
-function requireAdminOrAuth(request: NextRequest) {
-  const token = request.cookies.get("admin-token")?.value || request.cookies.get("auth-token")?.value;
-  if (!token) throw new Error("Unauthorized");
-  const decoded = verifyToken(token);
-  if (!decoded) throw new Error("Invalid token");
-  // Admin or any authenticated user can save (green-terrain editor uses auth-token)
-  if (decoded.isAdmin || decoded.userId != null) return;
-  throw new Error("Forbidden");
+async function requireWorldAdmin(request: NextRequest) {
+  const actor = await engineRouteActor(request);
+  // These are platform troo_worlds, not member-owned worlds.ownerId records.
+  if (!actor.admin) throw new EngineAccessError("Administrator access required", 403);
 }
 
 async function ensureDefaultWorld(db: Awaited<ReturnType<typeof getDb>>) {
@@ -45,7 +42,7 @@ async function ensureDefaultWorld(db: Awaited<ReturnType<typeof getDb>>) {
 
 export async function GET(request: NextRequest) {
   try {
-    requireAdminOrAuth(request);
+    await requireWorldAdmin(request);
     const db = await getDb();
     const worldId = request.nextUrl.searchParams.get("worldId") ?? DEFAULT_WORLD_ID;
 
@@ -72,9 +69,8 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Failed";
-    if (msg === "Unauthorized" || msg === "Forbidden") {
-      return NextResponse.json({ error: msg }, { status: 401 });
+    if (e instanceof EngineAccessError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
     }
     console.error("[admin troo-world placements]", e);
     return NextResponse.json({ error: "Failed to load placements" }, { status: 500 });
@@ -83,7 +79,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    requireAdminOrAuth(request);
+    await requireWorldAdmin(request);
+    requireSameOrigin(request);
     const db = await getDb();
     const body = await request.json();
     const { worldId = DEFAULT_WORLD_ID, placements, replace } = body as {
@@ -164,15 +161,15 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Placements saved" });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Failed";
-    if (msg === "Unauthorized" || msg === "Forbidden") {
-      return NextResponse.json({ error: msg }, { status: 401 });
+    if (e instanceof EngineAccessError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
     }
     console.error("[admin troo-world PUT]", e);
     // Return actual error so client can show it (e.g. DB connection, table missing)
     return NextResponse.json(
-      { error: "Failed to save placements", detail: msg },
+      { error: "Failed to save placements" },
       { status: 500 }
     );
   }
 }
+

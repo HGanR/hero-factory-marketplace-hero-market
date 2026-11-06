@@ -1,0 +1,9 @@
+# Narrow town release
+
+Owner requested repository updates and Vercel deployment after reviewing the town draft. This branch starts at the current production commit 77bed1c090dac758724130e4d803a950ae7581b6 on recovery-from-prod. It ports only the Green Terrain/Troo Town feature from draft #29, its tests, the canonical role/origin helper and shared-world placement/page guard dependencies. It does not release the unrelated unmerged STEP 2, QR, Stephon, telemetry or analytics PR stack.
+
+Before routing production traffic, run the reviewed additive SQL through scripts/apply-green-terrain-layout-schema.cjs in a verified hero-market Vercel build with explicit GREEN_TERRAIN_SCHEMA_APPLY=1. The script requires VERCEL=1, the exact project ID, and the exact reviewed SQL file hash; it reads the configured DATABASE_URL inside the deployment without exporting it. Only CREATE TABLE IF NOT EXISTS green_terrain_layouts is executed. It verifies table columns and legacy placement counts before/after, never saves a layout or updates/deletes original records. There is no runtime DDL and the normal build command never invokes this script. This one-off build override is used only for schema readiness.
+
+The project currently binds one DATABASE_URL entry to production and preview. Treat its use from preview as a production database action, scoped only to this additive schema. Preview JWT configuration is branch-scoped and independently generated; production signing credentials are not read or changed. Public snapshot/scene checks are read-only. A real administrator save still requires that administrator's signed-in browser and will not be forged by release automation.
+
+Record the exact deployed commit, build/schema results, domain mappings and runtime smoke checks in the release delivery. Keep the old deployment as rollback candidate. New snapshots and legacy placement data are retained on application rollback.
