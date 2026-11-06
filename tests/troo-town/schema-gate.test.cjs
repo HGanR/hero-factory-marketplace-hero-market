@@ -1,0 +1,10 @@
+const test=require('node:test'),assert=require('node:assert/strict'),Module=require('node:module'),path=require('node:path');
+const script=path.resolve(__dirname,'../../scripts/apply-green-terrain-layout-schema.cjs');
+const originalLoad=Module._load;
+let queries=[],options,endCount=0;
+Module._load=function(id,...args){if(id==='mysql2/promise')return{createConnection:async o=>{options=o;return{query:async sql=>{queries.push(sql);if(sql.startsWith('SHOW COLUMNS'))return[[{Field:'worldId',Key:'PRI',Type:'varchar(64)'},{Field:'revision',Type:'int'},{Field:'layout',Type:'json'},{Field:'updatedAt',Type:'timestamp'}]];if(sql.startsWith('SELECT worldId'))return[[{worldId:'green-terrain',count:3}]];return[[]]},end:async()=>{endCount++}}}};return originalLoad.call(this,id,...args)};
+const{apply}=require(script);Module._load=originalLoad;
+const saved={...process.env};test.after(()=>{for(const k of Object.keys(process.env))if(!(k in saved))delete process.env[k];Object.assign(process.env,saved)});
+function ready(){process.env.GREEN_TERRAIN_SCHEMA_APPLY='1';process.env.VERCEL='1';process.env.VERCEL_PROJECT_ID='prj_B7rs60pWcsE3PYUSL97DJ2qFZqFh';process.env.DATABASE_URL='mysql://fixture:password@sample.tidbcloud.com:4000/town_layout_test';queries=[];options=null;endCount=0;}
+test('DDL cannot run without explicit deployment and project gates',async()=>{ready();delete process.env.GREEN_TERRAIN_SCHEMA_APPLY;await assert.rejects(apply);assert.equal(queries.length,0);ready();process.env.VERCEL_PROJECT_ID='other-project';await assert.rejects(apply);assert.equal(queries.length,0)});
+test('reviewed additive DDL uses verified TLS and never writes a saved scene',async()=>{ready();await apply();assert.equal(options.ssl.rejectUnauthorized,true);const writes=queries.filter(s=>!s.startsWith('SELECT')&&!s.startsWith('SHOW'));assert.equal(writes.length,1);assert.match(writes[0],/CREATE TABLE IF NOT EXISTS `green_terrain_layouts`/);assert.doesNotMatch(writes[0],/INSERT|UPDATE\s+`?troo|DELETE|DROP TABLE/i);assert.equal(endCount,1)});
