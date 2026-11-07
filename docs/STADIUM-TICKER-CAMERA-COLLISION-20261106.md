@@ -88,7 +88,7 @@ Interior box movement uses a swept test with the original 0.4 clearance and a
 0.1-second delta cap. Other room boundaries additionally clamp through the saved
 building rotation/scale. Existing elevator ride branches retain their behavior.
 
-Stadium entry lands at local [0,15.1,62] plus eye height, facing local [0,0.3,24].
+Stadium entry lands at local [0,15.1,56.8] plus eye height, facing local [0,0.3,24].
 A landing and 64 visible half-unit treads run from z56 down to z24, with rails.
 The seating meshes are cloned and a corridor is cut through them so the stairs
 are not buried in the old tiers; cached asset data remains unchanged. A top
@@ -106,3 +106,7 @@ Checks include round trips on the complete descent, edge/wall/stage restrictions
 large steps, transformed placements, orbit policy, the actual FirstPersonControls
 WASD/free-look loop and entry/arena WebGL views. Native full-page acceptance is
 still separate. No saved layout or production change.
+
+The entry viewpoint is 0.8 local units behind the first descending tread and aims
+at the bottom tread surface (not eye height), so the flight is visible immediately
+instead of being hidden by foreground landing.

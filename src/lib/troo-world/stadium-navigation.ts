@@ -1,10 +1,10 @@
 import type {Point3} from './town-collision';
 export type InteriorFrame={position:Point3;scale:number;rotationY:number};
-export const STADIUM_ACCESS={arenaY:0.3,landingY:15.1,arenaRadius:27,concourseInner:56,concourseOuter:69,stairBottomZ:24,stairTopZ:56,landingEndZ:64,width:8,steps:64} as const;
+export const STADIUM_ACCESS={arenaY:0.3,landingY:15.1,arenaRadius:27,concourseInner:56,concourseOuter:69,stairBottomZ:24,stairTopZ:56,landingEndZ:64,entryZ:56.8,width:8,steps:64} as const;
 export const INTERIOR_EYE_HEIGHT=1.7;
 export function toInteriorLocal(p:Point3,f:InteriorFrame):Point3{const x=(p[0]-f.position[0])/f.scale,z=(p[2]-f.position[2])/f.scale,c=Math.cos(f.rotationY),s=Math.sin(f.rotationY);return[c*x-s*z,(p[1]-f.position[1])/f.scale,s*x+c*z];}
 export function fromInteriorLocal(p:Point3,f:InteriorFrame):Point3{const c=Math.cos(f.rotationY),s=Math.sin(f.rotationY);return[f.position[0]+f.scale*(c*p[0]+s*p[2]),f.position[1]+f.scale*p[1],f.position[2]+f.scale*(-s*p[0]+c*p[2])];}
-export function stadiumEntry(f:InteriorFrame){const position=fromInteriorLocal([0,STADIUM_ACCESS.landingY,62],f),lookAt=fromInteriorLocal([0,STADIUM_ACCESS.arenaY,24],f);position[1]+=INTERIOR_EYE_HEIGHT*f.scale;lookAt[1]+=INTERIOR_EYE_HEIGHT*f.scale;return{position,lookAt};}
+export function stadiumEntry(f:InteriorFrame){const position=fromInteriorLocal([0,STADIUM_ACCESS.landingY,STADIUM_ACCESS.entryZ],f),lookAt=fromInteriorLocal([0,STADIUM_ACCESS.arenaY,24],f);position[1]+=INTERIOR_EYE_HEIGHT*f.scale;return{position,lookAt};}
 export function stadiumLocalFloor(x:number,z:number){const a=STADIUM_ACCESS;
  if(Math.abs(x)<=a.width/2&&z>=a.stairBottomZ&&z<=a.landingEndZ){const fraction=Math.min(1,Math.max(0,(z-a.stairBottomZ)/(a.stairTopZ-a.stairBottomZ)));return a.arenaY+Math.ceil(fraction*a.steps-1e-8)*(a.landingY-a.arenaY)/a.steps;}
  return Math.hypot(x,z)>=a.concourseInner?a.landingY:a.arenaY;
