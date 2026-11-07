@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --prefix /tmp/town-view-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 three@0.182.0 typescript@5.9.3 @types/three@0.182.0
+      - run: npm install --prefix /tmp/town-view-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 three@0.182.0 typescript@5.9.3 @types/three@0.182.0 playwright@1.62.1
       - run: node --test tests/troo-town/camera-collision.test.cjs tests/troo-town/stadium-model.test.cjs
         env:
           TOWN_TEST_DEPS: /tmp/town-view-deps/node_modules
@@ -21,3 +21,17 @@ jobs:
       - run: node tests/troo-town/check-camera-types.cjs
         env:
           TOWN_TEST_DEPS: /tmp/town-view-deps/node_modules
+      - name: Select browser
+        run: |
+          if command -v google-chrome > /dev/null; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            node /tmp/town-view-deps/node_modules/playwright/cli.js install chromium
+          fi
+      - run: node tests/troo-town/stadium-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-view-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stadium-browser-views
+          path: /tmp/town-stadium-visual/*.png
