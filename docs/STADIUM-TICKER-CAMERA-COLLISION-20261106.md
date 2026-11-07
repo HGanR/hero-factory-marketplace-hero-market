@@ -58,3 +58,21 @@ wheel/touch zoom and pan against every saved building, sprint towards walls,
 walk around a bench, switch orbit/walk near buildings, and verify explicit Enter/
 Exit and Veritas's existing external-tab destination. No live saved layout write,
 merge, deployment or production activation is included in this draft.
+
+## Visual follow-up after Charles's screenshot
+The first exact-component WebGL browser render did show the exterior ticker.
+The screenshot with no ticker cannot establish which URL/build was being viewed.
+The old preview was independently confirmed READY at its pinned head; a fresh
+link must be used after this repair.
+
+The actual GLB has all 128 Bowl_Wall triangles and all 1024 Roof_Ring triangles
+wound opposite their supplied outward normals, with single-sided materials.
+Cloned shell geometries now reverse their index winding; cached GLTF geometry and
+materials remain intact. An explicit annular seating canopy now spans radii
+32..71 at y30, leaving the central arena open. The original Roof_Ring was a
+6-unit-wide torus, not a seating roof surface. The ticker uses an unlit sRGB
+texture material for readable text independent of scene lights and exposure.
+
+An actual-component WebGL fixture (actual GLB, canvas text, materials and frame
+callback; mocked React mount hooks) captures overview, street and opposite views
+in CI. These isolated views do not certify the live saved-town route.

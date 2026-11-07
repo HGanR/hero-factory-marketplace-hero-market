@@ -14,7 +14,7 @@ function object(node:any):THREE.Object3D {
   const geometry=g?new ({circleGeometry:THREE.CircleGeometry,ringGeometry:THREE.RingGeometry,cylinderGeometry:THREE.CylinderGeometry,torusGeometry:THREE.TorusGeometry} as any)[g.type](...(g.props.args??[])):new THREE.BufferGeometry();
   const material=new (m?.type==='meshBasicMaterial'?THREE.MeshBasicMaterial:THREE.MeshStandardMaterial)(m?.props??{});out=new THREE.Mesh(geometry,material);
  }else out=new THREE.Group();
- if(p.position)out.position.fromArray(p.position);if(p.rotation)out.rotation.fromArray(p.rotation);if(p.scale)typeof p.scale==='number'?out.scale.setScalar(p.scale):out.scale.fromArray(p.scale);
+ if(p.name)out.name=p.name;if(p.position)out.position.fromArray(p.position);if(p.rotation)out.rotation.fromArray(p.rotation);if(p.scale)typeof p.scale==='number'?out.scale.setScalar(p.scale):out.scale.fromArray(p.scale);
  if(p.ref)p.ref.current=out;if(p.renderOrder)out.renderOrder=p.renderOrder;
  for(const child of children(node))if(!String(child.type).endsWith('Geometry')&&!String(child.type).endsWith('Material'))out.add(object(child));return out;
 }

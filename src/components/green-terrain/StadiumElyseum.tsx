@@ -11,7 +11,7 @@ import * as THREE from "three";
 import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
-import {stadiumSignagePlacement,STADIUM_TICKER_TEXT} from "@/lib/troo-world/stadium-signage";
+import {stadiumSignagePlacement,STADIUM_TICKER_TEXT,cloneStadiumExterior,disposeStadiumExterior} from "@/lib/troo-world/stadium-signage";
 
 const MODEL_URL = "/models/world-assets/stadium-elyseum.glb";
 
@@ -63,6 +63,7 @@ function buildSignageTexture(): THREE.CanvasTexture {
   tex.wrapT = THREE.ClampToEdgeWrapping;
   // Two texture wraps keep letter proportions close to the 461-unit exterior circumference.
   tex.repeat.set(2, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -95,7 +96,8 @@ function buildScreenTexture(title: string): THREE.CanvasTexture {
 export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle }: StadiumElyseumProps) {
   const gltf = useGLTF(MODEL_URL, ...GLTF_LOADER_OPTS);
   const groupRef = useRef<THREE.Group>(null);
-  const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
+  const scene = useMemo(() => cloneStadiumExterior(gltf.scene), [gltf.scene]);
+  useEffect(()=>()=>disposeStadiumExterior(scene),[scene]);
 
   const signageRef = useRef<THREE.Mesh>(null);
   const signage = useMemo(()=>stadiumSignagePlacement(scene),[scene]);
@@ -173,9 +175,9 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
       });
     }
     if (signageRef.current?.material) {
-      const m = signageRef.current.material as THREE.MeshStandardMaterial;
+      const m = signageRef.current.material as THREE.MeshBasicMaterial;
       if (m.map) m.map.offset.x = (t * 0.04) % 1;
-      m.emissiveIntensity = 2.8 + 0.5 * Math.sin(t * 2);
+
     }
   });
 
@@ -183,6 +185,11 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
     <>
       <group ref={groupRef} position={position} scale={scale} onClick={(e) => { e.stopPropagation(); onSelect?.(); }}>
         <primitive object={scene} />
+        {/* Seating canopy: the imported Roof_Ring is only a narrow torus, not a roof surface. */}
+        <mesh name="Stadium_Seating_Canopy" position={[0,signage.y+4,0]} rotation={[-Math.PI/2,0,0]}>
+          <ringGeometry args={[32,signage.radius-2.5,128]}/>
+          <meshStandardMaterial color={0x173d69} metalness={0.45} roughness={0.55} side={THREE.DoubleSide}/>
+        </mesh>
         {/* Raised stage platform — adds depth to interior */}
         <mesh position={[0, 0.25, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <circleGeometry args={[6, 32]} />
@@ -203,14 +210,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
       <group position={position} scale={scale}>
         <mesh ref={signageRef} position={[0, signage.y, 0]}>
           <cylinderGeometry args={[signage.radius, signage.radius, signage.height, 128, 1, true]} />
-          <meshStandardMaterial
-            map={signageTex}
-            emissiveMap={signageTex}
-            emissive={new THREE.Color(0xa0d8ff)}
-            emissiveIntensity={4}
-            side={THREE.FrontSide}
-            depthWrite={true}
-          />
+          <meshBasicMaterial map={signageTex} side={THREE.FrontSide} toneMapped={false} depthWrite={true}/>
         </mesh>
       </group>
     </>
