@@ -11,6 +11,8 @@ import * as THREE from "three";
 import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
+import {STADIUM_ACCESS} from "@/lib/troo-world/stadium-navigation";
+import {stadiumSignagePlacement,STADIUM_TICKER_TEXT,cloneStadiumExterior,disposeStadiumExterior} from "@/lib/troo-world/stadium-signage";
 
 const MODEL_URL = "/models/world-assets/stadium-elyseum.glb";
 
@@ -30,37 +32,39 @@ export interface StadiumElyseumProps {
 
 // Build TROO STADIUM holographic signage — bold white text with bright glow on dark blue band (matches inner ring style)
 function buildSignageTexture(): THREE.CanvasTexture {
-  const CW = 2048;
-  const CH = 320;
+  const CW = 4096;
+  const CH = 64;
   const cvs = document.createElement("canvas");
   cvs.width = CW;
   cvs.height = CH;
   const ctx = cvs.getContext("2d")!;
   ctx.fillStyle = "#0a1628";
   ctx.fillRect(0, 0, CW, CH);
-  const text = "TROO STADIUM";
-  const fontSize = 140;
+  const text = STADIUM_TICKER_TEXT;
+  const fontSize = 44;
   ctx.font = `900 ${fontSize}px "Arial Black", Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (let rep = 0; rep < 5; rep++) {
-    const cx = (CW / 5) * rep + CW / 10;
+  for (let rep = 0; rep < 4; rep++) {
+    const cx = (CW / 4) * rep + CW / 8;
     const cy = CH / 2;
     ctx.shadowColor = "#a0d8ff";
-    ctx.shadowBlur = 48;
+    ctx.shadowBlur = 8;
     ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
-    ctx.fillText(text, cx, cy);
-    ctx.shadowBlur = 24;
+    ctx.fillText(text, cx, cy, CW/4-100);
+    ctx.shadowBlur = 4;
     ctx.fillStyle = "rgba(200, 230, 255, 0.95)";
-    ctx.fillText(text, cx, cy);
+    ctx.fillText(text, cx, cy, CW/4-100);
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(text, cx, cy);
+    ctx.fillText(text, cx, cy, CW/4-100);
   }
   const tex = new THREE.CanvasTexture(cvs);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.repeat.set(1, 1);
+  // Two texture wraps keep letter proportions close to the 461-unit exterior circumference.
+  tex.repeat.set(2, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -93,10 +97,14 @@ function buildScreenTexture(title: string): THREE.CanvasTexture {
 export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle }: StadiumElyseumProps) {
   const gltf = useGLTF(MODEL_URL, ...GLTF_LOADER_OPTS);
   const groupRef = useRef<THREE.Group>(null);
-  const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
+  const scene = useMemo(() => cloneStadiumExterior(gltf.scene), [gltf.scene]);
+  useEffect(()=>()=>disposeStadiumExterior(scene),[scene]);
 
   const signageRef = useRef<THREE.Mesh>(null);
+  const signage = useMemo(()=>stadiumSignagePlacement(scene),[scene]);
   const signageTex = useMemo(() => buildSignageTexture(), []);
+
+  useEffect(()=>()=>{signageTex.dispose();},[signageTex]);
 
   const screenTex = useMemo(() => activeEventTitle ? buildScreenTexture(activeEventTitle) : null, [activeEventTitle]);
 
@@ -168,9 +176,9 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
       });
     }
     if (signageRef.current?.material) {
-      const m = signageRef.current.material as THREE.MeshStandardMaterial;
+      const m = signageRef.current.material as THREE.MeshBasicMaterial;
       if (m.map) m.map.offset.x = (t * 0.04) % 1;
-      m.emissiveIntensity = 2.8 + 0.5 * Math.sin(t * 2);
+
     }
   });
 
@@ -178,6 +186,35 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
     <>
       <group ref={groupRef} position={position} scale={scale} onClick={(e) => { e.stopPropagation(); onSelect?.(); }}>
         <primitive object={scene} />
+        {/* Seating canopy: the imported Roof_Ring is only a narrow torus, not a roof surface. */}
+        <mesh name="Stadium_Seating_Canopy" position={[0,signage.y+4,0]} rotation={[-Math.PI/2,0,0]}>
+          <ringGeometry args={[32,signage.radius-2.5,128]}/>
+          <meshStandardMaterial color={0x173d69} metalness={0.45} roughness={0.55} side={THREE.DoubleSide}/>
+        </mesh>
+        {/* Upper concourse and central descent share coordinates with interior navigation. */}
+        <mesh name="Stadium_Upper_Concourse" position={[0,STADIUM_ACCESS.landingY,0]} rotation={[-Math.PI/2,0,0]}>
+          <ringGeometry args={[STADIUM_ACCESS.concourseInner,STADIUM_ACCESS.concourseOuter,128]}/>
+          <meshStandardMaterial color={0x5d7185} side={THREE.DoubleSide}/>
+        </mesh>
+        <mesh name="Stadium_Arena_Walkway" position={[0,STADIUM_ACCESS.arenaY,0]} rotation={[-Math.PI/2,0,0]}>
+          <ringGeometry args={[6.3,STADIUM_ACCESS.arenaRadius,96]}/><meshStandardMaterial color={0x334b65} roughness={.8}/>
+        </mesh>
+        <mesh name="Stadium_Entry_Landing" position={[0,STADIUM_ACCESS.landingY/2,60]}>
+          <boxGeometry args={[STADIUM_ACCESS.width,STADIUM_ACCESS.landingY,8]}/><meshStandardMaterial color={0x667c91}/>
+        </mesh>
+        {Array.from({length:STADIUM_ACCESS.steps},(_,i)=>{
+          const depth=(STADIUM_ACCESS.stairTopZ-STADIUM_ACCESS.stairBottomZ)/STADIUM_ACCESS.steps;
+          const top=STADIUM_ACCESS.arenaY+(i+1)*(STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY)/STADIUM_ACCESS.steps;
+          return <mesh name={'Stadium_Descent_Step_'+i} key={'descent-'+i} position={[0,top/2,STADIUM_ACCESS.stairBottomZ+(i+.5)*depth]}>
+            <boxGeometry args={[STADIUM_ACCESS.width,top,depth]}/><meshStandardMaterial color={i%2?0x7a91a5:0x91a5b5}/>
+          </mesh>;
+        })}
+        {[-1,1].map(side=><group key={'rail-'+side}>
+          <mesh name="Stadium_Stair_Rail" position={[side*4.2,(STADIUM_ACCESS.landingY+STADIUM_ACCESS.arenaY)/2+1,40]} rotation={[Math.atan2(32,STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY),0,0]}>
+            <cylinderGeometry args={[.07,.07,Math.hypot(32,STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY),8]}/><meshStandardMaterial color={0x2bdeef} emissive={0x124a55}/>
+          </mesh>
+          {Array.from({length:9},(_,i)=>{const z=24+i*4,top=STADIUM_ACCESS.arenaY+i/8*(STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY);return <mesh key={i} position={[side*4.2,top+.5,z]}><cylinderGeometry args={[.05,.05,1,8]}/><meshStandardMaterial color={0x86b8c1}/></mesh>})}
+        </group>)}
         {/* Raised stage platform — adds depth to interior */}
         <mesh position={[0, 0.25, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <circleGeometry args={[6, 32]} />
@@ -194,18 +231,11 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
           </mesh>
         )}
       </group>
-      {/* TROO STADIUM holographic band — matches outer black ring diameter at top of stadium */}
-      <group position={position} scale={scale} renderOrder={100}>
-        <mesh ref={signageRef} position={[0, 26, 0]} renderOrder={10}>
-          <cylinderGeometry args={[41, 41, 4, 64, 1, true]} />
-          <meshStandardMaterial
-            map={signageTex}
-            emissiveMap={signageTex}
-            emissive={new THREE.Color(0xa0d8ff)}
-            emissiveIntensity={4}
-            side={THREE.FrontSide}
-            depthWrite={true}
-          />
+      {/* Scrolling exterior band measured beyond the complete stadium shell. */}
+      <group position={position} scale={scale}>
+        <mesh ref={signageRef} position={[0, signage.y, 0]}>
+          <cylinderGeometry args={[signage.radius, signage.radius, signage.height, 128, 1, true]} />
+          <meshBasicMaterial map={signageTex} side={THREE.FrontSide} toneMapped={false} depthWrite={true}/>
         </mesh>
       </group>
     </>

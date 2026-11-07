@@ -1,7 +1,7 @@
 /**
  * WorldFirstPersonControls.tsx
  * WASD + mouse free-look first-person controller for world exploration.
- * Allows walking around the green terrain world.
+ * Exterior collision is enforced after movement by TownCameraCollision in the shared scene.
  */
 
 "use client";
@@ -111,7 +111,7 @@ export default function WorldFirstPersonControls({
 
     // Calculate movement
     const sprint = keys.current["ShiftLeft"] || keys.current["ShiftRight"];
-    const speed = (sprint ? SPRINT_SPEED : WALK_SPEED) * delta;
+    const speed = (sprint ? SPRINT_SPEED : WALK_SPEED) * Math.min(delta,0.1);
 
     const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
     const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current));

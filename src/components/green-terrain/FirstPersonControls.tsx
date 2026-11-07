@@ -9,6 +9,7 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import {constrainTownCamera,type Point3} from "@/lib/troo-world/town-collision";
 import type { ElevatorState, ElevatorPhase } from "./FunctionalElevator";
 
 export interface BuildingBounds {
@@ -43,6 +44,10 @@ interface FirstPersonControlsProps {
   elevatorState?: ElevatorState | null;
   elevatorWorldPos?: [number, number, number];
   collisionBoxes?: CollisionBox[];
+  constrainMotion?: (from:Point3,wanted:Point3)=>Point3;
+  floorAt?: (x:number,z:number)=>number;
+  eyeHeight?: number;
+  movementScale?: number;
 }
 
 const WALK_SPEED = 6;
@@ -61,49 +66,6 @@ const _center = new THREE.Vector2(0, 0);
 // Player collision radius (how close to walls/objects player can get)
 const PLAYER_RADIUS = 0.4;
 
-// Check if a position collides with any collision box
-function checkCollision(
-  x: number, 
-  z: number, 
-  collisionBoxes: CollisionBox[], 
-  playerRadius: number
-): boolean {
-  for (const box of collisionBoxes) {
-    // Expand box by player radius for collision check
-    const expandedMinX = box.minX - playerRadius;
-    const expandedMaxX = box.maxX + playerRadius;
-    const expandedMinZ = box.minZ - playerRadius;
-    const expandedMaxZ = box.maxZ + playerRadius;
-    
-    if (x >= expandedMinX && x <= expandedMaxX && 
-        z >= expandedMinZ && z <= expandedMaxZ) {
-      return true; // Collision detected
-    }
-  }
-  return false;
-}
-
-// Resolve collision by finding nearest valid position
-function resolveCollision(
-  oldX: number,
-  oldZ: number,
-  newX: number,
-  newZ: number,
-  collisionBoxes: CollisionBox[],
-  playerRadius: number
-): [number, number] {
-  // Try moving only in X
-  if (!checkCollision(newX, oldZ, collisionBoxes, playerRadius)) {
-    return [newX, oldZ];
-  }
-  // Try moving only in Z
-  if (!checkCollision(oldX, newZ, collisionBoxes, playerRadius)) {
-    return [oldX, newZ];
-  }
-  // Can't move at all, stay in place
-  return [oldX, oldZ];
-}
-
 export default function FirstPersonControls({
   active,
   bounds,
@@ -116,6 +78,10 @@ export default function FirstPersonControls({
   elevatorState,
   elevatorWorldPos,
   collisionBoxes = [],
+  constrainMotion,
+  floorAt,
+  eyeHeight=EYE_HEIGHT,
+  movementScale=1,
 }: FirstPersonControlsProps) {
   const { camera, scene, gl } = useThree();
 
@@ -149,9 +115,9 @@ export default function FirstPersonControls({
     if (isRidingElevator) return; // Don't lerp floor if riding elevator
     if (targetFloorY === prevTargetFloorY.current) return;
     prevTargetFloorY.current = targetFloorY;
-    targetEyeY.current = targetFloorY + EYE_HEIGHT;
+    targetEyeY.current = targetFloorY + eyeHeight;
     isLerpingFloor.current = true;
-  }, [targetFloorY, isRidingElevator]);
+  }, [targetFloorY, isRidingElevator,eyeHeight]);
 
   useEffect(() => {
     if (!active) {
@@ -220,11 +186,11 @@ export default function FirstPersonControls({
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, "YXZ");
     camera.quaternion.setFromEuler(euler);
 
-    const standingY = bounds.floorY + EYE_HEIGHT;
+    const standingY = (floorAt?floorAt(camera.position.x,camera.position.z):bounds.floorY) + eyeHeight;
 
     // Handle elevator ride - player moves with cabin
     if (isRidingElevator && elevatorState && elevatorWorldPos) {
-      const elevatorCabinY = elevatorWorldPos[1] + elevatorState.cabinY + EYE_HEIGHT;
+      const elevatorCabinY = elevatorWorldPos[1] + elevatorState.cabinY + eyeHeight;
       const elevatorCenterX = elevatorWorldPos[0];
       const elevatorCenterZ = elevatorWorldPos[2];
       
@@ -295,7 +261,7 @@ export default function FirstPersonControls({
     }
 
     const sprint = keys.current["ShiftLeft"] || keys.current["ShiftRight"];
-    const speed = (sprint ? SPRINT_SPEED : WALK_SPEED) * delta;
+    const speed = (sprint ? SPRINT_SPEED : WALK_SPEED) * Math.min(delta,.1)*movementScale;
 
     const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
     const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current));
@@ -310,20 +276,13 @@ export default function FirstPersonControls({
     let newX = Math.max(bounds.minX, Math.min(bounds.maxX, camera.position.x + move.x));
     let newZ = Math.max(bounds.minZ, Math.min(bounds.maxZ, camera.position.z + move.z));
     
-    // Check for collisions with walls/obstacles
-    if (collisionBoxes.length > 0 && checkCollision(newX, newZ, collisionBoxes, PLAYER_RADIUS)) {
-      // Try to resolve collision (slide along walls)
-      [newX, newZ] = resolveCollision(
-        camera.position.x, 
-        camera.position.z, 
-        newX, 
-        newZ, 
-        collisionBoxes, 
-        PLAYER_RADIUS
-      );
-    }
-    
-    camera.position.set(newX, currentEyeY.current!, newZ);
+    // Sweep the whole step, not only its destination, so sprinting cannot skip a wall.
+    const blocked=constrainTownCamera([camera.position.x,0,camera.position.z],[newX,0,newZ],collisionBoxes.map(b=>({min:[b.minX,-1000000,b.minZ] as Point3,max:[b.maxX,1000000,b.maxZ] as Point3})),false,PLAYER_RADIUS);
+    const old=camera.position.toArray() as Point3;
+    const wanted:Point3=[blocked[0],currentEyeY.current!,blocked[2]];
+    const next=constrainMotion?constrainMotion(old,wanted):wanted;
+    if(floorAt){next[1]=floorAt(next[0],next[2])+eyeHeight;currentEyeY.current=next[1];}
+    camera.position.fromArray(next);
 
     if (elevatorPos && onElevatorNear) {
       const dx = camera.position.x - elevatorPos.x;

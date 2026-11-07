@@ -25,6 +25,8 @@ import AgentChatPanel from "@/components/green-terrain/AgentChatPanel";
 import { TROOTHHERTZ_AGENTS, type TroothAgent } from "@/components/green-terrain/TroothhertzTower";
 import CameraController, { type CameraState, type BuildingTarget, type PlainTarget } from "@/components/green-terrain/CameraController";
 import FirstPersonControls, { type BuildingBounds, type HoveredAgentInfo, type CollisionBox } from "@/components/green-terrain/FirstPersonControls";
+import {stadiumEntry,stadiumFloorAt,constrainStadiumMotion,constrainRoomMotion,worldOrbitEnabled,type InteriorFrame} from "@/lib/troo-world/stadium-navigation";
+import TownCameraCollision from "@/components/green-terrain/TownCameraCollision";
 import WorldFirstPersonControls from "@/components/green-terrain/WorldFirstPersonControls";
 import FunctionalElevator from "@/components/green-terrain/FunctionalElevator";
 import SeatedAgent from "@/components/green-terrain/SeatedAgent";
@@ -150,7 +152,7 @@ function Tree({data,isSelected}:{data:TreeData;isSelected:boolean}) {
   const f3=isSelected?0x66cc55:0x4a8a3a;
   return (
     <group position={data.pos} scale={data.scale}>
-      <mesh position={[0,0.6,0]} castShadow><cylinderGeometry args={[0.08,0.14,1.2,6]}/><meshLambertMaterial color={0x5c3a1e}/></mesh>
+      <mesh userData={{townSolid:true}} position={[0,0.6,0]} castShadow><cylinderGeometry args={[0.08,0.14,1.2,6]}/><meshLambertMaterial color={0x5c3a1e}/></mesh>
       <group ref={ref} position={[0,1.2,0]}>
         <mesh castShadow><coneGeometry args={[0.9,1.6,7]}/><meshLambertMaterial color={f1}/></mesh>
         <mesh position={[0,0.8,0]} castShadow><coneGeometry args={[0.65,1.3,7]}/><meshLambertMaterial color={f2}/></mesh>
@@ -211,7 +213,7 @@ function GrassTufts() {
 function Rocks() {
   const rng=(s:number)=>{s=(s^0x1234abcd)>>>0;s=Math.imul(s^(s>>>16),0x45d9f3b);return((s^(s>>>16))>>>0)/0xffffffff;};
   const rocks=Array.from({length:30},(_,i)=>{const a=rng(i*4)*Math.PI*2,r=35+rng(i*4+1)*60;const x=Math.cos(a)*r,z=Math.sin(a)*r;return{pos:[x,terrainHeight(x,z)-0.1,z] as [number,number,number],scale:[0.3+rng(i*4+2)*0.5,0.2+rng(i*4+3)*0.3,0.3+rng(i*4)*0.5] as [number,number,number],ry:rng(i)*Math.PI};});
-  return <>{rocks.map((r,i)=><mesh key={i} position={r.pos} scale={r.scale} rotation={[0,r.ry,0]} castShadow><dodecahedronGeometry args={[0.5,0]}/><meshLambertMaterial color={0x8a8a7a}/></mesh>)}</>;
+  return <>{rocks.map((r,i)=><mesh userData={{townSolid:true}} key={i} position={r.pos} scale={r.scale} rotation={[0,r.ry,0]} castShadow><dodecahedronGeometry args={[0.5,0]}/><meshLambertMaterial color={0x8a8a7a}/></mesh>)}</>;
 }
 
 // ─── Building labels (dropdown with Enter Building + View Agents) ─────────────
@@ -863,13 +865,6 @@ function getNexusCollisionBoxes(
   ];
 }
 
-// Stage area — non-hosts cannot enter (blocks Conference/Seminar/Concert)
-function getStadiumCollisionBoxes(stadiumPos: [number, number, number], isHost: boolean): CollisionBox[] {
-  if (isHost) return [];
-  const [sx, , sz] = stadiumPos;
-  return [{ minX: sx - 6, maxX: sx + 6, minZ: sz - 5, maxZ: sz + 5 }];
-}
-
 function getMeridianCollisionBoxes(
   buildingPos: [number, number, number],
   _floor: number
@@ -975,12 +970,19 @@ interface SceneProps {
 
 function BuildingPresentation({state,alreadyScaled=false,children}:{state:BuildingState;alreadyScaled?:boolean;children:React.ReactNode}){
  if(!state.visible)return null;
- return <group position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
+ return <group userData={{townSolid:true}} position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
 }
 
 function Scene(props: SceneProps) {
   const orbitRef = useRef<any>(null);
   const { camera } = useThree();
+  const interiorMotion=useMemo(()=>{
+    const id=props.insideBuilding==='stadium'?'stadium-elyseum':props.insideBuilding==='nexus'?'nexus-tower':props.insideBuilding==='meridian'?'meridian-tower':'troothhertz-tower';
+    const frame=props.layout.buildings[id] as InteriorFrame;
+    if(props.insideBuilding==='stadium')return{move:(from:[number,number,number],wanted:[number,number,number])=>constrainStadiumMotion(from,wanted,frame),floor:(x:number,z:number)=>stadiumFloorAt(x,z,frame)};
+    const dimensions=props.insideBuilding==='nexus'?[5.5,5]:props.insideBuilding==='meridian'?[6.5,6]:[7,5.5];
+    return{move:(_from:[number,number,number],wanted:[number,number,number])=>constrainRoomMotion(wanted,frame,dimensions[0],dimensions[1]),floor:undefined};
+  },[props.insideBuilding,props.layout]);
   
   // Snap camera to position when a new object is placed
   useEffect(() => {
@@ -1048,7 +1050,7 @@ function Scene(props: SceneProps) {
       {props.trees.map(t => <Tree key={t.id} data={t} isSelected={t.id === props.selectedTreeId}/>)}
 
       {props.placedObjects.map(obj => (
-        <group key={obj.id} position={obj.position} scale={obj.scale??1}><WorldObjectRenderer
+        <group userData={{townSolid:obj.type==='bench'||obj.type==='lightpost'}} key={obj.id} position={obj.position} scale={obj.scale??1}><WorldObjectRenderer
           key={obj.id}
           type={obj.type}
           position={[0,0,0]}
@@ -1270,8 +1272,8 @@ function Scene(props: SceneProps) {
           minZ: props.meridianPos[2] - 5.5, maxZ: props.meridianPos[2] + 6.5,
           floorY: props.meridianPos[1] + props.meridianElevatorFloor * 4.0,
         } : props.insideBuilding === "stadium" ? {
-          minX: props.stadiumPos[0] - 50, maxX: props.stadiumPos[0] + 50,
-          minZ: props.stadiumPos[2] - 50, maxZ: props.stadiumPos[2] + 50,
+          minX: props.stadiumPos[0] - 72*props.stadiumScale, maxX: props.stadiumPos[0] + 72*props.stadiumScale,
+          minZ: props.stadiumPos[2] - 72*props.stadiumScale, maxZ: props.stadiumPos[2] + 72*props.stadiumScale,
           floorY: props.stadiumPos[1],
         } : {
           minX: props.troothhertzPos[0] - 7, maxX: props.troothhertzPos[0] + 7,
@@ -1306,7 +1308,11 @@ function Scene(props: SceneProps) {
           ? [props.troothhertzPos[0] + 5.2, props.troothhertzPos[1], props.troothhertzPos[2] - 3.7]
           : undefined
         }
-        collisionBoxes={props.collisionBoxes}
+        collisionBoxes={props.insideBuilding === "stadium" ? [] : props.collisionBoxes}
+        constrainMotion={interiorMotion.move}
+        floorAt={interiorMotion.floor}
+        eyeHeight={props.insideBuilding === "stadium" ? 1.7*props.stadiumScale : 1.7}
+        movementScale={props.insideBuilding === "stadium" ? props.stadiumScale : 1}
       />
 
       {/* World first-person controls (when in world view and first-person mode enabled) */}
@@ -1319,15 +1325,16 @@ function Scene(props: SceneProps) {
 
       <OrbitControls
         ref={orbitRef}
-        enabled={!props.worldFirstPerson || props.cameraState !== "world"}
-        enablePan={!props.worldFirstPerson || props.cameraState !== "world"}
-        enableZoom={!props.worldFirstPerson || props.cameraState !== "world"}
-        enableRotate={!props.worldFirstPerson || props.cameraState !== "world"}
+        enabled={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
+        enablePan={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
+        enableZoom={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
+        enableRotate={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
         minDistance={5} maxDistance={180}
         maxPolarAngle={Math.PI/2-0.05}
         target={[0,0,0]}
         enableDamping={false}
       />
+      <TownCameraCollision active={props.cameraState === "world" && !props.isEditorMode} walking={props.worldFirstPerson} revision={props.layout} orbitRef={orbitRef}/>
     </>
   );
 }
@@ -1631,18 +1638,16 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [troothhertzPos]);
 
   const handleEnterStadium = useCallback(() => {
-    // Spawn inside stadium, in audience area, facing the stage (center)
-    setBuildingTarget({
-      position: new THREE.Vector3(stadiumPos[0], stadiumPos[1] + 1.7, stadiumPos[2] + 15),
-      lookAt: new THREE.Vector3(stadiumPos[0], stadiumPos[1] + 1, stadiumPos[2]),
-    });
+    const entry=stadiumEntry(layout.buildings['stadium-elyseum']);
+    setTargetFloorY(undefined);
+    setBuildingTarget({position:new THREE.Vector3(...entry.position),lookAt:new THREE.Vector3(...entry.lookAt)});
     setInsideBuilding("stadium");
     setCameraState("flying-in");
     setStadiumSelected(true);
     setNexusSelected(false);
     setMeridianSelected(false);
     setTroothhertzSelected(false);
-  }, [stadiumPos]);
+  }, [layout]);
 
   const handleEnterPlain = useCallback((_name: string, position: [number, number, number]) => {
     if (cameraState === "inside" || cameraState === "flying-in" || cameraState === "flying-out") return;
@@ -2061,8 +2066,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
               ? getNexusCollisionBoxes(nexusPos, nexusElevatorFloor)
               : insideBuilding === "meridian"
               ? getMeridianCollisionBoxes(meridianPos, meridianElevatorFloor)
-              : insideBuilding === "stadium"
-              ? getStadiumCollisionBoxes(stadiumPos, false)
               : []
           }
           snapToPosition={snapToPosition}
