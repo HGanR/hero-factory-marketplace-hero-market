@@ -4,7 +4,7 @@ export type TownBox = {min:Point3;max:Point3};
 export const VISITOR_CLEARANCE=0.65;
 const EPS=0.0001;
 // Walking uses a body extending two units below the eye, so low benches/trunks block too.
-const expanded=(b:TownBox,walking:boolean):TownBox=>({min:b.min.map(v=>v-VISITOR_CLEARANCE) as Point3,max:b.max.map((v,i)=>v+(walking&&i===1?2:VISITOR_CLEARANCE)) as Point3});
+const expanded=(b:TownBox,walking:boolean,clearance:number):TownBox=>({min:b.min.map(v=>v-clearance) as Point3,max:b.max.map((v,i)=>v+(walking&&i===1?2:clearance)) as Point3});
 const contains=(p:Point3,b:TownBox)=>p.every((v,i)=>v>b.min[i]-EPS/2&&v<b.max[i]+EPS/2);
 function recover(p:Point3,boxes:TownBox[],walking:boolean):Point3 {
  if(!boxes.some(b=>contains(p,b)))return [...p];
@@ -25,8 +25,8 @@ function entry(p:Point3,d:Point3,b:TownBox){
  return near>=0&&near<=1&&far>=0?{time:near,axis}:null;
 }
 /** Swept point against clearance-expanded volumes: prevents crossing even in a large zoom/scroll step. */
-export function constrainTownCamera(from:Point3,wanted:Point3,volumes:TownBox[],walking=false):Point3 {
- const boxes=volumes.map(b=>expanded(b,walking));let p=recover(from,boxes,walking),d=wanted.map((v,i)=>v-from[i]) as Point3;
+export function constrainTownCamera(from:Point3,wanted:Point3,volumes:TownBox[],walking=false,clearance=VISITOR_CLEARANCE):Point3 {
+ const boxes=volumes.map(b=>expanded(b,walking,clearance));let p=recover(from,boxes,walking),d=wanted.map((v,i)=>v-from[i]) as Point3;
  for(let pass=0;pass<3;pass++){
   let first:{time:number;axis:number}|null=null;
   for(const b of boxes){const hit=entry(p,d,b);if(hit&&(!first||hit.time<first.time))first=hit;}

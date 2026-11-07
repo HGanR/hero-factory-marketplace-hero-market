@@ -76,3 +76,33 @@ texture material for readable text independent of scene lights and exposure.
 An actual-component WebGL fixture (actual GLB, canvas text, materials and frame
 callback; mocked React mount hooks) captures overview, street and opposite views
 in CI. These isolated views do not certify the live saved-town route.
+
+## Interior follow-up and stadium descent
+Exterior constraints did not apply after Enter Building. The old stadium interior
+blocked only an unscaled stage box and used +/-50 world bounds regardless of the
+saved scale. Declarative OrbitControls props could re-enable orbit/zoom during
+inside mode, competing with FirstPersonControls.
+
+Orbit/pan/zoom now run only in world orbit mode, never inside or during a flight.
+Interior box movement uses a swept test with the original 0.4 clearance and a
+0.1-second delta cap. Other room boundaries additionally clamp through the saved
+building rotation/scale. Existing elevator ride branches retain their behavior.
+
+Stadium entry lands at local [0,15.1,62] plus eye height, facing local [0,0.3,24].
+A landing and 64 visible half-unit treads run from z56 down to z24, with rails.
+The seating meshes are cloned and a corridor is cut through them so the stairs
+are not buried in the old tiers; cached asset data remains unchanged. A top
+concourse at y15.1 and an arena walkway at y0.3 share navigation coordinates.
+
+Stadium walking is limited to the arena, stair/landing corridor and upper
+concourse. Substeps stop movement at seating gaps, stair edges, the outer wall
+and restricted stage. Floor height follows each actual tread, including going
+back up. Eye height and walk speed scale with the venue, and entry, floor sampling
+and collision use its saved position/rotation/scale. Free look changes viewing
+direction only and cannot bypass these limits. The center stage remains closed
+to ordinary visitors; the surrounding arena floor is accessible.
+
+Checks include round trips on the complete descent, edge/wall/stage restrictions,
+large steps, transformed placements, orbit policy, the actual FirstPersonControls
+WASD/free-look loop and entry/arena WebGL views. Native full-page acceptance is
+still separate. No saved layout or production change.

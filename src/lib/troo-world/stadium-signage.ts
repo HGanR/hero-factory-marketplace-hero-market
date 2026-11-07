@@ -17,10 +17,19 @@ export function stadiumSignagePlacement(scene:THREE.Object3D){
 /** The authored GLB's shell has outward normals but inward index winding. Clone
  * first, then repair its indices so front-face culling and illumination agree. */
 export function cloneStadiumExterior(source:THREE.Object3D){
- const scene=source.clone(true);const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),normal=new THREE.Vector3(),cross=new THREE.Vector3();
+ const scene=source.clone(true);scene.updateWorldMatrix(true,true);const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),normal=new THREE.Vector3(),cross=new THREE.Vector3();
  scene.traverse(object=>{
   const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;
   mesh.material=Array.isArray(mesh.material)?mesh.material.map(m=>m.clone()):mesh.material.clone();
+  if(/^Seating_Tier[123]$/.test(mesh.name)){
+   // Cut an aisle through the imported seating surfaces rather than burying the new stairs in them.
+   mesh.geometry=mesh.geometry.clone();const g=mesh.geometry,p=g.getAttribute('position');const index=g.index;const kept:number[]=[];
+   if(index){for(let i=0;i<index.count;i+=3){const ids=[index.getX(i),index.getX(i+1),index.getX(i+2)];const points=ids.map(id=>new THREE.Vector3().fromBufferAttribute(p,id).applyMatrix4(mesh.matrixWorld));
+    const crossesAisle=Math.min(...points.map(p=>p.x))<5&&Math.max(...points.map(p=>p.x))>-5&&Math.max(...points.map(p=>p.z))>=24&&Math.min(...points.map(p=>p.z))<=64;
+    if(!crossesAisle)kept.push(...ids);
+   }g.setIndex(kept);}
+   return;
+  }
   if(mesh.name!=='Bowl_Wall'&&mesh.name!=='Roof_Ring')return;
   mesh.geometry=mesh.geometry.clone();const geometry=mesh.geometry,p=geometry.getAttribute('position'),n=geometry.getAttribute('normal');if(!p||!n)return;
   if(!geometry.index)geometry.setIndex(Array.from({length:p.count},(_,i)=>i));const index=geometry.index!;
@@ -33,6 +42,6 @@ export function cloneStadiumExterior(source:THREE.Object3D){
 export function disposeStadiumExterior(scene:THREE.Object3D){
  scene.traverse(object=>{const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;
   (Array.isArray(mesh.material)?mesh.material:[mesh.material]).forEach(m=>m.dispose());
-  if(mesh.name==='Bowl_Wall'||mesh.name==='Roof_Ring')mesh.geometry.dispose();
+  if(mesh.name==='Bowl_Wall'||mesh.name==='Roof_Ring'||/^Seating_Tier[123]$/.test(mesh.name))mesh.geometry.dispose();
  });
 }

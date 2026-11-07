@@ -11,6 +11,7 @@ import * as THREE from "three";
 import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
+import {STADIUM_ACCESS} from "@/lib/troo-world/stadium-navigation";
 import {stadiumSignagePlacement,STADIUM_TICKER_TEXT,cloneStadiumExterior,disposeStadiumExterior} from "@/lib/troo-world/stadium-signage";
 
 const MODEL_URL = "/models/world-assets/stadium-elyseum.glb";
@@ -190,6 +191,30 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
           <ringGeometry args={[32,signage.radius-2.5,128]}/>
           <meshStandardMaterial color={0x173d69} metalness={0.45} roughness={0.55} side={THREE.DoubleSide}/>
         </mesh>
+        {/* Upper concourse and central descent share coordinates with interior navigation. */}
+        <mesh name="Stadium_Upper_Concourse" position={[0,STADIUM_ACCESS.landingY,0]} rotation={[-Math.PI/2,0,0]}>
+          <ringGeometry args={[STADIUM_ACCESS.concourseInner,STADIUM_ACCESS.concourseOuter,128]}/>
+          <meshStandardMaterial color={0x5d7185} side={THREE.DoubleSide}/>
+        </mesh>
+        <mesh name="Stadium_Arena_Walkway" position={[0,STADIUM_ACCESS.arenaY,0]} rotation={[-Math.PI/2,0,0]}>
+          <ringGeometry args={[6.3,STADIUM_ACCESS.arenaRadius,96]}/><meshStandardMaterial color={0x334b65} roughness={.8}/>
+        </mesh>
+        <mesh name="Stadium_Entry_Landing" position={[0,STADIUM_ACCESS.landingY/2,60]}>
+          <boxGeometry args={[STADIUM_ACCESS.width,STADIUM_ACCESS.landingY,8]}/><meshStandardMaterial color={0x667c91}/>
+        </mesh>
+        {Array.from({length:STADIUM_ACCESS.steps},(_,i)=>{
+          const depth=(STADIUM_ACCESS.stairTopZ-STADIUM_ACCESS.stairBottomZ)/STADIUM_ACCESS.steps;
+          const top=STADIUM_ACCESS.arenaY+(i+1)*(STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY)/STADIUM_ACCESS.steps;
+          return <mesh name={'Stadium_Descent_Step_'+i} key={'descent-'+i} position={[0,top/2,STADIUM_ACCESS.stairBottomZ+(i+.5)*depth]}>
+            <boxGeometry args={[STADIUM_ACCESS.width,top,depth]}/><meshStandardMaterial color={i%2?0x7a91a5:0x91a5b5}/>
+          </mesh>;
+        })}
+        {[-1,1].map(side=><group key={'rail-'+side}>
+          <mesh name="Stadium_Stair_Rail" position={[side*4.2,(STADIUM_ACCESS.landingY+STADIUM_ACCESS.arenaY)/2+1,40]} rotation={[Math.atan2(32,STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY),0,0]}>
+            <cylinderGeometry args={[.07,.07,Math.hypot(32,STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY),8]}/><meshStandardMaterial color={0x2bdeef} emissive={0x124a55}/>
+          </mesh>
+          {Array.from({length:9},(_,i)=>{const z=24+i*4,top=STADIUM_ACCESS.arenaY+i/8*(STADIUM_ACCESS.landingY-STADIUM_ACCESS.arenaY);return <mesh key={i} position={[side*4.2,top+.5,z]}><cylinderGeometry args={[.05,.05,1,8]}/><meshStandardMaterial color={0x86b8c1}/></mesh>})}
+        </group>)}
         {/* Raised stage platform — adds depth to interior */}
         <mesh position={[0, 0.25, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <circleGeometry args={[6, 32]} />

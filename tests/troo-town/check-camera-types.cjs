@@ -1,4 +1,4 @@
 const path=require('node:path'),ts=require(process.env.TOWN_TEST_DEPS+'/typescript');
 const root=process.cwd(),deps=process.env.TOWN_TEST_DEPS;
-const program=ts.createProgram(['src/lib/troo-world/stadium-signage.ts','src/lib/troo-world/town-collision.ts'],{noEmit:true,strict:true,skipLibCheck:true,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,baseUrl:root,paths:{three:[path.join(deps,'@types/three')]},types:[],lib:['lib.es2022.d.ts','lib.dom.d.ts']});
+const program=ts.createProgram(['src/lib/troo-world/stadium-signage.ts','src/lib/troo-world/town-collision.ts','src/lib/troo-world/stadium-navigation.ts'],{noEmit:true,strict:true,skipLibCheck:true,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,baseUrl:root,paths:{three:[path.join(deps,'@types/three')]},types:[],lib:['lib.es2022.d.ts','lib.dom.d.ts']});
 const errors=ts.getPreEmitDiagnostics(program);for(const d of errors)console.error(ts.flattenDiagnosticMessageText(d.messageText,'\n'));if(errors.length)process.exit(1);console.log('Strict stadium geometry and swept-collision types passed');

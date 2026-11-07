@@ -25,6 +25,7 @@ import AgentChatPanel from "@/components/green-terrain/AgentChatPanel";
 import { TROOTHHERTZ_AGENTS, type TroothAgent } from "@/components/green-terrain/TroothhertzTower";
 import CameraController, { type CameraState, type BuildingTarget, type PlainTarget } from "@/components/green-terrain/CameraController";
 import FirstPersonControls, { type BuildingBounds, type HoveredAgentInfo, type CollisionBox } from "@/components/green-terrain/FirstPersonControls";
+import {stadiumEntry,stadiumFloorAt,constrainStadiumMotion,constrainRoomMotion,worldOrbitEnabled,type InteriorFrame} from "@/lib/troo-world/stadium-navigation";
 import TownCameraCollision from "@/components/green-terrain/TownCameraCollision";
 import WorldFirstPersonControls from "@/components/green-terrain/WorldFirstPersonControls";
 import FunctionalElevator from "@/components/green-terrain/FunctionalElevator";
@@ -864,13 +865,6 @@ function getNexusCollisionBoxes(
   ];
 }
 
-// Stage area — non-hosts cannot enter (blocks Conference/Seminar/Concert)
-function getStadiumCollisionBoxes(stadiumPos: [number, number, number], isHost: boolean): CollisionBox[] {
-  if (isHost) return [];
-  const [sx, , sz] = stadiumPos;
-  return [{ minX: sx - 6, maxX: sx + 6, minZ: sz - 5, maxZ: sz + 5 }];
-}
-
 function getMeridianCollisionBoxes(
   buildingPos: [number, number, number],
   _floor: number
@@ -982,6 +976,13 @@ function BuildingPresentation({state,alreadyScaled=false,children}:{state:Buildi
 function Scene(props: SceneProps) {
   const orbitRef = useRef<any>(null);
   const { camera } = useThree();
+  const interiorMotion=useMemo(()=>{
+    const id=props.insideBuilding==='stadium'?'stadium-elyseum':props.insideBuilding==='nexus'?'nexus-tower':props.insideBuilding==='meridian'?'meridian-tower':'troothhertz-tower';
+    const frame=props.layout.buildings[id] as InteriorFrame;
+    if(props.insideBuilding==='stadium')return{move:(from:[number,number,number],wanted:[number,number,number])=>constrainStadiumMotion(from,wanted,frame),floor:(x:number,z:number)=>stadiumFloorAt(x,z,frame)};
+    const dimensions=props.insideBuilding==='nexus'?[5.5,5]:props.insideBuilding==='meridian'?[6.5,6]:[7,5.5];
+    return{move:(_from:[number,number,number],wanted:[number,number,number])=>constrainRoomMotion(wanted,frame,dimensions[0],dimensions[1]),floor:undefined};
+  },[props.insideBuilding,props.layout]);
   
   // Snap camera to position when a new object is placed
   useEffect(() => {
@@ -1271,8 +1272,8 @@ function Scene(props: SceneProps) {
           minZ: props.meridianPos[2] - 5.5, maxZ: props.meridianPos[2] + 6.5,
           floorY: props.meridianPos[1] + props.meridianElevatorFloor * 4.0,
         } : props.insideBuilding === "stadium" ? {
-          minX: props.stadiumPos[0] - 50, maxX: props.stadiumPos[0] + 50,
-          minZ: props.stadiumPos[2] - 50, maxZ: props.stadiumPos[2] + 50,
+          minX: props.stadiumPos[0] - 72*props.stadiumScale, maxX: props.stadiumPos[0] + 72*props.stadiumScale,
+          minZ: props.stadiumPos[2] - 72*props.stadiumScale, maxZ: props.stadiumPos[2] + 72*props.stadiumScale,
           floorY: props.stadiumPos[1],
         } : {
           minX: props.troothhertzPos[0] - 7, maxX: props.troothhertzPos[0] + 7,
@@ -1307,7 +1308,11 @@ function Scene(props: SceneProps) {
           ? [props.troothhertzPos[0] + 5.2, props.troothhertzPos[1], props.troothhertzPos[2] - 3.7]
           : undefined
         }
-        collisionBoxes={props.collisionBoxes}
+        collisionBoxes={props.insideBuilding === "stadium" ? [] : props.collisionBoxes}
+        constrainMotion={interiorMotion.move}
+        floorAt={interiorMotion.floor}
+        eyeHeight={props.insideBuilding === "stadium" ? 1.7*props.stadiumScale : 1.7}
+        movementScale={props.insideBuilding === "stadium" ? props.stadiumScale : 1}
       />
 
       {/* World first-person controls (when in world view and first-person mode enabled) */}
@@ -1320,10 +1325,10 @@ function Scene(props: SceneProps) {
 
       <OrbitControls
         ref={orbitRef}
-        enabled={!props.worldFirstPerson || props.cameraState !== "world"}
-        enablePan={!props.worldFirstPerson || props.cameraState !== "world"}
-        enableZoom={!props.worldFirstPerson || props.cameraState !== "world"}
-        enableRotate={!props.worldFirstPerson || props.cameraState !== "world"}
+        enabled={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
+        enablePan={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
+        enableZoom={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
+        enableRotate={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
         minDistance={5} maxDistance={180}
         maxPolarAngle={Math.PI/2-0.05}
         target={[0,0,0]}
@@ -1633,18 +1638,16 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [troothhertzPos]);
 
   const handleEnterStadium = useCallback(() => {
-    // Spawn inside stadium, in audience area, facing the stage (center)
-    setBuildingTarget({
-      position: new THREE.Vector3(stadiumPos[0], stadiumPos[1] + 1.7, stadiumPos[2] + 15),
-      lookAt: new THREE.Vector3(stadiumPos[0], stadiumPos[1] + 1, stadiumPos[2]),
-    });
+    const entry=stadiumEntry(layout.buildings['stadium-elyseum']);
+    setTargetFloorY(undefined);
+    setBuildingTarget({position:new THREE.Vector3(...entry.position),lookAt:new THREE.Vector3(...entry.lookAt)});
     setInsideBuilding("stadium");
     setCameraState("flying-in");
     setStadiumSelected(true);
     setNexusSelected(false);
     setMeridianSelected(false);
     setTroothhertzSelected(false);
-  }, [stadiumPos]);
+  }, [layout]);
 
   const handleEnterPlain = useCallback((_name: string, position: [number, number, number]) => {
     if (cameraState === "inside" || cameraState === "flying-in" || cameraState === "flying-out") return;
@@ -2063,8 +2066,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
               ? getNexusCollisionBoxes(nexusPos, nexusElevatorFloor)
               : insideBuilding === "meridian"
               ? getMeridianCollisionBoxes(meridianPos, meridianElevatorFloor)
-              : insideBuilding === "stadium"
-              ? getStadiumCollisionBoxes(stadiumPos, false)
               : []
           }
           snapToPosition={snapToPosition}
