@@ -8,6 +8,7 @@ import { CLIENT_SERVICE_OPTIONS } from "@/lib/revenue-os/client-service-options"
 export function AddClientForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [contact, setContact] = useState({name:"", phone:"", email:"", address:""});
   const [logoDataUrl, setLogoDataUrl] = useState<string>("");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -20,8 +21,8 @@ export function AddClientForm() {
 
   async function onPickLogo(file: File | null) {
     if (!file) return;
-    if (file.size > 1024 * 1024) {
-      toast.error("Logo file is too large (max 1MB).");
+    if (file.size > 140 * 1024) {
+      toast.error("Logo file is too large (max 140 KB).");
       return;
     }
     const reader = new FileReader();
@@ -29,6 +30,10 @@ export function AddClientForm() {
       const out = String(reader.result || "");
       if (!out.startsWith("data:image/")) {
         toast.error("Please upload an image file.");
+        return;
+      }
+      if (out.length > 190000) {
+        toast.error("Logo exceeds the saved-image limit. Choose a smaller image.");
         return;
       }
       setLogoDataUrl(out);
@@ -51,6 +56,9 @@ export function AddClientForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: n,
+          notes: Object.values(contact).some(value => value.trim())
+            ? "Client contact details:\n" + JSON.stringify({contactName:contact.name.trim(), phone:contact.phone.trim(), email:contact.email.trim(), address:contact.address.trim(), entityBusinessName:n}, null, 2)
+            : null,
           status: "active",
           logoUrl: logoDataUrl || null,
           requestedServices: selectedServices,
@@ -61,9 +69,11 @@ export function AddClientForm() {
       if (!res.ok) {
         throw new Error(data?.error || res.statusText);
       }
-      if (data?.id) {
+      if (!data?.id) throw new Error("The website did not return a client ID. Check the client list before retrying.");
+      if (data.id) {
         toast.success("Client created");
         setName("");
+        setContact({name:"",phone:"",email:"",address:""});
         setLogoDataUrl("");
         setSelectedServices([]);
         router.push(`/ai-revenue-os/clients/${data.id}`);
@@ -79,17 +89,30 @@ export function AddClientForm() {
   return (
     <form onSubmit={onSubmit} className="max-w-3xl space-y-4 rounded-xl border border-white/10 bg-slate-900/30 p-4">
       <div className="grid gap-2">
-        <label htmlFor="new-client-name" className="sr-only">
-          Client name
+        <label htmlFor="new-client-name" className="text-xs text-slate-400">
+          Client / entity business name
         </label>
         <input
           id="new-client-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="New client name"
+          placeholder="Client / entity business name"
+          maxLength={200}
+          required
           className="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500/40 focus:outline-none"
         />
       </div>
+      <fieldset className="grid gap-3 sm:grid-cols-2">
+        <legend className="mb-2 text-sm font-semibold text-slate-200">Client contact details</legend>
+        {([['name','Contact name','text'],['phone','Phone number','tel'],['email','Email address','email'],['address','Full mailing address','text']] as const).map(([key,label,type])=>(
+          <label key={key} className="grid gap-1 text-xs text-slate-400" htmlFor={'new-client-contact-'+key}>
+            {label}
+            <input id={'new-client-contact-'+key} type={type} value={contact[key]} maxLength={key==='address'?1000:200}
+              onChange={event=>setContact(current=>({...current,[key]:event.target.value}))}
+              className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100" />
+          </label>
+        ))}
+      </fieldset>
       <div className="grid gap-2">
         <label htmlFor="new-client-logo" className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
           Client logo
@@ -146,3 +169,4 @@ export function AddClientForm() {
     </form>
   );
 }
+
