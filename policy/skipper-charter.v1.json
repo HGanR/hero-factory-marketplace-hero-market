@@ -12,10 +12,10 @@
     "excluded": [
       "SubVendor"
     ],
-    "membershipMonthlyUsd": 20,
-    "membershipSetupUsd": 155,
+    "membershipMonthlyUsd": 25,
+    "membershipSetupUsd": 100,
     "setupCountsTowardArr": false,
-    "pricedMembershipAccountsApprox": 4167,
+    "pricedMembershipAccountsApprox": 3334,
     "billingVerified": false
   },
   "roles": {
