@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { meetingNodePlacements, meetingInvites } from "@/lib/db/schema";
+import {stadiumNode,stadiumUser} from '@/lib/stadium/server';
 import { getAuthedUserId } from "@/lib/api/auth";
 import crypto from "crypto";
 
@@ -13,12 +14,14 @@ export async function POST(
   { params }: { params: Promise<{ nodeId: string }> }
 ) {
   try {
-    const userId = await getAuthedUserId();
+    const {nodeId}=await params;
+    const venue=await stadiumNode(nodeId);
+    const userId=venue?stadiumUser(request):await getAuthedUserId();
     if (userId === null) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { nodeId } = await params;
+    if(venue && venue.createdByUserId!==userId) return NextResponse.json({error:'Host required'},{status:403});
     const db = await getDb();
     const body = await request.json().catch(() => ({}));
     const { inviteeEmail, inviteeUserId, expiresInHours = 168 } = body as {

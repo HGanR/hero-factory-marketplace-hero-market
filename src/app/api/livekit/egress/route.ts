@@ -1,3 +1,4 @@
+import {stadiumNode,stadiumUser,physical} from '@/lib/stadium/server';
 import { NextRequest, NextResponse } from "next/server";
 import {
   EgressClient,
@@ -36,6 +37,17 @@ export async function POST(req: NextRequest) {
     const host = url.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
     const egressClient = new EgressClient(host, apiKey, apiSecret);
 
+    let roomName=String(body?.roomName || body?.room || '').trim();
+    const owner=async(name:string)=>{
+      const internal=name.toLowerCase().startsWith('stadium-event-');
+      const id=internal?name.slice('stadium-event-'.length):name.split(':').pop();
+      if(!id || (!internal && !name.includes(':'))) return name;
+      const venue=await stadiumNode(id.toLowerCase());
+      if(!venue) return internal?null:name;
+      if(venue.createdByUserId!==stadiumUser(req)) return null;
+      return physical(venue.id);
+    };
+    if(roomName){const allowed=await owner(roomName);if(!allowed)return NextResponse.json({error:'Host required'},{status:403});roomName=allowed;}
     if (action === "stop") {
       const egressId = (body?.egressId || "").trim();
       if (!egressId) {
@@ -44,6 +56,8 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      const [job]=await egressClient.listEgress({egressId});
+      if(!job || !(await owner(job.roomName))) return NextResponse.json({error:'Recording unavailable'},{status:403});
       const info = await egressClient.stopEgress(egressId);
       return NextResponse.json({
         ok: true,
@@ -53,11 +67,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "list") {
-      const roomName = (body?.roomName || "").trim() || undefined;
-      const list = await egressClient.listEgress({ roomName, active: true });
+      
+      const list = await egressClient.listEgress({ roomName:roomName||undefined, active: true });
       return NextResponse.json({
         ok: true,
-        egresses: list.map((e) => ({
+        egresses: list.filter(e=>roomName || !e.roomName.toLowerCase().startsWith("stadium-event-")).map((e) => ({
           egressId: e.egressId,
           roomName: e.roomName,
           status: e.status,
@@ -66,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "start") {
-      const roomName = (body?.roomName || body?.room || "").trim();
+      
       const layout = (body?.layout || "grid").toString().toLowerCase();
       const validLayouts = ["grid", "speaker", "single-speaker", "grid-light", "speaker-light", "single-speaker-light"];
       const egressLayout = validLayouts.includes(layout) ? layout : "grid";

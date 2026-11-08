@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AccessToken } from "livekit-server-sdk";
+import { stadiumAccess, stadiumNode, physical } from '@/lib/stadium/server';
+import { RoomServiceClient, AccessToken } from "livekit-server-sdk";
 
 /**
  * POST /api/livekit/token
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const roomName = (body?.roomName || body?.room || "").trim();
+    let roomName = (body?.roomName || body?.room || "").trim();
     const participantIdentity =
       (body?.participantIdentity || body?.identity || body?.address || "").trim() ||
       `participant-${Date.now()}`;
@@ -43,25 +44,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (/^stadium-event-/i.test(roomName)) return NextResponse.json({error:'Use the stadium entrance'},{status:403});
+    let stadiumRole: 'host'|'audience'|null=null;
+    let identity=participantIdentity;
+    const id=roomName.includes(':')?roomName.split(':').pop():null;
+    const node=id ? await stadiumNode(id.toLowerCase()) : undefined;
+    if(node){
+      if(node.roomId?.toLowerCase()!==roomName.toLowerCase()) return NextResponse.json({error:'Invalid room'},{status:403});
+      const access=await stadiumAccess(req,node);
+      if(access.status!==200) return NextResponse.json({error:'A valid stadium invitation and sign-in are required'},{status:access.status});
+      stadiumRole=access.host?'host':'audience';
+      identity=access.user===null?'guest-'+crypto.randomUUID():'account-'+access.user;
+      roomName=physical(node.id);
+      const service=new RoomServiceClient(url.replace(/^ws/,'http'),apiKey,apiSecret);
+      let [room]=await service.listRooms([roomName]);
+      if(!room && access.host) room=await service.createRoom({name:roomName,maxParticipants:node.capacity,emptyTimeout:120,departureTimeout:120});
+      if(!room) return NextResponse.json({error:'The host has not opened this event yet.'},{status:409});
+      if(room.maxParticipants!==node.capacity) return NextResponse.json({error:'Room capacity has changed. Reopen the event.'},{status:409});
+      // The media server enforces maxParticipants atomically at connection time.
+    }
     const at = new AccessToken(apiKey, apiSecret, {
-      identity: participantIdentity,
+      identity,
       name: participantName,
-      ttl: "6h",
-      ...(metadata ? { metadata } : {}),
+      ttl: stadiumRole ? "45s" : "6h",
+      ...(stadiumRole ? {metadata:JSON.stringify({role:stadiumRole})} : metadata ? { metadata } : {}),
     });
 
     at.addGrant({
       roomJoin: true,
       room: roomName,
-      canPublish: true,
-      canPublishData: true,
+      canPublish: stadiumRole !== "audience",
+      canPublishData: stadiumRole !== "audience",
       canSubscribe: true,
     });
 
     const token = await at.toJwt();
 
     return NextResponse.json({
-      token,
+      token, stadiumRole,
       serverUrl: url,
     });
   } catch (err) {

@@ -7,11 +7,9 @@
  */
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export default function HostEventPage() {
-  const router = useRouter();
   const [title, setTitle] = useState("");
   const [capacity, setCapacity] = useState(100);
   const [accessType, setAccessType] = useState<"public" | "private" | "invite_only">("public");
@@ -20,19 +18,27 @@ export default function HostEventPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ roomId: string; inviteUrl?: string } | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-
+  const [auth, setAuth] = useState<"checking" | "member" | "signin" | "error">("checking");
+  const [attempt, setAttempt] = useState(0);
+  const signIn = "/?returnTo=%2Ftroo-town%2Fhost-event";
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => {
-        setAuthChecked(true);
-        if (!r.ok) router.replace("/troo-town?host=login");
-      })
-      .catch(() => {
-        setAuthChecked(true);
-        router.replace("/troo-town?host=login");
-      });
-  }, [router]);
+    const controller = new AbortController();
+    setAuth("checking");
+    async function check() {
+      try {
+        const r = await fetch("/api/auth/me", { credentials: "include", cache: "no-store", signal: controller.signal });
+        const data = await r.json().catch(() => null);
+        if (controller.signal.aborted) return;
+        if (r.ok && typeof data?.userId === "number") setAuth("member");
+        else if (r.status === 401 || (r.status === 404 && data?.error === "User not found")) setAuth("signin");
+        else setAuth("error");
+      } catch {
+        if (!controller.signal.aborted) setAuth("error");
+      }
+    }
+    void check();
+    return () => controller.abort();
+  }, [attempt]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +77,7 @@ export default function HostEventPage() {
       const roomId = json.roomId ?? `default:${json.id}`;
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const directUrl = `${origin}/meet/${roomId}`;
-      let inviteUrl = directUrl;
+      let inviteUrl = accessType==='public' ? directUrl : '';
       try {
         const invRes = await fetch(`/api/troo-world/meeting-nodes/${json.id}/invites`, {
           method: "POST",
@@ -93,13 +99,25 @@ export default function HostEventPage() {
     }
   }
 
-  if (!authChecked) {
+  if (auth === "checking") {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-white">Checking authentication...</div>
       </div>
     );
   }
+
+  if (auth !== "member") return (
+    <main className="min-h-screen bg-slate-950 text-white p-8">
+      <h1 className="text-2xl font-bold">Host Stadium Event</h1>
+      {auth === "signin" ? <>
+        <p className="my-4">Sign in with your website member account to host an event.</p>
+        <Link className="text-cyan-300 underline" href={signIn}>Sign in and return to the stadium</Link>
+      </> : <p role="alert" className="my-4">We could not check your session. Try again.</p>}
+      <button className="block my-4 text-cyan-300" onClick={() => setAttempt(a => a + 1)}>Check session again</button>
+      <Link href="/troo-town">Back to Troo Town</Link>
+    </main>
+  );
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans p-6">
@@ -123,10 +141,12 @@ export default function HostEventPage() {
             <div className="flex gap-2">
               <input
                 readOnly
+                placeholder="Invitation unavailable — do not share the host link"
                 value={created.inviteUrl ?? `${typeof window !== "undefined" ? window.location.origin : ""}/meet/${created.roomId}`}
                 className="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-slate-200"
               />
               <button
+                disabled={!created.inviteUrl}
                 onClick={() => {
                   navigator.clipboard?.writeText(created.inviteUrl ?? `${window.location.origin}/meet/${created.roomId}`);
                   toast.success("Link copied");

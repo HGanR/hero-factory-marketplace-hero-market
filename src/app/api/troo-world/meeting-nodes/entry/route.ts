@@ -1,8 +1,9 @@
 /**
  * GET /api/troo-world/meeting-nodes/entry?roomId=...
  * Server-side validation for room entry. Returns redirect URL or error.
- * Validates: node exists, is active. Access rules (private/invite_only) deferred to Phase 3.
+ * Validates an active node and enforces stadium admission before redirect.
  */
+import { stadiumNode, stadiumAccess } from '@/lib/stadium/server';
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -34,6 +35,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "This meeting room is currently disabled" }, { status: 403 });
     }
 
+    const venue=await stadiumNode(nodeId);
+    if(venue){
+      const access=await stadiumAccess(request,venue);
+      if(access.status!==200 || venue.roomId!==roomId) return NextResponse.json({error:'Stadium admission denied'},{status:access.status===200?403:access.status});
+    }
     const base = request.nextUrl.origin;
     const redirectUrl = `${base}/meet?room=${encodeURIComponent(roomId)}${node.title ? `&name=${encodeURIComponent(node.title)}` : ""}`;
     return NextResponse.json({ ok: true, redirectUrl, title: node.title });
