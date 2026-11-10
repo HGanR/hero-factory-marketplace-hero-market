@@ -9,7 +9,8 @@
     "prepare:source": "node scripts/prepare-source.mjs",
     "build": "npm run prepare:source && next build --webpack",
     "start": "next start",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "build:approved-admin-schema": "npm run prepare:source && node scripts/apply-administrator-profile-schema.mjs --apply-owner-approved-schema && npm run build && npm test && NODE_PATH=./node_modules node --test ../../tests/mobile/mobile.test.cjs ../../tests/mobile/appearance.test.mjs ../../tests/mobile/theme-mode.test.mjs && node scripts/verify-member-database.mjs"
   },
   "dependencies": {
     "bcryptjs": "3.0.3",
