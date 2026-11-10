@@ -642,3 +642,5 @@ label.member-avatar { margin-inline:auto; }
 label.mini-btn { display:inline-flex; align-items:center; justify-content:center; letter-spacing:inherit; cursor:pointer; }
 .native-image-input { position:fixed; left:-100px; top:0; width:1px; height:1px; opacity:0; overflow:hidden; }
 #explorer > a.btn { display:block; text-decoration:none; text-align:center; margin-block:16px; }
+
+a.journey-btn, a#workspaceJourney { display:block; text-decoration:none; text-align:center; }

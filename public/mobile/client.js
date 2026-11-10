@@ -217,8 +217,9 @@ async function saveAppearance() {
 $('finishSetup').addEventListener('click', saveAppearance);
 $('saveProfile').addEventListener('click', saveAppearance);
 
-function openWorldExplorer() {
+function openWorldExplorer(event) {
   if (currentMember === null) { status('Your session is being checked. Please recheck your session and try again.'); return; }
+  event?.preventDefault();
   $('appearanceSetup').hidden = true; $('profileScreen').hidden = true; $('explorer').hidden = false;
   $('worldList').replaceChildren();
   if (currentAdministrator) $('worldMessage').textContent = 'Administrator session: open the full World Explorer below. Saved member worlds remain attached to their member accounts.';

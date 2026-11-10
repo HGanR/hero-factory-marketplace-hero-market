@@ -6,7 +6,7 @@ Member reproduction was attempted against the live mobile site. Secure sign-in w
 
 - Banner, circular avatar, Change Image and setup image actions use native labels bound to rendered file inputs, retaining keyboard access and account-bound selection. File selections are revalidated after a phone picker hides the page. No account image is cached in local storage.
 - Profile pictures are optional. Gold, Dawn and Neon remain selectable and can be saved without uploading an avatar.
-- Both Journey controls open the in-app World Explorer. A prominent link opens the complete website world gallery at https://troothhurtz.app/worlds. Website sign-in may be separate. Administrator mode can browse this surface; member-owned world data and edit APIs remain restricted to the owning member.
+- Both Journey controls are real World Explorer links with in-app navigation when the active session is ready and a website gallery fallback. A prominent link opens the complete website world gallery at https://troothhurtz.app/worlds. Website sign-in may be separate. Administrator mode can browse this surface; member-owned world data and edit APIs remain restricted to the owning member.
 - Administrator profile reads and saves use the username from the verified administrator session and the separate `mobile_administrator_profiles` table. Request bodies cannot specify another identity. Existing member tables, credentials, worlds and assets are preserved.
 
 ## Database prerequisite
