@@ -28,6 +28,10 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
       await connection.execute({sql:'SELECT member_id, terms_version, terms_sha256, accepted_at FROM mobile_terms_acceptances WHERE 1 = 0',timeout:10000});
       console.log('Member terms readiness: published document and receipt schema verified; no acceptance created.');
     }
+    if (process.env.SMART_TRUST_MOBILE_ADMIN_LOGIN === 'true') {
+      await connection.execute({sql:'SELECT administrator_username, banner_data, avatar_data, skin, updated_at FROM mobile_administrator_profiles WHERE 1 = 0',timeout:10000});
+      console.log('Administrator profile readiness: image and skin columns verified; zero administrator records read; no schema changes.');
+    }
     if (process.env.SMART_TRUST_MOBILE_VERIFY_PROFILE_DB === 'true') {
       await connection.execute({sql:'SELECT member_id, skin, updated_at FROM mobile_member_appearance WHERE 1 = 0',timeout:10000});
       await connection.execute({sql:'SELECT member_id, banner_data, avatar_data, updated_at FROM mobile_member_profiles WHERE 1 = 0',timeout:10000});
@@ -51,6 +55,7 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
     clearTimeout(watchdog);
   }
 }
+
 
 
 

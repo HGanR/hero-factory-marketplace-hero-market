@@ -20,3 +20,7 @@ The live project has no `SMART_TRUST_MOBILE_TERMS_REQUIRED` variable in the insp
 ## Verification
 
 73 local tests passed, including real-shell Journey/photo controls, member/admin profile isolation, forged identity rejection, terms access restrictions, optional-image skin saving, phone picker account revalidation, world save/reload and existing registration/PayPal attribution. Build and preview results are recorded in PR12. Real phone picker persistence and signed-in account testing remain unverified.
+
+## Approved release prerequisite completed
+
+The owner approved the live update and administrator table on 2026-11-10. One-time deployment dpl_6sGiTvrEGhqdQYZB4rwvrUTPZoRb executed the exact approved SQL (SHA256 cb6593b2594697d264399bf6631e2a036c79a3315450c52faa61b0d25daddda5), verified the required columns and username primary key, and returned zero administrator/member rows. No profile data was inserted or changed. The temporary build command was removed after this confirmation. Subsequent builds only check the administrator columns. The explicit maintenance script requires --apply-owner-approved-schema and is not part of normal build/request execution. Earlier “not executed” text describes the pre-approval audit state.
