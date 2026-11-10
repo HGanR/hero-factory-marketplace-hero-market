@@ -629,3 +629,8 @@ button.member-avatar { padding:0; cursor:pointer; font-family:inherit; }
 .member-banner:focus-visible, .member-avatar:focus-visible { outline:3px solid var(--accent2); outline-offset:4px; }
 #workspaceJourney { width:100%; color:var(--ink); font:inherit; cursor:pointer; }
 #workspaceJourney:focus-visible { outline:3px solid var(--accent2); outline-offset:3px; }
+
+
+.registration-panel { padding:18px; margin-block:18px; }
+.registration-panel .btn { display:block; width:100%; box-sizing:border-box; text-align:center; text-decoration:none; margin-block:12px; }
+.registration-panel .field { margin-block:14px; }

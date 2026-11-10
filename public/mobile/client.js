@@ -368,3 +368,28 @@ $('addPlacement').addEventListener('click',()=>{
 $('copyWorldAddress').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('worldAddress').value);worldMessage('World address copied. Private worlds still require access.');}catch{$('worldAddress').focus();$('worldAddress').select();worldMessage('Select and copy the world address above.');}});
 window.addEventListener('beforeunload',event=>{if(worldDirty||worldWriting){event.preventDefault();event.returnValue='';}});
 
+
+
+
+$('showMobileRegistration').addEventListener('click',()=>{
+  if(busy)return;$('mobileRegistrationForm').hidden=false;$('loginForm').hidden=true;$('registrationHeading').focus();
+});
+$('cancelMobileRegistration').addEventListener('click',()=>{if(busy)return;$('mobileRegistrationForm').hidden=true;$('loginForm').hidden=false;});
+$('mobileRegistrationForm').addEventListener('submit',async event=>{
+  event.preventDefault();if(busy)return;busy=true;$('registerAccount').disabled=true;
+  $('registrationMessage').textContent='Saving your registration…';
+  try{
+    const result=await request('POST',{email:$('registrationEmail').value.trim(),username:$('registrationUsername').value.trim()},'/api/mobile/register');
+    if(result.success!==true||result.pending!==true)throw new Error('Registration could not be confirmed. Please retry.');
+    $('registrationMessage').textContent=result.message;
+    $('identifier').value=$('registrationUsername').value.trim();
+  }catch(error){$('registrationMessage').textContent=error.message;}
+  finally{busy=false;$('registerAccount').disabled=false;}
+});
+let paypalVisitIds;
+$('mobilePayPal').addEventListener('click',()=>{
+  // In-memory anonymous attribution only. No credential, account, image or balance is transmitted.
+  if(!paypalVisitIds){const id=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():'mobile_'+Date.now();paypalVisitIds={sessionId:id(),visitorId:id()};}
+  void fetch('/api/mobile/events',{method:'POST',credentials:'same-origin',keepalive:true,
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'troo_paypal_open',...paypalVisitIds})}).catch(()=>{});
+});
