@@ -634,3 +634,11 @@ button.member-avatar { padding:0; cursor:pointer; font-family:inherit; }
 .registration-panel { padding:18px; margin-block:18px; }
 .registration-panel .btn { display:block; width:100%; box-sizing:border-box; text-align:center; text-decoration:none; margin-block:12px; }
 .registration-panel .field { margin-block:14px; }
+
+/* Native labels preserve the browser's file-picker activation on phones. */
+label.member-banner, label.member-avatar { cursor:pointer; font:inherit; color:inherit; letter-spacing:normal; margin-bottom:0; }
+label.member-banner { width:100%; }
+label.member-avatar { margin-inline:auto; }
+label.mini-btn { display:inline-flex; align-items:center; justify-content:center; letter-spacing:inherit; cursor:pointer; }
+.native-image-input { position:fixed; left:-100px; top:0; width:1px; height:1px; opacity:0; overflow:hidden; }
+#explorer > a.btn { display:block; text-decoration:none; text-align:center; margin-block:16px; }

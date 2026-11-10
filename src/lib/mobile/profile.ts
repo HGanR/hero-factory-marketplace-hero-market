@@ -58,3 +58,20 @@ export async function saveMemberSkin(db: ProfileConnection, memberId: number, in
     ON DUPLICATE KEY UPDATE skin = VALUES(skin), updated_at = UTC_TIMESTAMP(3)`, [skin,memberId]);
   if (!result.affectedRows) throw new Error('Appearance save could not be confirmed.');
 }
+
+// This authority is taken only from the verified administrator session, never request JSON.
+export function administratorProfileKey(username: unknown): string {
+  if (typeof username !== 'string' || !username.trim() || username.length > 100) throw new Error('Administrator identity unavailable.');
+  return username;
+}
+export async function readAdministratorProfile(db: ProfileConnection, username: string) {
+  const [rows] = await db.execute('SELECT banner_data AS bannerData, avatar_data AS avatarData, skin, updated_at AS updatedAt FROM mobile_administrator_profiles WHERE administrator_username = ? LIMIT 1', [administratorProfileKey(username)]);
+  const row = rows[0];
+  return {bannerData:row?.bannerData ?? null, avatarData:row?.avatarData ?? null, skin: ['gold','dawn','neon'].includes(row?.skin) ? row.skin : 'gold', updatedAt:row?.updatedAt ?? null, selectedAvatar:null, avatarAvailable:true};
+}
+export async function saveAdministratorProfile(db: ProfileConnection, username: string, field: ProfileField | 'skin', value: string | null) {
+  const column = field === 'bannerData' ? 'banner_data' : field === 'avatarData' ? 'avatar_data' : field === 'skin' ? 'skin' : null;
+  if (!column) throw new Error('Unsupported profile field.');
+  await db.execute(`INSERT INTO mobile_administrator_profiles (administrator_username, ${column}, updated_at) VALUES (?, ?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE ${column} = VALUES(${column}), updated_at = UTC_TIMESTAMP(3)`, [administratorProfileKey(username), value]);
+}
+

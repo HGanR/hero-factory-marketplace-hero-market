@@ -4,6 +4,7 @@ let busy = false;
 let pendingTerms = null;
 let memberWorlds = null;
 let currentMember = null;
+let currentAdministrator = false;
 let savedProfile = null;
 let activeWorld = null;
 let worldDirty = false;
@@ -11,7 +12,7 @@ let worldWriting = false;
 const imageSelections = new Map();
 function clearAccount() {
   $('account').hidden = true;
-  currentMember = null; memberWorlds = null; savedProfile = null;
+  currentMember = null; currentAdministrator = false; memberWorlds = null; savedProfile = null;
   activeWorld = null; worldDirty = false; $('worldEditor').hidden = true; $('placementList').replaceChildren(); $('worldAddress').value = ''; $('worldSaveMessage').textContent = '';
   $('appearanceSetup').hidden = true; $('finishSetup').disabled = true; $('editAppearance').hidden = true;
   $('setupUsername').textContent = ''; $('setupMessage').textContent = '';
@@ -68,11 +69,11 @@ async function refreshSession() {
     $('email').textContent = administrator ? 'Website administrator account' : 'Email: ' + user.email;
     $('memberId').textContent = administrator ? 'Account type: Administrator' : 'Account ID: ' + user.id;
     $('wallet').textContent = administrator ? 'Member wallet data is separate from this administrator session.' : user.walletAddress ? 'Saved wallet: ' + user.walletAddress : 'No wallet address saved.';
-    currentMember = administrator ? null : user.id;
+    currentMember = administrator ? 'administrator:'+user.username : user.id; currentAdministrator = administrator;
     $('setupUsername').textContent = 'Website username: ' + user.username;
     $('avatarPlaceholder').textContent = user.username.slice(0, 2).toUpperCase();
     $('account').hidden = false;
-    if (!administrator) { $('profileScreen').hidden = true; $('journeyBtn').hidden = false; await loadProfile(current); }
+    $('profileScreen').hidden = true; $('journeyBtn').hidden = false; await loadProfile(current);
     status(administrator ? 'Website administrator session confirmed.' : 'Website session confirmed.');
     if (!administrator && data.termsAcceptance && typeof data.termsAcceptance.acceptedAt === 'string') {
       $('termsReceipt').textContent = 'Terms '+data.termsAcceptance.version+' accepted (UTC): '+data.termsAcceptance.acceptedAt;
@@ -106,10 +107,10 @@ async function loadProfile(current) {
     showProfileImages(data.profile); memberWorlds = data.worlds;
     savedProfile = data.profile;
     applySkinChoice(data.profile.skin);
-    $('profileAppearance').hidden = false; $('saveProfile').hidden = false; $('saveProfile').disabled = !hasProfileImage(savedProfile);
+    $('profileAppearance').hidden = false; $('saveProfile').hidden = false; $('saveProfile').disabled = false;
     $('editAppearance').hidden = false;
     // An unavailable avatar service is not proof that no avatar is assigned.
-    showAppearance(!hasProfileImage(data.profile) && data.profile.avatarAvailable !== false);
+    showAppearance(false);
     $('profileImageControls').hidden = false;
     $('profileMessage').textContent = !data.profile.avatarAvailable ? 'Profile images loaded. Your website avatar service is unavailable.' : data.profile.selectedAvatar && !data.profile.selectedAvatar.thumbnailUrl && !data.profile.avatarData ? 'Your selected website avatar has no preview image. You can choose a profile image here.' : 'Images are saved to your member account.';
   } catch (error) {
@@ -124,7 +125,7 @@ async function saveProfileImage(field, image, current) {
   const data = await request('PATCH', {[field]: image}, '/api/mobile/profile');
   if (current !== generation) return;
   savedProfile = data.profile; showProfileImages(data.profile);
-  $('finishSetup').disabled = !hasProfileImage(savedProfile); $('saveProfile').disabled = !hasProfileImage(savedProfile);
+  $('finishSetup').disabled = false; $('saveProfile').disabled = false;
   $('setupMessage').textContent = 'Profile image saved. Choose your skin, then continue.';
   $('profileMessage').textContent = 'Profile image saved to your account.';
 }
@@ -132,7 +133,7 @@ async function chooseProfileImage(event, field) {
   const input = event.target, file = input.files?.[0];
   const selectedFor = imageSelections.get(input.id);
   imageSelections.delete(input.id); input.value = '';
-  if (!file || busy || !Number.isSafeInteger(selectedFor)) return;
+  if (!file || busy || selectedFor == null) return;
   // Native phone pickers may hide the page and clear its private profile.
   // Revalidate the session before attaching that selection to the same member.
   if (currentMember === null) await refreshSession();
@@ -158,7 +159,11 @@ async function chooseProfileImage(event, field) {
   finally { bitmap?.close(); busy = false; if (current !== generation && !document.hidden) refreshSession(); }
 }
 for (const [button,input] of [['chooseBanner','bannerFile'],['chooseBannerSurface','bannerFile'],['chooseAvatar','avatarFile'],['chooseAvatarSurface','avatarFile'],['chooseSetupAvatar','setupAvatarFile']]) {
-  $(button).addEventListener('click', () => { if (!busy && currentMember !== null) $(input).click(); });
+  $(button).addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    if (!busy && currentMember !== null) $(input).click();
+  });
 }
 $('bannerFile').addEventListener('change', e => chooseProfileImage(e,'bannerData'));
 $('avatarFile').addEventListener('change', e => chooseProfileImage(e,'avatarData'));
@@ -184,8 +189,8 @@ function hasProfileImage(profile) {
 }
 function showAppearance(open) {
   $('appearanceSetup').hidden = !open; $('profileScreen').hidden = open;
-  $('finishSetup').disabled = !hasProfileImage(savedProfile);
-  if (open) $('setupMessage').textContent = hasProfileImage(savedProfile) ? 'Your saved profile image will be kept.' : 'Choose a profile image to continue.';
+  $('finishSetup').disabled = false;
+  if (open) $('setupMessage').textContent = hasProfileImage(savedProfile) ? 'Your saved profile image will be kept.' : 'Choose a skin. Adding a profile image is optional.';
 }
 function applySkinChoice(value) {
   const skin = ['gold','dawn','neon'].includes(value) ? value : 'gold';
@@ -198,7 +203,7 @@ for (const [id,skin] of [['profileSkinDawn','dawn'],['profileSkinNeon','neon'],[
 }
 $('editAppearance').addEventListener('click', () => { if (!busy && currentMember !== null) showAppearance(true); });
 async function saveAppearance() {
-  if (busy || currentMember === null || !hasProfileImage(savedProfile)) return;
+  if (busy || currentMember === null) return;
   const current = generation; busy = true; $('finishSetup').disabled = true; $('saveProfile').disabled = true;
   try {
     const data = await request('PATCH', {skin:$('skinChoice').value}, '/api/mobile/profile');
@@ -207,16 +212,17 @@ async function saveAppearance() {
     $('appearanceMessage').textContent = 'Profile saved.'; $('profileMessage').textContent = 'Profile saved to your member account.';
     showAppearance(false); $('welcome').focus();
   } catch (error) { if (current === generation) $('appearanceMessage').textContent = $('setupMessage').textContent = error.message; }
-  finally { busy = false; if (current === generation) { $('finishSetup').disabled = !hasProfileImage(savedProfile); $('saveProfile').disabled = !hasProfileImage(savedProfile); } else if (!document.hidden) refreshSession(); }
+  finally { busy = false; if (current === generation) { $('finishSetup').disabled = false; $('saveProfile').disabled = false; } else if (!document.hidden) refreshSession(); }
 }
 $('finishSetup').addEventListener('click', saveAppearance);
 $('saveProfile').addEventListener('click', saveAppearance);
 
 function openWorldExplorer() {
-  if (currentMember === null) return;
-  $('profileScreen').hidden = true; $('explorer').hidden = false;
+  if (currentMember === null) { status('Your session is being checked. Please recheck your session and try again.'); return; }
+  $('appearanceSetup').hidden = true; $('profileScreen').hidden = true; $('explorer').hidden = false;
   $('worldList').replaceChildren();
-  if (!Array.isArray(memberWorlds)) $('worldMessage').textContent = 'Your worlds could not be loaded. Return to your profile and recheck your session to retry.';
+  if (currentAdministrator) $('worldMessage').textContent = 'Administrator session: open the full World Explorer below. Saved member worlds remain attached to their member accounts.';
+  else if (!Array.isArray(memberWorlds)) $('worldMessage').textContent = 'Your worlds could not be loaded. Return to your profile and recheck your session to retry.';
   else {
     $('worldMessage').textContent = memberWorlds.length ? 'Your saved worlds are listed below.' : 'No saved worlds were found for this account yet.';
     for (const world of memberWorlds) {
