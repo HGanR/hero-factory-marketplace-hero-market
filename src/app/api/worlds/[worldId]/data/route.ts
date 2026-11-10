@@ -34,12 +34,14 @@ export async function GET(
 
     try {
       const [versionRows] = (await db.execute(
-        sql`SELECT id, versionType, versionNumber FROM world_versions WHERE worldId = ${worldId} AND versionType = ${versionType} LIMIT 1`
+        sql`SELECT id, versionType, versionNumber FROM world_versions WHERE worldId = ${worldId} AND versionType = ${versionType} ORDER BY versionNumber DESC LIMIT 1`
       )) as any;
       version = Array.isArray(versionRows) ? versionRows[0] : versionRows?.rows?.[0] ?? versionRows;
     } catch {
-      // world_versions may not exist
+      throw new Error("Saved world version could not be loaded.");
     }
+
+    if (!version) throw new Error("Saved world version is unavailable.");
 
     if (version) {
       try {
@@ -52,7 +54,7 @@ export async function GET(
           placementsJson: c.placementsJson,
         }));
       } catch {
-        // world_chunk_placements may not exist
+        throw new Error("Saved placements could not be loaded.");
       }
     }
 
@@ -89,9 +91,10 @@ export async function GET(
         : null,
       chunks: placements,
       reservedZones,
-    });
+    }, { headers: { "Cache-Control": "private, no-store", Vary: "Cookie" } });
   } catch (e) {
     console.error("[api/worlds/[worldId]/data GET]", e);
     return NextResponse.json({ error: "Failed to load world data" }, { status: 500 });
   }
 }
+
