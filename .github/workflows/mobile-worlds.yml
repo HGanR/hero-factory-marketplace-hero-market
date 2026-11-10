@@ -1,0 +1,29 @@
+name: Mobile world saving
+on:
+  push:
+    branches: [feat/mobile-appearance-onboarding-20261030]
+  pull_request:
+    paths: ['src/lib/mobile/**', 'src/app/api/mobile/**', 'public/mobile/**', 'tests/mobile/worlds*.test.cjs', 'apps/mobile-preview/**']
+permissions:
+  contents: read
+jobs:
+  mobile-worlds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated test tools
+        run: npm install --prefix "$RUNNER_TEMP/mobile-world-tests" --no-package-lock --ignore-scripts --no-audit --no-fund typescript@5.9.3 jsdom@26
+      - name: Mobile save, session, conflict and browser controls
+        run: NODE_PATH="$RUNNER_TEMP/mobile-world-tests/node_modules" node --test tests/mobile/worlds*.test.cjs
+      - name: Install mobile build dependencies
+        working-directory: apps/mobile-preview
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Existing standalone mobile tests
+        working-directory: apps/mobile-preview
+        run: npm test
+      - name: Optimized mobile build and type check
+        working-directory: apps/mobile-preview
+        run: npm run build

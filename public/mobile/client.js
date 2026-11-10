@@ -5,10 +5,14 @@ let pendingTerms = null;
 let memberWorlds = null;
 let currentMember = null;
 let savedProfile = null;
+let activeWorld = null;
+let worldDirty = false;
+let worldWriting = false;
 const imageSelections = new Map();
 function clearAccount() {
   $('account').hidden = true;
   currentMember = null; memberWorlds = null; savedProfile = null;
+  activeWorld = null; worldDirty = false; $('worldEditor').hidden = true; $('placementList').replaceChildren(); $('worldAddress').value = ''; $('worldSaveMessage').textContent = '';
   $('appearanceSetup').hidden = true; $('finishSetup').disabled = true; $('editAppearance').hidden = true;
   $('setupUsername').textContent = ''; $('setupMessage').textContent = '';
   applySkinChoice('gold');
@@ -219,12 +223,15 @@ $('journeyBtn').addEventListener('click', () => {
       const card = document.createElement('div'); card.className = 'glass mc-row';
       const title = document.createElement('strong'); title.textContent = world.name;
       const detail = document.createElement('span'); detail.textContent = world.visibility+' · '+world.status;
-      card.append(title,detail); $('worldList').append(card);
+      const actions = document.createElement('div'); actions.className = 'world-toolbar';
+      const open = document.createElement('a'); open.className = 'mini-btn'; open.textContent = 'OPEN 3D WORLD'; open.href = 'https://troothhurtz.app/worlds/'+encodeURIComponent(world.id);
+      const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'mini-btn'; edit.textContent = 'EDIT & SAVE MY WORLD'; edit.addEventListener('click',()=>openMobileWorld(world.id));
+      actions.append(open,edit); card.append(title,detail,actions); $('worldList').append(card);
     }
   }
   $('explorerHeading').focus();
 });
-$('explorerBack').addEventListener('click', () => { $('explorer').hidden = true; $('profileScreen').hidden = false; $('journeyBtn').focus(); });
+$('explorerBack').addEventListener('click', () => { if (worldDirty && !confirm('Leave unsaved world changes?')) return; $('explorer').hidden = true; $('profileScreen').hidden = false; $('journeyBtn').focus(); });
 $('loginForm').addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
   busy = true; ++generation; imageSelections.clear(); clearAccount(); $('loginButton').disabled = true;
@@ -286,3 +293,75 @@ refreshSession();
 
 
 
+
+
+function worldMessage(text) { $('worldSaveMessage').textContent = text; }
+function setWorldBusy(value) {
+  worldWriting = value;
+  for (const id of ['saveWorld','publishWorld','saveWorldAccess','addPlacement','reloadWorld']) $(id).disabled = value;
+  for (const input of $('placementList').querySelectorAll('input,button')) input.disabled = value;
+}
+function showWorld(data) {
+  activeWorld = data; worldDirty = false;
+  $('worldEditor').hidden = false; $('worldEditorHeading').textContent = data.world.name;
+  $('worldAddress').value = data.world.shareUrl;
+  $('worldVisibility').value = data.world.visibility;
+  $('worldEditorNote').textContent = 'Positions are in world units; rotations are in radians. Save stores your private draft. Visitors see the last published version when visitor access allows it.';
+  $('ownedAsset').replaceChildren();
+  for (const asset of data.assets) {const option=document.createElement('option');option.value=asset.id;option.textContent=asset.name;$('ownedAsset').append(option);}
+  renderPlacements();
+}
+function renderPlacements() {
+  $('placementList').replaceChildren();
+  for (const placement of activeWorld.placements) {
+    const card = document.createElement('article'); card.className='placement-card';
+    const title=document.createElement('h3');title.textContent=activeWorld.assets.find(a=>a.id===placement.assetId)?.name || 'Saved asset';card.append(title);
+    for (const field of ['position','rotation','scale']) {
+      const group=document.createElement('div');group.className='placement-fields';
+      for (const [axis,index] of [['X',0],['Y',1],['Z',2]]) {
+        const label=document.createElement('label');label.textContent=field+' '+axis;
+        const input=document.createElement('input');input.type='number';input.step='any';input.value=placement[field]?.[index] ?? (field==='scale'?1:0);input.required=true;
+        input.addEventListener('input',()=>{placement[field] ??= field==='scale'?[1,1,1]:[0,0,0];placement[field][index]=input.value.trim()===''?null:Number(input.value);worldDirty=true;worldMessage('Unsaved world changes.');});
+        label.append(input);group.append(label);
+      }
+      card.append(group);
+    }
+    const remove=document.createElement('button');remove.className='mini-btn';remove.type='button';remove.textContent='REMOVE PLACEMENT';remove.addEventListener('click',()=>{activeWorld.placements=activeWorld.placements.filter(p=>p.id!==placement.id);worldDirty=true;renderPlacements();worldMessage('Unsaved world changes.');});card.append(remove);$('placementList').append(card);
+  }
+}
+async function openMobileWorld(id) {
+  if (worldWriting || (worldDirty && !confirm('Discard unsaved world changes and reload?'))) return;
+  const current=generation;const member=currentMember;
+  worldMessage('Loading your saved world…');$('worldEditor').hidden=false;setWorldBusy(true);
+  try {const data=await request('GET',undefined,'/api/mobile/worlds/'+encodeURIComponent(id));if(current!==generation || member!==currentMember)return;showWorld(data);worldMessage('Saved world loaded from your account.');$('worldEditorHeading').focus();}
+  catch(error){if(current===generation){worldMessage(error.message);$('worldMessage').textContent=error.message;}}
+  finally {if(current===generation)setWorldBusy(false);else worldWriting=false;}
+}
+async function writeMobileWorld(action) {
+  if (!activeWorld || worldWriting) return false;
+  const current=generation;const member=currentMember;const id=activeWorld.world.id;setWorldBusy(true);
+  try {
+    const body={action,revision:activeWorld.revision};
+    if(action==='save')body.placements=structuredClone(activeWorld.placements);
+    if(action==='visibility')body.visibility=$('worldVisibility').value;
+    const data=await request('POST',body,'/api/mobile/worlds/'+encodeURIComponent(id));
+    if(current!==generation || member!==currentMember)return false;
+    if(!data.saved)throw new Error('The save was not confirmed. Please retry.');
+    showWorld(data);
+    const row=memberWorlds?.find(w=>w.id===id);if(row)Object.assign(row,{status:data.world.status,visibility:data.world.visibility});
+    worldMessage(action==='publish'?'Saved world published. Visitor access follows your selected setting.':action==='visibility'?'Visitor access saved.':'My world saved to my account.');
+    return true;
+  } catch(error){if(current===generation)worldMessage(error.message);return false;}
+  finally {if(current===generation)setWorldBusy(false);else worldWriting=false;}
+}
+$('saveWorld').addEventListener('click',()=>writeMobileWorld('save'));
+$('publishWorld').addEventListener('click',async()=>{if(!activeWorld||worldWriting)return;if(worldDirty && !await writeMobileWorld('save'))return;await writeMobileWorld('publish');});
+$('saveWorldAccess').addEventListener('click',async()=>{if(worldDirty && !await writeMobileWorld('save'))return;await writeMobileWorld('visibility');});
+$('reloadWorld').addEventListener('click',()=>{if(activeWorld)openMobileWorld(activeWorld.world.id);});
+$('addPlacement').addEventListener('click',()=>{
+  if(!activeWorld || worldWriting || !$('ownedAsset').value)return;
+  activeWorld.placements.push({id:crypto.randomUUID(),assetId:$('ownedAsset').value,position:[0,0,0],rotation:[0,0,0],scale:[1,1,1],ownerLayer:'user'});
+  worldDirty=true;renderPlacements();worldMessage('New asset placement added at the origin. Set its position, then Save My World.');
+});
+$('copyWorldAddress').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('worldAddress').value);worldMessage('World address copied. Private worlds still require access.');}catch{$('worldAddress').focus();$('worldAddress').select();worldMessage('Select and copy the world address above.');}});
+window.addEventListener('beforeunload',event=>{if(worldDirty||worldWriting){event.preventDefault();event.returnValue='';}});

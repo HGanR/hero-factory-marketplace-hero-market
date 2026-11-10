@@ -605,3 +605,16 @@ body[data-skin="dawn"] .member-banner { background:linear-gradient(125deg,#b1c2a
 body[data-skin="dawn"] .member-avatar { border-color:#6f927d; }
 
 .device #signin h1, .device #appearanceSetup h1, .device #explorer h1 { font-family:'Orbitron',sans-serif; font-weight:800; letter-spacing:.08em; }
+
+
+/* Account-bound mobile world tools. */
+#worldList .mc-row { display:flex; flex-direction:column; align-items:stretch; padding:16px; gap:12px; }
+.world-toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-block:12px; }
+.world-toolbar > * { flex:1 1 10rem; text-align:center; }
+#worldEditor { border-top:1px solid var(--glass-border); margin-top:24px; padding-top:20px; }
+#worldEditor select, #worldAddress { width:100%; min-height:44px; padding:10px; margin-block:10px; border:1px solid var(--glass-border); border-radius:12px; background:var(--field); color:var(--ink); }
+.placement-card { padding:14px; margin-block:14px; border:1px solid var(--glass-border); border-radius:16px; }
+.placement-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-block:12px; }
+.placement-fields label { min-width:0; font-size:.8rem; }
+.placement-fields input { display:block; box-sizing:border-box; width:100%; min-height:44px; padding:8px; background:var(--field); color:var(--ink); border:1px solid var(--field-border); border-radius:8px; }
+#worldEditor label { color:var(--ink2); }
