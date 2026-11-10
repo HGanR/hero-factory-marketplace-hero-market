@@ -3,7 +3,7 @@ import type { MySql2Database } from "drizzle-orm/mysql2";
 import * as schema from "@/lib/db/schema";
 import { getExecutiveAdminUserId } from "@/lib/admin/get-executive-admin-user-id";
 import { getDb } from "@/lib/db";
-import { briefingDateUtc } from "@/lib/executive-agent/executive-briefing-builder";
+import { briefingDateUtc, buildExecutiveDailyBriefing } from "@/lib/executive-agent/executive-briefing-builder";
 import { redactExecutiveBriefingJsonValue } from "@/lib/executive-agent/executive-briefing-redact";
 import { getExecutiveBriefingForAdminDate } from "@/lib/executive-agent/executive-memory-store";
 
@@ -19,6 +19,13 @@ export async function GET(req: NextRequest) {
   try {
     const db = (await getDb()) as MySql2Database<typeof schema>;
     const row = await getExecutiveBriefingForAdminDate(db, adminUserId, briefingDate);
+    // Today's view reads current queues and source analytics; historical snapshots stay immutable.
+    if (briefingDate === briefingDateUtc()) {
+      const live = await buildExecutiveDailyBriefing(db, adminUserId, { briefingDate });
+      return NextResponse.json({briefingDate, briefing:redactExecutiveBriefingJsonValue(live),
+        row:row ? {id:row.id,createdAt:row.createdAt} : null, refreshedAt:new Date().toISOString()},
+        {headers:{"Cache-Control":"private, no-store",Vary:"Cookie"}});
+    }
     if (!row) {
       return NextResponse.json({ briefingDate, briefing: null, row: null });
     }
@@ -39,3 +46,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "BRIEFING_TODAY_FAILED", message: msg }, { status: 500 });
   }
 }
+

@@ -3,7 +3,7 @@ on:
   push:
     branches: [feat/member-registration-briefing-20261110]
   pull_request:
-    paths: ['src/app/api/marketplace/register/**', 'src/lib/marketplace/registration.ts', 'src/lib/analytics/**', 'src/lib/executive-agent/executive-briefing-builder.ts', 'tests/registration/**']
+    paths: ['src/app/api/marketplace/register/**', 'src/app/api/admin/executive-agent/briefing/**', 'src/lib/marketplace/registration.ts', 'src/lib/analytics/**', 'src/lib/executive-agent/executive-briefing-builder.ts', 'tests/registration/**']
 permissions:
   contents: read
 jobs:
