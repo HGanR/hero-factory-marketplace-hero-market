@@ -1,4 +1,6 @@
 import "server-only";
+import { rowsFromMysqlExecute } from "@/lib/db/mysql-execute-select-rows";
+import { registrationBriefingActivity } from "@/lib/analytics/registration-briefing";
 
 import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
 import type { MySql2Database } from "drizzle-orm/mysql2";
@@ -52,6 +54,7 @@ export type SiteAnalyticsDailyPoint = {
 };
 
 export type SiteAnalyticsRollup = {
+  registrationActivity?: ReturnType<typeof registrationBriefingActivity>;
   windowStart: string;
   windowEnd: string;
   landingPath: string;
@@ -114,7 +117,7 @@ export async function rollupSiteAnalyticsForExecutive(
         AND createdAt >= ${since}
         AND createdAt <= ${until}
     `)) as unknown as { c: number }[];
-    const landingVisitors = Number(visLandRows[0]?.c ?? 0);
+    const landingVisitors = Number(rowsFromMysqlExecute(visLandRows)[0]?.c ?? 0);
 
     const [joinRows] = await db
       .select({ n: count() })
@@ -159,7 +162,7 @@ export async function rollupSiteAnalyticsForExecutive(
       LIMIT 24
     `);
 
-    const rows = sourceAgg as unknown as { source: string; visitors: number; jc: number; pc: number }[];
+    const rows = rowsFromMysqlExecute(sourceAgg) as { source: string; visitors: number; jc: number; pc: number }[];
     const totalVisitors = rows.reduce((s, r) => s + Number(r.visitors ?? 0), 0) || 1;
 
     const trafficBySource = rows.map((r) => {
@@ -184,7 +187,7 @@ export async function rollupSiteAnalyticsForExecutive(
       ORDER BY visitors DESC
       LIMIT 12
     `);
-    const topPaths = (topPathsRows as unknown as { path: string; visitors: number }[]).map((r) => ({
+    const topPaths = (rowsFromMysqlExecute(topPathsRows) as { path: string; visitors: number }[]).map((r) => ({
       path: r.path,
       visitors: Number(r.visitors ?? 0),
     }));
@@ -203,7 +206,7 @@ export async function rollupSiteAnalyticsForExecutive(
       ORDER BY clicks DESC
       LIMIT 24
     `);
-    const landingCtas = (ctaRows as unknown as { eventName: string; label: string; targetHref: string | null; clicks: number }[]).map(
+    const landingCtas = (rowsFromMysqlExecute(ctaRows) as { eventName: string; label: string; targetHref: string | null; clicks: number }[]).map(
       (r) => ({
         eventName: r.eventName || "unknown",
         label: r.label || "Link",
@@ -226,7 +229,7 @@ export async function rollupSiteAnalyticsForExecutive(
       ORDER BY day ASC
       LIMIT 14
     `);
-    const dailyTrend = (dailyRows as unknown as { day: string; visitors: number; pageViews: number; conversions: number }[]).map(
+    const dailyTrend = (rowsFromMysqlExecute(dailyRows) as { day: string; visitors: number; pageViews: number; conversions: number }[]).map(
       (r) => ({
         date: String(r.day),
         visitors: Number(r.visitors ?? 0),
@@ -248,12 +251,24 @@ export async function rollupSiteAnalyticsForExecutive(
         GROUP BY sessionId
       ) AS session_counts
     `);
-    const singlePage = Number((bounceRows as unknown as { singlePage: number; total: number }[])[0]?.singlePage ?? 0);
-    const sessionTotal = Number((bounceRows as unknown as { singlePage: number; total: number }[])[0]?.total ?? 0);
+    const singlePage = Number(rowsFromMysqlExecute(bounceRows)[0]?.singlePage ?? 0);
+    const sessionTotal = Number(rowsFromMysqlExecute(bounceRows)[0]?.total ?? 0);
     const singlePageVisitRate =
       sessionTotal > 0 ? Math.min(1, Math.max(0, singlePage / sessionTotal)) : null;
 
+    // Source-specific counters must not depend on the top-24 CTA ranking.
+    const registrationRows = await db.execute(sql`
+      SELECT JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.eventName')) AS eventName, COUNT(*) AS clicks
+      FROM site_analytics_events
+      WHERE createdAt >= ${since} AND createdAt <= ${until}
+        AND ((eventType = 'conversion_intent' AND JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.eventName')) IN ('account.registration.mobile', 'account.registration.website'))
+          OR (eventType = 'outbound_paypal' AND JSON_UNQUOTE(JSON_EXTRACT(metadataJson, '$.eventName')) = 'mobile.troo_token.paypal.open'))
+      GROUP BY eventName
+    `);
+    const registrationActivity = registrationBriefingActivity(rowsFromMysqlExecute(registrationRows) as {eventName:string;clicks:number}[]);
+
     return {
+      registrationActivity,
       windowStart: since.toISOString(),
       windowEnd: until.toISOString(),
       landingPath,
@@ -271,3 +286,4 @@ export async function rollupSiteAnalyticsForExecutive(
     return null;
   }
 }
+
