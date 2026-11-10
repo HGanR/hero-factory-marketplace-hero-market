@@ -20,6 +20,10 @@ export const SiteEventBodySchema = z.object({
   utmMedium: z.string().max(120).optional().nullable(),
   utmCampaign: z.string().max(200).optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
+}).superRefine((body, ctx) => {
+  // Registration receipts are written only by the transactional account service.
+  const name=body.metadata?.eventName;
+  if (typeof name === 'string' && name.startsWith('account.registration.')) ctx.addIssue({code:'custom',path:['metadata','eventName'],message:'Registration events are server generated.'});
 });
 
 export type SiteEventBody = z.infer<typeof SiteEventBodySchema>;
@@ -66,3 +70,4 @@ export function buildSiteAnalyticsInsertPayload(body: SiteEventBody, id: string)
     metadataJson: body.metadata ? JSON.stringify(body.metadata).slice(0, 12_000) : null,
   };
 }
+

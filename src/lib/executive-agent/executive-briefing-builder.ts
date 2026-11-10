@@ -1,4 +1,5 @@
 import "server-only";
+import { registrationBriefingActivity } from "@/lib/analytics/registration-briefing";
 
 import type { MySql2Database } from "drizzle-orm/mysql2";
 import * as schema from "@/lib/db/schema";
@@ -93,6 +94,8 @@ export async function buildExecutiveDailyBriefing(
     approvedInactive: approved?.approvedInactive ?? null,
     activeUsers: active?.activeUsers ?? null,
     marketplaceUsers: platform?.marketplaceUsers ?? null,
+    siteTraffic: platform?.siteTraffic ?? null,
+    approvedUserActivity: platform?.approvedUserActivity ?? null,
     crmClients: platform?.crmClients ?? null,
     socialCampaigns: platform?.socialCampaigns ?? null,
     threadsLast7d: inboxObj?.threadsLast7d ?? null,
@@ -213,6 +216,13 @@ export async function buildExecutiveDailyBriefing(
   }));
 
   const agentSignals: ExecutiveBriefingBullet[] = [];
+  const registrations=platform?.siteTraffic?.registrationActivity ?? registrationBriefingActivity(platform?.siteTraffic?.landingCtas ?? []);
+  agentSignals.push({title:"New account registrations (7 days)",detail:platform?.siteTraffic
+    ? `${registrations.total} registrations recorded: ${registrations.mobile} mobile app, ${registrations.website} website. New accounts enter the pending approval queue; approved status is separate.`
+    : "Registration source analytics are unavailable. Pending-account totals remain a separate database count."});
+  agentSignals.push({title:"Mobile app TROO Token purchases",detail:platform?.siteTraffic
+    ? `${registrations.mobileTrooPayPalClicks} PayPal purchase-link clicks in 7 days. These are outbound payment triggers; payment settlement and token delivery are not verified by link analytics.`
+    : "Mobile PayPal trigger analytics are unavailable."});
   agentSignals.push({
     title: "Voice / chat turns (24h)",
     detail: rt(`${voiceTurns.length} orchestrator turn(s) logged in the last 24 hours.`),
@@ -289,3 +299,4 @@ export async function buildExecutiveDailyBriefing(
     },
   };
 }
+

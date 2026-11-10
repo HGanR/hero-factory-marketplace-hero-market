@@ -1,88 +1,26 @@
-// src/app/api/marketplace/register/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { marketplaceUsers } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-
-export async function POST(request: NextRequest) {
-  try {
-    const { email, username } = await request.json();
-
-    if (!email || !username) {
-      return NextResponse.json(
-        { error: "Email and username are required" },
-        { status: 400 }
-      );
-    }
-
-    const db = await getDb();
-
-    // Check if email exists
-    const existingEmail = await db
-      .select()
-      .from(marketplaceUsers)
-      .where(eq(marketplaceUsers.email, email))
-      .limit(1);
-
-    if (existingEmail.length > 0) {
-      return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 409 }
-      );
-    }
-
-    // Check if username exists
-    const existingUsername = await db
-      .select()
-      .from(marketplaceUsers)
-      .where(eq(marketplaceUsers.username, username))
-      .limit(1);
-
-    if (existingUsername.length > 0) {
-      return NextResponse.json(
-        { error: "Username already taken" },
-        { status: 409 }
-      );
-    }
-
-    // Create user
-    await db.insert(marketplaceUsers).values({
-      email,
-      username,
-      passwordHash: null,
-      isActive: false,
-      isApproved: false,
-      walletAddress: null,
-      hasTokenAccess: false,
-      lastLogin: null,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Registration successful! Wait for admin approval.",
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    
-    // Check if it's a database connection error
-    if (errorMessage.includes("DATABASE_URL") || errorMessage.includes("connect")) {
-      return NextResponse.json(
-        { 
-          error: "Database connection failed. Please check environment variables in Vercel Dashboard.",
-          details: errorMessage
-        },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json(
-      { 
-        error: "Registration failed",
-        details: errorMessage
-      },
-      { status: 500 }
-    );
-  }
+import { NextRequest, NextResponse } from 'next/server';
+import mysql from 'mysql2/promise';
+import { mysql2ConnectionOptionsFromUrl } from '@/lib/db/mysql2-connection-options';
+import { registerPendingAccount, registrationInput, RegistrationError } from '@/lib/marketplace/registration';
+export const dynamic='force-dynamic';
+const reply=(body:object,status=200)=>NextResponse.json(body,{status,headers:{'Cache-Control':'no-store'}});
+export function GET(){return reply({service:'marketplace-registration',version:2,sharedPendingAccounts:true,registrationAnalytics:true});}
+export async function POST(request:NextRequest){
+  if(!request.headers.get('content-type')?.startsWith('application/json'))return reply({error:'JSON required.'},415);
+  let raw='';let size=0;const reader=request.body?.getReader();
+  if(reader){const decoder=new TextDecoder();for(;;){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>8192){await reader.cancel();return reply({error:'Registration request is too large.'},413);}raw+=decoder.decode(value,{stream:true});}raw+=decoder.decode();}
+  let input;try{input=registrationInput(JSON.parse(raw));}catch(error){return reply({error:error instanceof RegistrationError?error.message:'Invalid registration request.'},400);}
+  let connection:mysql.Connection|undefined;
+  try{
+    if(!process.env.DATABASE_URL)throw Error('Storage unavailable');
+    const options=mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL);
+    connection=typeof options==='string'?await mysql.createConnection(options):await mysql.createConnection(options);
+    await connection.beginTransaction();
+    const result=await registerPendingAccount(connection,input);await connection.commit();return reply(result);
+  }catch(error){
+    if(connection)await connection.rollback().catch(()=>{});
+    if(error instanceof RegistrationError)return reply({error:error.message},error.status);
+    if((error as {code?:string})?.code==='ER_DUP_ENTRY')return reply({error:'Email or username already registered. Use your existing account.'},409);
+    return reply({error:'Registration could not be saved. Please retry when the account service is available.'},503);
+  }finally{if(connection)await connection.end().catch(()=>{});}
 }
-

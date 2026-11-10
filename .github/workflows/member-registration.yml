@@ -1,0 +1,20 @@
+name: Shared member registration analytics
+on:
+  push:
+    branches: [feat/member-registration-briefing-20261110]
+  pull_request:
+    paths: ['src/app/api/marketplace/register/**', 'src/app/api/admin/executive-agent/briefing/**', 'src/lib/marketplace/registration.ts', 'src/lib/analytics/**', 'src/lib/executive-agent/executive-briefing-builder.ts', 'tests/registration/**']
+permissions:
+  contents: read
+jobs:
+  registration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated test tools
+        run: npm install --prefix "$RUNNER_TEMP/registration-tests" --no-package-lock --ignore-scripts --no-audit --no-fund typescript@5.9.3 zod@4.1.13
+      - name: Pending accounts, source receipts, rollback and briefing analytics
+        run: NODE_PATH="$RUNNER_TEMP/registration-tests/node_modules" node --test tests/registration/*.test.cjs
