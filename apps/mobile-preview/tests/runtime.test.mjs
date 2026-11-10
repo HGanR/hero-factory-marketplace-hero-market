@@ -92,3 +92,14 @@ test('built member profile route is authenticated, origin checked, and gated wit
   assert.equal((await fetch(base+'/api/mobile/profile',{headers:{cookie:'auth-token='+token}})).status,503);
  });
 });
+
+
+test('built mobile world route remains member-authenticated, origin checked, and gated',async()=>{
+ await withServer({},async base=>assert.equal((await fetch(base+'/api/mobile/worlds/test-world')).status,404));
+ await withServer({SMART_TRUST_MOBILE_ENABLED:'true',JWT_SECRET:'world-test-only'},async base=>{
+  assert.equal((await fetch(base+'/api/mobile/worlds/test-world')).status,401);
+  assert.equal((await fetch(base+'/api/mobile/worlds/test-world',{method:'POST',headers:{origin:'https://unrelated.example','content-type':'application/json'},body:'{}'})).status,403);
+  const token=jwt.sign({userId:7},'world-test-only',{algorithm:'HS256',expiresIn:60});
+  assert.equal((await fetch(base+'/api/mobile/worlds/test-world',{headers:{cookie:'auth-token='+token}})).status,503);
+ });
+});

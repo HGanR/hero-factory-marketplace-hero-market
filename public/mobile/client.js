@@ -298,7 +298,7 @@ refreshSession();
 function worldMessage(text) { $('worldSaveMessage').textContent = text; }
 function setWorldBusy(value) {
   worldWriting = value;
-  for (const id of ['saveWorld','publishWorld','saveWorldAccess','addPlacement','reloadWorld']) $(id).disabled = value;
+  for (const id of ['saveWorld','publishWorld','saveWorldAccess','addPlacement','reloadWorld','worldVisibility','ownedAsset']) $(id).disabled = value;
   for (const input of $('placementList').querySelectorAll('input,button')) input.disabled = value;
 }
 function showWorld(data) {
@@ -356,7 +356,7 @@ async function writeMobileWorld(action) {
 }
 $('saveWorld').addEventListener('click',()=>writeMobileWorld('save'));
 $('publishWorld').addEventListener('click',async()=>{if(!activeWorld||worldWriting)return;if(worldDirty && !await writeMobileWorld('save'))return;await writeMobileWorld('publish');});
-$('saveWorldAccess').addEventListener('click',async()=>{if(worldDirty && !await writeMobileWorld('save'))return;await writeMobileWorld('visibility');});
+$('saveWorldAccess').addEventListener('click',async()=>{if(!activeWorld||worldWriting)return;const visibility=$('worldVisibility').value;if(worldDirty && !await writeMobileWorld('save'))return;$('worldVisibility').value=visibility;await writeMobileWorld('visibility');});
 $('reloadWorld').addEventListener('click',()=>{if(activeWorld)openMobileWorld(activeWorld.world.id);});
 $('addPlacement').addEventListener('click',()=>{
   if(!activeWorld || worldWriting || !$('ownedAsset').value)return;

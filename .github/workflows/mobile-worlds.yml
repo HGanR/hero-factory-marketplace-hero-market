@@ -21,9 +21,9 @@ jobs:
       - name: Install mobile build dependencies
         working-directory: apps/mobile-preview
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Existing standalone mobile tests
-        working-directory: apps/mobile-preview
-        run: npm test
       - name: Optimized mobile build and type check
         working-directory: apps/mobile-preview
         run: npm run build
+      - name: Existing standalone mobile tests
+        working-directory: apps/mobile-preview
+        run: npm test
