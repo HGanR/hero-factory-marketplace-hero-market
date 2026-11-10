@@ -618,3 +618,14 @@ body[data-skin="dawn"] .member-avatar { border-color:#6f927d; }
 .placement-fields label { min-width:0; font-size:.8rem; }
 .placement-fields input { display:block; box-sizing:border-box; width:100%; min-height:44px; padding:8px; background:var(--field); color:var(--ink); border:1px solid var(--field-border); border-radius:8px; }
 #worldEditor label { color:var(--ink2); }
+
+
+/* Make the member-owned photo surfaces direct, accessible picker controls. */
+button.member-banner { width:100%; border:0; padding:0; cursor:pointer; font:inherit; color:inherit; }
+button.member-avatar { padding:0; cursor:pointer; font-family:inherit; }
+.member-banner img, .member-avatar img, .profile-photo-action, .avatar-photo-action { pointer-events:none; }
+.profile-photo-action { position:absolute; right:12px; top:12px; padding:8px 10px; border-radius:999px; background:#080b10e6; color:#fff1c2; font:700 .65rem 'Orbitron',sans-serif; }
+.avatar-photo-action { position:absolute; left:0; right:0; bottom:0; padding:6px 0; background:#080b10e6; color:#fff1c2; font:700 .58rem 'Orbitron',sans-serif; }
+.member-banner:focus-visible, .member-avatar:focus-visible { outline:3px solid var(--accent2); outline-offset:4px; }
+#workspaceJourney { width:100%; color:var(--ink); font:inherit; cursor:pointer; }
+#workspaceJourney:focus-visible { outline:3px solid var(--accent2); outline-offset:3px; }

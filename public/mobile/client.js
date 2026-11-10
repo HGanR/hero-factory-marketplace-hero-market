@@ -157,7 +157,7 @@ async function chooseProfileImage(event, field) {
   } catch (error) { if (current === generation) $('setupMessage').textContent = $('profileMessage').textContent = error.message || 'This image could not be saved. Try a smaller image.'; }
   finally { bitmap?.close(); busy = false; if (current !== generation && !document.hidden) refreshSession(); }
 }
-for (const [button,input] of [['chooseBanner','bannerFile'],['chooseAvatar','avatarFile'],['chooseSetupAvatar','setupAvatarFile']]) {
+for (const [button,input] of [['chooseBanner','bannerFile'],['chooseBannerSurface','bannerFile'],['chooseAvatar','avatarFile'],['chooseAvatarSurface','avatarFile'],['chooseSetupAvatar','setupAvatarFile']]) {
   $(button).addEventListener('click', () => { if (!busy && currentMember !== null) $(input).click(); });
 }
 $('bannerFile').addEventListener('change', e => chooseProfileImage(e,'bannerData'));
@@ -212,7 +212,7 @@ async function saveAppearance() {
 $('finishSetup').addEventListener('click', saveAppearance);
 $('saveProfile').addEventListener('click', saveAppearance);
 
-$('journeyBtn').addEventListener('click', () => {
+function openWorldExplorer() {
   if (currentMember === null) return;
   $('profileScreen').hidden = true; $('explorer').hidden = false;
   $('worldList').replaceChildren();
@@ -230,7 +230,9 @@ $('journeyBtn').addEventListener('click', () => {
     }
   }
   $('explorerHeading').focus();
-});
+}
+$('journeyBtn').addEventListener('click', openWorldExplorer);
+$('workspaceJourney').addEventListener('click', openWorldExplorer);
 $('explorerBack').addEventListener('click', () => { if (worldDirty && !confirm('Leave unsaved world changes?')) return; $('explorer').hidden = true; $('profileScreen').hidden = false; $('journeyBtn').focus(); });
 $('loginForm').addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
@@ -365,3 +367,4 @@ $('addPlacement').addEventListener('click',()=>{
 });
 $('copyWorldAddress').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('worldAddress').value);worldMessage('World address copied. Private worlds still require access.');}catch{$('worldAddress').focus();$('worldAddress').select();worldMessage('Select and copy the world address above.');}});
 window.addEventListener('beforeunload',event=>{if(worldDirty||worldWriting){event.preventDefault();event.returnValue='';}});
+
