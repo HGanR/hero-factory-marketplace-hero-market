@@ -15,6 +15,7 @@ import { getAuthedUserId } from "@/lib/api/auth";
 import { verifyToken } from "@/lib/auth";
 import { emitPlatformEvent } from "@/lib/workflow-engine/emit-platform-event";
 import crypto from "crypto";
+import { withWorldWrite } from "@/lib/world-write";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -88,115 +89,120 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const chunks = body.chunks ?? [];
-    if (!Array.isArray(chunks)) {
-      return NextResponse.json({ error: "chunks must be an array" }, { status: 400 });
+    const chunks = body.chunks;
+    if (!Array.isArray(chunks) || chunks.some((chunk) =>
+      !chunk || typeof chunk.chunkKey !== "string" || !chunk.chunkKey ||
+      chunk.chunkKey.length > 20 || !Array.isArray(chunk.placementsJson)
+    ) || new Set(chunks.map((chunk) => chunk.chunkKey)).size !== chunks.length) {
+      return NextResponse.json({ error: "Provide unique chunk keys and placement arrays." }, { status: 400 });
     }
 
-    let [draftVersion] = await db
-      .select()
-      .from(worldVersions)
-      .where(
-        and(eq(worldVersions.worldId, worldId), eq(worldVersions.versionType, "draft"))
-      )
-      .limit(1);
-
-    if (!draftVersion) {
-      const versionId = generateId();
-      const [latestPublished] = await db
+    const response = await withWorldWrite(worldId, async (db) => {
+      let [draftVersion] = await db
         .select()
         .from(worldVersions)
         .where(
-          and(eq(worldVersions.worldId, worldId), eq(worldVersions.versionType, "published"))
+          and(eq(worldVersions.worldId, worldId), eq(worldVersions.versionType, "draft"))
         )
         .limit(1);
-      const nextVersion = (latestPublished?.versionNumber ?? 0) + 1;
 
-      await db.insert(worldVersions).values({
-        id: versionId,
-        worldId,
-        versionType: "draft",
-        versionNumber: nextVersion,
-      });
-      [draftVersion] = await db
-        .select()
-        .from(worldVersions)
-        .where(eq(worldVersions.id, versionId))
-        .limit(1);
-    }
+      if (!draftVersion) {
+        const versionId = generateId();
+        const [latestPublished] = await db
+          .select()
+          .from(worldVersions)
+          .where(
+            and(eq(worldVersions.worldId, worldId), eq(worldVersions.versionType, "published"))
+          )
+          .limit(1);
+        const nextVersion = (latestPublished?.versionNumber ?? 0) + 1;
 
-    if (!draftVersion) {
-      return NextResponse.json({ error: "Failed to resolve draft version" }, { status: 500 });
-    }
+        await db.insert(worldVersions).values({
+          id: versionId,
+          worldId,
+          versionType: "draft",
+          versionNumber: nextVersion,
+        });
+        [draftVersion] = await db
+          .select()
+          .from(worldVersions)
+          .where(eq(worldVersions.id, versionId))
+          .limit(1);
+      }
 
-    // Validate ownership: user can only place assets they own
-    const assetIds = new Set<string>();
-    for (const chunk of chunks) {
-      const placementsJson = chunk.placementsJson ?? [];
-      if (!Array.isArray(placementsJson)) continue;
-      for (const p of placementsJson) {
-        if (p && typeof p === "object" && (p as { assetId?: string }).assetId) {
-          const aid = String((p as { assetId: string }).assetId).trim();
-          if (aid && aid !== "unknown") assetIds.add(aid);
+      if (!draftVersion) {
+        return NextResponse.json({ error: "Failed to resolve draft version" }, { status: 500 });
+      }
+
+      // Validate ownership: user can only place assets they own
+      const assetIds = new Set<string>();
+      for (const chunk of chunks) {
+        const placementsJson = chunk.placementsJson ?? [];
+        if (!Array.isArray(placementsJson)) continue;
+        for (const p of placementsJson) {
+          if (p && typeof p === "object" && (p as { assetId?: string }).assetId) {
+            const aid = String((p as { assetId: string }).assetId).trim();
+            if (aid && aid !== "unknown") assetIds.add(aid);
+          }
         }
       }
-    }
-    if (assetIds.size > 0) {
-      const owned = await db
-        .select({ assetId: userWorldAssets.assetId })
-        .from(userWorldAssets)
-        .where(
-          and(
-            eq(userWorldAssets.userId, auth.userId),
-            inArray(userWorldAssets.assetId, Array.from(assetIds))
-          )
-        );
-      const ownedSet = new Set(owned.map((r) => r.assetId));
-      const unowned = Array.from(assetIds).filter((id) => !ownedSet.has(id));
-      if (unowned.length > 0) {
-        return NextResponse.json(
-          { error: `You do not own these assets. Purchase them first: ${unowned.join(", ")}` },
-          { status: 403 }
-        );
+      if (assetIds.size > 0) {
+        const owned = await db
+          .select({ assetId: userWorldAssets.assetId })
+          .from(userWorldAssets)
+          .where(
+            and(
+              eq(userWorldAssets.userId, world.ownerId),
+              inArray(userWorldAssets.assetId, Array.from(assetIds))
+            )
+          );
+        const ownedSet = new Set(owned.map((r) => r.assetId));
+        const unowned = Array.from(assetIds).filter((id) => !ownedSet.has(id));
+        if (unowned.length > 0) {
+          return NextResponse.json(
+            { error: `You do not own these assets. Purchase them first: ${unowned.join(", ")}` },
+            { status: 403 }
+          );
+        }
       }
-    }
 
-    await db
-      .delete(worldChunkPlacements)
-      .where(eq(worldChunkPlacements.worldVersionId, draftVersion.id));
+      await db
+        .delete(worldChunkPlacements)
+        .where(eq(worldChunkPlacements.worldVersionId, draftVersion.id));
 
-    for (const chunk of chunks) {
-      const chunkKey = String(chunk.chunkKey ?? "").slice(0, 20);
-      if (!chunkKey) continue;
+      for (const chunk of chunks) {
+        const chunkKey = String(chunk.chunkKey ?? "").slice(0, 20);
+        if (!chunkKey) continue;
 
-      const placementsJson = chunk.placementsJson ?? [];
-      if (!Array.isArray(placementsJson) && typeof placementsJson !== "object") continue;
+        const placementsJson = chunk.placementsJson ?? [];
+        if (!Array.isArray(placementsJson) && typeof placementsJson !== "object") continue;
 
-      await db.insert(worldChunkPlacements).values({
-        id: generateId(),
-        worldVersionId: draftVersion.id,
-        chunkKey,
-        placementsJson: placementsJson as unknown[],
+        await db.insert(worldChunkPlacements).values({
+          id: generateId(),
+          worldVersionId: draftVersion.id,
+          chunkKey,
+          placementsJson: placementsJson as unknown[],
+        });
+      }
+
+      await db.update(worlds).set({ updatedAt: new Date() }).where(eq(worlds.id, worldId));
+
+
+      return NextResponse.json({
+        success: true,
+        versionId: draftVersion.id,
+        chunkCount: chunks.length,
       });
-    }
-
-    try {
-      await emitPlatformEvent(
-        "world_draft_saved",
-        { worldId, versionId: draftVersion.id, chunkCount: chunks.length },
-        auth.userId
-      );
-    } catch {
-      // Don't fail save if event emission fails
-    }
-
-    return NextResponse.json({
-      success: true,
-      versionId: draftVersion.id,
-      chunkCount: chunks.length,
     });
+    if (response.ok) {
+      const saved = await response.clone().json();
+      try { await emitPlatformEvent("world_draft_saved", { worldId, versionId: saved.versionId, chunkCount: saved.chunkCount }, auth.userId); }
+      catch { /* Storage has committed; event delivery must not undo the save. */ }
+    }
+    return response;
   } catch (e) {
     console.error("[api/worlds/[worldId]/draft PUT]", e);
     return NextResponse.json({ error: "Failed to save draft" }, { status: 500 });
   }
 }
+

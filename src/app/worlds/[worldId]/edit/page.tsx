@@ -229,6 +229,8 @@ export default function WorldEditorPage() {
     ownerId: number;
     terrainSeed: number;
     ownerWallet?: string;
+    visibility: string;
+    status: string;
   } | null>(null);
   const [linkingWallet, setLinkingWallet] = useState(false);
   const [data, setData] = useState<{
@@ -267,10 +269,9 @@ export default function WorldEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const writeInFlight = useRef(false);
   const [publishing, setPublishing] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [publishSuccess, setPublishSuccess] = useState(false);
-  const [publishedShareUrl, setPublishedShareUrl] = useState<string | null>(null);
   const lastSavedPlacements = useRef<Placement[]>([]);
 
   const ownedAssetIds = new Set(ownedAssets.map((a) => a.id));
@@ -340,14 +341,12 @@ export default function WorldEditorPage() {
         ownerId: w.ownerId,
         terrainSeed: w.terrainSeed ?? 42,
         ownerWallet: w.ownerWallet,
+        visibility: w.visibility,
+        status: w.status,
       });
 
       if (!dataRes.ok) {
-        setData({
-          world: { terrainSeed: w.terrainSeed ?? 42 },
-          chunks: [],
-          reservedZones: [],
-        });
+        throw new Error("Your saved world could not be loaded. Reopen the editor to retry; existing placements have been preserved.");
       } else {
         const dataJson = await dataRes.json();
         setData({
@@ -393,7 +392,7 @@ export default function WorldEditorPage() {
       } else setOwnedAssets([]);
     } catch (e) {
       console.error("[WorldEditor] Fetch error", e);
-      setError("Failed to load editor");
+      setError(e instanceof Error ? e.message : "Failed to load editor");
     } finally {
       setLoading(false);
     }
@@ -619,61 +618,71 @@ export default function WorldEditorPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, selectedCommerceId, selectedVenueNodeId, worldId, refreshCommerce, refreshVenueNodes]);
 
-  const handleSaveDraft = useCallback(async () => {
-    if (!worldId || saving) return;
-    setSaving(true);
-    setSaveSuccess(false);
-    try {
-      const chunks = placementsToChunks(placements);
-      const res = await fetch(`/api/worlds/${worldId}/draft`, {
-        method: "PUT",
-        headers: await authHeadersWithSign(),
-        credentials: "include",
-        body: JSON.stringify({ chunks }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to save draft");
-      }
-      lastSavedPlacements.current = [...placements];
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    } catch (e) {
-      console.error("[WorldEditor] Save error", e);
-      setError(String((e as Error).message));
-    } finally {
-      setSaving(false);
+  useEffect(() => {
+    function warnBeforeLeaving(event: BeforeUnloadEvent) {
+      if (hasUnsavedChanges || saving || publishing) { event.preventDefault(); event.returnValue = ""; }
     }
-  }, [worldId, placements, saving, authHeadersWithSign]);
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [hasUnsavedChanges, saving, publishing]);
+
+  // Capture exactly the snapshot acknowledged by the server. Edits made while saving remain dirty.
+  const saveSnapshot = useCallback(async () => {
+    const snapshot = structuredClone(placements);
+    const res = await fetch(`/api/worlds/${worldId}/draft`, {
+      method: "PUT", headers: await authHeadersWithSign(), credentials: "include",
+      body: JSON.stringify({ chunks: placementsToChunks(snapshot) }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok || !result.success) throw new Error(result.error ?? "World save was not confirmed. Please retry.");
+    lastSavedPlacements.current = snapshot;
+    setSaveMessage("My world saved to my account.");
+  }, [worldId, placements, authHeadersWithSign]);
+
+  const handleSaveDraft = useCallback(async () => {
+    if (!worldId || writeInFlight.current) return;
+    writeInFlight.current = true; setSaving(true);
+    try { await saveSnapshot(); }
+    catch (error) { setSaveMessage(error instanceof Error ? error.message : "Save failed. Please retry."); }
+    finally { writeInFlight.current = false; setSaving(false); }
+  }, [worldId, saveSnapshot]);
 
   const handlePublish = useCallback(async () => {
-    if (!worldId || publishing) return;
-    setPublishing(true);
-    setPublishSuccess(false);
-    setPublishedShareUrl(null);
+    if (!worldId || writeInFlight.current) return;
+    writeInFlight.current = true; setPublishing(true);
     try {
+      // Never publish a stale draft when the user has just placed or moved an asset.
+      await saveSnapshot();
       const res = await fetch(`/api/worlds/${worldId}/publish`, {
-        method: "POST",
-        credentials: "include",
-        headers: await authHeadersWithSign(),
+        method: "POST", credentials: "include", headers: await authHeadersWithSign(),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? "Failed to publish");
-      }
-      setPublishSuccess(true);
-      setPublishedShareUrl(data.shareUrl ?? (typeof window !== "undefined" ? `${window.location.origin}/worlds/${worldId}` : null));
-      setTimeout(() => {
-        setPublishSuccess(false);
-        setPublishedShareUrl(null);
-      }, 15000);
-    } catch (e) {
-      console.error("[WorldEditor] Publish error", e);
-      setError(String((e as Error).message));
-    } finally {
-      setPublishing(false);
-    }
-  }, [worldId, publishing, authHeadersWithSign]);
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) throw new Error(result.error ?? "Publication was not confirmed. Your saved world is preserved.");
+      setWorld((previous) => previous ? { ...previous, status: "published" } : previous);
+      setSaveMessage("World saved and published. Visitor access follows your visibility setting.");
+    } catch (error) { setSaveMessage(error instanceof Error ? error.message : "Publication failed. Please retry."); }
+    finally { writeInFlight.current = false; setPublishing(false); }
+  }, [worldId, saveSnapshot, authHeadersWithSign]);
+
+  const handleVisibilityChange = useCallback(async (visibility: string) => {
+    if (writeInFlight.current) return;
+    writeInFlight.current = true; setSaving(true);
+    try {
+      const res = await fetch(`/api/worlds/${worldId}`, { method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visibility }) });
+      if (!res.ok) throw new Error("Visitor access could not be saved. Please retry.");
+      setWorld((previous) => previous ? { ...previous, visibility } : previous);
+      setSaveMessage("Visitor access saved. Publish your world when it is ready for visitors.");
+    } catch (error) { setSaveMessage(error instanceof Error ? error.message : "Could not save visitor access."); }
+    finally { writeInFlight.current = false; setSaving(false); }
+  }, [worldId]);
+
+  const refreshOwnedAssets = useCallback(async () => {
+    const res = await fetch("/api/world-assets/me", { credentials: "include" });
+    if (!res.ok) { setSaveMessage("Asset library could not be refreshed. Your world edits are preserved."); return; }
+    const result = await res.json();
+    setOwnedAssets(result.assets ?? []);
+  }, []);
 
   if (loading) {
     return (
@@ -803,7 +812,7 @@ export default function WorldEditorPage() {
               selectedAssetId={selectedAssetId}
               onSelectAsset={setSelectedAssetId}
               loading={false}
-              onAssetPurchased={fetchAll}
+              onAssetPurchased={() => { refreshOwnedAssets().catch(() => setSaveMessage("Asset library unavailable. Your world edits are preserved.")); }}
               embedded
             />
           ) : editorNavTab === "commerce" ? (
@@ -944,6 +953,10 @@ export default function WorldEditorPage() {
         <DraftSaveBar
           worldId={worldId}
           worldName={world.name}
+          visibility={world.visibility}
+          status={world.status}
+          message={saveMessage}
+          onVisibilityChange={handleVisibilityChange}
           hasUnsavedChanges={hasUnsavedChanges}
           saving={saving}
           publishing={publishing}
@@ -952,71 +965,6 @@ export default function WorldEditorPage() {
         />
       </div>
 
-      {(saveSuccess || publishSuccess) && (
-        <div
-          style={{
-            position: "absolute",
-            top: 18,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(16,185,129,0.95)",
-            color: "#fff",
-            padding: "12px 24px",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            zIndex: 20,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 8,
-            maxWidth: "90vw",
-          }}
-        >
-          {saveSuccess ? "Draft saved!" : "Published!"}
-          {publishSuccess && publishedShareUrl && (
-            <div style={{ fontSize: 12, fontWeight: 400, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              <span style={{ opacity: 0.9 }}>Shareable link:</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="text"
-                  readOnly
-                  value={publishedShareUrl}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                  style={{
-                    padding: "6px 10px",
-                    background: "rgba(0,0,0,0.2)",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    borderRadius: 4,
-                    color: "#fff",
-                    fontSize: 12,
-                    width: 280,
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard?.writeText(publishedShareUrl);
-                    alert("Link copied to clipboard!");
-                  }}
-                  style={{
-                    padding: "6px 12px",
-                    background: "rgba(255,255,255,0.25)",
-                    border: "1px solid rgba(255,255,255,0.5)",
-                    borderRadius: 4,
-                    color: "#fff",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Copy link
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       <div
         style={{
@@ -1038,3 +986,4 @@ export default function WorldEditorPage() {
     </div>
   );
 }
+
