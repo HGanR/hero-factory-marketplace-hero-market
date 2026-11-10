@@ -18,6 +18,7 @@ function fixture(){
  const cache={};function load(file){if(cache[file])return cache[file];const module={exports:{}};const code=ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,esModuleInterop:true,target:ts.ScriptTarget.ES2022}}).outputText;vm.runInNewContext(code,{module,exports:module.exports,process:{env:{DATABASE_URL:'test'}},Response,Buffer,TextDecoder,console,require:id=>{
   if(id==='next/server')return {NextResponse:{json:(body,options={})=>new Response(JSON.stringify(body),options)}};
   if(id==='mysql2/promise')return {__esModule:true,default:{createConnection:async()=>db}};
+  if(id==='@/lib/db/mysql2-connection-options')return {mysql2ConnectionOptionsFromUrl:value=>value};
   if(id==='@/lib/db')return {getConnection:async()=>db};
   if(id==='@/app/api/mobile/session/route')return {GET:async()=>new Response(JSON.stringify(env.user?{user:{id:env.user}}:{error:'Sign in'}),{status:env.user?200:401})};
   if(id==='@/lib/mobile/session-policy')return {mobileSameOrigin:r=>r.headers.get('origin')==='https://mobile.example'};

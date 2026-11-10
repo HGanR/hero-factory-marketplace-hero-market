@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 import { GET as session } from '@/app/api/mobile/session/route';
 import { getConnection } from '@/lib/db';
+import { mysql2ConnectionOptionsFromUrl } from '@/lib/db/mysql2-connection-options';
 import { mobileSameOrigin } from '@/lib/mobile/session-policy';
 import { readWorld, writeWorld, WorldError } from '@/lib/mobile/worlds';
 export const dynamic = 'force-dynamic';
@@ -29,7 +30,8 @@ export async function POST(request: NextRequest, context: {params:Promise<{world
   let connection: mysql.Connection | undefined;
   try {
     if (!process.env.DATABASE_URL) throw Error('Storage unavailable');
-    connection=await mysql.createConnection(process.env.DATABASE_URL);
+    const options=mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL);
+    connection=typeof options === 'string' ? await mysql.createConnection(options) : await mysql.createConnection(options);
     await connection.beginTransaction();
     const result=await writeWorld(connection,access.id!, (await context.params).worldId,body);
     await connection.commit();
