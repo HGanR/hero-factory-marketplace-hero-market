@@ -29,7 +29,9 @@ export async function readMemberProfile(db: ProfileConnection, memberId: number)
     const [avatars] = await db.execute('SELECT displayName, thumbnailUrl FROM avatar_profiles WHERE userId = ? AND isDefault = 1 AND status = ? ORDER BY updatedAt DESC LIMIT 1', [memberId, 'ready']);
     if (avatars[0]) selectedAvatar = {name: avatars[0].displayName, thumbnailUrl: safeAvatarThumbnail(avatars[0].thumbnailUrl)};
   } catch { avatarAvailable = false; }
-  return {bannerData: row?.bannerData ?? null, avatarData: row?.avatarData ?? null, updatedAt: row?.updatedAt ?? null, selectedAvatar, avatarAvailable};
+  const [preferences] = await db.execute('SELECT skin FROM mobile_member_appearance WHERE member_id = ? LIMIT 1', [memberId]);
+  const skin = ['gold','dawn','neon'].includes(preferences[0]?.skin) ? preferences[0].skin : 'gold';
+  return {skin, bannerData: row?.bannerData ?? null, avatarData: row?.avatarData ?? null, updatedAt: row?.updatedAt ?? null, selectedAvatar, avatarAvailable};
 }
 export async function saveMemberImage(db: ProfileConnection, memberId: number, field: ProfileField, image: string | null) {
   // field is selected by the route from a fixed two-value allowlist, never interpolated from input.
@@ -43,3 +45,33 @@ export async function readMemberWorlds(db: ProfileConnection, memberId: number) 
   const [rows] = await db.execute('SELECT id, name, visibility, status FROM worlds WHERE ownerId = ? AND status <> ? ORDER BY updatedAt DESC LIMIT 100', [memberId, 'archived']);
   return rows.map((row: any) => ({id: row.id, name: row.name, visibility: row.visibility, status: row.status}));
 }
+
+
+export function profileSkin(input: unknown): string {
+  if (typeof input !== 'string' || !['gold','dawn','neon'].includes(input)) throw new Error('Choose Gold, Dawn or Neon.');
+  return input;
+}
+export async function saveMemberSkin(db: ProfileConnection, memberId: number, input: unknown) {
+  const skin = profileSkin(input);
+  const [result] = await db.execute(`INSERT INTO mobile_member_appearance (member_id, skin, updated_at)
+    SELECT id, ?, UTC_TIMESTAMP(3) FROM marketplace_users WHERE id = ? AND isActive = 1 AND isApproved = 1
+    ON DUPLICATE KEY UPDATE skin = VALUES(skin), updated_at = UTC_TIMESTAMP(3)`, [skin,memberId]);
+  if (!result.affectedRows) throw new Error('Appearance save could not be confirmed.');
+}
+
+// This authority is taken only from the verified administrator session, never request JSON.
+export function administratorProfileKey(username: unknown): string {
+  if (typeof username !== 'string' || !username.trim() || username.length > 100) throw new Error('Administrator identity unavailable.');
+  return username;
+}
+export async function readAdministratorProfile(db: ProfileConnection, username: string) {
+  const [rows] = await db.execute('SELECT banner_data AS bannerData, avatar_data AS avatarData, skin, updated_at AS updatedAt FROM mobile_administrator_profiles WHERE administrator_username = ? LIMIT 1', [administratorProfileKey(username)]);
+  const row = rows[0];
+  return {bannerData:row?.bannerData ?? null, avatarData:row?.avatarData ?? null, skin: ['gold','dawn','neon'].includes(row?.skin) ? row.skin : 'gold', updatedAt:row?.updatedAt ?? null, selectedAvatar:null, avatarAvailable:true};
+}
+export async function saveAdministratorProfile(db: ProfileConnection, username: string, field: ProfileField | 'skin', value: string | null) {
+  const column = field === 'bannerData' ? 'banner_data' : field === 'avatarData' ? 'avatar_data' : field === 'skin' ? 'skin' : null;
+  if (!column) throw new Error('Unsupported profile field.');
+  await db.execute(`INSERT INTO mobile_administrator_profiles (administrator_username, ${column}, updated_at) VALUES (?, ?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE ${column} = VALUES(${column}), updated_at = UTC_TIMESTAMP(3)`, [administratorProfileKey(username), value]);
+}
+

@@ -28,10 +28,20 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
       await connection.execute({sql:'SELECT member_id, terms_version, terms_sha256, accepted_at FROM mobile_terms_acceptances WHERE 1 = 0',timeout:10000});
       console.log('Member terms readiness: published document and receipt schema verified; no acceptance created.');
     }
+    if (process.env.SMART_TRUST_MOBILE_ADMIN_LOGIN === 'true') {
+      await connection.execute({sql:'SELECT administrator_username, banner_data, avatar_data, skin, updated_at FROM mobile_administrator_profiles WHERE 1 = 0',timeout:10000});
+      console.log('Administrator profile readiness: image and skin columns verified; zero administrator records read; no schema changes.');
+    }
     if (process.env.SMART_TRUST_MOBILE_VERIFY_PROFILE_DB === 'true') {
+      await connection.execute({sql:'SELECT member_id, skin, updated_at FROM mobile_member_appearance WHERE 1 = 0',timeout:10000});
       await connection.execute({sql:'SELECT member_id, banner_data, avatar_data, updated_at FROM mobile_member_profiles WHERE 1 = 0',timeout:10000});
       await connection.execute({sql:'SELECT userId, displayName, thumbnailUrl, isDefault, status, updatedAt FROM avatar_profiles WHERE 1 = 0',timeout:10000});
       await connection.execute({sql:'SELECT ownerId, id, name, visibility, status, updatedAt FROM worlds WHERE 1 = 0',timeout:10000});
+      await connection.execute({sql:'SELECT id, worldId, versionType, versionNumber, updatedAt FROM world_versions WHERE 1 = 0',timeout:10000});
+      await connection.execute({sql:'SELECT id, worldVersionId, chunkKey, placementsJson FROM world_chunk_placements WHERE 1 = 0',timeout:10000});
+      await connection.execute({sql:'SELECT userId, assetId, licenseScope, workspaceId, remainingPlacements FROM user_world_assets WHERE 1 = 0',timeout:10000});
+      await connection.execute({sql:'SELECT id, name, category FROM world_library_assets WHERE 1 = 0',timeout:10000});
+      console.log('Mobile world readiness: draft, placement, ownership and asset columns verified; zero world or member records returned.');
       console.log('Member profile readiness: image, default-avatar and world columns verified; no member records read or changed.');
     }
     console.log('Member database readiness: connection and login/profile columns verified; zero member rows returned; no writes performed.');
@@ -45,4 +55,7 @@ if (process.env.SMART_TRUST_MOBILE_VERIFY_ACCOUNT_DB !== 'true' && process.env.S
     clearTimeout(watchdog);
   }
 }
+
+
+
 
