@@ -49,7 +49,7 @@ test('isolated MySQL ownership and signed receipt integration',async()=>{
     const quote:any=await prepareOrder(1,'paid',account.address);
     const second:any=await prepareOrder(2,'second',account.address);
     const body={orderToken:quote.orderToken,signature:await account.signMessage({message:quote.message}),txRef:hash};
-    latest=132;
+    latest=132;timestamp=Math.floor(Date.now()/1000);
     await assert.rejects(()=>fulfillAsset(2,'paid',body),/does not match/);
     amount=1n;await assert.rejects(()=>fulfillAsset(1,'paid',body),/amount does not match/);amount=10n**18n;
     recipient=account.address;await assert.rejects(()=>fulfillAsset(1,'paid',body),/recipient/);recipient=TREASURY;

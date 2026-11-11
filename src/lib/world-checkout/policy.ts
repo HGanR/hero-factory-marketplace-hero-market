@@ -29,7 +29,7 @@ export function walletMessage(o: Order): string {
 }
 export function validateReceipt(o: Order, receipt: any, transaction: any, block: any, latest: bigint, transfers: {from:string;to:string;value:bigint}[]) {
   if (receipt.status !== 'success' || receipt.blockNumber == null) throw new CheckoutError('Payment has not succeeded.');
-  if (receipt.blockNumber <= BigInt(o.issuedBlock) || BigInt(block.timestamp)>BigInt(o.deadline)) throw new CheckoutError('Payment is outside this order window. Contact support with the transaction hash.');
+  if (receipt.blockNumber <= BigInt(o.issuedBlock) || BigInt(block.timestamp)<BigInt(o.iat) || BigInt(block.timestamp)>BigInt(o.deadline)) throw new CheckoutError('Payment is outside this order window. Contact support with the transaction hash.');
   if (latest-receipt.blockNumber+1n < BigInt(CONFIRMATIONS)) throw new CheckoutError('Payment is confirming. Retry verification; do not pay again.');
   if (address(transaction.from)!==o.wallet || address(transaction.to)!==TOKEN) throw new CheckoutError('Payment wallet or token does not match this order.');
   if (transfers.length!==1 || address(transfers[0].from)!==o.wallet || address(transfers[0].to)!==TREASURY || transfers[0].value!==BigInt(o.amount)) throw new CheckoutError('Payment recipient or TROO amount does not match this order.');
