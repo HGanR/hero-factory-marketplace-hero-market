@@ -18,6 +18,7 @@ import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type Green
 import AmbientTown from "@/components/green-terrain/AmbientTown";
 import ImportedTownModels from "@/components/green-terrain/ImportedTownModels";
 import { WorldObjectRenderer, type WorldObjectType } from "@/components/green-terrain/WorldObjects";
+import { useSavedTownLayout } from "./useSavedTownLayout";
 import WorldManagementUI from "@/components/green-terrain/WorldManagementUI";
 import BuildingInfoPanel from "@/components/green-terrain/BuildingInfoPanel";
 import TroothhertzInfoPanel from "@/components/green-terrain/TroothhertzInfoPanel";
@@ -1362,8 +1363,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [imports,setImports]=useState<GreenLayout['imports']>([]);
   const [newModelUrl,setNewModelUrl]=useState(''),[modelError,setModelError]=useState('');
   const [ambient,setAmbient]=useState<GreenLayout['ambient']>({enabled:false,sidewalks:false});
-  const [revision,setRevision]=useState(0),[layoutReady,setLayoutReady]=useState(false),[layoutError,setLayoutError]=useState('');
-  const [reload,setReload]=useState(0);
+  const [revision,setRevision]=useState(0);
 
   const [trees, setTrees] = useState<TreeData[]>(() => generateInitialTrees());
   const [selectedTreeId, setSelectedTreeId] = useState<number | null>(null);
@@ -1487,21 +1487,12 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     'stadium-elyseum':{...presentation['stadium-elyseum'],position:stadiumPos,scale:stadiumScale},
     'veritas-school':{...presentation['veritas-school'],position:veritasPos},
   },trees,objects:placedObjects.map(o=>({...o,scale:o.scale??1})),imports,ambient}),[presentation,nexusPos,meridianPos,troothhertzPos,stadiumPos,stadiumScale,veritasPos,trees,placedObjects,imports,ambient]);
-  useEffect(()=>{
-    const controller=new AbortController();setLayoutReady(false);setLayoutError('');
-    void(async()=>{try{
-      const response=await fetch('/api/troo-world/green-terrain-layout',{cache:'no-store',signal:controller.signal});
-      const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'Saved town could not be loaded');
-      if(controller.signal.aborted)return;
-      if(data.missing){if(readOnly)throw new Error('No Green Terrain layout has been saved for Troo Town yet.');setRevision(0);setLayoutReady(true);return;}
-      const next=validateLayout(data.layout);if(!Number.isSafeInteger(data.revision)||data.revision<0)throw new Error('Invalid saved town revision');
+  const applySavedLayout=useCallback(({layout:next,revision:savedRevision}:{layout:GreenLayout;revision:number})=>{
       setPresentation(next.buildings);setNexusPos(next.buildings['nexus-tower'].position);setMeridianPos(next.buildings['meridian-tower'].position);
       setTroothhertzPos(next.buildings['troothhertz-tower'].position);setStadiumPos(next.buildings['stadium-elyseum'].position);setStadiumScale(next.buildings['stadium-elyseum'].scale);setVeritasPos(next.buildings['veritas-school'].position);
-      setTrees(next.trees);setPlacedObjects(next.objects);setImports(next.imports);setAmbient(next.ambient);setRevision(data.revision);setLayoutReady(true);
-    }catch(error){if(!controller.signal.aborted)setLayoutError(error instanceof Error?error.message:'Town layout could not be loaded');}})();
-    return()=>controller.abort();
-  },[readOnly,reload]);
-  useEffect(()=>{if(!readOnly)return;const refresh=()=>{if(!document.hidden)setReload(v=>v+1)};window.addEventListener('focus',refresh);return()=>window.removeEventListener('focus',refresh)},[readOnly]);
+      setTrees(next.trees);setPlacedObjects(next.objects);setImports(next.imports);setAmbient(next.ambient);setRevision(savedRevision);
+  },[]);
+  const {ready:layoutReady,error:layoutError,retry:retryLayout}=useSavedTownLayout(readOnly,applySavedLayout);
   const saveSnapshot=async()=>{
     if(readOnly||!layoutReady)throw new Error('Load the current saved layout before editing.');
     const response=await fetch('/api/admin/troo-world/green-terrain-layout',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({layout:validateLayout(layout),expectedRevision:revision})});
@@ -1960,9 +1951,10 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const selectedTree = trees.find(t => t.id === selectedTreeId) ?? null;
   const selectedObject = placedObjects.find(o => o.id === selectedObjectId) ?? null;
 
-  if(!layoutReady||layoutError)return <main style={{padding:40,color:'white',background:'#102030',minHeight:'100vh'}}><h1>{readOnly?'Troo Town':'Green Terrain'}</h1><p role="status">{layoutError||'Loading the saved town…'}</p>{layoutError&&<button onClick={()=>setReload(v=>v+1)}>Retry loading</button>}</main>;
+  if(!layoutReady)return <main style={{padding:40,color:'white',background:'#102030',minHeight:'100vh'}}><h1>{readOnly?'Troo Town':'Green Terrain'}</h1><p role="status">{layoutError||'Loading the saved town…'}</p>{layoutError&&<button onClick={retryLayout}>Retry loading</button>}</main>;
   return (
     <div style={{ width: "100vw", height: "100vh", background: "#6ab8d4", position: "relative", overflow: "hidden" }}>
+      {layoutError&&<div role="status" style={{position:'absolute',top:12,left:12,right:12,zIndex:400,padding:12,background:'#102030',color:'white'}}>Could not refresh the saved town. The last loaded layout remains visible. <button type="button" onClick={retryLayout}>Retry refresh</button></div>}
       <Canvas
         shadows
         camera={{ position: [0, 28, 65], fov: 55, near: 0.1, far: 500 }}

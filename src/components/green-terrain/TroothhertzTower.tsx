@@ -20,6 +20,7 @@ import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { TextureLoader } from "three";
+import { loadTownTexture } from "./loadTownTexture";
 import FunctionalElevator, { ElevatorFloorConfig } from "./FunctionalElevator";
 
 const CDN_AVATAR      = "https://d2xsxph8kpxj0f.cloudfront.net/310519663036034904/KNw7A3XaWgEkMi9WkgGpSw/trooth-avatar_b03b1212.png";
@@ -1784,10 +1785,13 @@ export default function TroothhertzTower({
   useEffect(() => {
     const loader = new TextureLoader();
     loader.crossOrigin = "anonymous";
-    loader.load(CDN_DESK_PHOTO, (t) => setDeskPhotoTex(t));
-    loader.load(CDN_WALL_ART,   (t) => setWallArtTex(t));
-    loader.load(CDN_DOOR_LOGO,  (t) => setDoorLogoTex(t));
-    loader.load(LOBBY_WALL_IMAGE, (t) => setLobbyWallTex(t));
+    const cancel=[
+      loadTownTexture(loader,CDN_DESK_PHOTO,setDeskPhotoTex),
+      loadTownTexture(loader,CDN_WALL_ART,setWallArtTex),
+      loadTownTexture(loader,CDN_DOOR_LOGO,setDoorLogoTex),
+      loadTownTexture(loader,LOBBY_WALL_IMAGE,setLobbyWallTex),
+    ];
+    return()=>cancel.forEach(dispose=>dispose());
   }, []);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
