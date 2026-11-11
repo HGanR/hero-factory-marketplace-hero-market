@@ -8,6 +8,7 @@ process.env.BROWSERSLIST_IGNORE_OLD_DATA = "true";
 const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   transpilePackages: ["three"],
+  experimental: { optimizePackageImports: ["wagmi/connectors"] },
   // Required when multiple lockfiles exist (parent workspace); prevents wrong root inference
   turbopack: { root: __dirname },
   webpack: (config) => {
