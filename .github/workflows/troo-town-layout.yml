@@ -31,7 +31,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6
+      - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16
+      - name: Preserve the mounted town during focus refresh and dispose optional image loads
+        run: node --test tests/troo-town/refresh-lifecycle.test.cjs
+        env:
+          NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Contracts, shared-renderer boundaries and sidewalk safety
         run: node --test tests/troo-town/layout.test.cjs tests/troo-town/schema-gate.test.cjs
         env:
