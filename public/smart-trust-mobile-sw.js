@@ -1,3 +1,4 @@
+// Wallet checkout handoff release 2026-11-10.
 // Native profile controls and administrator profile release 2026-11-10.
 // Intentionally no fetch handler/cache: never store account pages or API responses.
 self.addEventListener('install', () => {});
