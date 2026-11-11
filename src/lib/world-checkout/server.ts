@@ -8,7 +8,7 @@ import { CheckoutError, address, amountUnits, CHAIN, TOKEN, TREASURY, paymentId,
 const abi = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']);
 const rpc = createPublicClient({cacheTime:0,chain:polygon,transport:http(process.env.POLYGON_RPC_URL || 'https://polygon-bor-rpc.publicnode.com',{timeout:12000,retryCount:1})});
 function secret() { const s=process.env.JWT_SECRET; if(!s || s.length<32) throw new CheckoutError('Checkout signing is not configured.'); return s; }
-async function connection() { if(!process.env.DATABASE_URL)throw new CheckoutError('Checkout database is unavailable.');return mysql.createConnection(mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL)); }
+async function connection() { if(!process.env.DATABASE_URL)throw new CheckoutError('Checkout database is unavailable.');const options=mysql2ConnectionOptionsFromUrl(process.env.DATABASE_URL);return typeof options === "string" ? mysql.createConnection(options) : mysql.createConnection(options); }
 export async function prepareOrder(userId:number, assetId:string, walletInput:unknown) {
   const wallet=address(walletInput); const db=await connection();
   try {
