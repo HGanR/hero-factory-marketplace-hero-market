@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import mysql from 'mysql2/promise';
+import jwt from 'jsonwebtoken';
 import {privateKeyToAccount} from 'viem/accounts';
 import {encodeEventTopics,encodeAbiParameters,parseAbi} from 'viem';
 import {TOKEN,TREASURY} from '../../src/lib/world-checkout/policy';
@@ -47,6 +48,7 @@ test('isolated MySQL ownership and signed receipt integration',async()=>{
     const free=await fulfillAsset(1,'free',{});assert.equal(free.success,true);
     assert.equal((await fulfillAsset(1,'free',{})).alreadyOwned,true);
     const quote:any=await prepareOrder(1,'paid',account.address);
+    assert.throws(()=>jwt.verify(quote.orderToken,process.env.JWT_SECRET!),/invalid signature/,'A checkout token must never authenticate as a member session.');
     const second:any=await prepareOrder(2,'second',account.address);
     const body={orderToken:quote.orderToken,signature:await account.signMessage({message:quote.message}),txRef:hash};
     latest=132;timestamp=Math.floor(Date.now()/1000);
