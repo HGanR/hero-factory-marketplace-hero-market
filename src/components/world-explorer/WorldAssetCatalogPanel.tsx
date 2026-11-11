@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { transferTrooToTreasury } from "@/lib/troo-payment";
+import { purchaseWithWallet, recoverPurchase } from "@/lib/world-checkout/client";
 
 interface CatalogAsset {
   id: string;
@@ -25,7 +25,8 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
   const [catalogCategory, setCatalogCategory] = useState<string>("all");
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
-  const { isConnected } = useAccount();
+  const { isConnected, address, connector } = useAccount();
+  const [paymentStatus,setPaymentStatus] = useState("");
 
   useEffect(() => {
     setCatalogLoading(true);
@@ -44,7 +45,7 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
     fetch("/api/world-assets/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { assets: [] }))
       .then((data) => {
-        const ids = new Set((data.assets ?? []).map((a: { id: string }) => a.id));
+        const ids = new Set<string>((data.assets ?? []).map((a: { id: string }) => a.id));
         setOwnedIds(ids);
       })
       .catch(() => setOwnedIds(new Set()))
@@ -56,20 +57,17 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
     setPurchaseError(null);
     setPurchasing(assetId);
     try {
-      let txRef: string | undefined;
       if (tokenPrice > 0) {
-        if (!isConnected) {
-          setPurchaseError("Connect your wallet to purchase with TROO.");
-          return;
-        }
-        const payment = await transferTrooToTreasury(tokenPrice);
-        txRef = payment.hash;
+        if (!isConnected || !address || !connector) throw new Error("Connect your wallet first.");
+        const result = await purchaseWithWallet(assetId,connector,address,setPaymentStatus);
+        if(result.success){setOwnedIds(prev=>new Set([...prev,assetId]));onAssetPurchased?.();setPaymentStatus("Payment verified. Asset added to your library.");}
+        return;
       }
       const res = await fetch(`/api/world-assets/${assetId}/purchase`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ txRef }),
+        body: JSON.stringify({}),
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.success) {
@@ -88,7 +86,7 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
   return (
     <div
       style={{
-        width: 320,
+        width: "min(340px, calc(100vw - 60px))",
         maxHeight: 360,
         fontFamily: "system-ui, sans-serif",
         display: "flex",
@@ -126,6 +124,7 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
           Connect wallet (top right) to buy with TROO.
         </div>
       )}
+      {paymentStatus && <p role="status" style={{color:"#a0d4ff",fontSize:12,overflowWrap:"anywhere"}}>{paymentStatus}</p>}
       {purchaseError && (
         <div style={{ color: "#f87171", fontSize: 11, marginBottom: 8 }}>{purchaseError}</div>
       )}
@@ -161,9 +160,9 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
               {ownedIds.has(a.id) ? (
                 <span style={{ color: "#10b981", fontSize: 11 }}>Owned</span>
               ) : (
-                <button
+                <div><button
                   onClick={() => handlePurchase(a.id, a.tokenPrice)}
-                  disabled={purchasing === a.id || (a.tokenPrice > 0 && !isConnected)}
+                  disabled={purchasing !== null || (a.tokenPrice > 0 && !isConnected)}
                   style={{
                     padding: "4px 12px",
                     background: "rgba(16,185,129,0.4)",
@@ -177,6 +176,12 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
                 >
                   {purchasing === a.id ? "..." : a.tokenPrice > 0 ? `Buy (${a.tokenPrice} TROO)` : "Get free"}
                 </button>
+                {a.tokenPrice > 0 && address && <button type="button" disabled={purchasing!==null} style={{display:"block",marginTop:6,color:"#a0d4ff",background:"transparent",border:0,textDecoration:"underline"}} onClick={async()=>{
+                  const hash=window.prompt("Recover a previous payment: paste its Polygon transaction hash. This will not send another payment.");if(!hash)return;
+                  setPurchasing(a.id);setPurchaseError(null);
+                  try{await recoverPurchase(a.id,address,hash.trim());setOwnedIds(prev=>new Set([...prev,a.id]));onAssetPurchased?.();setPaymentStatus("Payment verified. Asset added to your library.");}
+                  catch(e){setPurchaseError(e instanceof Error?e.message:"Verification unavailable.");}finally{setPurchasing(null);}
+                }}>Recover payment</button>}</div>
               )}
             </div>
           ))}
@@ -185,3 +190,4 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
     </div>
   );
 }
+

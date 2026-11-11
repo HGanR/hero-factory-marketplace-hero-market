@@ -1,0 +1,33 @@
+name: TROO checkout verification
+on:
+  push:
+    branches: ['feat/troo-verified-checkout-20261111']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-checkout-only
+          MYSQL_DATABASE: checkout_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pci-checkout-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+      - run: node --experimental-strip-types --test tests/checkout/policy.test.mjs
+      - run: node --import tsx --test tests/checkout/database.test.ts
+        env:
+          CHECKOUT_TEST_DATABASE: '1'
+          DATABASE_URL: mysql://root:ci-checkout-only@127.0.0.1:3306/checkout_test
+      - run: npx tsc -p tests/checkout/tsconfig.json

@@ -70,6 +70,11 @@ export async function POST(
     });
   }
 
+  // API keys cannot bypass wallet verification or grant paid assets.
+  if (Number(asset.tokenPrice) > 0) {
+    return NextResponse.json({ error: "Paid assets require the signed member wallet checkout in World Explorer." }, { status: 402 });
+  }
+
   if (asset.supplyLimit != null) {
     const countResult = await db
       .select()
@@ -91,7 +96,7 @@ export async function POST(
     licenseScope === "quantity_based" ? (asset.supplyLimit ?? 1) : null;
 
   const ownershipId = crypto.randomUUID();
-  const purchaseTx = body.txRef ?? `asset_${ownershipId}`;
+  const purchaseTx = `free_${ownershipId}`;
 
   await db.insert(userWorldAssets).values({
     id: ownershipId,
@@ -129,3 +134,4 @@ export async function POST(
     tokenPrice: asset.tokenPrice,
   });
 }
+
