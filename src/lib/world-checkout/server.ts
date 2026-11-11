@@ -22,6 +22,8 @@ export async function prepareOrder(userId:number, assetId:string, walletInput:un
     // Do not collect irreversible funds for scarce inventory without a reservation service.
     if(asset.supplyLimit!=null)throw new CheckoutError('Paid limited-supply assets are not available for checkout yet. No payment requested.');
     if(await rpc.getChainId()!==CHAIN)throw new CheckoutError('Polygon verification is unavailable.');
+    const decimals=await rpc.readContract({address:TOKEN as `0x${string}`,abi:parseAbi(['function decimals() view returns (uint8)']),functionName:'decimals'});
+    if(decimals!==18)throw new CheckoutError('TROO contract decimals do not match checkout configuration. No payment requested.');
     const issuedBlock=(await rpc.getBlockNumber()).toString();const now=Math.floor(Date.now()/1000);
     const order:Order={kind:'world-troo-v1',userId,assetId,wallet,amount,price:String(asset.tokenPrice),issuedBlock,deadline:now+1800,nonce:randomUUID(),iat:now};
     const orderToken=jwt.sign(order,secret(),{algorithm:'HS256',audience:'world-asset-checkout',issuer:'troothhurtz.app'});

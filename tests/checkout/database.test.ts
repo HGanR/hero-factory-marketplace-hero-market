@@ -27,6 +27,7 @@ test('isolated MySQL ownership and signed receipt integration',async()=>{
     const answer=(r:any)=>{
       let result:any;
       switch(r.method){
+        case 'eth_call': result='0x'+(18).toString(16).padStart(64,'0');break;
         case 'eth_chainId': result='0x89';break;
         case 'eth_blockNumber': result='0x'+latest.toString(16);break;
         case 'eth_getTransactionReceipt': result={transactionHash:hash,blockHash,blockNumber:'0x65',status:'0x1',from:account.address,to:TOKEN,transactionIndex:'0x0',cumulativeGasUsed:'0x10000',gasUsed:'0x10000',effectiveGasPrice:'0x1',logsBloom:'0x'+'0'.repeat(512),type:'0x2',logs:[{address:TOKEN,topics:encodeEventTopics({abi:parseAbi(['event Transfer(address indexed from,address indexed to,uint256 value)']),eventName:'Transfer',args:{from:account.address,to:recipient as `0x${string}`}}),data:encodeAbiParameters([{type:'uint256'}],[amount]),blockHash,blockNumber:'0x65',transactionHash:hash,transactionIndex:'0x0',logIndex:'0x0',removed:false}]};break;
