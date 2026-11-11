@@ -2,7 +2,8 @@
 // WalletConnect is initialized by its connector on demand; SSR remains enabled.
 import { createConfig, http } from "wagmi";
 import { polygon, mainnet, sepolia, polygonAmoy } from "wagmi/chains";
-import { injected, walletConnect } from "wagmi/connectors";
+import { injected } from "@wagmi/core";
+import { walletConnect } from "@troo/wallet-connect";
 
 export const projectId = (process.env.NEXT_PUBLIC_WALLETCONNECT_ID || "").trim();
 

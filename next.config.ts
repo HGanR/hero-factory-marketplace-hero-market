@@ -8,7 +8,6 @@ process.env.BROWSERSLIST_IGNORE_OLD_DATA = "true";
 const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   transpilePackages: ["three"],
-  experimental: { optimizePackageImports: ["wagmi/connectors"] },
   // Required when multiple lockfiles exist (parent workspace); prevents wrong root inference
   turbopack: { root: __dirname },
   webpack: (config) => {
@@ -16,6 +15,8 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       "bigint-buffer": path.resolve(__dirname, "src/shims/bigint-buffer.ts"),
+      // Resolve the selected connector directly; the public barrel imports unrelated optional SDKs.
+      "@troo/wallet-connect": path.resolve(__dirname, "node_modules/@wagmi/connectors/dist/esm/walletConnect.js"),
     };
     // WalletConnect/pino optionally requires pino-pretty; avoid resolution failure
     config.resolve.fallback = { ...config.resolve.fallback, "pino-pretty": false };
