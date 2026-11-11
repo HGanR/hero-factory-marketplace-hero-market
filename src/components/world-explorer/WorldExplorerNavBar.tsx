@@ -57,12 +57,13 @@ export function WorldExplorerNavBar({ onCreateWorld, creating }: WorldExplorerNa
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
+          flexWrap: "wrap",
           padding: "10px 20px",
           maxWidth: 1200,
           margin: "0 auto",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
           <Link
             href="/dashboard"
             style={{
@@ -149,3 +150,4 @@ export function WorldExplorerNavBar({ onCreateWorld, creating }: WorldExplorerNa
     </div>
   );
 }
+

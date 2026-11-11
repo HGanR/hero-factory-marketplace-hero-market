@@ -1,81 +1,33 @@
 "use client";
-
-import { useConnect, useAccount, useDisconnect, useSwitchChain } from "wagmi";
-import { polygon } from "wagmi/chains";
-
-/**
- * Compact wallet connect button for the World Editor nav bar.
- */
+import { useEffect, useRef, useState } from 'react';
+import { useConnect, useAccount, useDisconnect, useSwitchChain, useReadContract } from 'wagmi';
+import { formatUnits, parseAbi } from 'viem';
+import { polygon } from 'wagmi/chains';
+const token='0xa7927231898293377ce676cfc9bbd551cb845695';
+const button={padding:'10px 14px',background:'#102f42',border:'1px solid #26d9ff',borderRadius:8,color:'#e0faff',cursor:'pointer'};
 export function WalletConnectButton() {
-  const { connectAsync, connectors, isPending } = useConnect();
-  const { isConnected, address } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { switchChainAsync } = useSwitchChain();
-
-  const handleConnect = async () => {
-    try {
-      const connector = connectors.find((c) => c.id === "metaMask" && c.ready) || connectors.find((c) => c.ready);
-      if (!connector) {
-        alert("No wallet found. Please install MetaMask.");
-        return;
-      }
-      await connectAsync({ connector });
-      await switchChainAsync?.({ chainId: polygon.id });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Connection failed";
-      alert(msg.includes("rejected") ? "Connection rejected." : msg);
-    }
-  };
-
-  if (isConnected && address) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span
-          style={{
-            fontSize: 11,
-            color: "rgba(224,244,255,0.8)",
-            fontFamily: "monospace",
-          }}
-        >
-          {address.slice(0, 6)}...{address.slice(-4)}
-        </span>
-        <button
-          type="button"
-          onClick={() => disconnect()}
-          style={{
-            padding: "4px 10px",
-            fontSize: 11,
-            background: "rgba(239,68,68,0.2)",
-            border: "1px solid rgba(239,68,68,0.5)",
-            borderRadius: 6,
-            color: "#fca5a5",
-            cursor: "pointer",
-          }}
-        >
-          Disconnect
-        </button>
-      </div>
-    );
+  const {connectAsync,connectors,isPending}=useConnect();
+  const {isConnected,address,chainId}=useAccount();
+  const {disconnect}=useDisconnect();const {switchChainAsync}=useSwitchChain();
+  const [error,setError]=useState('');const dialog=useRef<HTMLDialogElement>(null);
+  const balance=useReadContract({address:token,abi:parseAbi(['function balanceOf(address) view returns (uint256)']),functionName:'balanceOf',args:address?[address]:undefined,chainId:137,query:{enabled:!!address,refetchInterval:20000}});
+  useEffect(()=>{if(new URLSearchParams(window.location.search).get('wallet')==='connect'&&!isConnected)dialog.current?.showModal();},[isConnected]);
+  async function connect(connector:(typeof connectors)[number]) {
+    setError('');if(connector.id==='walletConnect')dialog.current?.close();try {await connectAsync({connector,chainId:polygon.id});dialog.current?.close();}catch{setError('Wallet connection was not completed. Try again or choose another wallet.');}
   }
-
-  return (
-    <button
-      type="button"
-      onClick={handleConnect}
-      disabled={isPending}
-      style={{
-        padding: "6px 12px",
-        fontSize: 12,
-        fontWeight: 600,
-        background: "rgba(16,185,129,0.3)",
-        border: "1px solid #10b981",
-        borderRadius: 6,
-        color: "#6ee7b7",
-        cursor: isPending ? "wait" : "pointer",
-        opacity: isPending ? 0.7 : 1,
-      }}
-    >
-      {isPending ? "Connecting..." : "Connect Wallet"}
-    </button>
-  );
+  return <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+    {isConnected&&address?<>
+      <span style={{fontSize:12,color:'#d6f6ff'}}>{address.slice(0,6)}…{address.slice(-4)}<br/>{balance.isError?'TROO balance unavailable':balance.data!==undefined?formatUnits(balance.data,18)+' TROO':'Checking TROO…'}</span>
+      {chainId!==137&&<button style={button} onClick={()=>switchChainAsync({chainId:137}).catch(()=>setError('Please switch your wallet to Polygon.'))}>Switch to Polygon</button>}
+      <button style={button} onClick={()=>disconnect()}>Disconnect</button>
+    </>:<button style={button} onClick={()=>dialog.current?.showModal()}>Connect Wallet</button>}
+    {error&&<span role="alert" style={{color:'#ffb8b8',fontSize:12}}>{error}</span>}
+    <dialog ref={dialog} style={{background:'#071b29',color:'#e0faff',border:'1px solid #26d9ff',borderRadius:16,padding:24,width:'min(420px,90vw)'}}>
+      <h2>Connect your wallet</h2>{error&&<p role="alert" style={{color:"#ffb8b8"}}>{error}</p>}<p>Choose an installed wallet, or WalletConnect to open a wallet app on your phone.</p>
+      <p>Purchases use TROO on Polygon. Your member sign-in remains separate.</p>
+      <div style={{display:'grid',gap:12}}>{connectors.map(c=><button key={c.uid} style={button} disabled={isPending} onClick={()=>connect(c)}>{c.id==='walletConnect'?'WalletConnect · mobile wallets & QR':c.name}</button>)}</div>
+      <p style={{fontSize:12}}>MetaMask and Phantom can connect when their Polygon/EVM provider is available. Never enter a seed phrase here.</p>
+      <button style={button} onClick={()=>dialog.current?.close()}>Close</button>
+    </dialog>
+  </div>;
 }
