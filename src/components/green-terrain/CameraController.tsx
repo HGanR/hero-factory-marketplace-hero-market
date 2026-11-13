@@ -134,10 +134,11 @@ export default function CameraController({
       flightStart.current = null;
       if (state === "flying-in") {
         if (orbitRef.current) {
-          orbitRef.current.enabled = false;
-          orbitRef.current.minDistance = 1;
-          orbitRef.current.maxDistance = 20;
-          orbitRef.current.maxPolarAngle = Math.PI * 0.75;
+          const exteriorView = !buildingTarget && !!plainTarget;
+          orbitRef.current.enabled = exteriorView;
+          orbitRef.current.minDistance = exteriorView ? 5 : 1;
+          orbitRef.current.maxDistance = exteriorView ? 180 : 20;
+          orbitRef.current.maxPolarAngle = exteriorView ? Math.PI / 2 - 0.05 : Math.PI * 0.75;
           orbitRef.current.target.copy(f.toLookAt);
           orbitRef.current.update();
         }
@@ -158,3 +159,4 @@ export default function CameraController({
 
   return null;
 }
+
