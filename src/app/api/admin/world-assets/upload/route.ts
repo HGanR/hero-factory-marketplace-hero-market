@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { verifyToken } from "@/lib/auth";
-import { uploadFileToIPFS, getIPFSUrl } from "@/lib/marketplace/pinata";
 
 export const runtime = "nodejs";
 const IMAGE_TYPES: Record<string, string> = {
@@ -15,7 +14,7 @@ export async function POST(request: NextRequest) {
   let isAdmin = false;
   try { isAdmin = !!token && verifyToken(token)?.isAdmin === true; } catch { /* invalid token */ }
   if (!isAdmin) return NextResponse.json({ error: "Administrator authorization required" }, { status: 403 });
-  if (!process.env.PINATA_JWT && !(process.env.PINATA_API_KEY && process.env.PINATA_SECRET_KEY)) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json({ error: "Persistent asset storage is not configured" }, { status: 503 });
   }
   try {
@@ -38,8 +37,20 @@ export async function POST(request: NextRequest) {
     }
     const slug = String(form.get("slug") || "asset").replace(/[^a-z0-9_-]/gi, "_").slice(0, 80);
     const filename = `${slug}-${randomUUID()}${ext}`;
-    const { ipfsHash } = await uploadFileToIPFS(Buffer.from(await file.arrayBuffer()), filename, mime);
-    const url = getIPFSUrl(ipfsHash);
+    const blobResponse = await fetch(`https://blob.vercel-storage.com/world-assets/${filename}`, {
+      method: "PUT",
+      headers: {
+        authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+        "x-api-version": "7",
+        "x-content-type": mime,
+        "x-add-random-suffix": "0",
+      },
+      body: Buffer.from(await file.arrayBuffer()),
+    });
+    if (!blobResponse.ok) throw new Error(`Blob upload HTTP ${blobResponse.status}`);
+    const blobResult = await blobResponse.json() as { url?: string };
+    if (!blobResult.url?.startsWith("https://")) throw new Error("Blob upload did not return a URL");
+    const url = blobResult.url;
     return NextResponse.json(isModel ? { ok: true, modelUrl: url } : { ok: true, previewImageUrl: url });
   } catch (error) {
     console.error("[admin world-assets upload]", error);
