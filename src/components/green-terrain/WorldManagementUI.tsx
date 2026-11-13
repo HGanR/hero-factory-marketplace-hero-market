@@ -55,7 +55,7 @@ interface LibraryItem {
 }
 
 const OBJECT_LIBRARY: LibraryItem[] = [
-  {key:AIRPORT.key,label:AIRPORT.name,icon:'✈',category:'Buildings',description:'Runway, terminal and animated flight cycle. Save World Layout publishes your placement.',kind:'glb'},
+  {key:AIRPORT.key,label:AIRPORT.name,icon:'✈',category:'Buildings',description:'Airport with departures to member worlds. Enable Editor Mode to manage flight routes.',kind:'glb'},
   // ── Buildings ──
   {
     key: "nexus-corporate-tower",

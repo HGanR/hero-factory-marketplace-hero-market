@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type GreenLayout, type BuildingId, type BuildingState } from "@/lib/troo-world/green-terrain-layout";
 import AmbientTown from "@/components/green-terrain/AmbientTown";
 import {AIRPORT,isAirport,placeAirport,airportView,type ImportedPlacement} from '@/lib/troo-world/airport';
+import AirportRoutesEditor from '@/components/green-terrain/AirportRoutesEditor';
 import ImportedTownModels from "@/components/green-terrain/ImportedTownModels";
 import { WorldObjectRenderer, type WorldObjectType } from "@/components/green-terrain/WorldObjects";
 import { useSavedTownLayout } from "./useSavedTownLayout";
@@ -1030,7 +1031,7 @@ function Scene(props: SceneProps) {
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
       <AmbientTown layout={props.layout}/>
-      <ImportedTownModels placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
+      <ImportedTownModels editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {/* Plain labels — TROO CENTER and cardinal plains */}
       <PlainLabel position={[0, 0, 20]} name="TROO CENTER" />
       <PlainLabel position={[0, 0, -95]} name="TROO NORTH" />
@@ -1993,7 +1994,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           nexusElevatorFloor={nexusElevatorFloor}
           meridianElevatorFloor={meridianElevatorFloor}
           troothhertzElevatorFloor={troothhertzElevatorFloor}
-          isEditorMode={isEditorMode}
+          isEditorMode={!readOnly&&isEditorMode}
           onSelectTree={handleSelectTree}
           onMoveTree={handleMoveTree}
           onSelectObject={handleSelectObject}
@@ -2152,6 +2153,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         <label><input type="checkbox" checked={ambient.sidewalks} onChange={e=>{saveToHistory();setAmbient(v=>({...v,sidewalks:e.target.checked,enabled:e.target.checked&&v.enabled}))}}/> Sidewalks alongside streets</label><br/>
         <label><input type="checkbox" disabled={!ambient.sidewalks} checked={ambient.enabled} onChange={e=>{saveToHistory();setAmbient(v=>({...v,enabled:e.target.checked}))}}/> Ambient pedestrians and gathering groups</label>
         <details><summary>Building visibility, size and rotation</summary><p>Review the interior walk-through after changing an exterior size.</p>{Object.entries(presentation).map(([id,b])=><fieldset key={id}><legend>{id}</legend><label><input type="checkbox" checked={b.visible} onChange={e=>{saveToHistory();setPresentation(v=>({...v,[id]:{...v[id as BuildingId],visible:e.target.checked}}))}}/> Visible</label><label> Scale <input type="number" min="0.05" max="20" step="0.05" value={id==='stadium-elyseum'?stadiumScale:b.scale} onChange={e=>{const n=Number(e.target.value);if(!Number.isFinite(n)||n<.05||n>20)return;saveToHistory();if(id==='stadium-elyseum')setStadiumScale(n);else setPresentation(v=>({...v,[id]:{...v[id as BuildingId],scale:n}}))}}/></label><label> Rotation ° <input type="number" value={Math.round(b.rotationY*180/Math.PI)} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=3600){saveToHistory();setPresentation(v=>({...v,[id]:{...v[id as BuildingId],rotationY:n*Math.PI/180}}))}}}/></label></fieldset>)}</details>
+        {isEditorMode&&imports.filter(isAirport).map(airport=><details key={airport.elementKey} open><summary>Airport flight routes</summary><AirportRoutesEditor destinations={airport.destinations??[]} onChange={destinations=>{saveToHistory();setImports(rows=>rows.map(row=>row.elementKey===airport.elementKey?{...row,destinations}:row));}}/></details>)}
         <details><summary>Additional saved buildings</summary>
           <label>Existing model URL <input value={newModelUrl} onChange={e=>setNewModelUrl(e.target.value)} placeholder="/models/…/building.glb"/></label>
           <button type="button" onClick={()=>{try{const url=modelUrl(newModelUrl);saveToHistory();setImports(v=>[...v,{elementKey:'building-'+crypto.randomUUID().slice(0,8),glbUrl:url,position:[45,0,40],scale:1,rotationY:0}]);setNewModelUrl('');setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Invalid model URL')}}}>Add model to town</button>

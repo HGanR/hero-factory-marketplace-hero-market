@@ -5,11 +5,12 @@ export type BuildingId = typeof BUILDING_IDS[number];
 export type Vec3 = [number,number,number];
 export type ObjectKind = 'street'|'sidewalk'|'lake'|'pond'|'bench'|'lightpost'|'parkinglot';
 export type BuildingState = {position:Vec3;scale:number;rotationY:number;visible:boolean};
+export type AirportDestination = {id:string;name:string;url:string};
 export type GreenLayout = {
  version:1; buildings:Record<BuildingId,BuildingState>;
  trees:Array<{id:number;pos:Vec3;scale:number;phase:number}>;
  objects:Array<{id:string;type:ObjectKind;position:Vec3;rotation:Vec3;scale:number}>;
- imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number}>;
+ imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[]}>;
  ambient:{enabled:boolean;sidewalks:boolean};
 };
 export class LayoutError extends Error {}
@@ -21,6 +22,18 @@ const vec=(v:unknown):Vec3=>{if(!Array.isArray(v)||v.length!==3)throw new Layout
 const list=(v:unknown,max:number):unknown[]=>{if(!Array.isArray(v)||v.length>max)throw new LayoutError('Layout exceeds object limit');return v};
 const kinds=['street','sidewalk','lake','pond','bench','lightpost','parkinglot'];
 export function modelUrl(value:unknown){const url=str(value,1500);if(url==='procedural:apex'||url==='procedural:harborview')return url;if(/^\/(?!\/)[^\s\\]*$/.test(url))return url;try{const u=new URL(url);if(u.protocol==='https:'&&!u.username&&!u.password&&(/(^|\.)(ipfs.io|mypinata.cloud|pinata.cloud)$/.test(u.hostname)))return url}catch{}throw new LayoutError('Only same-site model URLs or supported IPFS gateways are allowed')}
+/** Curated hyperlinks only; destination URLs are never fetched by the server. */
+export function destinationUrl(value:unknown){
+ const url=str(value,1500).trim();
+ if(/^\/(?!\/)[^\s\\]*$/.test(url))return url;
+ try{const u=new URL(url);if(u.protocol==='https:'&&!u.username&&!u.password)return url;}catch{}
+ throw new LayoutError('Use an HTTPS world URL or a same-site path.');
+}
+export function validateDestinations(value:unknown):AirportDestination[]{
+ const rows=list(value,24).map(value=>{const r=object(value);return{id:str(r.id,80),name:str(r.name,80).trim(),url:destinationUrl(r.url)};});
+ if(new Set(rows.map(r=>r.id)).size!==rows.length)throw new LayoutError('Duplicate flight destination.');
+ return rows;
+}
 export function validateLayout(input:unknown):GreenLayout{
  const v=object(input);if(v.version!==1)throw new LayoutError('Unsupported layout version');
  if(Object.keys(v).some(k=>!['version','buildings','trees','objects','imports','ambient'].includes(k)))throw new LayoutError('Unknown layout field');
@@ -28,7 +41,7 @@ export function validateLayout(input:unknown):GreenLayout{
  for(const id of BUILDING_IDS){const row=object(b[id]);buildings[id]={position:vec(row.position),scale:num(row.scale,.05,20),rotationY:num(row.rotationY,-Math.PI*20,Math.PI*20),visible:bool(row.visible)}}
  const trees=list(v.trees,1000).map(x=>{const r=object(x);const id=num(r.id,0,1000000000);if(!Number.isInteger(id))throw new LayoutError('Invalid tree ID');return{id,pos:vec(r.pos),scale:num(r.scale,.05,20),phase:num(r.phase,0,1000)}});
  const objects=list(v.objects,400).map(x=>{const r=object(x);if(!kinds.includes(String(r.type)))throw new LayoutError('Unsupported environment object');return{id:str(r.id),type:r.type as ObjectKind,position:vec(r.position),rotation:vec(r.rotation),scale:num(r.scale,.05,20)}});
- const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20)}});
+ const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)})}});
  for(const rows of [trees,objects,imports]){const ids=rows.map(r=>'id'in r?r.id:r.elementKey);if(new Set(ids).size!==ids.length)throw new LayoutError('Duplicate layout identity')}
  if(imports.some(r=>(BUILDING_IDS as readonly string[]).includes(r.elementKey)))throw new LayoutError('Imported model duplicates a built-in building');
  const a=object(v.ambient);return{version:1,buildings,trees,objects,imports,ambient:{enabled:bool(a.enabled),sidewalks:bool(a.sidewalks)}};

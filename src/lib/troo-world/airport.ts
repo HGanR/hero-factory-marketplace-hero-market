@@ -1,7 +1,7 @@
 import type {GreenLayout,Vec3} from './green-terrain-layout';
 
 export const AIRPORT={
- key:'airport-cycle-30min',name:'Airport · 30-minute flight cycle',
+ key:'airport-cycle-30min',name:'Airport · member-world departures',
  modelUrl:'/models/world-assets/airport_cycle_30min.glb',duration:1800,
  // The source is metres and has a 600 m runway. This editable display scale
  // fits its static footprint in the current town without relocating buildings.
