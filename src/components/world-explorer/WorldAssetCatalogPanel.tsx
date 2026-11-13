@@ -102,7 +102,7 @@ export function WorldAssetCatalogPanel({ onAssetPurchased }: WorldAssetCatalogPa
         Buy buildings and meeting nodes. Use them in the world editor after creating a world.
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-        {["all", "building", "venue", "meeting_node", "props"].map((cat) => (
+        {["all", "building", "venue", "meeting_node", "airport", "props"].map((cat) => (
           <button
             key={cat}
             type="button"
