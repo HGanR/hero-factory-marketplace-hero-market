@@ -582,6 +582,22 @@ function HomePageContent() {
                   >
                     SMART TRUST™
                   </Link>
+                  <a
+                    href="https://mobile.troothhurtz.app/mobile"
+                    className={`${LINK_PILL} w-full justify-center`}
+                    onClick={() => {
+                      trackLandingCta(
+                        LANDING_HOME_SITE_EVENTS.WELCOME_MENU_CTA,
+                        "welcome_menu",
+                        "Mobile Access",
+                        "https://mobile.troothhurtz.app/mobile",
+                      );
+                      setShowWelcomeMenu(false);
+                    }}
+                    role="menuitem"
+                  >
+                    Mobile Access
+                  </a>
                   <Link
                     href="/revenue-os"
                     className={`${LINK_PILL} w-full justify-center`}
