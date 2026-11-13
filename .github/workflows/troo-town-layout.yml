@@ -8,6 +8,8 @@ on:
       - 'src/app/api/**/green-terrain-layout/**'
       - 'src/lib/troo-world/green-terrain-*'
       - 'src/lib/troo-world/ambient-town.ts'
+      - 'src/lib/troo-world/airport*'
+      - 'public/models/world-assets/airport_cycle_30min.glb'
       - 'src/lib/db/schema.green-terrain.ts'
       - 'sql/green-terrain-layouts.sql'
       - 'scripts/apply-green-terrain-layout-schema.cjs'
@@ -31,10 +33,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16
+      - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1
       - name: Preserve the mounted town during focus refresh and dispose optional image loads
         run: node --test tests/troo-town/refresh-lifecycle.test.cjs
         env:
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Airport placement, actual GLB animation and visitor playback
+        run: node --test tests/troo-town/airport.test.cjs tests/troo-town/airport-controls.test.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Contracts, shared-renderer boundaries and sidewalk safety
         run: node --test tests/troo-town/layout.test.cjs tests/troo-town/schema-gate.test.cjs
@@ -52,3 +59,17 @@ jobs:
           TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
+
+
+      - name: Install Chromium for actual WebGL airport interaction
+        run: /tmp/town-test-deps/node_modules/.bin/playwright install --with-deps chromium
+      - name: Actual R3F/Drei airport playback and visual evidence
+        run: node tests/troo-town/airport-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airport-visual-evidence
+          path: airport-visual-artifacts/

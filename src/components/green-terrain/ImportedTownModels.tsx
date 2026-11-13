@@ -1,4 +1,6 @@
 'use client';
+import {isAirport,type ImportedPlacement} from '@/lib/troo-world/airport';
+import AirportModel from './AirportModel';
 import {Component,Suspense,type ReactNode,useMemo} from 'react';
 import {useGLTF,Html} from '@react-three/drei';
 import type {GreenLayout} from '@/lib/troo-world/green-terrain-layout';
@@ -10,4 +12,4 @@ class ModelBoundary extends Component<{name:string;children:ReactNode},{failed:b
 }
 function GlbModel({url}:{url:string}){const{scene}=useGLTF(url);const object=useMemo(()=>scene.clone(true),[scene]);return <primitive object={object}/>}
 function ProceduralModel({kind}:{kind:string}){const object=useMemo(()=>kind==='procedural:apex'?buildApexExterior():buildHarborviewExterior(),[kind]);return <primitive object={object}/>}
-export default function ImportedTownModels({placements}:{placements:GreenLayout['imports']}){return <group>{placements.map(p=><group userData={{townSolid:true}} key={p.elementKey+':'+p.glbUrl} position={p.position} scale={p.scale} rotation={[0,p.rotationY,0]}><ModelBoundary name={p.elementKey}><Suspense fallback={null}>{p.glbUrl.startsWith('procedural:')?<ProceduralModel kind={p.glbUrl}/>:<GlbModel url={p.glbUrl}/>}</Suspense></ModelBoundary></group>)}</group>}
+export default function ImportedTownModels({placements,onFocusAirport,canFocusAirport=true}:{placements:GreenLayout['imports'];onFocusAirport?:(placement:ImportedPlacement)=>void;canFocusAirport?:boolean}){return <group>{placements.map(p=><group userData={{townSolid:!isAirport(p)}} key={p.elementKey+':'+p.glbUrl} position={p.position} scale={p.scale} rotation={[0,p.rotationY,0]}><ModelBoundary name={p.elementKey}><Suspense fallback={null}>{isAirport(p)?<AirportModel placement={p} onFocus={onFocusAirport} canFocus={canFocusAirport}/>:p.glbUrl.startsWith('procedural:')?<ProceduralModel kind={p.glbUrl}/>:<GlbModel url={p.glbUrl}/>}</Suspense></ModelBoundary></group>)}</group>}

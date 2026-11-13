@@ -16,6 +16,7 @@ import * as THREE from "three";
 import dynamic from "next/dynamic";
 import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type GreenLayout, type BuildingId, type BuildingState } from "@/lib/troo-world/green-terrain-layout";
 import AmbientTown from "@/components/green-terrain/AmbientTown";
+import {AIRPORT,isAirport,placeAirport,airportView,type ImportedPlacement} from '@/lib/troo-world/airport';
 import ImportedTownModels from "@/components/green-terrain/ImportedTownModels";
 import { WorldObjectRenderer, type WorldObjectType } from "@/components/green-terrain/WorldObjects";
 import { useSavedTownLayout } from "./useSavedTownLayout";
@@ -890,6 +891,7 @@ function getMeridianCollisionBoxes(
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
 interface SceneProps {
+  onFocusAirport:(placement:ImportedPlacement)=>void;
   layout: GreenLayout;
   trees: TreeData[];
   placedObjects: PlacedObject[];
@@ -1028,7 +1030,7 @@ function Scene(props: SceneProps) {
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
       <AmbientTown layout={props.layout}/>
-      <ImportedTownModels placements={props.layout.imports}/>
+      <ImportedTownModels placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {/* Plain labels — TROO CENTER and cardinal plains */}
       <PlainLabel position={[0, 0, 20]} name="TROO CENTER" />
       <PlainLabel position={[0, 0, -95]} name="TROO NORTH" />
@@ -1655,6 +1657,14 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setCameraState("flying-in");
   }, [cameraState]);
 
+  const handleFocusAirport=useCallback((placement:ImportedPlacement)=>{
+    if(cameraState!=="world")return;
+    const view=airportView(placement);
+    setWorldFirstPerson(false);setWorldFreeLook(false);setBuildingTarget(null);
+    setPlainTarget({position:new THREE.Vector3(...view.position),lookAt:new THREE.Vector3(...view.lookAt)});
+    setCameraState("flying-in");
+  },[cameraState]);
+
   const handleCameraArrived = useCallback(() => {
     if (plainTarget) {
       setPlainTarget(null);
@@ -2009,6 +2019,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           onMoveVeritas={handleMoveVeritas}
           cameraState={cameraState}
           buildingTarget={buildingTarget}
+          onFocusAirport={handleFocusAirport}
           plainTarget={plainTarget}
           onEnterPlain={handleEnterPlain}
           onCameraArrived={handleCameraArrived}
@@ -2110,6 +2121,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       {!readOnly&&<WorldManagementUI
         onSaveSnapshot={saveSnapshot}
         saveReady={layoutReady}
+        airportPlaced={imports.some(isAirport)}
+        onPlaceGlbAsset={key=>{if(key!==AIRPORT.key)return;try{const next=placeAirport(imports);if(next===imports)return;saveToHistory();setImports(next);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
         isEditorMode={isEditorMode}
         onToggleEditor={() => setIsEditorMode(e => !e)}
         currentWorldId={currentWorldId}
@@ -2143,7 +2156,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           <label>Existing model URL <input value={newModelUrl} onChange={e=>setNewModelUrl(e.target.value)} placeholder="/models/…/building.glb"/></label>
           <button type="button" onClick={()=>{try{const url=modelUrl(newModelUrl);saveToHistory();setImports(v=>[...v,{elementKey:'building-'+crypto.randomUUID().slice(0,8),glbUrl:url,position:[45,0,40],scale:1,rotationY:0}]);setNewModelUrl('');setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Invalid model URL')}}}>Add model to town</button>
           {modelError&&<p role="alert">{modelError}</p>}
-          {imports.map((model,index)=><fieldset key={model.elementKey}><legend>{model.elementKey}</legend>{(['X','Y','Z'] as const).map((axis,n)=><label key={axis}>{axis}<input type="number" value={model.position[n]} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=1000)setImports(v=>v.map((p,i)=>i===index?{...p,position:p.position.map((x,j)=>j===n?value:x) as [number,number,number]}:p))}}/></label>)}
+          {imports.map((model,index)=><fieldset key={model.elementKey}><legend>{isAirport(model)?AIRPORT.name:model.elementKey}</legend>{isAirport(model)&&<p>Source runway: 600 metres. Default display scale: 0.10. Adjust placement, scale and rotation here, then Save World Layout to publish.</p>}{(['X','Y','Z'] as const).map((axis,n)=><label key={axis}>{axis}<input type="number" value={model.position[n]} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=1000)setImports(v=>v.map((p,i)=>i===index?{...p,position:p.position.map((x,j)=>j===n?value:x) as [number,number,number]}:p))}}/></label>)}
           <label>Scale<input type="number" min="0.05" max="20" step="0.05" value={model.scale} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&value>=.05&&value<=20)setImports(v=>v.map((p,i)=>i===index?{...p,scale:value}:p))}}/></label>
           <label>Rotation °<input type="number" value={Math.round(model.rotationY*180/Math.PI)} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=3600)setImports(v=>v.map((p,i)=>i===index?{...p,rotationY:value*Math.PI/180}:p))}}/></label>
           <button type="button" onClick={()=>{saveToHistory();setImports(v=>v.filter((_,i)=>i!==index))}}>Remove this building</button></fieldset>)}

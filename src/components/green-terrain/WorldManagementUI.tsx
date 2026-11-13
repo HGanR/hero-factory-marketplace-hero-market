@@ -16,6 +16,7 @@
  *   GET  /api/troo-world/elements?worldId=X    → public elements
  */
 
+import {AIRPORT} from '@/lib/troo-world/airport';
 import { useState, useCallback, useEffect } from "react";
 import type { WorldObjectType } from "./WorldObjects";
 
@@ -41,7 +42,7 @@ interface PlacementRecord {
 }
 
 // ─── Library item types ───────────────────────────────────────────────────────
-type LibraryItemKind = "building" | "env-object";
+type LibraryItemKind = "building" | "env-object" | "glb";
 
 interface LibraryItem {
   key: string;
@@ -54,6 +55,7 @@ interface LibraryItem {
 }
 
 const OBJECT_LIBRARY: LibraryItem[] = [
+  {key:AIRPORT.key,label:AIRPORT.name,icon:'✈',category:'Buildings',description:'Runway, terminal and animated flight cycle. Save World Layout publishes your placement.',kind:'glb'},
   // ── Buildings ──
   {
     key: "nexus-corporate-tower",
@@ -165,6 +167,8 @@ const OBJECT_LIBRARY: LibraryItem[] = [
 interface WorldManagementUIProps {
   onSaveSnapshot?:()=>Promise<void>;
   saveReady?:boolean;
+  onPlaceGlbAsset?:(key:string)=>void;
+  airportPlaced?:boolean;
   isEditorMode: boolean;
   onToggleEditor: () => void;
   currentWorldId: string;
@@ -193,7 +197,7 @@ interface WorldManagementUIProps {
 }
 
 export default function WorldManagementUI({
-  onSaveSnapshot,saveReady=true,
+  onSaveSnapshot,saveReady=true,onPlaceGlbAsset,airportPlaced=false,
   isEditorMode,
   onToggleEditor,
   currentWorldId,
@@ -835,7 +839,9 @@ export default function WorldManagementUI({
                     <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 10, marginTop: 1 }}>{item.description}</div>
                     <div style={{ color: "rgba(42,111,189,0.7)", fontSize: 9, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>{item.category}</div>
                   </div>
-                  {item.kind === "env-object" && item.objectType ? (
+                  {item.kind === 'glb' ? (
+                    <button type="button" disabled={!onPlaceGlbAsset||airportPlaced||!saveReady} onClick={()=>onPlaceGlbAsset?.(item.key)} style={{borderRadius:6,padding:'6px 9px',background:'#143c59',color:'white',border:'1px solid #65bfff'}}>{airportPlaced?'Placed':'+ Place'}</button>
+                  ) : item.kind === "env-object" && item.objectType ? (
                     <button
                       onClick={() => onPlaceObject(item.objectType!)}
                       style={{
