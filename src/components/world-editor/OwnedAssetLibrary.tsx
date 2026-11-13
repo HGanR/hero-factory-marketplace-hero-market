@@ -147,7 +147,7 @@ export function OwnedAssetLibrary({
           {showCatalog && (
             <div style={{ marginBottom: 6 }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
-                {["all", "building", "venue", "meeting_node", "props"].map((cat) => (
+                {["all", "building", "venue", "meeting_node", "airport", "props"].map((cat) => (
                   <button
                     key={cat}
                     type="button"

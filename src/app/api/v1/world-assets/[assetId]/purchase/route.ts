@@ -51,6 +51,17 @@ export async function POST(
 
   if (!asset) return notFound("Asset not found");
 
+  // Step 167N.83A: Do not grant paid ownership from an unverified client txRef.
+  // Paid checkout must be enabled only after signed authorization, Polygon receipt
+  // verification, and atomic payment/ownership issuance are integrated.
+  if (asset.tokenPrice > 0) {
+    return NextResponse.json(
+      { error: "Paid TROO checkout is temporarily unavailable pending secure verification", code: "TROO_CHECKOUT_NOT_READY" },
+      { status: 503 }
+    );
+  }
+
+
   const [existing] = await db
     .select()
     .from(userWorldAssets)

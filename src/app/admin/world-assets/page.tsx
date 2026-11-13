@@ -228,6 +228,7 @@ export default function AdminWorldAssetsPage() {
             <option value="building">building</option>
             <option value="venue">venue</option>
             <option value="meeting_node">meeting_node</option>
+            <option value="airport">airport</option>
           </select>
         </div>
         <div>
@@ -311,7 +312,7 @@ export default function AdminWorldAssetsPage() {
       <h2 className="text-lg font-semibold mb-4">Existing Assets ({filteredAssets.length})</h2>
       <div className="flex gap-2 mb-4">
         <span className="text-slate-400 text-sm">Filter:</span>
-        {["all", "props", "building", "venue", "meeting_node"].map((cat) => (
+        {["all", "props", "building", "venue", "meeting_node", "airport"].map((cat) => (
           <button
             key={cat}
             type="button"
