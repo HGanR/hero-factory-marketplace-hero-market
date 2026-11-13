@@ -5,6 +5,8 @@ import {Html,useGLTF} from '@react-three/drei';
 import {AIRPORT,airportStage,type ImportedPlacement} from '@/lib/troo-world/airport';
 import {createAirportPlayback} from '@/lib/troo-world/airport-playback';
 
+const panelPosition=(_object:unknown,_camera:unknown,size:{width:number}):[number,number]=>[size.width-16,90];
+
 export default function AirportModel({placement,onFocus,canFocus=true}:{placement:ImportedPlacement;onFocus?:(placement:ImportedPlacement)=>void;canFocus?:boolean}){
  const {scene,animations}=useGLTF(placement.glbUrl);
  const playback=useMemo(()=>createAirportPlayback(scene,animations),[scene,animations]);
@@ -16,8 +18,8 @@ export default function AirportModel({placement,onFocus,canFocus=true}:{placemen
  const buttonStyle={padding:'7px 10px',border:'1px solid #65bfff',borderRadius:7,background:'#102c45',color:'white',cursor:'pointer'};
  return <>
   <primitive object={playback.object} onClick={(event:ThreeEvent<MouseEvent>)=>{event.stopPropagation();setOpen(true);}}/>
-  <Html position={[0,45,80]} center style={{pointerEvents:'auto'}}>
-   <div onPointerDown={event=>event.stopPropagation()} style={{fontFamily:'system-ui',fontSize:12,color:'white',background:'#081b2fed',border:'1px solid #65bfff',borderRadius:10,padding:9,width:open?270:undefined,maxWidth:'85vw'}}>
+  <Html position={[0,45,80]} center={!open} {...(open?{calculatePosition:panelPosition}:{})} style={{pointerEvents:'auto',...(open?{transform:'translateX(-100%)'}:{})}}>
+   <div onPointerDown={event=>event.stopPropagation()} style={{fontFamily:'system-ui',fontSize:12,color:'white',background:'#081b2fed',border:'1px solid #65bfff',borderRadius:10,padding:9,width:open?270:undefined,maxWidth:'calc(100vw - 32px)',maxHeight:'calc(100vh - 190px)',overflowY:'auto'}}>
     <button type="button" aria-expanded={open} onClick={()=>setOpen(value=>!value)} style={buttonStyle}>✈ Airport · flight cycle</button>
     {open&&<section aria-label="Airport visitor controls">
      <p>30-minute animated flight cycle. Controls affect only your view.</p>
