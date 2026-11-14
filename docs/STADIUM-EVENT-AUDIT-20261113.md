@@ -1,6 +1,6 @@
 # Stadium events and sidewalk audit
 
-Source baseline: `d0c598ae38e8bfa502181ff2c1e06cfcc094a6c5`, the deployed airport/selection repair. This change preserves that lineage and existing placement snapshots. No production layout was edited during development.
+Source baseline: `d0c598ae38e8bfa502181ff2c1e06cfcc094a6c5`, the deployed airport/selection repair. This change preserves that lineage and existing placement snapshots. No production layout was edited during development. Preview deployments read the current live layout until their first save, then use a branch-specific `green-preview-*` record. Preview saves do not replace the production `green-terrain` row; the editor labels this mode explicitly. A production release does not automatically promote preview data.
 
 ## Existing venue
 

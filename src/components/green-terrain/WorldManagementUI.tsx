@@ -169,6 +169,7 @@ const OBJECT_LIBRARY: LibraryItem[] = [
 ];
 
 interface WorldManagementUIProps {
+  previewMode?:boolean;
   stadiumSettings?:StadiumSettings;
   onStadiumSettingsChange?:(value:StadiumSettings)=>void;
   onSaveSnapshot?:()=>Promise<void>;
@@ -207,7 +208,7 @@ interface WorldManagementUIProps {
 }
 
 export default function WorldManagementUI({
-  stadiumSettings,onStadiumSettingsChange,
+  previewMode=false,stadiumSettings,onStadiumSettingsChange,
   onSaveSnapshot,saveReady=true,onPlaceGlbAsset,airportPlaced=false,
   isEditorMode,
   onToggleEditor,
@@ -578,7 +579,7 @@ export default function WorldManagementUI({
         {/* Header */}
         <div style={{ padding: "16px 16px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div style={{ color: "#c8a96e", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>Green Terrain</div>
-          <div style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>World Manager</div>
+          <div style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>World Manager{previewMode?" · Preview":""}</div>
           <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 2 }}>
             Active: {worlds.find(w => w.id === currentWorldId)?.name ?? currentWorldId}
           </div>
@@ -756,6 +757,7 @@ export default function WorldManagementUI({
           ))}
         </div>
 
+        {previewMode&&<p role="status" style={{padding:'8px 14px',margin:0,fontSize:12,color:'#89d9ff'}}>Preview saves stay separate from the live town.</p>}
         {/* Tab content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
 

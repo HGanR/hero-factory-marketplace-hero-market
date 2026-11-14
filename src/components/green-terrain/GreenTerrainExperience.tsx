@@ -1189,6 +1189,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [newModelUrl,setNewModelUrl]=useState(''),[modelError,setModelError]=useState('');
   const [ambient,setAmbient]=useState<GreenLayout['ambient']>({enabled:false,sidewalks:false});
   const [revision,setRevision]=useState(0);
+  const [previewMode,setPreviewMode]=useState(false);
 
   const [trees, setTrees] = useState<TreeData[]>(() => generateInitialTrees());
   const [selectedTreeId, setSelectedTreeId] = useState<number | null>(null);
@@ -1312,10 +1313,10 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     'stadium-elyseum':{...presentation['stadium-elyseum'],position:stadiumPos,scale:stadiumScale},
     'veritas-school':{...presentation['veritas-school'],position:veritasPos},
   },trees,objects:placedObjects.map(o=>({...o,scale:o.scale??1})),imports,ambient,...(stadium?{stadium}:{})}),[stadium,presentation,nexusPos,meridianPos,troothhertzPos,stadiumPos,stadiumScale,veritasPos,trees,placedObjects,imports,ambient]);
-  const applySavedLayout=useCallback(({layout:next,revision:savedRevision}:{layout:GreenLayout;revision:number})=>{
+  const applySavedLayout=useCallback(({layout:next,revision:savedRevision,preview}:{layout:GreenLayout;revision:number;preview?:boolean})=>{
       setPresentation(next.buildings);setNexusPos(next.buildings['nexus-tower'].position);setMeridianPos(next.buildings['meridian-tower'].position);
       setTroothhertzPos(next.buildings['troothhertz-tower'].position);setStadiumPos(next.buildings['stadium-elyseum'].position);setStadiumScale(next.buildings['stadium-elyseum'].scale);setVeritasPos(next.buildings['veritas-school'].position);
-      setTrees(next.trees);setPlacedObjects(next.objects);setImports(next.imports);setAmbient(next.ambient);setStadium(next.stadium);setRevision(savedRevision);
+      setTrees(next.trees);setPlacedObjects(next.objects);setImports(next.imports);setAmbient(next.ambient);setStadium(next.stadium);setRevision(savedRevision);setPreviewMode(Boolean(preview));
   },[]);
   const {ready:layoutReady,error:layoutError,retry:retryLayout}=useSavedTownLayout(readOnly,applySavedLayout);
   const saveSnapshot=async()=>{
@@ -1984,6 +1985,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       {admission&&<StadiumAdmission event={admission} operator={!readOnly} onAdmitted={enterStadiumCamera} onClose={()=>setAdmission(null)}/>}
       {/* World Management Sidebar */}
       {!readOnly&&<WorldManagementUI
+        previewMode={previewMode}
         stadiumSettings={stadium}
         onStadiumSettingsChange={value=>{saveToHistory();setStadium(value);}}
         onSaveSnapshot={saveSnapshot}

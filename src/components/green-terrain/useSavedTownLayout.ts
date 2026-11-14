@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useState} from 'react';
 import {validateLayout,type GreenLayout} from '@/lib/troo-world/green-terrain-layout';
 
-type SavedTown = {layout:GreenLayout;revision:number};
+type SavedTown = {layout:GreenLayout;revision:number;preview?:boolean};
 /** Refresh data without removing the mounted renderer or losing its camera. */
 export function useSavedTownLayout(readOnly:boolean,onLoaded:(town:SavedTown)=>void){
  const [ready,setReady]=useState(false),[error,setError]=useState('');
@@ -22,7 +22,7 @@ export function useSavedTownLayout(readOnly:boolean,onLoaded:(town:SavedTown)=>v
    }
    const layout=validateLayout(data.layout);
    if(!Number.isSafeInteger(data.revision)||data.revision<0)throw new Error('Invalid saved town revision');
-   onLoaded({layout,revision:data.revision});
+   onLoaded({layout,revision:data.revision,...(data.preview?{preview:true}:{})});
    setReady(true);
   }catch(reason){
    if(!controller.signal.aborted)setError(reason instanceof Error?reason.message:'Town layout could not be loaded');
@@ -37,3 +37,4 @@ export function useSavedTownLayout(readOnly:boolean,onLoaded:(town:SavedTown)=>v
  },[readOnly,retry]);
  return{ready,error,retry};
 }
+
