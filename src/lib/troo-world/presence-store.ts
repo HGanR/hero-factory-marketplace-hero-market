@@ -15,9 +15,16 @@ type SeatRow={scope:string;roomKey:string;identityKey:string;eventId:string;poli
 /** Unique keys prevent double booking without transactions on the shared connection. */
 export async function reserveSeat(room:string,eventId:string,policy:string,identity:string,service:RoomServiceClient,now=Date.now()){
  const db=await getConnection(),scope=presenceScope(),roomKey=hash(room);
- const [stale]=await db.execute('SELECT * FROM troo_stadium_seats WHERE scope = ? AND roomKey = ? AND expiresAt <= ? LIMIT 20',[scope,roomKey,now]);
- for(const row of stale as SeatRow[]){const [locked]=await db.execute('UPDATE troo_stadium_seats SET expiresAt = 0 WHERE scope = ? AND roomKey = ? AND identityKey = ? AND nonceHash = ? AND expiresAt <= ?',[scope,roomKey,row.identityKey,row.nonceHash,now]);if((locked as {affectedRows:number}).affectedRows!==1)continue;try{await service.removeParticipant(room,row.identityKey);}catch(e){if(!/not.?found|does not exist/i.test(String((e as Error)?.message)))throw e;}
- await db.execute('DELETE FROM troo_stadium_seats WHERE scope = ? AND roomKey = ? AND identityKey = ? AND nonceHash = ? AND expiresAt <= ?',[scope,roomKey,row.identityKey,row.nonceHash,now]);}
+ const [stale]=await db.execute('SELECT * FROM troo_stadium_seats WHERE scope = ? AND roomKey = ? AND expiresAt > 0 AND expiresAt <= ? LIMIT 20',[scope,roomKey,now]);
+ for(const row of stale as SeatRow[]){
+  // Only one cleanup owns this capability. Zero is a fail-closed revocation marker,
+  // never a reusable lease; a process crash here requires operator recovery.
+  const revoking=hash(randomBytes(32).toString('hex'));
+  const [locked]=await db.execute('UPDATE troo_stadium_seats SET expiresAt = 0, nonceHash = ? WHERE scope = ? AND roomKey = ? AND identityKey = ? AND nonceHash = ? AND expiresAt > 0 AND expiresAt <= ?',[revoking,scope,roomKey,row.identityKey,row.nonceHash,now]);
+  if((locked as {affectedRows:number}).affectedRows!==1)continue;
+  try{await service.removeParticipant(room,row.identityKey);}catch(e){if(!/not.?found|does not exist/i.test(String((e as Error)?.message))){await db.execute('UPDATE troo_stadium_seats SET expiresAt = ? WHERE scope = ? AND roomKey = ? AND nonceHash = ? AND expiresAt = 0',[now-1,scope,roomKey,revoking]);throw e;}}
+  await db.execute('DELETE FROM troo_stadium_seats WHERE scope = ? AND roomKey = ? AND identityKey = ? AND nonceHash = ? AND expiresAt = 0',[scope,roomKey,row.identityKey,revoking]);
+ }
  let index:number|undefined;
  for(let attempt=0;attempt<20;attempt++){
   const [own]=await db.execute('SELECT * FROM troo_stadium_seats WHERE scope = ? AND roomKey = ? AND identityKey = ? AND expiresAt > ?',[scope,roomKey,identity,now]);if((own as SeatRow[])[0]){index=Number((own as SeatRow[])[0].seatIndex);break;}
