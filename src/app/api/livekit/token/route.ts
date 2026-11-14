@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AccessToken } from "livekit-server-sdk";
+import {protectedStadiumRoom} from '@/lib/troo-world/stadium-events';
 
 /**
  * POST /api/livekit/token
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const roomName = (body?.roomName || body?.room || "").trim();
+    if(protectedStadiumRoom(roomName))return NextResponse.json({error:'Use verified stadium admission for this room'},{status:403});
     const participantIdentity =
       (body?.participantIdentity || body?.identity || body?.address || "").trim() ||
       `participant-${Date.now()}`;
@@ -73,3 +75,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

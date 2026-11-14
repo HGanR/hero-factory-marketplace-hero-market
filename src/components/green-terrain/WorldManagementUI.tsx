@@ -16,6 +16,8 @@
  *   GET  /api/troo-world/elements?worldId=X    → public elements
  */
 
+import StadiumEventsEditor from './StadiumEventsEditor';
+import type {StadiumSettings} from '@/lib/troo-world/stadium-events';
 import ModelScaleControl from './ModelScaleControl';
 import type {ImportedPlacement} from '@/lib/troo-world/airport';
 import {AIRPORT} from '@/lib/troo-world/airport';
@@ -88,7 +90,7 @@ const OBJECT_LIBRARY: LibraryItem[] = [
     label: "Stadium Elyseum",
     icon: "🏟️",
     category: "Buildings",
-    description: "Large venue for concerts, seminars, lectures. 500 capacity. Purchasable from World Explorer catalog.",
+    description: "Large venue for concerts, seminars, lectures. 424 audience markers; event capacity configured separately. Purchasable from World Explorer catalog.",
     kind: "building",
   },
   {
@@ -167,6 +169,9 @@ const OBJECT_LIBRARY: LibraryItem[] = [
 ];
 
 interface WorldManagementUIProps {
+  previewMode?:boolean;
+  stadiumSettings?:StadiumSettings;
+  onStadiumSettingsChange?:(value:StadiumSettings)=>void;
   onSaveSnapshot?:()=>Promise<void>;
   saveReady?:boolean;
   onPlaceGlbAsset?:(key:string)=>void;
@@ -203,6 +208,7 @@ interface WorldManagementUIProps {
 }
 
 export default function WorldManagementUI({
+  previewMode=false,stadiumSettings,onStadiumSettingsChange,
   onSaveSnapshot,saveReady=true,onPlaceGlbAsset,airportPlaced=false,
   isEditorMode,
   onToggleEditor,
@@ -229,7 +235,7 @@ export default function WorldManagementUI({
   onGridSizeChange,
 }: WorldManagementUIProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"worlds" | "library" | "save">("worlds");
+  const [activeTab, setActiveTab] = useState<"worlds" | "library" | "events" | "save">("worlds");
   const [worlds, setWorlds] = useState<WorldRecord[]>([
     { id: "default", name: "Troo World", slug: "troo-world", isDefault: true, isPublished: true },
     { id: "green-terrain", name: "Green Terrain World", slug: "green-terrain", isDefault: false, isPublished: false },
@@ -573,7 +579,7 @@ export default function WorldManagementUI({
         {/* Header */}
         <div style={{ padding: "16px 16px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div style={{ color: "#c8a96e", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>Green Terrain</div>
-          <div style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>World Manager</div>
+          <div style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>World Manager{previewMode?" · Preview":""}</div>
           <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 2 }}>
             Active: {worlds.find(w => w.id === currentWorldId)?.name ?? currentWorldId}
           </div>
@@ -732,7 +738,7 @@ export default function WorldManagementUI({
 
         {/* Tabs */}
         <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          {(["worlds", "library", "save"] as const).map(tab => (
+          {(["worlds", "library", "events", "save"] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -747,10 +753,11 @@ export default function WorldManagementUI({
                 fontSize: 11,
                 textTransform: "capitalize",
               }}
-            >{tab === "worlds" ? "🌍 Worlds" : tab === "library" ? "📦 Library" : "💾 Save"}</button>
+            >{tab === "worlds" ? "🌍 Worlds" : tab === "library" ? "📦 Library" : tab === "events" ? "Events" : "💾 Save"}</button>
           ))}
         </div>
 
+        {previewMode&&<p role="status" style={{padding:'8px 14px',margin:0,fontSize:12,color:'#89d9ff'}}>Preview saves stay separate from the live town.</p>}
         {/* Tab content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
 
@@ -877,6 +884,7 @@ export default function WorldManagementUI({
             </>
           )}
 
+          {activeTab === "events" && onStadiumSettingsChange && onSaveSnapshot && <StadiumEventsEditor value={stadiumSettings} onChange={onStadiumSettingsChange} onSave={onSaveSnapshot} disabled={!saveReady}/>}
           {/* ── Save tab ── */}
           {activeTab === "save" && (
             <>

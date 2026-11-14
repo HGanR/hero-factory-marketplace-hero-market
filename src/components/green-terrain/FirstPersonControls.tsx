@@ -6,9 +6,10 @@
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import {attachTouchLook,type WalkInput} from "@/lib/troo-world/touch-navigation";
 import {constrainTownCamera,type Point3} from "@/lib/troo-world/town-collision";
 import type { ElevatorState, ElevatorPhase } from "./FunctionalElevator";
 
@@ -34,6 +35,7 @@ export interface HoveredAgentInfo {
 
 interface FirstPersonControlsProps {
   active: boolean;
+  touchInput?:RefObject<WalkInput>;
   bounds: BuildingBounds;
   freeLook: boolean;
   onFreeLookChange: (v: boolean) => void;
@@ -68,6 +70,7 @@ const PLAYER_RADIUS = 0.4;
 
 export default function FirstPersonControls({
   active,
+  touchInput,
   bounds,
   freeLook,
   onFreeLookChange,
@@ -134,10 +137,12 @@ export default function FirstPersonControls({
     initialized.current = true;
   }, [active, camera, onHoverAgent]);
 
+  useEffect(()=>{if(!active)return;return attachTouchLook(gl.domElement,(dx,dy)=>{yaw.current-=dx*SENSITIVITY*1.7;pitch.current=Math.max(-MAX_PITCH,Math.min(MAX_PITCH,pitch.current-dy*SENSITIVITY*1.7));});},[active,gl]);
+
   useEffect(() => {
     if (!active) return;
     if (freeLook) {
-      gl.domElement.requestPointerLock();
+      if(!window.matchMedia?.("(pointer: coarse)").matches)gl.domElement.requestPointerLock?.();
     } else {
       if (document.pointerLockElement === gl.domElement) {
         document.exitPointerLock();
@@ -272,6 +277,8 @@ export default function FirstPersonControls({
     if (keys.current["KeyA"] || keys.current["ArrowLeft"])  move.addScaledVector(right, -speed);
     if (keys.current["KeyD"] || keys.current["ArrowRight"]) move.addScaledVector(right, speed);
 
+    if(touchInput){move.addScaledVector(forward,touchInput.current.forward*speed);move.addScaledVector(right,touchInput.current.strafe*speed);}
+
     // Calculate proposed new position (clamped to building bounds)
     let newX = Math.max(bounds.minX, Math.min(bounds.maxX, camera.position.x + move.x));
     let newZ = Math.max(bounds.minZ, Math.min(bounds.maxZ, camera.position.z + move.z));
@@ -324,3 +331,4 @@ export default function FirstPersonControls({
 
   return null;
 }
+

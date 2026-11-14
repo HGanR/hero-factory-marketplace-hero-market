@@ -9,6 +9,14 @@ on:
       - 'src/lib/troo-world/green-terrain-*'
       - 'src/lib/troo-world/ambient-town.ts'
       - 'src/lib/troo-world/airport*'
+      - 'src/lib/troo-world/stadium-*'
+      - 'src/lib/troo-world/touch-navigation.ts'
+      - 'src/lib/troo-world/town-placement.ts'
+      - 'src/app/api/troo-world/stadium/**'
+      - 'src/app/api/admin/troo-world/stadium-media/**'
+      - 'public/fonts/stadium/**'
+      - 'src/app/api/livekit/token/**'
+      - 'sql/stadium-event-challenges.sql'
       - 'public/models/world-assets/airport_cycle_30min.glb'
       - 'src/lib/db/schema.green-terrain.ts'
       - 'sql/green-terrain-layouts.sql'
@@ -33,7 +41,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1
+      - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1 viem@2.41.2 livekit-server-sdk@2.15.2 livekit-client@2.18.7
+      - name: Stadium admission policy, wallet signatures, protected tokens and connected sidewalks
+        run: node --test tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Preserve the mounted town during focus refresh and dispose optional image loads
         run: node --test tests/troo-town/refresh-lifecycle.test.cjs
         env:
@@ -68,6 +81,17 @@ jobs:
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Actual stadium screens, seats, event upload and ticker editor
+        if: ${{ !cancelled() }}
+        run: node tests/troo-town/stadium-events-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stadium-event-evidence
+          path: stadium-event-artifacts/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

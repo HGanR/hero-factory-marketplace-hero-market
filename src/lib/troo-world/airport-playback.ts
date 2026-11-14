@@ -1,6 +1,16 @@
 import * as THREE from 'three';
 import {AIRPORT} from './airport';
 
+/** The static airport is one multi-material mesh; measure only its terminal faces. */
+export function airportTerminalAnchor(source:THREE.Object3D):[number,number,number]{
+ source.updateWorldMatrix(true,true);const box=new THREE.Box3(),point=new THREE.Vector3();
+ source.traverse(object=>{const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material],geometry=mesh.geometry,p=geometry.getAttribute('position');
+  const groups=geometry.groups.length?geometry.groups:[{start:0,count:geometry.index?.count??p.count,materialIndex:0}];
+  for(const group of groups){if(materials[group.materialIndex??0]?.name!=='terminal')continue;for(let i=group.start;i<group.start+group.count;i++){const index=geometry.index?geometry.index.getX(i):i;point.fromBufferAttribute(p,index).applyMatrix4(mesh.matrixWorld);box.expandByPoint(point);}}
+ });
+ if(box.isEmpty())return[0,45,80];const center=box.getCenter(new THREE.Vector3());return[center.x,box.max.y+14,center.z];
+}
+
 /** Per-placement transforms and animation bindings; cached GLTF assets stay owned by the loader. */
 export function createAirportPlayback(source:THREE.Object3D,clips:THREE.AnimationClip[]){
  const object=source.clone(true),mixer=new THREE.AnimationMixer(object);

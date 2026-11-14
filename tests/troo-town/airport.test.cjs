@@ -32,3 +32,5 @@ test('destination validation preserves old layouts, round-trips named links and 
  for(const url of ['javascript:alert(1)','data:text/html,hello','//evil.test','https://user:secret@member.example/world','http://member.example/world','/\\evil.test'])assert.throws(()=>lib.validateDestinations([{id:'a',name:'ABC',url}]));
  assert.throws(()=>lib.validateDestinations([...routes,routes[0]]));assert.throws(()=>lib.validateDestinations(Array.from({length:25},(_,i)=>({id:String(i),name:'Town',url:'https://member.example'}))));assert.throws(()=>lib.validateDestinations([{id:'a',name:'  ',url:'https://member.example'}]));
 });
+
+test('departures anchor is measured above terminal faces rather than the runway or animated aircraft',()=>{const anchor=lib.airportTerminalAnchor(gltf.scene);assert.ok(anchor.every(Number.isFinite));assert.ok(anchor[1]>14&&anchor[1]<80);const before=[...anchor],playback=lib.createAirportPlayback(gltf.scene,gltf.animations);playback.activate();playback.seek(1450);assert.deepEqual(lib.airportTerminalAnchor(gltf.scene),before);playback.dispose()});

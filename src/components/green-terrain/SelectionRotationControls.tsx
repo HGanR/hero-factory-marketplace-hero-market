@@ -1,0 +1,2 @@
+'use client';
+export default function SelectionRotationControls({label,onRotate}:{label:string;onRotate:(delta:number)=>void}){return <div role="group" aria-label={'Rotate '+label} style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',color:'white'}}><span>{label}</span><button type="button" aria-label={'Rotate '+label+' left'} onClick={()=>onRotate(-Math.PI/8)}>↺ 22.5°</button><button type="button" aria-label={'Rotate '+label+' right'} onClick={()=>onRotate(Math.PI/8)}>↻ 22.5°</button></div>}
