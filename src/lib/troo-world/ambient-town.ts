@@ -75,7 +75,7 @@ export function pedestrianRoutes(paths:Walkway[]):PedestrianRoute[]{
  return routes;
 }
 export function pedestrianRoutePose(route:PedestrianRoute,index:number,time:number){
- let distance=((time*.85+index*13)%route.length+route.length)%route.length;
+ let distance=((time*.85+((index*.61803398875)%1)*route.length)%route.length+route.length)%route.length;
  for(let i=1;i<route.points.length;i++){const a=route.points[i-1],b=route.points[i],length=Math.hypot(b[0]-a[0],b[2]-a[2]);if(distance<=length){const t=distance/length;return{position:[a[0]+(b[0]-a[0])*t,a[1],a[2]+(b[2]-a[2])*t] as Vec3,yaw:Math.atan2(b[0]-a[0],b[2]-a[2]),walking:true}}distance-=length;}
  return{position:route.points[0],yaw:0,walking:false};
 }
