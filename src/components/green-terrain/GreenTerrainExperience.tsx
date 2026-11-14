@@ -204,28 +204,6 @@ function DistantHills() {
   return <>{hills.map((h,i)=><mesh key={i} position={h.pos} scale={h.scale}><sphereGeometry args={[1,8,6,0,Math.PI*2,0,Math.PI/2]}/><meshLambertMaterial color={0x3a7a2a} side={THREE.FrontSide}/></mesh>)}</>;
 }
 
-function GrassTufts() {
-  const ref=useRef<THREE.InstancedMesh>(null);
-  const dummy=new THREE.Object3D();
-  const rng=(s:number)=>{s=(s^0xabcd1234)>>>0;s=Math.imul(s^(s>>>16),0x45d9f3b);return((s^(s>>>16))>>>0)/0xffffffff;};
-  const positions:[number,number,number][]=[];
-  const phases:number[]=[];
-  for(let i=0;i<600;i++){const x=(rng(i*2)-0.5)*190,z=(rng(i*2+1)-0.5)*190;if(Math.sqrt(x*x+z*z)<28)continue;positions.push([x,terrainHeight(x,z)+0.1,z]);phases.push(rng(i)*Math.PI*2);}
-  useFrame(({clock})=>{
-    if(!ref.current)return;
-    const t=clock.getElapsedTime();
-    positions.forEach(([x,y,z],i)=>{dummy.position.set(x,y,z);dummy.rotation.y=phases[i];dummy.rotation.z=Math.sin(t*1.2+phases[i])*0.15;dummy.scale.setScalar(0.6+(phases[i]%0.4));dummy.updateMatrix();ref.current!.setMatrixAt(i,dummy.matrix);});
-    ref.current.instanceMatrix.needsUpdate=true;
-  });
-  return <instancedMesh ref={ref} args={[undefined,undefined,positions.length]} castShadow><coneGeometry args={[0.08,0.5,4]}/><meshLambertMaterial color={0x5aaa35}/></instancedMesh>;
-}
-
-function Rocks() {
-  const rng=(s:number)=>{s=(s^0x1234abcd)>>>0;s=Math.imul(s^(s>>>16),0x45d9f3b);return((s^(s>>>16))>>>0)/0xffffffff;};
-  const rocks=Array.from({length:30},(_,i)=>{const a=rng(i*4)*Math.PI*2,r=35+rng(i*4+1)*60;const x=Math.cos(a)*r,z=Math.sin(a)*r;return{pos:[x,terrainHeight(x,z)-0.1,z] as [number,number,number],scale:[0.3+rng(i*4+2)*0.5,0.2+rng(i*4+3)*0.3,0.3+rng(i*4)*0.5] as [number,number,number],ry:rng(i)*Math.PI};});
-  return <>{rocks.map((r,i)=><mesh userData={{townSolid:true}} key={i} position={r.pos} scale={r.scale} rotation={[0,r.ry,0]} castShadow><dodecahedronGeometry args={[0.5,0]}/><meshLambertMaterial color={0x8a8a7a}/></mesh>)}</>;
-}
-
 // ─── Building labels (dropdown with Enter Building + View Agents) ─────────────
 function NexusLabel({ position, isSelected, onSelect, onViewAgents, onEnter }: {
   position:[number,number,number]; isSelected:boolean;
@@ -828,14 +806,14 @@ function Scene(props: SceneProps) {
         onExited={props.onCameraExited}
         orbitRef={orbitRef}
       />
-      <ambientLight intensity={0.6} color={0xd4e8c0}/>
-      <directionalLight position={[60,80,40]} intensity={1.8} color={0xfff4d0} castShadow
+      <ambientLight intensity={props.insideBuilding === "stadium"?.24:.6} color={props.insideBuilding === "stadium"?0xb7d5e7:0xd4e8c0}/>
+      <directionalLight position={[60,80,40]} intensity={props.insideBuilding === "stadium"?.25:1.8} color={0xfff4d0} castShadow
         shadow-mapSize-width={2048} shadow-mapSize-height={2048}
         shadow-camera-near={0.5} shadow-camera-far={300}
         shadow-camera-left={-120} shadow-camera-right={120}
         shadow-camera-top={120} shadow-camera-bottom={-120}/>
       <directionalLight position={[-40,30,-60]} intensity={0.4} color={0xa0c8e0}/>
-      <hemisphereLight color={0x87ceeb} groundColor={0x3a6b2a} intensity={0.5}/>
+      <hemisphereLight color={0x87ceeb} groundColor={0x3a6b2a} intensity={props.insideBuilding === "stadium"?.18:.5}/>
       <fog attach="fog" args={["#8ecae6",100,240]}/>
       <SkyDome/>
       <Clouds/>
@@ -844,23 +822,22 @@ function Scene(props: SceneProps) {
       <AmbientTown layout={props.layout}/>
       <ImportedTownModels selectedAirportKey={props.selectedAirportKey} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {/* Plain labels — TROO CENTER and cardinal plains */}
-      <PlainLabel position={[0, 0, 20]} name="TROO CENTER" />
-      <PlainLabel position={[0, 0, -95]} name="TROO NORTH" />
-      <PlainLabel position={[0, 0, 95]} name="TROO SOUTH" />
-      <PlainLabel position={[95, 0, 0]} name="TROO EAST" />
-      <PlainLabel position={[-95, 0, 0]} name="TROO WEST" />
+      {props.cameraState === "world" && (<PlainLabel position={[0, 0, 20]} name="TROO CENTER" />)}
+      {props.cameraState === "world" && (<PlainLabel position={[0, 0, -95]} name="TROO NORTH" />)}
+      {props.cameraState === "world" && (<PlainLabel position={[0, 0, 95]} name="TROO SOUTH" />)}
+      {props.cameraState === "world" && (<PlainLabel position={[95, 0, 0]} name="TROO EAST" />)}
+      {props.cameraState === "world" && (<PlainLabel position={[-95, 0, 0]} name="TROO WEST" />)}
       {/* Bridges connecting TROO CENTER to N/S/E/W plains */}
       <Bridge start={[0, 0, 0]} end={[0, 0, -95]} />
       <Bridge start={[0, 0, 0]} end={[0, 0, 95]} />
       <Bridge start={[0, 0, 0]} end={[95, 0, 0]} />
       <Bridge start={[0, 0, 0]} end={[-95, 0, 0]} />
       {/* Bridge HUDs — direction name + Enter (fly to plain center) */}
-      <BridgePlainHUD position={[0, 0, -65]} name="TROO NORTH" onEnter={() => props.onEnterPlain("TROO NORTH", [0, 0, -95])} />
-      <BridgePlainHUD position={[0, 0, 65]} name="TROO SOUTH" onEnter={() => props.onEnterPlain("TROO SOUTH", [0, 0, 95])} />
-      <BridgePlainHUD position={[65, 0, 0]} name="TROO EAST" onEnter={() => props.onEnterPlain("TROO EAST", [95, 0, 0])} />
-      <BridgePlainHUD position={[-65, 0, 0]} name="TROO WEST" onEnter={() => props.onEnterPlain("TROO WEST", [-95, 0, 0])} />
-      <GrassTufts/>
-      <Rocks/>
+      {props.cameraState === "world" && (<BridgePlainHUD position={[0, 0, -65]} name="TROO NORTH" onEnter={() => props.onEnterPlain("TROO NORTH", [0, 0, -95])} />)}
+      {props.cameraState === "world" && (<BridgePlainHUD position={[0, 0, 65]} name="TROO SOUTH" onEnter={() => props.onEnterPlain("TROO SOUTH", [0, 0, 95])} />)}
+      {props.cameraState === "world" && (<BridgePlainHUD position={[65, 0, 0]} name="TROO EAST" onEnter={() => props.onEnterPlain("TROO EAST", [95, 0, 0])} />)}
+      {props.cameraState === "world" && (<BridgePlainHUD position={[-65, 0, 0]} name="TROO WEST" onEnter={() => props.onEnterPlain("TROO WEST", [-95, 0, 0])} />)}
+      {/* Procedural grass spikes and rocks retired: they crossed the stadium and its approach. */}
 
       {props.trees.map(t => <Tree key={t.id} data={t} isSelected={t.id === props.selectedTreeId}/>)}
 
@@ -884,13 +861,13 @@ function Scene(props: SceneProps) {
           currentElevatorFloor={props.nexusElevatorFloor}
         />
       </Suspense>
-      <NexusLabel
+      {props.cameraState === "world" && (<NexusLabel
         position={props.nexusPos}
         isSelected={props.nexusSelected}
         onSelect={props.onSelectNexus}
         onViewAgents={props.onViewNexusAgents}
         onEnter={props.onEnterNexus}
-      />
+      />)}
       </BuildingPresentation>
 
       <BuildingPresentation state={props.layout.buildings["meridian-tower"]} >
@@ -904,13 +881,13 @@ function Scene(props: SceneProps) {
           elevatorFloor={props.meridianElevatorFloor}
         />
       </Suspense>
-      <MeridianLabel
+      {props.cameraState === "world" && (<MeridianLabel
         position={props.meridianPos}
         isSelected={props.meridianSelected}
         onSelect={props.onSelectMeridian}
         onViewAgents={props.onViewMeridianAgents}
         onEnter={props.onEnterMeridian}
-      />
+      />)}
       </BuildingPresentation>
 
       <BuildingPresentation state={props.layout.buildings["troothhertz-tower"]} >
@@ -947,14 +924,15 @@ function Scene(props: SceneProps) {
           animate={props.insideBuilding === "stadium"}
           tickerText={props.layout.stadium?.tickerText}
           eventSettings={props.layout.stadium}
+          onEnter={props.isEditorMode?undefined:props.onEnterStadium}
         />
       </Suspense>
-      <StadiumLabel
+      {props.cameraState === "world" && (<StadiumLabel
         position={props.stadiumPos}
         isSelected={props.stadiumSelected}
         onSelect={props.onSelectStadium}
         onEnter={props.onEnterStadium}
-      />
+      />)}
       </BuildingPresentation>
       <BuildingPresentation state={props.layout.buildings["veritas-school"]} >
       <VeritasSchool
@@ -962,11 +940,11 @@ function Scene(props: SceneProps) {
         isSelected={props.veritasSelected}
         onSelect={props.onSelectVeritas}
       />
-      <VeritasLabel
+      {props.cameraState === "world" && (<VeritasLabel
         position={props.veritasPos}
         isSelected={props.veritasSelected}
         onSelect={props.onSelectVeritas}
-      />
+      />)}
       </BuildingPresentation>
 
       {props.isEditorMode && (

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-export const STADIUM_TICKER_TEXT='TROOTHHURTZ STADIUM';
+export const STADIUM_TICKER_TEXT='TROOTHHERTZ STADIUM';
 /** Measure actual transformed shell vertices, not a guessed inner radius or the square bounds diagonal. */
 export function stadiumSignagePlacement(scene:THREE.Object3D){
  scene.updateWorldMatrix(true,true);const point=new THREE.Vector3();let radius=0,wallTop=-Infinity;

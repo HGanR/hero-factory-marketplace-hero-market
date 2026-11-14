@@ -4,7 +4,7 @@ export const DEFAULT_STADIUM_CONTRACT='0x7202cd71cb52ce0d71b9a13f2dacc4599b6cb13
 export type StadiumEvent={id:string;title:string;enabled:boolean;paid:boolean;admissionOpensAt:string;startsAt:string;endsAt:string;capacity:number;contractAddress:string;tokenId:string;chainId:137;poster?:string};
 export type StadiumMedia={kind:'image';url:string}|{kind:'video';url:string;duration:number;width:number;height:number};
 export type StadiumSettings={tickerText:string;events:StadiumEvent[];tickerLetterScale?:number;mainDisplay?:{media:StadiumMedia|null;fit:'cover'|'contain'};billboardText?:string};
-export const DEFAULT_STADIUM_SETTINGS:StadiumSettings={tickerText:'TROOTHHURTZ STADIUM',events:[]};
+export const DEFAULT_STADIUM_SETTINGS:StadiumSettings={tickerText:'TROOTHHERTZ STADIUM',events:[]};
 export class StadiumPolicyError extends Error{}
 function fail(message:string):never{throw new StadiumPolicyError(message)}
 function text(v:unknown,max:number){return typeof v==='string'&&v.trim()&&v.length<=max&&!/[\u0000-\u001f]/.test(v)?v.trim():fail('Invalid event text');}
