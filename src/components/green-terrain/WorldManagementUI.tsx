@@ -16,6 +16,8 @@
  *   GET  /api/troo-world/elements?worldId=X    → public elements
  */
 
+import ModelScaleControl from './ModelScaleControl';
+import type {ImportedPlacement} from '@/lib/troo-world/airport';
 import {AIRPORT} from '@/lib/troo-world/airport';
 import { useState, useCallback, useEffect } from "react";
 import type { WorldObjectType } from "./WorldObjects";
@@ -179,6 +181,10 @@ interface WorldManagementUIProps {
   stadiumPosition: [number, number, number];
   stadiumScale: number;
   onStadiumScaleChange: (scale: number) => void;
+  veritasScale?:number;
+  onVeritasScaleChange?:(scale:number)=>void;
+  airportModels?:ImportedPlacement[];
+  onAirportScaleChange?:(key:string,scale:number)=>void;
   veritasPosition: [number, number, number];
   trees: Array<{ id: number; pos: [number, number, number]; scale: number }>;
   placedObjects: Array<{ id: string; type: WorldObjectType; position: [number, number, number]; rotation?: [number, number, number] }>;
@@ -207,7 +213,7 @@ export default function WorldManagementUI({
   troothhertzPosition,
   stadiumPosition,
   stadiumScale,
-  onStadiumScaleChange,
+  onStadiumScaleChange,veritasScale=1,onVeritasScaleChange,airportModels=[],onAirportScaleChange,
   veritasPosition,
   trees,
   placedObjects,
@@ -922,6 +928,8 @@ export default function WorldManagementUI({
                     }}
                   >Reset</button>
                 </div>
+                {onVeritasScaleChange&&<ModelScaleControl label="Veritas" value={veritasScale} onChange={onVeritasScaleChange}/>}
+                {onAirportScaleChange&&airportModels.map(airport=><ModelScaleControl key={airport.elementKey} label="Airport" value={airport.scale} resetValue={AIRPORT.defaultScale} onChange={value=>onAirportScaleChange(airport.elementKey,value)}/>)}
                 <div style={{ color: "#fff", fontSize: 12 }}>🌲 {trees.length} trees</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>📦 {placedObjects.length} environment objects</div>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 4 }}>Publish target: {currentWorldId}</div>
