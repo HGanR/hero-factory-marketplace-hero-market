@@ -24,10 +24,10 @@ export function renovateStadium(scene:THREE.Object3D){
  const root=new THREE.Group();root.name='Stadium_Renovation';root.userData.renovated=true;
  const materials:THREE.Material[]=[],geometries:THREE.BufferGeometry[]=[];
  const material=(color:string,metalness=.15,roughness=.7,emissive?:string)=>{const m=new THREE.MeshStandardMaterial({color,metalness,roughness,...(emissive?{emissive,emissiveIntensity:1.4}:{})});materials.push(m);return m;};
- const navy=material('#102b40'),charcoal=material('#19232f'),carpet=material('#263443',0,.95),teal=material('#146878',.15,.6),seatBack=material('#174453',.1,.8),gold=material('#b89355',.75,.28),warm=material('#ffe0a0',.15,.3,'#ffb950'),cyan=material('#31c4ce',.2,.3,'#168892'),wall=material('#71665c'),black=material('#080e17');
+ const navy=material('#102b40'),charcoal=material('#19232f'),carpet=material('#263443',0,.95),teal=material('#146878',.15,.6),seatBack=material('#174453',.1,.8),gold=material('#c49e62',.35,.35),warm=material('#ffe0a0',.15,.3,'#ffb950'),cyan=material('#31c4ce',.2,.3,'#168892'),wall=material('#71665c'),black=material('#080e17');
  const glass=new THREE.MeshStandardMaterial({color:'#76b4bf',metalness:.4,roughness:.15,transparent:true,opacity:.5});materials.push(glass);
  const geo=<T extends THREE.BufferGeometry>(g:T)=>{geometries.push(g);return g;};
- const box=geo(new THREE.BoxGeometry(1,1,1)),softBox=geo(new RoundedBoxGeometry(1,1,1,2,.09));
+ const box=geo(new THREE.BoxGeometry(1,1,1)),softBox=geo(new RoundedBoxGeometry(1,1,1,1,.09));
  const add=(name:string,g:THREE.BufferGeometry,m:THREE.Material,p:number[],rotation?:number[])=>{const o=new THREE.Mesh(g,m);o.name=name;o.position.fromArray(p);if(rotation)o.rotation.set(rotation[0],rotation[1],rotation[2]);o.receiveShadow=true;root.add(o);return o;};
  const block=(name:string,p:number[],size:number[],m:THREE.Material,ry=0)=>{const o=add(name,box,m,p);o.scale.fromArray(size);o.rotation.y=ry;return o;};
  const ring=(name:string,r:number,y:number,tube:number,m:THREE.Material)=>add(name,geo(new THREE.TorusGeometry(r,tube,6,128)),m,[0,y,0],[Math.PI/2,0,0]);
@@ -112,16 +112,16 @@ export function renovateStadium(scene:THREE.Object3D){
  // An oculus canopy, understated acoustic fins and warm wall lighting.
  const canopyMat=navy.clone();canopyMat.side=THREE.DoubleSide;materials.push(canopyMat);add('Stadium_Seating_Canopy',geo(new THREE.RingGeometry(32,72,128)),canopyMat,[0,36,0],[-Math.PI/2,0,0]);ring('Venue_Oculus_Trim',32,35.8,.12,cyan);ring('Venue_Canopy_Gold',69,35.6,.08,gold);
  const fins=[];for(let i=0;i<96;i++){const a=i*Math.PI/48;fins.push({p:[69.3*Math.sin(a),26,69.3*Math.cos(a)],s:[.22,16,.65],yaw:a});}instances('Venue_Acoustic_Fins',navy,fins);
- const wallLights=[];for(let i=0;i<32;i++){const a=(i+.5)*Math.PI/16;wallLights.push({p:[68.8*Math.sin(a),22,68.8*Math.cos(a)],s:[.12,2.5,.15],yaw:a});}instances('Venue_Wall_Sconces',warm,wallLights);
+ const wallLights=[];for(let i=0;i<32;i++){const a=(i+.5)*Math.PI/16;wallLights.push({p:[68.8*Math.sin(a),29,68.8*Math.cos(a)],s:[.12,2.5,.15],yaw:a});}instances('Venue_Wall_Sconces',warm,wallLights);
  ring('Venue_Lighting_Truss_Lower',21,31,.14,black);ring('Venue_Lighting_Truss_Upper',21,32,.14,black);
  for(let i=0;i<12;i++){const a=i*Math.PI/6,x=21*Math.sin(a),z=21*Math.cos(a);block('Venue_Truss_Brace',[x,31.5,z],[.13,1,.13],gold);
-  const housing=add('Venue_Spotlight_Fixture',geo(new THREE.CylinderGeometry(.45,.5,1,12)),black,[x,30.7,z]);housing.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(-x,-29,-z).normalize());
+  const housing=add('Venue_Spotlight_Fixture',geo(new THREE.CylinderGeometry(.45,.5,1,12)),black,[x,30.7,z]);housing.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(-x,-29,-z).normalize());const lens=add('Venue_Spotlight_Lens',geo(new THREE.SphereGeometry(.3,8,6)),warm,[x*.985,30.1,z*.985]);
   if(i%3===0){const light=new THREE.SpotLight('#ffe1a6',2400,90,.36,.6,2);light.name='Venue_Host_Spotlight';light.position.set(x,30,z);light.target.position.set(0,1,0);light.userData.venueBaseIntensity=2400;light.userData.venueBaseDistance=90;root.add(light,light.target);const length=Math.hypot(x,29,z);const beamMat=new THREE.MeshBasicMaterial({color:'#ffe0ad',transparent:true,opacity:.025,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});materials.push(beamMat);const beam=add('Venue_Host_Light_Beam',geo(new THREE.ConeGeometry(4,length,24,1,true)),beamMat,[x/2,15.5,z/2]);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(x,29,z).normalize());}
  }
  for(const [x,z]of [[-30,15],[30,15],[0,-30]]){const light=new THREE.PointLight('#38bac9',350,65,2);light.position.set(x,19,z);light.userData.venueBaseIntensity=350;light.userData.venueBaseDistance=65;root.add(light);}
  // Ticker remains a normal named display node, facing the audience without mirrored text.
  const ticker=geo(new THREE.CylinderGeometry(55,55,1.8,128,1,true));const uv=ticker.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setX(i,(1-uv.getX(i))*1.6);const tickerMaterial=black.clone();tickerMaterial.side=THREE.BackSide;materials.push(tickerMaterial);add('Ticker_Board',ticker,tickerMaterial,[0,14.5,0]);
- const fill=new THREE.HemisphereLight('#d1e4ee','#79644c',1.3);fill.name='Venue_Architectural_Fill';root.add(fill);
+ const fill=new THREE.HemisphereLight('#d1e4ee','#79644c',2);fill.name='Venue_Architectural_Fill';root.add(fill,new THREE.AmbientLight('#e4cfac',.7));
  scene.add(root);scene.updateMatrixWorld(true);
  return {root,seats,dispose:()=>{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.remove(root);}};
 }
