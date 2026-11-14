@@ -28,6 +28,8 @@ on:
       - 'src/lib/db/schema.green-terrain.ts'
       - 'sql/green-terrain-layouts.sql'
       - 'scripts/apply-green-terrain-layout-schema.cjs'
+      - 'scripts/prepare-stadium-test.cjs'
+      - 'vercel.json'
       - 'tests/troo-town/**'
       - '.github/workflows/troo-town-layout.yml'
 jobs:
@@ -71,6 +73,12 @@ jobs:
       - name: Bundle both pages and shared 3D scene with reachable local modules
         run: node tests/troo-town/compile-ui.cjs
         env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: One-off preview setup guards, additive schema and saved-data preservation
+        run: node --test tests/troo-town/setup-readiness.test.cjs
+        env:
+          TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Real MySQL transactions, public reads and canonical signed-session gate
