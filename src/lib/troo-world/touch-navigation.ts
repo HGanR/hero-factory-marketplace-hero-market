@@ -1,9 +1,9 @@
 export type WalkInput={forward:number;strafe:number};
-/** A second finger may hold a movement button while this pointer looks around. */
+/** Drag the scene to look with touch or the primary mouse button. Pointer-lock look stays separate. */
 export function attachTouchLook(canvas:HTMLCanvasElement,onLook:(dx:number,dy:number)=>void){
  let pointer:number|null=null,x=0,y=0;const previous=canvas.style.touchAction;canvas.style.touchAction='none';
- const down=(e:PointerEvent)=>{if(e.pointerType!=='touch'||pointer!==null)return;pointer=e.pointerId;x=e.clientX;y=e.clientY;canvas.setPointerCapture?.(pointer);};
- const move=(e:PointerEvent)=>{if(e.pointerId!==pointer)return;e.preventDefault();onLook(e.clientX-x,e.clientY-y);x=e.clientX;y=e.clientY;};
+ const down=(e:PointerEvent)=>{if(pointer!==null||canvas.ownerDocument.pointerLockElement===canvas)return;if(e.pointerType!=='touch'&&!(e.pointerType==='mouse'&&e.button===0))return;pointer=e.pointerId;x=e.clientX;y=e.clientY;canvas.setPointerCapture?.(pointer);};
+ const move=(e:PointerEvent)=>{if(e.pointerId!==pointer)return;if(canvas.ownerDocument.pointerLockElement===canvas||(e.pointerType==='mouse'&&(e.buttons&1)===0)){pointer=null;return;}e.preventDefault();onLook(e.clientX-x,e.clientY-y);x=e.clientX;y=e.clientY;};
  const up=(e:PointerEvent)=>{if(e.pointerId===pointer)pointer=null;};
  const reset=()=>{pointer=null;};
  canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move,{passive:false});
