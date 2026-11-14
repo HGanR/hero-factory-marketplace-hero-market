@@ -51,7 +51,7 @@ export default function StadiumAdmission({event,operator=false,onAdmitted,onClos
   {!credentials&&event.paid&&!address&&<div style={{display:'grid',gap:8}}>{connectors.map(c=><button type="button" key={c.uid} disabled={busy} onClick={()=>void enter(false,c)}>{busy?'Verifying…':c.id==='walletConnect'?'WalletConnect · mobile wallets & QR':c.name}</button>)}{connectors.length===0&&<p>No wallet connector is available. Reload the page or enable your EVM wallet.</p>}</div>}
   {!credentials&&(!event.paid||address)&&<button type="button" disabled={busy} onClick={()=>void enter()}>{busy?'Verifying admission…':event.paid?'Connect wallet & enter':'Enter free event'}</button>}
   {operator&&!credentials&&<button type="button" disabled={busy} onClick={()=>void enter(true)}>Join as administrator host</button>}
-  {connected&&<p>You are {credentials?.isHost?'standing at the stage microphone':'seated facing the center stage'}. Use the voice controls to enable your microphone.</p>}
+  {connected&&<p>{credentials?.isHost?'Use the stage ramp and select attendee images to manage speaking turns.':'You start seated facing the center. A host invitation lets you take a turn at the microphone.'} Use the voice controls to enable your microphone.</p>}
   {connected&&<button type="button" onClick={()=>void roomRef.current?.startAudio().catch(()=>setError("Allow browser audio to hear the event."))}>Enable event audio</button>}
   <div ref={media}/>{error&&<p role="alert">{error}</p>}
  </dialog>;

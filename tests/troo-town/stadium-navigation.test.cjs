@@ -11,3 +11,6 @@ test('navigation stays within the same physical route after a translated/rotated
 test('room wall constraint uses the saved building transform',()=>{const wanted=n.fromInteriorLocal([100,5,100],frame);const p=n.toInteriorLocal(n.constrainRoomMotion(wanted,frame,5.5,5),frame);assert.ok(p[0]<=4.501&&p[2]<=4.001);close(p[1],5);});
 
 test('orbit pan, wheel zoom and drag are disabled in every interior and transition state',()=>{for(const state of ['inside','flying-in','flying-out'])for(const fp of [false,true])assert.equal(n.worldOrbitEnabled(state,fp),false);assert.equal(n.worldOrbitEnabled('world',false),true);assert.equal(n.worldOrbitEnabled('world',true),false);});
+
+test('authorized host walks from upper landing, down the stairs and up the ramp behind the microphone under transformed layouts',()=>{for(const scale of [.2,.4,1,2])for(const rotationY of [0,Math.PI/3,-Math.PI/2]){const f={position:[-15,4,20],scale,rotationY,stageAccess:true};const p=walk([0,15.1,62],[0,0,-1],f);close(p[0],0);close(p[2],-1);close(p[1],1.2+1.7);}});
+test('a host cannot climb the stage edge without using the actual ramp',()=>{const p=walk([14,0,0],[0,0,0],{...frame,stageAccess:true});assert.ok(p[0]>9);});

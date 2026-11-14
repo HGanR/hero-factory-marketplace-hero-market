@@ -3,6 +3,7 @@ import {createPublicClient,http,parseAbi,type Address,type Hex} from 'viem';
 import {polygon} from 'viem/chains';
 import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
 import {avatarFor,opaqueIdentity,reserveSeat,presenceScope} from './presence-store';
+import {registerFloorHost,readSpeakerFloor,floorPresence} from './stadium-speaker-floor';
 import {portraitFor} from './presence-portrait';
 import {seatPose,hostPose,type PresenceIdentity} from './presence-model';
 import {getConnection} from '@/lib/db';
@@ -66,10 +67,11 @@ export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hos
  if(created.maxParticipants!==event.capacity)throw new AdmissionError('Event capacity configuration does not match',503);
  const identity=opaqueIdentity(hostUserId?'host':'attendee',hostUserId?'user:'+hostUserId:memberUserId?'user:'+memberUserId:wallet??randomBytes(16).toString('hex'));
  const saved=await loadGreenLayout(),frame=saved?.layout.buildings['stadium-elyseum'];if(!frame)throw new AdmissionError('The stadium layout is unavailable',503);
- const seat=hostUserId?null:await reserveSeat(room,event.id,policyHash(event),identity,service);
+ const seat=await reserveSeat(room,event.id,policyHash(event),identity,service);
  const portrait=await portraitFor(hostUserId?{userId:hostUserId,admin:true,username:adminUsername}:memberUserId?{userId:memberUserId,admin:false}:undefined);
- const presence:PresenceIdentity={...(portrait.portraitUrl?{portraitUrl:portrait.portraitUrl}:{}),v:1,identity,avatar:await avatarFor(hostUserId??memberUserId),role:hostUserId?'host':'attendee',eventId:event.id,pose:hostUserId?hostPose(frame,event.id):seatPose(seat!.seatIndex,frame,event.id)};
+ let presence:PresenceIdentity={...(portrait.portraitUrl?{portraitUrl:portrait.portraitUrl}:{}),v:1,identity,avatar:await avatarFor(hostUserId??memberUserId),role:hostUserId?'host':'attendee',seatIndex:seat.seatIndex,floorRole:hostUserId?'host':'audience',floorRevision:0,eventId:event.id,pose:hostUserId?hostPose(frame,event.id):seatPose(seat!.seatIndex,frame,event.id)};
+ const floor=hostUserId?await registerFloorHost(room,identity,seat.seatIndex):await readSpeakerFloor(room);if(floor)presence=floorPresence(presence,floor,frame);
  const at=new AccessToken(key,secret,{identity,name:hostUserId?'Event host':'Attendee',metadata:JSON.stringify(presence),ttl:Math.max(1,Math.min(120,Math.floor((Date.parse(event.endsAt)-Date.now())/1000)))});
- at.addGrant({roomJoin:true,room,canSubscribe:true,canPublish:true,canPublishSources:[TrackSource.MICROPHONE],canPublishData:false,canUpdateOwnMetadata:false});
+ at.addGrant({roomJoin:true,room,canSubscribe:true,canPublish:true,canPublishSources:[TrackSource.MICROPHONE],canPublishData:!!hostUserId,canUpdateOwnMetadata:false});
  return{token:await at.toJwt(),serverUrl:url,...((hostUserId??memberUserId)?{accountKey:opaqueIdentity('member','user:'+(hostUserId??memberUserId))}:{}),eventId:event.id,endsAt:event.endsAt,title:event.title,isHost:Boolean(hostUserId),presence,...(seat?{seatLeaseToken:seat.seatLeaseToken}:{})};
 }

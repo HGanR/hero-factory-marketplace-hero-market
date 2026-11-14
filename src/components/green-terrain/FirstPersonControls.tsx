@@ -50,6 +50,7 @@ interface FirstPersonControlsProps {
   floorAt?: (x:number,z:number)=>number;
   eyeHeight?: number;
   movementScale?: number;
+  relocation?: {key:string;position:Point3;lookAt:Point3};
 }
 
 const WALK_SPEED = 6;
@@ -85,6 +86,7 @@ export default function FirstPersonControls({
   floorAt,
   eyeHeight=EYE_HEIGHT,
   movementScale=1,
+  relocation,
 }: FirstPersonControlsProps) {
   const { camera, scene, gl } = useThree();
 
@@ -130,12 +132,13 @@ export default function FirstPersonControls({
       lastHoveredAgentId.current = null;
       return;
     }
+    if(relocation){camera.position.fromArray(relocation.position);camera.lookAt(...relocation.lookAt);targetEyeY.current=null;isLerpingFloor.current=false;}
     const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ");
     yaw.current = euler.y;
     pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, euler.x));
     currentEyeY.current = camera.position.y;
     initialized.current = true;
-  }, [active, camera, onHoverAgent]);
+  }, [active, camera, onHoverAgent,relocation?.key]);
 
   useEffect(()=>{if(!active)return;return attachTouchLook(gl.domElement,(dx,dy)=>{yaw.current-=dx*SENSITIVITY*1.7;pitch.current=Math.max(-MAX_PITCH,Math.min(MAX_PITCH,pitch.current-dy*SENSITIVITY*1.7));});},[active,gl]);
 

@@ -21,7 +21,7 @@ import {rotateTownSelection,INTERSECTION_SPAWN,type TownSelection} from "@/lib/t
 import TownPresenceLayer from './TownPresenceLayer';
 import TownVoicePanel from './TownVoicePanel';
 import {useTownPresence,type EventConnection} from './useTownPresence';
-import {eyeHeightFor,type PresenceIdentity,type PresencePose} from '@/lib/troo-world/presence-model';
+import {eyeHeightFor,presenceLocked,presencePlacementKey,type PresenceIdentity,type PresencePose} from '@/lib/troo-world/presence-model';
 import TouchWalkControls from "./TouchWalkControls";
 import type {WalkInput} from "@/lib/troo-world/touch-navigation";
 import AmbientTown from "@/components/green-terrain/AmbientTown";
@@ -778,11 +778,11 @@ function Scene(props: SceneProps) {
   const interiorMotion=useMemo(()=>{
     const id=props.insideBuilding==='stadium'?'stadium-elyseum':props.insideBuilding==='nexus'?'nexus-tower':props.insideBuilding==='meridian'?'meridian-tower':'troothhertz-tower';
     const frame=props.layout.buildings[id] as InteriorFrame;
-    if(props.insideBuilding==='stadium'&&props.eventIdentity){const pose=props.eventIdentity.pose;return{move:()=>[pose.position[0],pose.position[1]+eyeHeightFor(pose),pose.position[2]] as [number,number,number],floor:()=>pose.position[1]};}
-    if(props.insideBuilding==='stadium')return{move:(from:[number,number,number],wanted:[number,number,number])=>constrainStadiumMotion(from,wanted,{...frame,eyeHeight:1.7}),floor:(x:number,z:number)=>stadiumFloorAt(x,z,frame)};
+    if(props.insideBuilding==='stadium'&&presenceLocked(props.eventIdentity)){const pose=props.eventIdentity!.pose;return{move:()=>[pose.position[0],pose.position[1]+eyeHeightFor(pose),pose.position[2]] as [number,number,number],floor:()=>pose.position[1]};}
+    if(props.insideBuilding==='stadium'){const stageAccess=props.eventIdentity?props.eventIdentity.role==='host'&&props.eventIdentity.floorRole!=='audience':!!props.presenceView.profile?.admin;const hostFrame={...frame,eyeHeight:1.7,stageAccess};return{move:(from:[number,number,number],wanted:[number,number,number])=>constrainStadiumMotion(from,wanted,hostFrame),floor:(x:number,z:number)=>stadiumFloorAt(x,z,hostFrame)};}
     const dimensions=props.insideBuilding==='nexus'?[5.5,5]:props.insideBuilding==='meridian'?[6.5,6]:[7,5.5];
     return{move:(_from:[number,number,number],wanted:[number,number,number])=>constrainRoomMotion(wanted,frame,dimensions[0],dimensions[1]),floor:undefined};
-  },[props.insideBuilding,props.layout,props.eventIdentity]);
+  },[props.insideBuilding,props.layout,props.eventIdentity,props.presenceView.profile?.admin]);
   
   // Snap camera to position when a new object is placed
   useEffect(() => {
@@ -1116,6 +1116,7 @@ function Scene(props: SceneProps) {
           : undefined
         }
         collisionBoxes={props.insideBuilding === "stadium" ? [] : props.collisionBoxes}
+        relocation={props.eventIdentity?{key:presencePlacementKey(props.eventIdentity),position:[props.eventIdentity.pose.position[0],props.eventIdentity.pose.position[1]+eyeHeightFor(props.eventIdentity.pose),props.eventIdentity.pose.position[2]],lookAt:[props.eventIdentity.pose.position[0]+Math.sin(props.eventIdentity.pose.yaw)*8,props.eventIdentity.pose.position[1]+eyeHeightFor(props.eventIdentity.pose)-.15,props.eventIdentity.pose.position[2]+Math.cos(props.eventIdentity.pose.yaw)*8]}:undefined}
         constrainMotion={interiorMotion.move}
         floorAt={interiorMotion.floor}
         eyeHeight={props.eventIdentity?eyeHeightFor(props.eventIdentity.pose):1.7}
@@ -1142,7 +1143,7 @@ function Scene(props: SceneProps) {
         target={[0,0,0]}
         enableDamping={false}
       />
-      <TownPresenceLayer active={!props.isEditorMode&&((props.worldFirstPerson&&props.cameraState==='world')||props.cameraState==='inside')} avatar={props.eventIdentity?.avatar??props.presenceView.profile?.avatar} pose={props.presenceView.pose} peers={props.presenceView.peers} fixed={props.eventIdentity} zone={props.eventIdentity?.pose.zone??(props.insideBuilding??'world')}/>
+      <TownPresenceLayer active={!props.isEditorMode&&((props.worldFirstPerson&&props.cameraState==='world')||props.cameraState==='inside')} avatar={props.eventIdentity?.avatar??props.presenceView.profile?.avatar} pose={props.presenceView.pose} peers={props.presenceView.peers} fixed={presenceLocked(props.eventIdentity)?props.eventIdentity:undefined} onSelectPeer={props.eventIdentity?.role==='host'?props.presenceView.selectPeer:undefined} zone={props.eventIdentity?.pose.zone??(props.insideBuilding??'world')}/>
       <TownCameraCollision active={props.cameraState === "world" && !props.isEditorMode} walking={props.worldFirstPerson} revision={props.layout} orbitRef={orbitRef}/>
     </>
   );
@@ -1928,7 +1929,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           onSnapComplete={() => setSnapToPosition(null)}
           touchInput={touchInput}
           presenceView={presenceView}
-          eventIdentity={eventConnection?.credentials.presence}
+          eventIdentity={eventConnection?presenceView.identity:undefined}
           worldFirstPerson={worldFirstPerson}
           worldFreeLook={worldFreeLook}
           onWorldFreeLookChange={setWorldFreeLook}
@@ -2033,7 +2034,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       </section>}
 
       <TownVoicePanel value={presenceView} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
-      <TouchWalkControls input={touchInput} active={!eventConnection&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
+      <TouchWalkControls input={touchInput} active={(!eventConnection||!presenceLocked(presenceView.identity))&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       <style>{`@media(pointer:coarse),(max-width:760px){.town-keyboard-help{display:none!important}}`}</style>
       {/* HUD overlays */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}>
