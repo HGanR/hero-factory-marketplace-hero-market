@@ -1,23 +1,24 @@
 import type {Point3} from './town-collision';
 export type InteriorFrame={position:Point3;scale:number;rotationY:number};
-export const STADIUM_ACCESS={arenaY:0.3,landingY:15.1,arenaRadius:27,concourseInner:56,concourseOuter:69,stairBottomZ:24,stairTopZ:56,landingEndZ:64,entryZ:56.8,width:8,steps:64} as const;
+export const STADIUM_ACCESS={arenaY:0.3,landingY:15.1,arenaRadius:27,concourseInner:56,concourseOuter:61,stairBottomZ:24,stairTopZ:56,landingEndZ:64,entryZ:56.8,width:8,steps:64} as const;
 export const INTERIOR_EYE_HEIGHT=1.7;
 export function toInteriorLocal(p:Point3,f:InteriorFrame):Point3{const x=(p[0]-f.position[0])/f.scale,z=(p[2]-f.position[2])/f.scale,c=Math.cos(f.rotationY),s=Math.sin(f.rotationY);return[c*x-s*z,(p[1]-f.position[1])/f.scale,s*x+c*z];}
 export function fromInteriorLocal(p:Point3,f:InteriorFrame):Point3{const c=Math.cos(f.rotationY),s=Math.sin(f.rotationY);return[f.position[0]+f.scale*(c*p[0]+s*p[2]),f.position[1]+f.scale*p[1],f.position[2]+f.scale*(-s*p[0]+c*p[2])];}
-export function stadiumEntry(f:InteriorFrame){const position=fromInteriorLocal([0,STADIUM_ACCESS.landingY,STADIUM_ACCESS.entryZ],f),lookAt=fromInteriorLocal([0,STADIUM_ACCESS.arenaY,24],f);position[1]+=INTERIOR_EYE_HEIGHT*f.scale;return{position,lookAt};}
+export function stadiumEntry(f:InteriorFrame){const position=fromInteriorLocal([0,STADIUM_ACCESS.landingY,STADIUM_ACCESS.entryZ],f),lookAt=fromInteriorLocal([0,5,0],f);position[1]+=INTERIOR_EYE_HEIGHT*f.scale;return{position,lookAt};}
 export function stadiumLocalFloor(x:number,z:number){const a=STADIUM_ACCESS;
- if(Math.abs(x)<=a.width/2&&z>=a.stairBottomZ&&z<=a.landingEndZ){const fraction=Math.min(1,Math.max(0,(z-a.stairBottomZ)/(a.stairTopZ-a.stairBottomZ)));return a.arenaY+Math.ceil(fraction*a.steps-1e-8)*(a.landingY-a.arenaY)/a.steps;}
+ const along=Math.max(Math.abs(x),Math.abs(z)),across=Math.min(Math.abs(x),Math.abs(z));
+ if(across<=a.width/2&&along>=a.stairBottomZ&&along<=a.landingEndZ){const fraction=Math.min(1,Math.max(0,(along-a.stairBottomZ)/(a.stairTopZ-a.stairBottomZ)));return a.arenaY+Math.ceil(fraction*a.steps-1e-8)*(a.landingY-a.arenaY)/a.steps;}
  return Math.hypot(x,z)>=a.concourseInner?a.landingY:a.arenaY;
 }
 export function stadiumFloorAt(x:number,z:number,f:InteriorFrame){const p=toInteriorLocal([x,f.position[1],z],f);return f.position[1]+stadiumLocalFloor(p[0],p[2])*f.scale;}
 function allowed(x:number,z:number,f:InteriorFrame){const a=STADIUM_ACCESS,r=Math.hypot(x,z),clearance=0.4;
  // The stage remains restricted for ordinary visitors, in the same scaled coordinate frame.
- if(r<6+clearance)return false;
- return r<=a.arenaRadius-clearance || (Math.abs(x)<=a.width/2-clearance&&z>=a.stairBottomZ&&z<=a.landingEndZ) || (r>=a.concourseInner+clearance&&r<=a.concourseOuter-clearance);
+ if(r<18+clearance)return false;
+ return r<=a.arenaRadius-clearance || (Math.min(Math.abs(x),Math.abs(z))<=a.width/2-clearance&&Math.max(Math.abs(x),Math.abs(z))>=a.stairBottomZ&&Math.max(Math.abs(x),Math.abs(z))<=a.landingEndZ) || (r>=a.concourseInner+clearance&&r<=a.concourseOuter-clearance);
 }
 function recover(p:Point3,f:InteriorFrame):Point3{if(allowed(p[0],p[2],f))return p;const a=STADIUM_ACCESS,r=Math.hypot(p[0],p[2])||1,clearance=0.4;
- const candidates:Point3[]=[[0,0,62],[0,0,10],[p[0]/r*(a.arenaRadius-clearance-0.01),0,p[2]/r*(a.arenaRadius-clearance-.01)],[p[0]/r*(a.concourseOuter-clearance-.01),0,p[2]/r*(a.concourseOuter-clearance-.01)]];
- const valid=candidates.filter(q=>allowed(q[0],q[2],f));valid.sort((a,b)=>(a[0]-p[0])**2+(a[2]-p[2])**2-((b[0]-p[0])**2+(b[2]-p[2])**2));return valid[0]??[0,0,10];
+ const candidates:Point3[]=[[0,0,62],[0,0,22],[p[0]/r*(a.arenaRadius-clearance-0.01),0,p[2]/r*(a.arenaRadius-clearance-.01)],[p[0]/r*(a.concourseOuter-clearance-.01),0,p[2]/r*(a.concourseOuter-clearance-.01)]];
+ const valid=candidates.filter(q=>allowed(q[0],q[2],f));valid.sort((a,b)=>(a[0]-p[0])**2+(a[2]-p[2])**2-((b[0]-p[0])**2+(b[2]-p[2])**2));return valid[0]??[0,0,22];
 }
 /** Substeps prevent tunneling through the seating gap, outer wall, stage or stair rails. */
 export function constrainStadiumMotion(from:Point3,wanted:Point3,f:InteriorFrame):Point3{
@@ -29,3 +30,4 @@ export function constrainStadiumMotion(from:Point3,wanted:Point3,f:InteriorFrame
 }
 export function constrainRoomMotion(wanted:Point3,f:InteriorFrame,halfWidth:number,halfDepth:number):Point3{const p=toInteriorLocal(wanted,f),r=.4/f.scale;p[0]=Math.max(-halfWidth+r,Math.min(halfWidth-r,p[0]));p[2]=Math.max(-halfDepth+r,Math.min(halfDepth-r,p[2]));const out=fromInteriorLocal(p,f);out[1]=wanted[1];return out;}
 export function worldOrbitEnabled(state:string,firstPerson:boolean){return state==='world'&&!firstPerson;}
+
