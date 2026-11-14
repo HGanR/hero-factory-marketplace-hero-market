@@ -3,15 +3,16 @@ import {RoundedBoxGeometry} from 'three/examples/jsm/geometries/RoundedBoxGeomet
 import {STADIUM_ACCESS as A} from './stadium-navigation';
 export const VENUE_NAME='TROOTHHERTZ STADIUM';
 export const VENUE={stageRadius:9,guestRadius:18,wallRadius:70,ceilingY:36,screenY:26,screenZ:-63,aisleHalfWidth:5.2} as const;
+const seatingRows=()=>[...Array.from({length:6},(_,i)=>{const r=30+i*3.3;return{r,y:A.arenaY+Math.ceil((r-A.stairBottomZ)/(A.stairTopZ-A.stairBottomZ)*A.steps)*(A.landingY-A.arenaY)/A.steps,width:3.3}}),...Array.from({length:3},(_,i)=>({r:62+i*2.5,y:17+i*2.3,width:2.5}))];
 export type VenueSeat={x:number;y:number;z:number;yaw:number;guest:boolean};
 /** Four radial circulation corridors are excluded before any seat is placed. */
 export function venueSeats():VenueSeat[]{
- const rows=[...Array.from({length:8},(_,i)=>({r:30+i*3.3,y:1.3+i*1.86})),...Array.from({length:3},(_,i)=>({r:62+i*2.5,y:17+i*2.3}))];
+ const rows=seatingRows();
  const seats:VenueSeat[]=[];
  rows.forEach(({r,y},row)=>{const count=Math.floor(2*Math.PI*r/3.4);for(let i=0;i<count;i++){const a=(i+.5)*2*Math.PI/count,x=Math.sin(a)*r,z=Math.cos(a)*r;
   if(Math.min(Math.abs(x),Math.abs(z))<VENUE.aisleHalfWidth+1.4)continue;
   // Reserve a clear sightline and service bay behind the raised main LED wall.
-  if(row>=8&&z< -57&&Math.abs(x)<21)continue;
+  if(row>=6&&z< -57&&Math.abs(x)<21)continue;
   seats.push({x,y,z,yaw:a+Math.PI,guest:false});
  }});
  for(let i=0;i<12;i++){const a=(i+.5)*Math.PI*2/12;seats.push({x:Math.sin(a)*14,y:A.arenaY,z:Math.cos(a)*14,yaw:a+Math.PI,guest:true});}
@@ -67,9 +68,9 @@ export function renovateStadium(scene:THREE.Object3D){
  root.userData.publicSeats=publicSeats.length;root.userData.guestSeats=guests.length;
  // Terraces are cut into four sectors; no slab or chair crosses a stair corridor.
  
- for(const [r,y,width]of [...Array.from({length:8},(_,i)=>[30+i*3.3,1.3+i*1.86,3.3]),...Array.from({length:3},(_,i)=>[62+i*2.5,17+i*2.3,2.5])]){
+ for(const {r,y,width}of seatingRows()){
   const gap=Math.asin((VENUE.aisleHalfWidth+.2)/(r-width/2));
-  for(let q=0;q<4;q++){const g=geo(new THREE.RingGeometry(r-width/2,r+width/2,28,1,q*Math.PI/2+gap,Math.PI/2-2*gap));add('Venue_Seating_Terrace',g,carpet,[0,y,0],[-Math.PI/2,0,0]);const rise=r<60?(r===30?1:1.86):(r===62?1.9:2.3);add('Venue_Seating_Riser',geo(new THREE.CylinderGeometry(r-width/2,r-width/2,rise,28,1,true,q*Math.PI/2+gap,Math.PI/2-2*gap)),navy,[0,y-rise/2,0]);}
+  for(let q=0;q<4;q++){const g=geo(new THREE.RingGeometry(r-width/2,r+width/2,28,1,q*Math.PI/2+gap,Math.PI/2-2*gap));add('Venue_Seating_Terrace',g,carpet,[0,y,0],[-Math.PI/2,0,0]);const rise=r<60?(r===30?y-A.arenaY:1.62):(r===62?1.9:2.3);add('Venue_Seating_Riser',geo(new THREE.CylinderGeometry(r-width/2,r-width/2,rise,28,1,true,q*Math.PI/2+gap,Math.PI/2-2*gap)),navy,[0,y-rise/2,0]);}
  }
  const stairLight=material('#c49a60',.35,.5,'#b47732');stairLight.emissiveIntensity=.35;
  const stepItems:{p:number[];s:number[];yaw:number}[]=[],edgeItems:{p:number[];s:number[];yaw:number}[]=[],posts:{p:number[];s:number[]}[]=[];
@@ -119,7 +120,7 @@ export function renovateStadium(scene:THREE.Object3D){
  }
  for(const [x,z]of [[-30,15],[30,15],[0,-30]]){const light=new THREE.PointLight('#38bac9',350,65,2);light.position.set(x,19,z);light.userData.venueBaseIntensity=350;light.userData.venueBaseDistance=65;root.add(light);}
  // Ticker remains a normal named display node, facing the audience without mirrored text.
- const ticker=geo(new THREE.CylinderGeometry(58,58,1.8,128,1,true));const uv=ticker.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setX(i,(1-uv.getX(i))*1.6);const tickerMaterial=black.clone();tickerMaterial.side=THREE.BackSide;materials.push(tickerMaterial);add('Ticker_Board',ticker,tickerMaterial,[0,18.2,0]);
+ const ticker=geo(new THREE.CylinderGeometry(55,55,1.8,128,1,true));const uv=ticker.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setX(i,(1-uv.getX(i))*1.6);const tickerMaterial=black.clone();tickerMaterial.side=THREE.BackSide;materials.push(tickerMaterial);add('Ticker_Board',ticker,tickerMaterial,[0,14.5,0]);
  const fill=new THREE.HemisphereLight('#d1e4ee','#79644c',1.3);fill.name='Venue_Architectural_Fill';root.add(fill);
  scene.add(root);scene.updateMatrixWorld(true);
  return {root,seats,dispose:()=>{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.remove(root);}};
