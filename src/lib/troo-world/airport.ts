@@ -4,8 +4,8 @@ export const AIRPORT={
  key:'airport-cycle-30min',name:'Airport · member-world departures',
  modelUrl:'/models/world-assets/airport_cycle_30min.glb',duration:1800,
  // The source is metres and has a 600 m runway. This editable display scale
- // fits its static footprint in the current town without relocating buildings.
- defaultPosition:[0,0,-65] as Vec3,defaultScale:.1,
+ // keeps it manageable while the editor moves it from the intersection spawn.
+ defaultPosition:[0,0,0] as Vec3,defaultScale:.1,
  stages:[
   {name:'Deplaning',time:0},{name:'Servicing',time:125},{name:'Boarding',time:1125},
   {name:'Bridge retracts',time:1275},{name:'Taxi out',time:1305},{name:'Takeoff',time:1405},

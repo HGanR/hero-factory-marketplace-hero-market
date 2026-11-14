@@ -6,12 +6,14 @@
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import {attachTouchLook,type WalkInput} from "@/lib/troo-world/touch-navigation";
 
 interface WorldFirstPersonControlsProps {
   active: boolean;
+  touchInput?:RefObject<WalkInput>;
   freeLook: boolean;
   onFreeLookChange: (v: boolean) => void;
   terrainBounds?: {
@@ -30,6 +32,7 @@ const MAX_PITCH = Math.PI * 0.45;
 
 export default function WorldFirstPersonControls({
   active,
+  touchInput,
   freeLook,
   onFreeLookChange,
   terrainBounds = { minX: -150, maxX: 150, minZ: -150, maxZ: 150 },
@@ -56,10 +59,12 @@ export default function WorldFirstPersonControls({
     initialized.current = true;
   }, [active, camera]);
 
+  useEffect(()=>{if(!active)return;return attachTouchLook(gl.domElement,(dx,dy)=>{yaw.current-=dx*SENSITIVITY*1.7;pitch.current=Math.max(-MAX_PITCH,Math.min(MAX_PITCH,pitch.current-dy*SENSITIVITY*1.7));});},[active,gl]);
+
   useEffect(() => {
     if (!active) return;
     if (freeLook) {
-      gl.domElement.requestPointerLock();
+      if(!window.matchMedia?.("(pointer: coarse)").matches)gl.domElement.requestPointerLock?.();
     } else {
       if (document.pointerLockElement === gl.domElement) {
         document.exitPointerLock();
@@ -122,6 +127,8 @@ export default function WorldFirstPersonControls({
     if (keys.current["KeyA"] || keys.current["ArrowLeft"])  move.addScaledVector(right, -speed);
     if (keys.current["KeyD"] || keys.current["ArrowRight"]) move.addScaledVector(right, speed);
 
+    if(touchInput){move.addScaledVector(forward,touchInput.current.forward*speed);move.addScaledVector(right,touchInput.current.strafe*speed);}
+
     // Apply movement with terrain bounds
     const newX = Math.max(terrainBounds.minX, Math.min(terrainBounds.maxX, camera.position.x + move.x));
     const newZ = Math.max(terrainBounds.minZ, Math.min(terrainBounds.maxZ, camera.position.z + move.z));
@@ -131,3 +138,4 @@ export default function WorldFirstPersonControls({
 
   return null;
 }
+

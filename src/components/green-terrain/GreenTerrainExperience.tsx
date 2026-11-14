@@ -16,6 +16,10 @@ import * as THREE from "three";
 import dynamic from "next/dynamic";
 import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type GreenLayout, type BuildingId, type BuildingState } from "@/lib/troo-world/green-terrain-layout";
 import {admissionEvent,type StadiumEvent} from '@/lib/troo-world/stadium-events';
+import SelectionRotationControls from "./SelectionRotationControls";
+import {rotateTownSelection,INTERSECTION_SPAWN,type TownSelection} from "@/lib/troo-world/town-placement";
+import TouchWalkControls from "./TouchWalkControls";
+import type {WalkInput} from "@/lib/troo-world/touch-navigation";
 import AmbientTown from "@/components/green-terrain/AmbientTown";
 import {AIRPORT,isAirport,placeAirport,airportView,type ImportedPlacement} from '@/lib/troo-world/airport';
 import AirportRoutesEditor from '@/components/green-terrain/AirportRoutesEditor';
@@ -94,7 +98,7 @@ function terrainHeight(x: number, z: number, stadiumDepress?: { pos: [number,num
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface TreeData { id: number; pos: [number,number,number]; scale: number; phase: number; }
+interface TreeData { id: number; pos: [number,number,number]; scale: number; phase: number; rotationY?:number; }
 interface PlacedObject {
   id: string;
   type: WorldObjectType;
@@ -157,7 +161,7 @@ function Tree({data,isSelected}:{data:TreeData;isSelected:boolean}) {
   const f2=isSelected?0x55bb50:0x3a7a35;
   const f3=isSelected?0x66cc55:0x4a8a3a;
   return (
-    <group position={data.pos} scale={data.scale}>
+    <group position={data.pos} scale={data.scale} rotation={[0,data.rotationY??0,0]}>
       <mesh userData={{townSolid:true}} position={[0,0.6,0]} castShadow><cylinderGeometry args={[0.08,0.14,1.2,6]}/><meshLambertMaterial color={0x5c3a1e}/></mesh>
       <group ref={ref} position={[0,1.2,0]}>
         <mesh castShadow><coneGeometry args={[0.9,1.6,7]}/><meshLambertMaterial color={f1}/></mesh>
@@ -774,6 +778,7 @@ interface SceneProps {
   snapToPosition: [number, number, number] | null;
   onSnapComplete: () => void;
   worldFirstPerson: boolean;
+  touchInput: React.RefObject<WalkInput>;
   worldFreeLook: boolean;
   onWorldFreeLookChange: (v: boolean) => void;
 }
@@ -1078,6 +1083,7 @@ function Scene(props: SceneProps) {
       />
 
       <FirstPersonControls
+        touchInput={props.touchInput}
         active={props.cameraState === "inside"}
         bounds={props.insideBuilding === "nexus" ? {
           minX: props.nexusPos[0] - 5.5, maxX: props.nexusPos[0] + 5.5,
@@ -1133,7 +1139,8 @@ function Scene(props: SceneProps) {
 
       {/* World first-person controls (when in world view and first-person mode enabled) */}
       <WorldFirstPersonControls
-        active={props.worldFirstPerson && props.cameraState === "world"}
+        touchInput={props.touchInput}
+        active={props.worldFirstPerson && props.cameraState === "world" && !props.isEditorMode}
         freeLook={props.worldFreeLook}
         onFreeLookChange={props.onWorldFreeLookChange}
         terrainBounds={{ minX: -120, maxX: 120, minZ: -120, maxZ: 120 }}
@@ -1354,6 +1361,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
   const [freeLook, setFreeLook] = useState(false);
   const [hoveredAgent, setHoveredAgent] = useState<HoveredAgentInfo | null>(null);
+  const touchInput=useRef<WalkInput>({forward:0,strafe:0});
   const [worldFirstPerson, setWorldFirstPerson] = useState(false);
   const [worldFreeLook, setWorldFreeLook] = useState(false);
 
@@ -1544,8 +1552,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const handlePlaceObject = useCallback((type: WorldObjectType) => {
     saveToHistory();
     const id = `${type}-${Date.now()}`;
-    const offset = placedObjects.filter(o => o.type === type).length;
-    const basePos: [number, number, number] = [20 + offset * 6, 0, 20 + offset * 4];
+    const basePos: [number, number, number] = [...INTERSECTION_SPAWN];
+    setSelectedAirportKey(null);setIsEditorMode(true);
     const snappedPos = snapPosition(basePos);
     setPlacedObjects(prev => [...prev, {
       id, type,
@@ -1601,14 +1609,15 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setSelectedObjectId(null);
   }, [selectedObjectId, saveToHistory]);
 
-  const handleRotateObject = useCallback((delta: number) => {
-    if (!selectedObjectId) return;
-    setPlacedObjects(prev => prev.map(o =>
-      o.id === selectedObjectId
-        ? { ...o, rotation: [o.rotation[0], o.rotation[1] + delta, o.rotation[2]] as [number,number,number] }
-        : o
-    ));
-  }, [selectedObjectId]);
+  const rotationTarget:TownSelection|null=selectedObjectId?{kind:'object',id:selectedObjectId}:selectedTreeId!==null?{kind:'tree',id:selectedTreeId}:selectedAirportKey?{kind:'import',id:selectedAirportKey}:nexusSelected?{kind:'building',id:'nexus-tower'}:meridianSelected?{kind:'building',id:'meridian-tower'}:troothhertzSelected?{kind:'building',id:'troothhertz-tower'}:stadiumSelected?{kind:'building',id:'stadium-elyseum'}:veritasSelected?{kind:'building',id:'veritas-school'}:null;
+  const handleRotateObject = useCallback((delta:number)=>{
+    if(!rotationTarget||readOnly)return;
+    const next=rotateTownSelection(layout,rotationTarget,delta);saveToHistory();
+    if(rotationTarget.kind==='object')setPlacedObjects(next.objects);
+    else if(rotationTarget.kind==='tree')setTrees(next.trees);
+    else if(rotationTarget.kind==='import')setImports(next.imports);
+    else setPresentation(next.buildings);
+  },[rotationTarget,layout,readOnly,saveToHistory]);
 
   const handleSelectNexus = useCallback(() => {
     setSelectedAirportKey(null);
@@ -1926,6 +1935,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           }
           snapToPosition={snapToPosition}
           onSnapComplete={() => setSnapToPosition(null)}
+          touchInput={touchInput}
           worldFirstPerson={worldFirstPerson}
           worldFreeLook={worldFreeLook}
           onWorldFreeLookChange={setWorldFreeLook}
@@ -1979,9 +1989,9 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onSaveSnapshot={saveSnapshot}
         saveReady={layoutReady}
         airportPlaced={imports.some(isAirport)}
-        onPlaceGlbAsset={key=>{if(key!==AIRPORT.key)return;try{const next=placeAirport(imports);if(next===imports)return;saveToHistory();setImports(next);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
+        onPlaceGlbAsset={key=>{if(key!==AIRPORT.key)return;try{const next=placeAirport(imports);if(next===imports)return;saveToHistory();setImports(next);setIsEditorMode(true);handleSelectAirport(next[next.length-1].elementKey);setSnapToPosition([...INTERSECTION_SPAWN]);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
         isEditorMode={isEditorMode}
-        onToggleEditor={() => setIsEditorMode(e => !e)}
+        onToggleEditor={() => {setWorldFirstPerson(false);setWorldFreeLook(false);setIsEditorMode(e => !e);}}
         currentWorldId={currentWorldId}
         onWorldChange={id=>{if(id==="default")window.location.assign("/modeling");}}
         nexusPosition={nexusPos}
@@ -2016,7 +2026,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         {isEditorMode&&imports.filter(isAirport).map(airport=><details key={airport.elementKey} open><summary>Airport flight routes</summary><AirportRoutesEditor destinations={airport.destinations??[]} onChange={destinations=>{saveToHistory();setImports(rows=>rows.map(row=>row.elementKey===airport.elementKey?{...row,destinations}:row));}}/></details>)}
         <details><summary>Additional saved buildings</summary>
           <label>Existing model URL <input value={newModelUrl} onChange={e=>setNewModelUrl(e.target.value)} placeholder="/models/…/building.glb"/></label>
-          <button type="button" onClick={()=>{try{const url=modelUrl(newModelUrl);saveToHistory();setImports(v=>[...v,{elementKey:'building-'+crypto.randomUUID().slice(0,8),glbUrl:url,position:[45,0,40],scale:1,rotationY:0}]);setNewModelUrl('');setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Invalid model URL')}}}>Add model to town</button>
+          <button type="button" onClick={()=>{try{const url=modelUrl(newModelUrl),key='building-'+crypto.randomUUID().slice(0,8);saveToHistory();setImports(v=>[...v,{elementKey:key,glbUrl:url,position:[...INTERSECTION_SPAWN],scale:1,rotationY:0}]);setIsEditorMode(true);handleSelectAirport(key);setSnapToPosition([...INTERSECTION_SPAWN]);setNewModelUrl('');setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Invalid model URL')}}}>Add model to town</button>
           {modelError&&<p role="alert">{modelError}</p>}
           {imports.map((model,index)=><fieldset key={model.elementKey}><legend>{isAirport(model)?AIRPORT.name:model.elementKey}</legend>{isAirport(model)&&<p>Source runway: 600 metres. Default display scale: 0.10. Adjust placement, scale and rotation here, then Save World Layout to publish.</p>}{(['X','Y','Z'] as const).map((axis,n)=><label key={axis}>{axis}<input type="number" value={model.position[n]} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=1000)setImports(v=>v.map((p,i)=>i===index?{...p,position:p.position.map((x,j)=>j===n?value:x) as [number,number,number]}:p))}}/></label>)}
           <label>Scale<input type="number" min="0.05" max="20" step="0.05" value={model.scale} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&value>=.05&&value<=20)setImports(v=>v.map((p,i)=>i===index?{...p,scale:value}:p))}}/></label>
@@ -2028,6 +2038,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         <a href="/troo-town" target="_blank" rel="noopener noreferrer">Open public town ↗</a>
       </section>}
 
+      <TouchWalkControls input={touchInput} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
+      <style>{`@media(pointer:coarse),(max-width:760px){.town-keyboard-help{display:none!important}}`}</style>
       {/* HUD overlays */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}>
         {/* Stats badge */}
@@ -2082,7 +2094,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
         {/* First-person mode instructions */}
         {worldFirstPerson && cameraState === "world" && (
-          <div style={{
+          <div className="town-keyboard-help" style={{
             position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)",
             background: "rgba(10,20,40,0.85)", backdropFilter: "blur(8px)",
             border: "1px solid rgba(42,111,189,0.4)", borderRadius: 10,
@@ -2321,6 +2333,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           </div>
         )}
 
+        {isEditorMode&&rotationTarget&&rotationTarget.kind!=='object'&&<div style={{position:'absolute',bottom:80,left:12,maxWidth:'calc(100vw - 24px)',padding:10,background:'#08253def',border:'1px solid #65bfff',borderRadius:10,pointerEvents:'auto'}}><SelectionRotationControls label={String(rotationTarget.id)} onRotate={handleRotateObject}/></div>}
         {/* Object selection HUD */}
         {isEditorMode && selectedObject && (
           <div style={{

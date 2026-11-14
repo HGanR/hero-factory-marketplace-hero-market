@@ -65,5 +65,5 @@ export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hos
  const identity=hostUserId?'host-'+hostUserId:wallet?'wallet-'+wallet:'guest-'+randomBytes(16).toString('hex');
  const at=new AccessToken(key,secret,{identity,name:hostUserId?'Event host':'Attendee',ttl:Math.max(1,Math.min(120,Math.floor((Date.parse(event.endsAt)-Date.now())/1000)))});
  at.addGrant({roomJoin:true,room,canSubscribe:true,canPublish:Boolean(hostUserId),canPublishData:false});
- return{token:await at.toJwt(),serverUrl:url,eventId:event.id,endsAt:event.endsAt,title:event.title};
+ return{token:await at.toJwt(),serverUrl:url,eventId:event.id,endsAt:event.endsAt,title:event.title,isHost:Boolean(hostUserId)};
 }

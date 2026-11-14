@@ -21,6 +21,15 @@ export function cloneStadiumExterior(source:THREE.Object3D){
  scene.traverse(object=>{
   const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;
   mesh.material=Array.isArray(mesh.material)?mesh.material.map(m=>m.clone()):mesh.material.clone();
+  if(/^(screen_(main|side_left|side_right)|scoreboard_screen|ticker_board)$/i.test(mesh.name)){
+   // The authored display boxes contain POSITION/NORMAL only. A map without UVs
+   // samples one corner of the poster, making a correctly assigned graphic look blank.
+   mesh.geometry=mesh.geometry.clone();mesh.userData.stadiumDisplayGeometry=true;
+   const geometry=mesh.geometry;geometry.computeBoundingBox();const box=geometry.boundingBox!,p=geometry.getAttribute('position'),uv=new Float32Array(p.count*2);
+   const width=Math.max(.001,box.max.x-box.min.x),height=Math.max(.001,box.max.y-box.min.y);
+   for(let i=0;i<p.count;i++){uv[i*2]=(p.getX(i)-box.min.x)/width;uv[i*2+1]=1-(p.getY(i)-box.min.y)/height;}
+   geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  }
   if(/^Seating_Tier[123]$/.test(mesh.name)){
    // Cut an aisle through the imported seating surfaces rather than burying the new stairs in them.
    mesh.geometry=mesh.geometry.clone();const g=mesh.geometry,p=g.getAttribute('position');const index=g.index;const kept:number[]=[];
@@ -42,6 +51,7 @@ export function cloneStadiumExterior(source:THREE.Object3D){
 export function disposeStadiumExterior(scene:THREE.Object3D){
  scene.traverse(object=>{const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;
   (Array.isArray(mesh.material)?mesh.material:[mesh.material]).forEach(m=>m.dispose());
-  if(mesh.name==='Bowl_Wall'||mesh.name==='Roof_Ring'||/^Seating_Tier[123]$/.test(mesh.name))mesh.geometry.dispose();
+  if(mesh.userData.stadiumDisplayGeometry||mesh.name==='Bowl_Wall'||mesh.name==='Roof_Ring'||/^Seating_Tier[123]$/.test(mesh.name))mesh.geometry.dispose();
  });
 }
+

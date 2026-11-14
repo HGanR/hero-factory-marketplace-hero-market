@@ -15,6 +15,7 @@ import {STADIUM_ACCESS} from "@/lib/troo-world/stadium-navigation";
 import {stadiumSignagePlacement,STADIUM_TICKER_TEXT,cloneStadiumExterior,disposeStadiumExterior} from "@/lib/troo-world/stadium-signage";
 
 import {displayStadiumEvent,type StadiumSettings} from '@/lib/troo-world/stadium-events';
+import {loadTownTexture} from './loadTownTexture';
 const isScreen=(name:string)=>/^(screen_(main|side_left|side_right)|scoreboard_screen)$/i.test(name);
 const MODEL_URL = "/models/world-assets/stadium-elyseum.glb";
 
@@ -73,7 +74,7 @@ function buildSignageTexture(text: string): THREE.CanvasTexture {
 }
 
 // Build screen texture for host performance / event title
-function buildScreenTexture(title: string): THREE.CanvasTexture {
+function buildScreenTexture(title: string,badge: string): THREE.CanvasTexture {
   const W = 512;
   const H = 256;
   const cvs = document.createElement("canvas");
@@ -90,12 +91,12 @@ function buildScreenTexture(title: string): THREE.CanvasTexture {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#ffffff";
-  ctx.fillText("LIVE", W / 2, 50);
+  ctx.fillText(badge, W / 2, 50);
   ctx.font = `700 36px Arial, sans-serif`;
   ctx.fillStyle = "#a0d8ff";
   const lines = title.length > 40 ? [title.slice(0, 40) + "..."] : title.match(/.{1,25}/g) || [title];
   lines.slice(0, 3).forEach((line, i) => ctx.fillText(line, W / 2, 120 + i * 45));
-  return new THREE.CanvasTexture(cvs);
+  const tex=new THREE.CanvasTexture(cvs);tex.colorSpace=THREE.SRGBColorSpace;tex.flipY=false;return tex;
 }
 
 export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle, tickerText=STADIUM_TICKER_TEXT,eventSettings }: StadiumElyseumProps) {
@@ -104,7 +105,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
   const event=displayStadiumEvent(eventSettings,now);
   const title=event?.title??activeEventTitle;
   const [poster,setPoster]=useState<THREE.Texture|null>(null);
-  useEffect(()=>{let active=true;let owned:THREE.Texture|undefined;setPoster(null);if(event?.poster)new THREE.TextureLoader().load(event.poster,texture=>{if(!active){texture.dispose();return;}owned=texture;texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;setPoster(texture);});return()=>{active=false;owned?.dispose()};},[event?.poster]);
+  useEffect(()=>{setPoster(null);if(!event?.poster)return;return loadTownTexture(new THREE.TextureLoader(),event.poster,texture=>{texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;setPoster(texture);});},[event?.poster]);
   const gltf = useGLTF(MODEL_URL, ...GLTF_LOADER_OPTS);
   const groupRef = useRef<THREE.Group>(null);
   const scene = useMemo(() => cloneStadiumExterior(gltf.scene), [gltf.scene]);
@@ -116,7 +117,8 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
 
   useEffect(()=>()=>{signageTex.dispose();},[signageTex]);
 
-  const titleTex = useMemo(() => title ? buildScreenTexture(title) : null, [title]);
+  const badge=event?(now>=Date.parse(event.startsAt)?'LIVE':now>=Date.parse(event.admissionOpensAt)?'DOORS OPEN':'UPCOMING'):'EVENT';
+  const titleTex = useMemo(() => title ? buildScreenTexture(title,badge) : null, [title,badge]);
   useEffect(()=>()=>titleTex?.dispose(),[titleTex]);
   const screenTex=poster??titleTex;
 

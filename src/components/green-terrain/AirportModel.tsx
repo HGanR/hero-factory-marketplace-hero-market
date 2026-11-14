@@ -4,13 +4,12 @@ import {useFrame,type ThreeEvent} from '@react-three/fiber';
 import {Html,useGLTF} from '@react-three/drei';
 import {AIRPORT,airportStage,type ImportedPlacement} from '@/lib/troo-world/airport';
 import AirportDepartures from './AirportDepartures';
-import {createAirportPlayback} from '@/lib/troo-world/airport-playback';
-
-const panelPosition=(_object:unknown,_camera:unknown,size:{width:number}):[number,number]=>[size.width-16,90];
+import {createAirportPlayback,airportTerminalAnchor} from '@/lib/troo-world/airport-playback';
 
 export default function AirportModel({placement,onFocus,canFocus=true,editorMode=false,selected=false,onSelect}:{placement:ImportedPlacement;onFocus?:(placement:ImportedPlacement)=>void;canFocus?:boolean;editorMode?:boolean;selected?:boolean;onSelect?:()=>void}){
  const {scene,animations}=useGLTF(placement.glbUrl);
  const playback=useMemo(()=>createAirportPlayback(scene,animations),[scene,animations]);
+ const terminalAnchor=useMemo(()=>airportTerminalAnchor(scene),[scene]);
  const [open,setOpen]=useState(false),[playing,setPlaying]=useState(true),[time,setTime]=useState(0),[rate,setRate]=useState(1);
  const elapsed=useRef(0);
  useEffect(()=>{playback.activate();return()=>playback.dispose();},[playback]);
@@ -20,7 +19,7 @@ export default function AirportModel({placement,onFocus,canFocus=true,editorMode
  return <>
   <primitive object={playback.object} onClick={(event:ThreeEvent<MouseEvent>)=>{event.stopPropagation();if(editorMode)onSelect?.();else setOpen(true);}}/>
   {editorMode&&selected&&<mesh name="Airport selection ring" rotation={[-Math.PI/2,0,0]} position={[0,1,59.5]}><ringGeometry args={[308,312,64]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={2}/></mesh>}
-  <Html position={[0,45,80]} center={!open} {...(open?{calculatePosition:panelPosition}:{})} style={{pointerEvents:'auto',...(open?{transform:'translateX(-100%)'}:{})}}>
+  <Html position={terminalAnchor} center distanceFactor={45} occlude style={{pointerEvents:'auto'}}>
    <div onPointerDown={event=>event.stopPropagation()} style={{fontFamily:'system-ui',fontSize:12,color:'white',background:'#081b2fed',border:'1px solid #65bfff',borderRadius:10,padding:9,width:open?270:undefined,maxWidth:'calc(100vw - 32px)',maxHeight:'calc(100vh - 190px)',overflowY:'auto'}}>
     <button type="button" aria-expanded={open} onClick={()=>setOpen(value=>!value)} style={buttonStyle}>✈ Airport · Departures</button>
     {open&&<><AirportDepartures destinations={placement.destinations??[]}/>{editorMode&&<details><summary>Animation preview (editor only)</summary><section aria-label="Airport animation preview">

@@ -8,7 +8,7 @@ The 227,236-byte stadium GLB contains 499 nodes, **424 audience spawn markers**,
 
 The old host-event form allows 12–500 participants and creates a legacy `default`-world meeting. That number was configuration, not a load-tested venue capacity. Its entry route does not enforce NFT ownership. The generic LiveKit token route previously accepted arbitrary room names. `TokenGateWrapper` is not an ownership check.
 
-The screen effect expected `SCREEN_*`; the actual asset uses `Screen_Main`, `Screen_Side_Left`, `Screen_Side_Right` and `Scoreboard_Screen`. The shared town did not supply an event title. The exterior ticker was a fixed string.
+The screen effect expected `SCREEN_*`; the actual asset uses `Screen_Main`, `Screen_Side_Left`, `Screen_Side_Right` and `Scoreboard_Screen`. These display meshes also have no authored UV coordinates; applying an image alone samples one corner instead of showing the poster. The repair adds planar UVs on owned geometry clones, leaving cached and source assets unchanged. The shared town did not supply an event title. The exterior ticker was a fixed string.
 
 ## Implemented changes
 
@@ -31,3 +31,10 @@ The screen effect expected `SCREEN_*`; the actual asset uses `Screen_Main`, `Scr
 ## Verification
 
 Automated tests cover paid/pre-entry/free time boundaries, token ID zero, invalid gates, full public snapshot persistence, real EIP-191 signatures, non-holder rejection, RPC/wrong-chain failure, concurrent nonce replay, reserved-room bypass rejection and safe multi-segment sidewalk walking. LiveKit room provisioning and RPC responses are deterministic ports in admission unit tests; the JWT and wallet signatures are real. SQL concurrency runs against disposable MySQL in CI. Browser and full build results are recorded in the pull request as they complete.
+
+## Additional owner-requested town controls
+
+- Touch first-person movement uses four held direction buttons and independent canvas drag-look, including two-finger move/look operation. Both exterior and interior controllers retain their collision paths. Pointer cancellation, focus loss, mode changes and cleanup release movement.
+- Departures stays above measured terminal faces. It no longer jumps to a fixed screen corner when opened; world occlusion and distance scaling keep it tied to the airport.
+- New environment objects, airports and imported models spawn at the central street intersection. Existing saved positions are not rewritten. The new item is selected in editor mode for placement.
+- Q/E and visible rotation buttons rotate environment objects, built-in buildings, imported models/airport and trees. Tree yaw is an optional, backward-compatible snapshot field. Rotation has undo support and keeps coordinates unchanged.
