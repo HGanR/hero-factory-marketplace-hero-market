@@ -15,6 +15,8 @@ import { OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
 import dynamic from "next/dynamic";
 import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type GreenLayout, type BuildingId, type BuildingState } from "@/lib/troo-world/green-terrain-layout";
+import StadiumAdmission from './StadiumAdmission';
+import {admissionEvent,type StadiumEvent} from '@/lib/troo-world/stadium-events';
 import AmbientTown from "@/components/green-terrain/AmbientTown";
 import {AIRPORT,isAirport,placeAirport,airportView,type ImportedPlacement} from '@/lib/troo-world/airport';
 import AirportRoutesEditor from '@/components/green-terrain/AirportRoutesEditor';
@@ -938,6 +940,8 @@ function Scene(props: SceneProps) {
           isSelected={props.stadiumSelected}
           onSelect={props.onSelectStadium}
           animate={props.insideBuilding === "stadium"}
+          tickerText={props.layout.stadium?.tickerText}
+          eventSettings={props.layout.stadium}
         />
       </Suspense>
       <StadiumLabel
@@ -1158,6 +1162,7 @@ interface HistoryState {
   imports: GreenLayout["imports"];
   ambient: GreenLayout["ambient"];
   stadiumScale: number;
+  stadium?: GreenLayout["stadium"];
   trees: TreeData[];
   placedObjects: PlacedObject[];
   nexusPos: [number, number, number];
@@ -1171,6 +1176,8 @@ const MAX_UNDO_HISTORY = 50;
 
 export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boolean}) {
   const [presentation,setPresentation]=useState<GreenLayout['buildings']>(()=>structuredClone(DEFAULT_BUILDINGS));
+  const [stadium,setStadium]=useState<GreenLayout['stadium']>();
+  const [admission,setAdmission]=useState<StadiumEvent|null>(null);
   const [imports,setImports]=useState<GreenLayout['imports']>([]);
   const [newModelUrl,setNewModelUrl]=useState(''),[modelError,setModelError]=useState('');
   const [ambient,setAmbient]=useState<GreenLayout['ambient']>({enabled:false,sidewalks:false});
@@ -1211,7 +1218,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     if (isUndoingRef.current) return;
     setUndoHistory(prev => {
       const newHistory = [...prev, {
-        presentation: structuredClone(presentation), imports: structuredClone(imports), ambient: {...ambient}, stadiumScale,
+        presentation: structuredClone(presentation), imports: structuredClone(imports), ambient: {...ambient}, stadiumScale, stadium: stadium?structuredClone(stadium):undefined,
         trees: JSON.parse(JSON.stringify(trees)),
         placedObjects: JSON.parse(JSON.stringify(placedObjects)),
         nexusPos: [...nexusPos] as [number, number, number],
@@ -1226,14 +1233,14 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       return newHistory;
     });
     setRedoHistory([]);
-  }, [presentation, imports, ambient, stadiumScale, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
+  }, [presentation, imports, ambient, stadium, stadiumScale, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
 
   const undo = useCallback(() => {
     if (undoHistory.length === 0) return;
     
     isUndoingRef.current = true;
     const currentState: HistoryState = {
-      presentation: structuredClone(presentation), imports: structuredClone(imports), ambient: {...ambient}, stadiumScale,
+      presentation: structuredClone(presentation), imports: structuredClone(imports), ambient: {...ambient}, stadiumScale, stadium: stadium?structuredClone(stadium):undefined,
         trees: JSON.parse(JSON.stringify(trees)),
       placedObjects: JSON.parse(JSON.stringify(placedObjects)),
       nexusPos: [...nexusPos] as [number, number, number],
@@ -1247,7 +1254,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setUndoHistory(prev => prev.slice(0, -1));
     setRedoHistory(prev => [...prev, currentState]);
     
-    setPresentation(previousState.presentation);setImports(previousState.imports);setAmbient(previousState.ambient);setStadiumScale(previousState.stadiumScale);
+    setPresentation(previousState.presentation);setImports(previousState.imports);setAmbient(previousState.ambient);setStadiumScale(previousState.stadiumScale);setStadium(previousState.stadium);
     setTrees(previousState.trees);
     setPlacedObjects(previousState.placedObjects);
     setNexusPos(previousState.nexusPos);
@@ -1257,14 +1264,14 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setVeritasPos(previousState.veritasPos ?? [-55, 0, 30]);
     
     setTimeout(() => { isUndoingRef.current = false; }, 0);
-  }, [presentation, imports, ambient, stadiumScale, undoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
+  }, [presentation, imports, ambient, stadium, stadiumScale, undoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
 
   const redo = useCallback(() => {
     if (redoHistory.length === 0) return;
     
     isUndoingRef.current = true;
     const currentState: HistoryState = {
-      presentation: structuredClone(presentation), imports: structuredClone(imports), ambient: {...ambient}, stadiumScale,
+      presentation: structuredClone(presentation), imports: structuredClone(imports), ambient: {...ambient}, stadiumScale, stadium: stadium?structuredClone(stadium):undefined,
         trees: JSON.parse(JSON.stringify(trees)),
       placedObjects: JSON.parse(JSON.stringify(placedObjects)),
       nexusPos: [...nexusPos] as [number, number, number],
@@ -1278,7 +1285,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setRedoHistory(prev => prev.slice(0, -1));
     setUndoHistory(prev => [...prev, currentState]);
     
-    setPresentation(nextState.presentation);setImports(nextState.imports);setAmbient(nextState.ambient);setStadiumScale(nextState.stadiumScale);
+    setPresentation(nextState.presentation);setImports(nextState.imports);setAmbient(nextState.ambient);setStadiumScale(nextState.stadiumScale);setStadium(nextState.stadium);
     setTrees(nextState.trees);
     setPlacedObjects(nextState.placedObjects);
     setNexusPos(nextState.nexusPos);
@@ -1288,7 +1295,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setVeritasPos(nextState.veritasPos ?? [-55, 0, 30]);
     
     setTimeout(() => { isUndoingRef.current = false; }, 0);
-  }, [presentation, imports, ambient, stadiumScale, redoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
+  }, [presentation, imports, ambient, stadium, stadiumScale, redoHistory, trees, placedObjects, nexusPos, meridianPos, troothhertzPos, stadiumPos, veritasPos]);
 
   const layout=useMemo<GreenLayout>(()=>({version:1,buildings:{
     ...presentation,
@@ -1297,11 +1304,11 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     'troothhertz-tower':{...presentation['troothhertz-tower'],position:troothhertzPos},
     'stadium-elyseum':{...presentation['stadium-elyseum'],position:stadiumPos,scale:stadiumScale},
     'veritas-school':{...presentation['veritas-school'],position:veritasPos},
-  },trees,objects:placedObjects.map(o=>({...o,scale:o.scale??1})),imports,ambient}),[presentation,nexusPos,meridianPos,troothhertzPos,stadiumPos,stadiumScale,veritasPos,trees,placedObjects,imports,ambient]);
+  },trees,objects:placedObjects.map(o=>({...o,scale:o.scale??1})),imports,ambient,...(stadium?{stadium}:{})}),[stadium,presentation,nexusPos,meridianPos,troothhertzPos,stadiumPos,stadiumScale,veritasPos,trees,placedObjects,imports,ambient]);
   const applySavedLayout=useCallback(({layout:next,revision:savedRevision}:{layout:GreenLayout;revision:number})=>{
       setPresentation(next.buildings);setNexusPos(next.buildings['nexus-tower'].position);setMeridianPos(next.buildings['meridian-tower'].position);
       setTroothhertzPos(next.buildings['troothhertz-tower'].position);setStadiumPos(next.buildings['stadium-elyseum'].position);setStadiumScale(next.buildings['stadium-elyseum'].scale);setVeritasPos(next.buildings['veritas-school'].position);
-      setTrees(next.trees);setPlacedObjects(next.objects);setImports(next.imports);setAmbient(next.ambient);setRevision(savedRevision);
+      setTrees(next.trees);setPlacedObjects(next.objects);setImports(next.imports);setAmbient(next.ambient);setStadium(next.stadium);setRevision(savedRevision);
   },[]);
   const {ready:layoutReady,error:layoutError,retry:retryLayout}=useSavedTownLayout(readOnly,applySavedLayout);
   const saveSnapshot=async()=>{
@@ -1440,7 +1447,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setMeridianSelected(false);
   }, [troothhertzPos]);
 
-  const handleEnterStadium = useCallback(() => {
+  const enterStadiumCamera = useCallback(() => {
     const entry=stadiumEntry(layout.buildings['stadium-elyseum']);
     setTargetFloorY(undefined);
     setBuildingTarget({position:new THREE.Vector3(...entry.position),lookAt:new THREE.Vector3(...entry.lookAt)});
@@ -1451,6 +1458,17 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setMeridianSelected(false);
     setTroothhertzSelected(false);
   }, [layout]);
+
+  const handleEnterStadium = useCallback(async () => {
+    // Always use the published server policy, not a stale tab or unsaved editor changes.
+    try {
+      const response=await fetch('/api/troo-world/green-terrain-layout',{cache:'no-store'});
+      if(!response.ok)throw new Error('Event admission could not be checked. Please retry.');
+      const data=await response.json();const event=admissionEvent(data.layout?.stadium);
+      if(event){setAdmission(event);return;}
+      enterStadiumCamera();
+    }catch(error){setModelError(error instanceof Error?error.message:'Stadium admission unavailable');}
+  },[enterStadiumCamera]);
 
   const handleEnterPlain = useCallback((_name: string, position: [number, number, number]) => {
     if (cameraState === "inside" || cameraState === "flying-in" || cameraState === "flying-out") return;
@@ -1952,8 +1970,12 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         Dashboard
       </a>
 
+      {readOnly&&modelError&&<p role="alert" style={{position:"fixed",top:100,left:20,zIndex:250,background:"#07192c",padding:15,color:"white"}}>{modelError}</p>}
+      {admission&&<StadiumAdmission event={admission} operator={!readOnly} onAdmitted={enterStadiumCamera} onClose={()=>setAdmission(null)}/>}
       {/* World Management Sidebar */}
       {!readOnly&&<WorldManagementUI
+        stadiumSettings={stadium}
+        onStadiumSettingsChange={value=>{saveToHistory();setStadium(value);}}
         onSaveSnapshot={saveSnapshot}
         saveReady={layoutReady}
         airportPlaced={imports.some(isAirport)}

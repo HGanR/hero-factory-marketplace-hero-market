@@ -1,3 +1,4 @@
+import {validateStadiumSettings,type StadiumSettings} from './stadium-events';
 /** The editor and public town share this exact, versioned presentation contract. */
 export const GREEN_WORLD_ID = 'green-terrain';
 export const BUILDING_IDS = ['nexus-tower','meridian-tower','troothhertz-tower','stadium-elyseum','veritas-school'] as const;
@@ -12,6 +13,7 @@ export type GreenLayout = {
  objects:Array<{id:string;type:ObjectKind;position:Vec3;rotation:Vec3;scale:number}>;
  imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[]}>;
  ambient:{enabled:boolean;sidewalks:boolean};
+ stadium?:StadiumSettings;
 };
 export class LayoutError extends Error {}
 const object=(v:unknown):Record<string,unknown>=>{if(!v||typeof v!=='object'||Array.isArray(v))throw new LayoutError('Invalid layout object');return v as Record<string,unknown>};
@@ -36,7 +38,7 @@ export function validateDestinations(value:unknown):AirportDestination[]{
 }
 export function validateLayout(input:unknown):GreenLayout{
  const v=object(input);if(v.version!==1)throw new LayoutError('Unsupported layout version');
- if(Object.keys(v).some(k=>!['version','buildings','trees','objects','imports','ambient'].includes(k)))throw new LayoutError('Unknown layout field');
+ if(Object.keys(v).some(k=>!['version','buildings','trees','objects','imports','ambient','stadium'].includes(k)))throw new LayoutError('Unknown layout field');
  const b=object(v.buildings),buildings={} as GreenLayout['buildings'];
  for(const id of BUILDING_IDS){const row=object(b[id]);buildings[id]={position:vec(row.position),scale:num(row.scale,.05,20),rotationY:num(row.rotationY,-Math.PI*20,Math.PI*20),visible:bool(row.visible)}}
  const trees=list(v.trees,1000).map(x=>{const r=object(x);const id=num(r.id,0,1000000000);if(!Number.isInteger(id))throw new LayoutError('Invalid tree ID');return{id,pos:vec(r.pos),scale:num(r.scale,.05,20),phase:num(r.phase,0,1000)}});
@@ -44,7 +46,9 @@ export function validateLayout(input:unknown):GreenLayout{
  const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)})}});
  for(const rows of [trees,objects,imports]){const ids=rows.map(r=>'id'in r?r.id:r.elementKey);if(new Set(ids).size!==ids.length)throw new LayoutError('Duplicate layout identity')}
  if(imports.some(r=>(BUILDING_IDS as readonly string[]).includes(r.elementKey)))throw new LayoutError('Imported model duplicates a built-in building');
- const a=object(v.ambient);return{version:1,buildings,trees,objects,imports,ambient:{enabled:bool(a.enabled),sidewalks:bool(a.sidewalks)}};
+ let stadium:StadiumSettings|undefined;
+ if(v.stadium!==undefined){try{stadium=validateStadiumSettings(v.stadium)}catch(error){throw new LayoutError(error instanceof Error?error.message:'Invalid stadium settings')}}
+ const a=object(v.ambient);return{version:1,buildings,trees,objects,imports,ambient:{enabled:bool(a.enabled),sidewalks:bool(a.sidewalks)},...(stadium?{stadium}:{})};
 }
 export const DEFAULT_BUILDINGS:GreenLayout['buildings']={
  'nexus-tower':{position:[-25,0,0],scale:1,rotationY:0,visible:true},

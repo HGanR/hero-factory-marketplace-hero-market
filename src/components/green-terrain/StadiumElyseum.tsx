@@ -8,12 +8,14 @@
  * When event is hosted, host performance/title displayed on screens.
  */
 import * as THREE from "three";
-import { useRef, useMemo, useEffect } from "react";
+import { useRef, useMemo, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import {STADIUM_ACCESS} from "@/lib/troo-world/stadium-navigation";
 import {stadiumSignagePlacement,STADIUM_TICKER_TEXT,cloneStadiumExterior,disposeStadiumExterior} from "@/lib/troo-world/stadium-signage";
 
+import {displayStadiumEvent,type StadiumSettings} from '@/lib/troo-world/stadium-events';
+const isScreen=(name:string)=>/^(screen_(main|side_left|side_right)|scoreboard_screen)$/i.test(name);
 const MODEL_URL = "/models/world-assets/stadium-elyseum.glb";
 
 /** Draco on, Meshopt off — this GLB is not meshopt-compressed; skipping MeshoptDecoder avoids extra WASM + chunk init that can interact badly with WebGL/SWC bundles. */
@@ -28,10 +30,12 @@ export interface StadiumElyseumProps {
   animate?: boolean;
   /** When set, displayed on stadium screens (host performance / event title) */
   activeEventTitle?: string | null;
+  tickerText?:string;
+  eventSettings?:StadiumSettings;
 }
 
 // Build TROO STADIUM holographic signage — bold white text with bright glow on dark blue band (matches inner ring style)
-function buildSignageTexture(): THREE.CanvasTexture {
+function buildSignageTexture(text: string): THREE.CanvasTexture {
   const CW = 4096;
   const CH = 64;
   const cvs = document.createElement("canvas");
@@ -40,7 +44,7 @@ function buildSignageTexture(): THREE.CanvasTexture {
   const ctx = cvs.getContext("2d")!;
   ctx.fillStyle = "#0a1628";
   ctx.fillRect(0, 0, CW, CH);
-  const text = STADIUM_TICKER_TEXT;
+
   const fontSize = 44;
   ctx.font = `900 ${fontSize}px "Arial Black", Arial, sans-serif`;
   ctx.textAlign = "center";
@@ -94,7 +98,13 @@ function buildScreenTexture(title: string): THREE.CanvasTexture {
   return new THREE.CanvasTexture(cvs);
 }
 
-export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle }: StadiumElyseumProps) {
+export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle, tickerText=STADIUM_TICKER_TEXT,eventSettings }: StadiumElyseumProps) {
+  const [now,setNow]=useState(()=>Date.now());
+  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
+  const event=displayStadiumEvent(eventSettings,now);
+  const title=event?.title??activeEventTitle;
+  const [poster,setPoster]=useState<THREE.Texture|null>(null);
+  useEffect(()=>{let active=true;let owned:THREE.Texture|undefined;setPoster(null);if(event?.poster)new THREE.TextureLoader().load(event.poster,texture=>{if(!active){texture.dispose();return;}owned=texture;texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;setPoster(texture);});return()=>{active=false;owned?.dispose()};},[event?.poster]);
   const gltf = useGLTF(MODEL_URL, ...GLTF_LOADER_OPTS);
   const groupRef = useRef<THREE.Group>(null);
   const scene = useMemo(() => cloneStadiumExterior(gltf.scene), [gltf.scene]);
@@ -102,11 +112,13 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
 
   const signageRef = useRef<THREE.Mesh>(null);
   const signage = useMemo(()=>stadiumSignagePlacement(scene),[scene]);
-  const signageTex = useMemo(() => buildSignageTexture(), []);
+  const signageTex = useMemo(() => buildSignageTexture(tickerText), [tickerText]);
 
   useEffect(()=>()=>{signageTex.dispose();},[signageTex]);
 
-  const screenTex = useMemo(() => activeEventTitle ? buildScreenTexture(activeEventTitle) : null, [activeEventTitle]);
+  const titleTex = useMemo(() => title ? buildScreenTexture(title) : null, [title]);
+  useEffect(()=>()=>titleTex?.dispose(),[titleTex]);
+  const screenTex=poster??titleTex;
 
   // Navy blue for outside walls (Bowl_Wall, Roof_Ring)
   const NAVY_BLUE = 0x000080;
@@ -134,24 +146,12 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
   }, [scene]);
 
   useEffect(() => {
-    if (!screenTex || !activeEventTitle) return;
-    scene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      if (!mesh.isMesh || !mesh.name.startsWith("SCREEN_")) return;
-      const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      if (mat) {
-        (mat as THREE.MeshStandardMaterial).map = screenTex;
-      }
-    });
-    return () => {
-      scene.traverse((obj) => {
-        const mesh = obj as THREE.Mesh;
-        if (!mesh.isMesh || !mesh.name.startsWith("SCREEN_")) return;
-        const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-        if (mat) (mat as THREE.MeshStandardMaterial).map = null;
-      });
-    };
-  }, [scene, screenTex, activeEventTitle]);
+    const restore:Array<()=>void>=[];
+    scene.traverse(obj=>{const mesh=obj as THREE.Mesh;if(!mesh.isMesh||(!isScreen(mesh.name)&&mesh.name!=='Ticker_Board'))return;
+      const texture=isScreen(mesh.name)?screenTex:signageTex;if(!texture)return;
+      for(const mat of (Array.isArray(mesh.material)?mesh.material:[mesh.material]) as THREE.MeshStandardMaterial[]){const old={map:mat.map,emissiveMap:mat.emissiveMap,color:mat.color.clone(),emissive:mat.emissive.clone(),intensity:mat.emissiveIntensity};mat.map=texture;mat.color.set('white');mat.emissiveMap=texture;mat.emissive.set('white');mat.emissiveIntensity=.65;mat.needsUpdate=true;restore.push(()=>{mat.map=old.map;mat.emissiveMap=old.emissiveMap;mat.color.copy(old.color);mat.emissive.copy(old.emissive);mat.emissiveIntensity=old.intensity;mat.needsUpdate=true});}
+    });return()=>restore.forEach(fn=>fn());
+  }, [scene, screenTex, signageTex]);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
@@ -170,8 +170,8 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
           m.emissiveIntensity = 0.4 + 0.3 * Math.sin(t * 2 + 1);
         } else if (n === "Ticker_Board") {
           m.emissiveIntensity = 0.8 + 0.2 * Math.sin(t * 4);
-        } else if (n.startsWith("SCREEN_")) {
-          m.emissiveIntensity = activeEventTitle ? 1.8 : 1.2 + 0.3 * Math.sin(t * 1.5);
+        } else if (isScreen(n)) {
+          m.emissiveIntensity = title ? 1.8 : 1.2 + 0.3 * Math.sin(t * 1.5);
         }
       });
     }
@@ -186,6 +186,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
     <>
       <group ref={groupRef} position={position} scale={scale} onClick={(e) => { e.stopPropagation(); onSelect?.(); }}>
         <primitive object={scene} />
+        <StadiumDetails scene={scene} radius={signage.radius}/>
         {/* Seating canopy: the imported Roof_Ring is only a narrow torus, not a roof surface. */}
         <mesh name="Stadium_Seating_Canopy" position={[0,signage.y+4,0]} rotation={[-Math.PI/2,0,0]}>
           <ringGeometry args={[32,signage.radius-2.5,128]}/>
@@ -242,4 +243,17 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
   );
 }
 
+/** One draw call for all audience seat markers; aisle positions stay those of the source model. */
+function StadiumDetails({scene,radius}:{scene:THREE.Object3D;radius:number}){
+ const seats=useRef<THREE.InstancedMesh>(null),backs=useRef<THREE.InstancedMesh>(null);
+ const markers=useMemo(()=>{scene.updateMatrixWorld(true);const matrices:THREE.Matrix4[]=[];scene.traverse(obj=>{if(obj.name.startsWith('SPAWN_AUDIENCE_'))matrices.push(obj.matrixWorld.clone())});return matrices;},[scene]);
+ useEffect(()=>{for(const[ref,y,z]of [[seats,.45,0],[backs,.88,-.32]] as const){if(!ref.current)continue;markers.forEach((matrix,i)=>ref.current!.setMatrixAt(i,matrix.clone().multiply(new THREE.Matrix4().makeTranslation(0,y,z))));ref.current.instanceMatrix.needsUpdate=true;}},[markers]);
+ return <group name="Stadium_Event_Details">
+  <instancedMesh ref={seats} args={[undefined,undefined,markers.length]}><boxGeometry args={[.8,.18,.75]}/><meshStandardMaterial color="#245988" roughness={.6}/></instancedMesh>
+  <instancedMesh ref={backs} args={[undefined,undefined,markers.length]}><boxGeometry args={[.8,.75,.12]}/><meshStandardMaterial color="#3478ab" roughness={.6}/></instancedMesh>
+  {Array.from({length:24},(_,i)=>{const a=(i+.5)*Math.PI/12;return <mesh key={i} name="Exterior_Column" position={[Math.sin(a)*(radius-3),5,Math.cos(a)*(radius-3)]}><boxGeometry args={[.65,10,.65]}/><meshStandardMaterial color="#51849e" metalness={.6} roughness={.45}/></mesh>})}
+  {[-1,1].map(side=><group key={side} position={[side*12,0,-22]}>{Array.from({length:4},(_,i)=><group key={i} position={[0,1.2+i*2.2,0]}><mesh><boxGeometry args={[2.2,2,1.6]}/><meshStandardMaterial color="#101820"/></mesh><mesh position={[0,0,.82]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[.65,.65,.08,16]}/><meshStandardMaterial color="#243849"/></mesh></group>)}</group>)}
+ </group>;
+}
 useGLTF.preload(MODEL_URL, ...GLTF_LOADER_OPTS);
+
