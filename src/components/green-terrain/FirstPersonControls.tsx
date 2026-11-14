@@ -96,6 +96,7 @@ export default function FirstPersonControls({
   const isLocked = useRef(false);
   const wasNearElevator = useRef(false);
   const initialized = useRef(false);
+  const lastRelocation = useRef<string|null>(null);
   const lastHoveredAgentId = useRef<string | null>(null);
 
   const currentEyeY = useRef<number | null>(null);
@@ -127,12 +128,13 @@ export default function FirstPersonControls({
   useEffect(() => {
     if (!active) {
       initialized.current = false;
+      lastRelocation.current = null;
       currentEyeY.current = null;
       if (onHoverAgent) onHoverAgent(null);
       lastHoveredAgentId.current = null;
       return;
     }
-    if(relocation){camera.position.fromArray(relocation.position);camera.lookAt(...relocation.lookAt);targetEyeY.current=null;isLerpingFloor.current=false;}
+    if(relocation&&lastRelocation.current!==relocation.key){lastRelocation.current=relocation.key;camera.position.fromArray(relocation.position);camera.lookAt(...relocation.lookAt);targetEyeY.current=null;isLerpingFloor.current=false;}
     const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ");
     yaw.current = euler.y;
     pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, euler.x));

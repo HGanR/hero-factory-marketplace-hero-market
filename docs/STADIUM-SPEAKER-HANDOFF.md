@@ -13,3 +13,8 @@ Host authority stays with the verified administrator. Attendee acceptance requir
 This is preview work. The existing LiveKit configuration and `sql/troo-avatar-presence.sql` are still prerequisites. The additional `sql/stadium-speaker-floor.sql` creates the per-event speaking-turn record; no migration is applied at app startup. Apply schema changes only to an approved environment. Production and preview use separate room and database scopes. The existing Green Terrain placement, media, ticker, event and admission controls remain intact.
 
 Test with a free scheduled event first: one admin and two attendees, each in a separate browser/profile. Verify physical ramp walking, selection in the scene, decline, acceptance, stage broadcast, host seating, End, original-seat restoration, and disconnection recovery. Paid-event NFT admission remains unchanged and still needs real holder/nonholder acceptance before paid launch. This does not add or promise server-side scheduled event-end eviction or a proven audience capacity.
+
+
+## Recognizable visitors throughout Troo Town
+
+Signed-in visitors automatically register their world presence with the microphone muted. The circular portrait uses the same saved mobile member/admin profile image both while exploring and while seated. Orbit view keeps the portrait at the visitor's last ground position instead of attaching it to the aerial camera. Entering an event uses a new protected room reference to the same image bytes. Turning on the microphone remains a separate explicit action; Disconnect is respected and Join nearby chat is a manual retry. Missing images use the neutral circular portrait. No mobile profile or image upload is overwritten.

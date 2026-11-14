@@ -1143,7 +1143,7 @@ function Scene(props: SceneProps) {
         target={[0,0,0]}
         enableDamping={false}
       />
-      <TownPresenceLayer active={!props.isEditorMode&&((props.worldFirstPerson&&props.cameraState==='world')||props.cameraState==='inside')} avatar={props.eventIdentity?.avatar??props.presenceView.profile?.avatar} pose={props.presenceView.pose} peers={props.presenceView.peers} fixed={presenceLocked(props.eventIdentity)?props.eventIdentity:undefined} onSelectPeer={props.eventIdentity?.role==='host'?props.presenceView.selectPeer:undefined} zone={props.eventIdentity?.pose.zone??(props.insideBuilding??'world')}/>
+      <TownPresenceLayer active={!props.isEditorMode} trackCamera={(props.worldFirstPerson&&props.cameraState==='world')||props.cameraState==='inside'} cameraEyeHeight={props.cameraState==='world'?2:1.7} selfPortraitUrl={props.presenceView.profile?.portraitUrl} avatar={props.eventIdentity?.avatar??props.presenceView.profile?.avatar} pose={props.presenceView.pose} peers={props.presenceView.peers} fixed={presenceLocked(props.eventIdentity)?props.eventIdentity:undefined} onSelectPeer={props.eventIdentity?.role==='host'?props.presenceView.selectPeer:undefined} zone={props.eventIdentity?.pose.zone??(props.cameraState==='inside'?props.insideBuilding??'world':'world')}/>
       <TownCameraCollision active={props.cameraState === "world" && !props.isEditorMode} walking={props.worldFirstPerson} revision={props.layout} orbitRef={orbitRef}/>
     </>
   );
@@ -1353,7 +1353,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const touchInput=useRef<WalkInput>({forward:0,strafe:0});
   const [worldFirstPerson, setWorldFirstPerson] = useState(false);
   const [worldFreeLook, setWorldFreeLook] = useState(false);
-  const presenceView=useTownPresence(!isEditorMode&&((worldFirstPerson&&cameraState==='world')||cameraState==='inside'),eventConnection);
+  const presenceView=useTownPresence(!isEditorMode,eventConnection);
 
 
   const handleAgentClick = useCallback((agent: AgentData) => {
