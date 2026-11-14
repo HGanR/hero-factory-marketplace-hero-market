@@ -15,7 +15,6 @@ import { OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
 import dynamic from "next/dynamic";
 import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type GreenLayout, type BuildingId, type BuildingState } from "@/lib/troo-world/green-terrain-layout";
-import StadiumAdmission from './StadiumAdmission';
 import {admissionEvent,type StadiumEvent} from '@/lib/troo-world/stadium-events';
 import AmbientTown from "@/components/green-terrain/AmbientTown";
 import {AIRPORT,isAirport,placeAirport,airportView,type ImportedPlacement} from '@/lib/troo-world/airport';
@@ -39,6 +38,7 @@ import SeatedAgent from "@/components/green-terrain/SeatedAgent";
 import type { AgentData } from "@/data/greenTerrainBuildingData";
 import { BUILDING_CONFIG, getAgentsByFloor } from "@/data/greenTerrainBuildingData";
 
+const StadiumAdmission = dynamic(() => import('./StadiumAdmission'), {ssr:false});
 const CorporateBuilding = dynamic(() => import("@/components/green-terrain/CorporateBuilding"), { ssr: false });
 const MeridianTower = dynamic(() => import("@/components/green-terrain/MeridianTower"), { ssr: false });
 const TroothhertzTower = dynamic(() => import("@/components/green-terrain/TroothhertzTower"), { ssr: false });

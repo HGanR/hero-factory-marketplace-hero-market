@@ -77,6 +77,16 @@ jobs:
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Actual stadium screens, seats, event upload and ticker editor
+        run: node tests/troo-town/stadium-events-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stadium-event-evidence
+          path: stadium-event-artifacts/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

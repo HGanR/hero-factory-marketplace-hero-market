@@ -10,6 +10,9 @@ export default function StadiumAdmission({event,operator=false,onAdmitted,onClos
  const {address,chainId,connector:connectedConnector}=useAccount();
  const {connectAsync,connectors}=useConnect();const {signMessageAsync}=useSignMessage();const {switchChainAsync}=useSwitchChain();
  const[error,setError]=useState(''),[busy,setBusy]=useState(false),[credentials,setCredentials]=useState<Credentials|null>(null),[connected,setConnected]=useState(false);
+ const dialog=useRef<HTMLDialogElement>(null);
+ const admittedCallback=useRef(onAdmitted);admittedCallback.current=onAdmitted;
+ useEffect(()=>{dialog.current?.showModal();},[]);
  const media=useRef<HTMLDivElement>(null),roomRef=useRef<Room|null>(null);
  const verifiedWallet=useRef<string|null>(null);
  useEffect(()=>{if(verifiedWallet.current&&(address?.toLowerCase()!==verifiedWallet.current||chainId!==137)){void roomRef.current?.disconnect();setCredentials(null);setConnected(false);verifiedWallet.current=null;setError('Wallet changed. Verify admission again.');}},[address,chainId]);
@@ -21,9 +24,9 @@ export default function StadiumAdmission({event,operator=false,onAdmitted,onClos
   room.on(RoomEvent.TrackSubscribed,track=>{if(track.kind===Track.Kind.Audio||track.kind===Track.Kind.Video){const el=track.attach();el.setAttribute('controls','');el.style.maxWidth='100%';media.current?.appendChild(el)}});
   room.on(RoomEvent.TrackUnsubscribed,track=>track.detach().forEach(el=>el.remove()));
   room.on(RoomEvent.Disconnected,()=>{if(alive){setConnected(false);setCredentials(null);}});
-  void room.connect(credentials.serverUrl,credentials.token).then(async()=>{if(!alive)return;setConnected(true);onAdmitted();if(operator){await room.localParticipant.setMicrophoneEnabled(true);await room.localParticipant.setCameraEnabled(true)}}).catch(()=>{if(alive){setError('Could not connect to the event. It may be full or unavailable.');setCredentials(null)}});
+  void room.connect(credentials.serverUrl,credentials.token).then(async()=>{if(!alive)return;setConnected(true);admittedCallback.current();if(operator){await room.localParticipant.setMicrophoneEnabled(true);await room.localParticipant.setCameraEnabled(true)}}).catch(()=>{if(alive){setError('Could not connect to the event. It may be full or unavailable.');setCredentials(null)}});
   return()=>{alive=false;room.removeAllListeners();void room.disconnect();roomRef.current=null;media.current?.replaceChildren();};
- },[credentials,operator,onAdmitted]);
+ },[credentials,operator]);
  const enter=async(host=false,connector?:Connector)=>{setBusy(true);setError('');if(host)verifiedWallet.current=null;try{
   let proof:Record<string,unknown>={};
   if(event.paid&&!host){
@@ -40,12 +43,12 @@ export default function StadiumAdmission({event,operator=false,onAdmitted,onClos
   }
   setCredentials(await admission({action:host?'host':'join',eventId:event.id,...proof}));
  }catch(e){setError(e instanceof Error?e.message:'Admission was not granted')}finally{setBusy(false)}};
- return <section role="dialog" aria-modal="true" aria-label="Stadium event admission" style={{position:'fixed',right:20,top:90,zIndex:250,width:'min(420px,90vw)',maxHeight:'80vh',overflow:'auto',background:'#07192c',color:'white',border:'1px solid #65bfff',borderRadius:14,padding:20}}>
+ return <dialog ref={dialog} onCancel={onClose} aria-label="Stadium event admission" style={{margin:0,left:"auto",position:'fixed',right:20,top:90,zIndex:250,width:'min(420px,90vw)',maxHeight:'80vh',overflow:'auto',background:'#07192c',color:'white',border:'1px solid #65bfff',borderRadius:14,padding:20}}>
   <button type="button" onClick={onClose} style={{float:'right'}}>Close</button><h2>{event.title}</h2>
   <p>{connected?'You are connected to the event.':event.paid?'Connect your wallet and sign to verify your NFT ticket on Polygon. No transaction or purchase is requested.':'Join this free event. No wallet needed.'}</p>
   {!credentials&&event.paid&&!address&&<div style={{display:'grid',gap:8}}>{connectors.map(c=><button type="button" key={c.uid} disabled={busy} onClick={()=>void enter(false,c)}>{busy?'Verifying…':c.id==='walletConnect'?'WalletConnect · mobile wallets & QR':c.name}</button>)}{connectors.length===0&&<p>No wallet connector is available. Reload the page or enable your EVM wallet.</p>}</div>}
   {!credentials&&(!event.paid||address)&&<button type="button" disabled={busy} onClick={()=>void enter()}>{busy?'Verifying admission…':event.paid?'Connect wallet & enter':'Enter free event'}</button>}
   {operator&&!credentials&&<button type="button" disabled={busy} onClick={()=>void enter(true)}>Join as administrator host</button>}
   <div ref={media}/>{error&&<p role="alert">{error}</p>}
- </section>;
+ </dialog>;
 }

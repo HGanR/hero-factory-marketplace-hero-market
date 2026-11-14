@@ -15,7 +15,7 @@ test('focus refresh keeps the scene and camera mounted through pending, failed a
  globalThis.fetch=(url,options)=>{const d=deferred();requests.push({...d,url,options});return d.promise;};
  try{
   await require('esbuild').build({absWorkingDir:root,entryPoints:['src/components/green-terrain/useSavedTownLayout.ts'],outfile:path.join(dir,'hook.cjs'),bundle:true,platform:'node',format:'cjs',packages:'external',tsconfigRaw:{compilerOptions:{baseUrl:'.',paths:{'@/*':['./src/*']}}}});
-  await require('esbuild').build({absWorkingDir:root,entryPoints:['src/lib/troo-world/green-terrain-layout.ts'],outfile:path.join(dir,'layout.cjs'),platform:'node',format:'cjs'});
+  await require('esbuild').build({absWorkingDir:root,entryPoints:['src/lib/troo-world/green-terrain-layout.ts'],outfile:path.join(dir,'layout.cjs'),bundle:true,platform:'node',format:'cjs'});
   const {useSavedTownLayout}=require(path.join(dir,'hook.cjs'));
   const {DEFAULT_BUILDINGS}=require(path.join(dir,'layout.cjs'));
   const layout={version:1,buildings:DEFAULT_BUILDINGS,trees:[],objects:[],imports:[],ambient:{enabled:true,sidewalks:true}};
@@ -67,3 +67,4 @@ test('optional images dispose failed and late textures and never update an unmou
   }
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
