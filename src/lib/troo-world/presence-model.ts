@@ -1,0 +1,16 @@
+import {venueSeats} from './stadium-seat-layout';
+import {fromInteriorLocal,type InteriorFrame} from './stadium-navigation';
+export type PresencePose={position:[number,number,number];yaw:number;mode:'walking'|'standing'|'seated';zone:string};
+export type PresenceIdentity={v:1;identity:string;avatar:'jarvon'|'member';role:'host'|'attendee'|'visitor';pose:PresencePose;eventId?:string};
+export type PresenceCredentials={token:string;serverUrl:string;presence:PresenceIdentity;seatLeaseToken?:string;endsAt?:string;accountKey?:string};
+export type AvatarProfile={signedIn:boolean;accountKey:string;admin:boolean;avatar:'jarvon'|'member';voiceConfigured:boolean;setupRequired?:boolean};
+export const PROXIMITY_ROOM_PREFIX='troo-presence-';
+export const PUBLIC_SEATS=venueSeats().filter(s=>!s.guest);
+export const VOICE_RANGE=12;
+export function seatPose(i:number,f:InteriorFrame,eventId:string):PresencePose{const s=PUBLIC_SEATS[i];if(!s)throw Error('Invalid stadium seat');return{position:fromInteriorLocal([s.x,s.y,s.z],f),yaw:s.yaw+f.rotationY,mode:'seated',zone:'event:'+eventId};}
+export function hostPose(f:InteriorFrame,eventId:string):PresencePose{return{position:fromInteriorLocal([0,1.2,-1],f),yaw:f.rotationY,mode:'standing',zone:'event:'+eventId};}
+export function proximityGain(a:PresencePose,b:PresencePose,broadcast=false){if(a.zone!==b.zone)return 0;if(broadcast)return 1;const d=Math.hypot(a.position[0]-b.position[0],a.position[1]-b.position[1],a.position[2]-b.position[2]);return d>=VOICE_RANGE?0:d<=2?1:((VOICE_RANGE-d)/(VOICE_RANGE-2))**2;}
+export function validPose(x:unknown):x is PresencePose{const p=x as PresencePose;return !!p&&Array.isArray(p.position)&&p.position.length===3&&p.position.every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1000)&&typeof p.yaw==='number'&&Number.isFinite(p.yaw)&&Math.abs(p.yaw)<=Math.PI*100&&['standing','walking','seated'].includes(p.mode)&&typeof p.zone==='string'&&/^(world|nexus|meridian|troothhertz|stadium|event:[a-zA-Z0-9_-]{1,64})$/.test(p.zone);}
+export function parsePresenceMetadata(text:string|undefined,identity:string):PresenceIdentity|null{try{if(!text||text.length>2048)return null;const p=JSON.parse(text);if(p.v!==1||p.identity!==identity||!['host','attendee','visitor'].includes(p.role)||!['jarvon','member'].includes(p.avatar)||!validPose(p.pose))return null;if(p.role==='attendee'&&p.pose.mode!=='seated')return null;if(p.role!=='visitor'&&(!/^[a-zA-Z0-9_-]{1,64}$/.test(p.eventId)||p.pose.zone!=='event:'+p.eventId))return null;return p;}catch{return null;}}
+export function decodePosePacket(bytes:Uint8Array,seq:number){try{if(bytes.byteLength>512)return null;const p=JSON.parse(new TextDecoder().decode(bytes));if(p.v!==1||!Number.isSafeInteger(p.seq)||p.seq<=seq||!validPose(p.pose))return null;return{seq:p.seq as number,pose:p.pose as PresencePose};}catch{return null;}}
+export const eyeHeightFor=(p:PresencePose)=>p.mode==='seated'?1.2:1.7;

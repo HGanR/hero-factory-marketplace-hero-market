@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const roomName = (body?.roomName || body?.room || "").trim();
-    if(protectedStadiumRoom(roomName))return NextResponse.json({error:'Use verified stadium admission for this room'},{status:403});
+    if(protectedStadiumRoom(roomName)||roomName.toLowerCase().startsWith('troo-presence-'))return NextResponse.json({error:'Use verified stadium admission for this room'},{status:403});
     const participantIdentity =
       (body?.participantIdentity || body?.identity || body?.address || "").trim() ||
       `participant-${Date.now()}`;

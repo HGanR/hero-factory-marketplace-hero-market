@@ -1,0 +1,15 @@
+import React,{useEffect,useRef,useState} from 'react';
+import {createRoot} from 'react-dom/client';
+import {Canvas,useFrame,useThree} from '@react-three/fiber';
+import {Room} from 'livekit-client';
+import JarvonPreview from '../../src/components/green-terrain/JarvonPreview';
+import TownPresenceLayer from '../../src/components/green-terrain/TownPresenceLayer';
+import TownVoicePanel from '../../src/components/green-terrain/TownVoicePanel';
+import {useTownPresence,type EventConnection} from '../../src/components/green-terrain/useTownPresence';
+import {eyeHeightFor,type PresenceIdentity} from '../../src/lib/troo-world/presence-model';
+function Camera({x,fixed}:{x:number;fixed?:PresenceIdentity}){const{camera}=useThree();useEffect(()=>{if(fixed){const p=fixed.pose;camera.position.set(p.position[0],p.position[1]+eyeHeightFor(p),p.position[2]);camera.lookAt(0,1,0)}else{camera.position.set(x,1.7,3);camera.lookAt(x,1,-1)}},[camera,x,fixed]);return null;}
+function App(){const[active,setActive]=useState(true),[x,setX]=useState(0),[event,setEvent]=useState<EventConnection|null>(null);const presence=useTownPresence(active,event);
+ useEffect(()=>{(window as any).__presenceTest={...presence,event,worldConnected:presence.connected};});
+ const joinEvent=async(host:boolean)=>{presence.leave();const response=await fetch('/fixture-event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:host?'host':'join',eventId:'show'})});const credentials=await response.json();if(!response.ok)throw Error(credentials.error);const room=new Room();await room.connect(credentials.serverUrl,credentials.token,{autoSubscribe:false});setEvent({room,credentials});};
+ return <main style={{height:'100vh',background:'#07182b',color:'white'}}><Canvas camera={{position:[0,1.7,3],fov:55}}><color attach="background" args={['#07182b']}/><ambientLight intensity={1.5}/><directionalLight position={[3,5,5]} intensity={3}/><Camera x={x} fixed={event?.credentials.presence}/><TownPresenceLayer active={active} avatar={event?.credentials.presence.avatar??presence.profile?.avatar} pose={presence.pose} peers={presence.peers} fixed={event?.credentials.presence} zone={event?.credentials.presence.pose.zone??'world'}/><mesh rotation={[-Math.PI/2,0,0]} position={[0,-.02,0]}><planeGeometry args={[200,200]}/><meshStandardMaterial color="#123246"/></mesh></Canvas><div style={{position:'absolute',left:10,top:10,display:'flex',gap:8}}><button onClick={()=>setX(2)}>Stand nearby</button><button onClick={()=>setX(40)}>Stand far away</button><button onClick={()=>setActive(v=>!v)}>Toggle first person</button><button onClick={()=>void joinEvent(true)}>Host test event</button><button onClick={()=>void joinEvent(false)}>Attend test event</button></div><TownVoicePanel value={presence} active={active}/></main>}
+createRoot(document.getElementById('root')!).render(location.search.includes('studio')?<JarvonPreview/>:<App/>);

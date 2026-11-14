@@ -18,6 +18,10 @@ import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type Green
 import {admissionEvent,type StadiumEvent} from '@/lib/troo-world/stadium-events';
 import SelectionRotationControls from "./SelectionRotationControls";
 import {rotateTownSelection,INTERSECTION_SPAWN,type TownSelection} from "@/lib/troo-world/town-placement";
+import TownPresenceLayer from './TownPresenceLayer';
+import TownVoicePanel from './TownVoicePanel';
+import {useTownPresence,type EventConnection} from './useTownPresence';
+import {eyeHeightFor,type PresenceIdentity,type PresencePose} from '@/lib/troo-world/presence-model';
 import TouchWalkControls from "./TouchWalkControls";
 import type {WalkInput} from "@/lib/troo-world/touch-navigation";
 import AmbientTown from "@/components/green-terrain/AmbientTown";
@@ -757,6 +761,8 @@ interface SceneProps {
   onSnapComplete: () => void;
   worldFirstPerson: boolean;
   touchInput: React.RefObject<WalkInput>;
+  presenceView: ReturnType<typeof useTownPresence>;
+  eventIdentity?:PresenceIdentity;
   worldFreeLook: boolean;
   onWorldFreeLookChange: (v: boolean) => void;
 }
@@ -772,10 +778,11 @@ function Scene(props: SceneProps) {
   const interiorMotion=useMemo(()=>{
     const id=props.insideBuilding==='stadium'?'stadium-elyseum':props.insideBuilding==='nexus'?'nexus-tower':props.insideBuilding==='meridian'?'meridian-tower':'troothhertz-tower';
     const frame=props.layout.buildings[id] as InteriorFrame;
-    if(props.insideBuilding==='stadium')return{move:(from:[number,number,number],wanted:[number,number,number])=>constrainStadiumMotion(from,wanted,frame),floor:(x:number,z:number)=>stadiumFloorAt(x,z,frame)};
+    if(props.insideBuilding==='stadium'&&props.eventIdentity){const pose=props.eventIdentity.pose;return{move:()=>[pose.position[0],pose.position[1]+eyeHeightFor(pose),pose.position[2]] as [number,number,number],floor:()=>pose.position[1]};}
+    if(props.insideBuilding==='stadium')return{move:(from:[number,number,number],wanted:[number,number,number])=>constrainStadiumMotion(from,wanted,{...frame,eyeHeight:1.7}),floor:(x:number,z:number)=>stadiumFloorAt(x,z,frame)};
     const dimensions=props.insideBuilding==='nexus'?[5.5,5]:props.insideBuilding==='meridian'?[6.5,6]:[7,5.5];
     return{move:(_from:[number,number,number],wanted:[number,number,number])=>constrainRoomMotion(wanted,frame,dimensions[0],dimensions[1]),floor:undefined};
-  },[props.insideBuilding,props.layout]);
+  },[props.insideBuilding,props.layout,props.eventIdentity]);
   
   // Snap camera to position when a new object is placed
   useEffect(() => {
@@ -1111,7 +1118,7 @@ function Scene(props: SceneProps) {
         collisionBoxes={props.insideBuilding === "stadium" ? [] : props.collisionBoxes}
         constrainMotion={interiorMotion.move}
         floorAt={interiorMotion.floor}
-        eyeHeight={props.insideBuilding === "stadium" ? 1.7*props.stadiumScale : 1.7}
+        eyeHeight={props.eventIdentity?eyeHeightFor(props.eventIdentity.pose):1.7}
         movementScale={props.insideBuilding === "stadium" ? props.stadiumScale : 1}
       />
 
@@ -1135,6 +1142,7 @@ function Scene(props: SceneProps) {
         target={[0,0,0]}
         enableDamping={false}
       />
+      <TownPresenceLayer active={!props.isEditorMode&&((props.worldFirstPerson&&props.cameraState==='world')||props.cameraState==='inside')} avatar={props.eventIdentity?.avatar??props.presenceView.profile?.avatar} pose={props.presenceView.pose} peers={props.presenceView.peers} fixed={props.eventIdentity} zone={props.eventIdentity?.pose.zone??(props.insideBuilding??'world')}/>
       <TownCameraCollision active={props.cameraState === "world" && !props.isEditorMode} walking={props.worldFirstPerson} revision={props.layout} orbitRef={orbitRef}/>
     </>
   );
@@ -1340,9 +1348,12 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
   const [freeLook, setFreeLook] = useState(false);
   const [hoveredAgent, setHoveredAgent] = useState<HoveredAgentInfo | null>(null);
+  const [eventConnection,setEventConnection]=useState<EventConnection|null>(null);
   const touchInput=useRef<WalkInput>({forward:0,strafe:0});
   const [worldFirstPerson, setWorldFirstPerson] = useState(false);
   const [worldFreeLook, setWorldFreeLook] = useState(false);
+  const presenceView=useTownPresence(!isEditorMode&&((worldFirstPerson&&cameraState==='world')||cameraState==='inside'),eventConnection);
+
 
   const handleAgentClick = useCallback((agent: AgentData) => {
     setChatActiveAgent(agent);
@@ -1434,9 +1445,10 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setMeridianSelected(false);
   }, [troothhertzPos]);
 
-  const enterStadiumCamera = useCallback(() => {
-    const entry=stadiumEntry(layout.buildings['stadium-elyseum']);
+  const enterStadiumCamera = useCallback((identity?:PresenceIdentity) => {
+    const entry=stadiumEntry({...layout.buildings['stadium-elyseum'],eyeHeight:1.7});
     setTargetFloorY(undefined);
+    if(identity){const p=identity.pose;entry.position=[p.position[0],p.position[1]+eyeHeightFor(p),p.position[2]];entry.lookAt=[p.position[0]+Math.sin(p.yaw)*8,entry.position[1]-.15,p.position[2]+Math.cos(p.yaw)*8];}
     setBuildingTarget({position:new THREE.Vector3(...entry.position),lookAt:new THREE.Vector3(...entry.lookAt)});
     setInsideBuilding("stadium");
     setCameraState("flying-in");
@@ -1915,6 +1927,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           snapToPosition={snapToPosition}
           onSnapComplete={() => setSnapToPosition(null)}
           touchInput={touchInput}
+          presenceView={presenceView}
+          eventIdentity={eventConnection?.credentials.presence}
           worldFirstPerson={worldFirstPerson}
           worldFreeLook={worldFreeLook}
           onWorldFreeLookChange={setWorldFreeLook}
@@ -1960,7 +1974,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       </a>
 
       {readOnly&&modelError&&<p role="alert" style={{position:"fixed",top:100,left:20,zIndex:250,background:"#07192c",padding:15,color:"white"}}>{modelError}</p>}
-      {admission&&<StadiumAdmission event={admission} operator={!readOnly} onAdmitted={enterStadiumCamera} onClose={()=>setAdmission(null)}/>}
+      {admission&&<StadiumAdmission event={admission} operator={!!presenceView.profile?.admin} onAdmitted={enterStadiumCamera} onRoomReady={(room,credentials)=>setEventConnection({room,credentials})} onRoomEnded={()=>{setEventConnection(null);setAdmission(null);handleExitBuilding();}} onClose={()=>{setEventConnection(null);setAdmission(null);if(insideBuilding==='stadium')handleExitBuilding();}}/>}
       {/* World Management Sidebar */}
       {!readOnly&&<WorldManagementUI
         previewMode={previewMode}
@@ -2018,7 +2032,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         <a href="/troo-town" target="_blank" rel="noopener noreferrer">Open public town ↗</a>
       </section>}
 
-      <TouchWalkControls input={touchInput} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
+      <TownVoicePanel value={presenceView} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
+      <TouchWalkControls input={touchInput} active={!eventConnection&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       <style>{`@media(pointer:coarse),(max-width:760px){.town-keyboard-help{display:none!important}}`}</style>
       {/* HUD overlays */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}>

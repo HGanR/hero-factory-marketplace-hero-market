@@ -1,7 +1,9 @@
 import {createHash,randomBytes} from 'node:crypto';
 import {createPublicClient,http,parseAbi,type Address,type Hex} from 'viem';
 import {polygon} from 'viem/chains';
-import {AccessToken,RoomServiceClient} from 'livekit-server-sdk';
+import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
+import {avatarFor,opaqueIdentity,reserveSeat} from './presence-store';
+import {seatPose,hostPose,type PresenceIdentity} from './presence-model';
 import {getConnection} from '@/lib/db';
 import {loadGreenLayout} from './green-terrain-store';
 import {admissionEvent,STADIUM_ROOM_PREFIX,type StadiumEvent} from './stadium-events';
@@ -52,7 +54,7 @@ export async function proveStadiumAdmission(event:StadiumEvent,proof:{id?:unknow
  if(!await ownsStadiumToken(event,wallet,rpc))throw new AdmissionError('This wallet does not hold the required event NFT');
  return wallet;
 }
-export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hostUserId?:number){
+export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hostUserId?:number,memberUserId?:number){
  // Reload after potentially slow RPC; cancellation, time and policy edits take effect before issuance.
  const current=await currentStadiumEvent(event.id);
  if(policyHash(current)!==policyHash(event))throw new AdmissionError('The event admission policy changed. Try again',409);
@@ -61,9 +63,11 @@ export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hos
  const room=stadiumRoom(event),service=new RoomServiceClient(url.replace(/^ws/,'http'),key,secret);
  const created=await service.createRoom({name:room,maxParticipants:event.capacity,emptyTimeout:60,metadata:JSON.stringify({eventId:event.id,endsAt:event.endsAt})});
  if(created.maxParticipants!==event.capacity)throw new AdmissionError('Event capacity configuration does not match',503);
- // A wallet has one room identity; repeated joins replace that identity rather than multiplying tickets.
- const identity=hostUserId?'host-'+hostUserId:wallet?'wallet-'+wallet:'guest-'+randomBytes(16).toString('hex');
- const at=new AccessToken(key,secret,{identity,name:hostUserId?'Event host':'Attendee',ttl:Math.max(1,Math.min(120,Math.floor((Date.parse(event.endsAt)-Date.now())/1000)))});
- at.addGrant({roomJoin:true,room,canSubscribe:true,canPublish:Boolean(hostUserId),canPublishData:false});
- return{token:await at.toJwt(),serverUrl:url,eventId:event.id,endsAt:event.endsAt,title:event.title,isHost:Boolean(hostUserId)};
+ const identity=opaqueIdentity(hostUserId?'host':'attendee',hostUserId?'user:'+hostUserId:memberUserId?'user:'+memberUserId:wallet??randomBytes(16).toString('hex'));
+ const saved=await loadGreenLayout(),frame=saved?.layout.buildings['stadium-elyseum'];if(!frame)throw new AdmissionError('The stadium layout is unavailable',503);
+ const seat=hostUserId?null:await reserveSeat(room,event.id,policyHash(event),identity,service);
+ const presence:PresenceIdentity={v:1,identity,avatar:await avatarFor(hostUserId??memberUserId),role:hostUserId?'host':'attendee',eventId:event.id,pose:hostUserId?hostPose(frame,event.id):seatPose(seat!.seatIndex,frame,event.id)};
+ const at=new AccessToken(key,secret,{identity,name:hostUserId?'Event host':'Attendee',metadata:JSON.stringify(presence),ttl:Math.max(1,Math.min(120,Math.floor((Date.parse(event.endsAt)-Date.now())/1000)))});
+ at.addGrant({roomJoin:true,room,canSubscribe:true,canPublish:true,canPublishSources:[TrackSource.MICROPHONE],canPublishData:false,canUpdateOwnMetadata:false});
+ return{token:await at.toJwt(),serverUrl:url,...((hostUserId??memberUserId)?{accountKey:opaqueIdentity('member','user:'+(hostUserId??memberUserId))}:{}),eventId:event.id,endsAt:event.endsAt,title:event.title,isHost:Boolean(hostUserId),presence,...(seat?{seatLeaseToken:seat.seatLeaseToken}:{})};
 }
