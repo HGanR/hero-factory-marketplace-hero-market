@@ -253,8 +253,8 @@ function StadiumDetails({scene,radius}:{scene:THREE.Object3D;radius:number}){
  return <group name="Stadium_Event_Details">
   <instancedMesh ref={seats} args={[undefined,undefined,markers.length]}><boxGeometry args={[.8,.18,.75]}/><meshStandardMaterial color="#245988" roughness={.6}/></instancedMesh>
   <instancedMesh ref={backs} args={[undefined,undefined,markers.length]}><boxGeometry args={[.8,.75,.12]}/><meshStandardMaterial color="#3478ab" roughness={.6}/></instancedMesh>
-  {Array.from({length:24},(_,i)=>{const a=(i+.5)*Math.PI/12;return <mesh key={i} name="Exterior_Column" position={[Math.sin(a)*(radius-3),5,Math.cos(a)*(radius-3)]}><boxGeometry args={[.65,10,.65]}/><meshStandardMaterial color="#51849e" metalness={.6} roughness={.45}/></mesh>})}
-  {[-1,1].map(side=><group key={side} position={[side*12,0,-22]}>{Array.from({length:4},(_,i)=><group key={i} position={[0,1.2+i*2.2,0]}><mesh><boxGeometry args={[2.2,2,1.6]}/><meshStandardMaterial color="#101820"/></mesh><mesh position={[0,0,.82]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[.65,.65,.08,16]}/><meshStandardMaterial color="#243849"/></mesh></group>)}</group>)}
+  {Array.from({length:24},(_,i)=>{const a=(i+.5)*Math.PI/12;return <mesh key={i} name="Exterior_Column" position={[Math.sin(a)*(radius+.2),11,Math.cos(a)*(radius+.2)]}><boxGeometry args={[.65,22,.65]}/><meshStandardMaterial color="#51849e" metalness={.6} roughness={.45}/></mesh>})}
+  {[-1,1].map(side=><group key={side} position={[side*20,0,-32]}>{Array.from({length:4},(_,i)=><group key={i} position={[0,1.2+i*2.2,0]}><mesh><boxGeometry args={[2.2,2,1.6]}/><meshStandardMaterial color="#101820"/></mesh><mesh position={[0,0,.82]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[.65,.65,.08,16]}/><meshStandardMaterial color="#243849"/></mesh></group>)}</group>)}
  </group>;
 }
 useGLTF.preload(MODEL_URL, ...GLTF_LOADER_OPTS);
