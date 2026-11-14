@@ -1,16 +1,19 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Room,RoomEvent,Track} from 'livekit-client';
+import {Room,RoomEvent} from 'livekit-client';
 import {useAccount,useConnect,useSignMessage,useSwitchChain,type Connector} from 'wagmi';
+import type {PresenceCredentials,PresenceIdentity} from '@/lib/troo-world/presence-model';
+import {presenceRequest} from './useTownPresence';
 import type {StadiumEvent} from '@/lib/troo-world/stadium-events';
-type Credentials={token:string;serverUrl:string;endsAt:string;title:string;isHost:boolean};
+type Credentials=PresenceCredentials&{endsAt:string;title:string;isHost:boolean};
 async function admission(body:Record<string,unknown>){const response=await fetch('/api/troo-world/stadium/admission',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error||'Admission failed');return data;}
 /** Credentials remain in memory. No generic room-token route is used. */
-export default function StadiumAdmission({event,operator=false,onAdmitted,onClose}:{event:StadiumEvent;operator?:boolean;onAdmitted:()=>void;onClose:()=>void}){
+export default function StadiumAdmission({event,operator=false,onAdmitted,onClose,onRoomReady,onRoomEnded}:{event:StadiumEvent;operator?:boolean;onAdmitted:(identity?:PresenceIdentity)=>void;onClose:()=>void;onRoomReady?:(room:Room,credentials:PresenceCredentials)=>void;onRoomEnded?:()=>void}){
  const {address,chainId,connector:connectedConnector}=useAccount();
  const {connectAsync,connectors}=useConnect();const {signMessageAsync}=useSignMessage();const {switchChainAsync}=useSwitchChain();
  const[error,setError]=useState(''),[busy,setBusy]=useState(false),[credentials,setCredentials]=useState<Credentials|null>(null),[connected,setConnected]=useState(false);
  const dialog=useRef<HTMLDialogElement>(null);
+ const callbacks=useRef({onRoomReady,onRoomEnded});callbacks.current={onRoomReady,onRoomEnded};
  const admittedCallback=useRef(onAdmitted);admittedCallback.current=onAdmitted;
  useEffect(()=>{const d=dialog.current;if(!d)return;d.close();if(connected)d.show();else d.showModal();return()=>d.close();},[connected]);
  const media=useRef<HTMLDivElement>(null),roomRef=useRef<Room|null>(null);
@@ -21,11 +24,10 @@ export default function StadiumAdmission({event,operator=false,onAdmitted,onClos
   if(!credentials)return;
   const room=new Room();roomRef.current=room;let alive=true;
 
-  room.on(RoomEvent.TrackSubscribed,track=>{if(track.kind===Track.Kind.Audio||track.kind===Track.Kind.Video){const el=track.attach();el.setAttribute('controls','');el.style.maxWidth='100%';media.current?.appendChild(el)}});
-  room.on(RoomEvent.TrackUnsubscribed,track=>track.detach().forEach(el=>el.remove()));
-  room.on(RoomEvent.Disconnected,()=>{if(alive){setConnected(false);setCredentials(null);}});
-  void room.connect(credentials.serverUrl,credentials.token).then(async()=>{if(!alive)return;setConnected(true);admittedCallback.current();if(credentials.isHost){try{await room.localParticipant.setMicrophoneEnabled(true);await room.localParticipant.setCameraEnabled(true)}catch{setError('Connected as host. Allow microphone and camera permissions to broadcast.')}}}).catch(()=>{if(alive){setError('Could not connect to the event. It may be full or unavailable.');setCredentials(null)}});
-  return()=>{alive=false;room.removeAllListeners();void room.disconnect();roomRef.current=null;media.current?.replaceChildren();};
+  room.on(RoomEvent.Disconnected,()=>{if(alive){setConnected(false);setCredentials(null);callbacks.current.onRoomEnded?.();}});
+  const leaseTimer=credentials.seatLeaseToken?setInterval(()=>{void presenceRequest({action:'renew-seat',token:credentials.seatLeaseToken}).catch(()=>{setError('Your seat session ended. Rejoin the event.');void room.disconnect()})},30000):null;
+  void room.connect(credentials.serverUrl,credentials.token,{autoSubscribe:false}).then(()=>{if(!alive)return;setConnected(true);callbacks.current.onRoomReady?.(room,credentials);admittedCallback.current(credentials.presence);}).catch(()=>{if(alive){setError('Could not connect to the event. It may be full or unavailable.');setCredentials(null)}});
+  return()=>{alive=false;if(leaseTimer)clearInterval(leaseTimer);if(credentials.seatLeaseToken)void fetch('/api/troo-world/presence',{method:'POST',keepalive:true,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'release-seat',token:credentials.seatLeaseToken})}).catch(()=>{});room.removeAllListeners();void room.disconnect();roomRef.current=null;media.current?.replaceChildren();};
  },[credentials]);
  const enter=async(host=false,connector?:Connector)=>{setBusy(true);setError('');if(host)verifiedWallet.current=null;try{
   let proof:Record<string,unknown>={};
@@ -49,6 +51,7 @@ export default function StadiumAdmission({event,operator=false,onAdmitted,onClos
   {!credentials&&event.paid&&!address&&<div style={{display:'grid',gap:8}}>{connectors.map(c=><button type="button" key={c.uid} disabled={busy} onClick={()=>void enter(false,c)}>{busy?'Verifying…':c.id==='walletConnect'?'WalletConnect · mobile wallets & QR':c.name}</button>)}{connectors.length===0&&<p>No wallet connector is available. Reload the page or enable your EVM wallet.</p>}</div>}
   {!credentials&&(!event.paid||address)&&<button type="button" disabled={busy} onClick={()=>void enter()}>{busy?'Verifying admission…':event.paid?'Connect wallet & enter':'Enter free event'}</button>}
   {operator&&!credentials&&<button type="button" disabled={busy} onClick={()=>void enter(true)}>Join as administrator host</button>}
+  {connected&&<p>{credentials?.isHost?'Use the stage ramp and select attendee images to manage speaking turns.':'You start seated facing the center. A host invitation lets you take a turn at the microphone.'} Use the voice controls to enable your microphone.</p>}
   {connected&&<button type="button" onClick={()=>void roomRef.current?.startAudio().catch(()=>setError("Allow browser audio to hear the event."))}>Enable event audio</button>}
   <div ref={media}/>{error&&<p role="alert">{error}</p>}
  </dialog>;

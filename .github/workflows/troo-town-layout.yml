@@ -10,6 +10,13 @@ on:
       - 'src/lib/troo-world/ambient-town.ts'
       - 'src/lib/troo-world/airport*'
       - 'src/lib/troo-world/stadium-*'
+      - 'src/lib/troo-world/presence-*'
+      - 'src/lib/security/engine-route-access.ts'
+      - 'src/app/api/troo-world/presence/**'
+      - 'src/app/avatar-preview/**'
+      - 'public/models/avatars/**'
+      - 'sql/troo-avatar-presence.sql'
+      - 'sql/stadium-speaker-floor.sql'
       - 'src/lib/troo-world/touch-navigation.ts'
       - 'src/lib/troo-world/town-placement.ts'
       - 'src/app/api/troo-world/stadium/**'
@@ -21,6 +28,8 @@ on:
       - 'src/lib/db/schema.green-terrain.ts'
       - 'sql/green-terrain-layouts.sql'
       - 'scripts/apply-green-terrain-layout-schema.cjs'
+      - 'scripts/prepare-stadium-test.cjs'
+      - 'vercel.json'
       - 'tests/troo-town/**'
       - '.github/workflows/troo-town-layout.yml'
 jobs:
@@ -43,7 +52,7 @@ jobs:
           node-version: '22'
       - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1 viem@2.41.2 livekit-server-sdk@2.15.2 livekit-client@2.18.7
       - name: Stadium admission policy, wallet signatures, protected tokens and connected sidewalks
-        run: node --test tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs
+        run: node --test tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs tests/troo-town/presence-core.test.cjs tests/troo-town/speaker-floor.test.cjs
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
@@ -66,8 +75,14 @@ jobs:
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: One-off preview setup guards, additive schema and saved-data preservation
+        run: node --test tests/troo-town/setup-readiness.test.cjs
+        env:
+          TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Real MySQL transactions, public reads and canonical signed-session gate
-        run: node --test tests/troo-town/sql.test.cjs
+        run: node --test tests/troo-town/sql.test.cjs tests/troo-town/presence-sql.test.cjs
         env:
           TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
@@ -76,6 +91,28 @@ jobs:
 
       - name: Install Chromium for actual WebGL airport interaction
         run: /tmp/town-test-deps/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start isolated loopback LiveKit fixture
+        if: ${{ !cancelled() }}
+        run: docker run -d --network host --name troo-voice-fixture livekit/livekit-server:v1.9.12 --dev --bind 127.0.0.1 --node-ip 127.0.0.1
+      - name: Two real browsers, voice RTP, nearby audio, exclusive avatar and event seating
+        if: ${{ !cancelled() }}
+        run: node tests/troo-town/presence-browser.cjs
+        timeout-minutes: 6
+        env:
+          TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: presence-voice-evidence
+          path: presence-artifacts/
+      - name: Isolated voice fixture logs and cleanup
+        if: always()
+        run: |
+          docker logs troo-voice-fixture || true
+          docker rm -f troo-voice-fixture || true
+
       - name: Actual R3F/Drei airport playback and visual evidence
         run: node tests/troo-town/airport-visual.cjs
         env:
@@ -97,3 +134,4 @@ jobs:
         with:
           name: airport-visual-evidence
           path: airport-visual-artifacts/
+

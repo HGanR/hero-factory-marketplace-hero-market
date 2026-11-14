@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
   "installCommand": "npm install",
-  "buildCommand": "if [ \"$GREEN_TERRAIN_SCHEMA_APPLY\" != \"1\" ]; then npm run build; else node scripts/apply-green-terrain-layout-schema.cjs && npm run build; fi",
+  "buildCommand": "node scripts/build-with-preview-setup.cjs",
   "devCommand": "npm run dev"
 }
