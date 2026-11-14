@@ -23,7 +23,7 @@ export function renovateStadium(scene:THREE.Object3D){
  const root=new THREE.Group();root.name='Stadium_Renovation';root.userData.renovated=true;
  const materials:THREE.Material[]=[],geometries:THREE.BufferGeometry[]=[];
  const material=(color:string,metalness=.15,roughness=.7,emissive?:string)=>{const m=new THREE.MeshStandardMaterial({color,metalness,roughness,...(emissive?{emissive,emissiveIntensity:1.4}:{})});materials.push(m);return m;};
- const navy=material('#102b40'),charcoal=material('#19232f'),carpet=material('#263443',0,.95),teal=material('#146878',.15,.6),seatBack=material('#174453',.1,.8),gold=material('#b89355',.75,.28),warm=material('#ffe0a0',.15,.3,'#ffb950'),cyan=material('#31c4ce',.2,.3,'#168892'),wall=material('#2b3946'),black=material('#080e17');
+ const navy=material('#102b40'),charcoal=material('#19232f'),carpet=material('#263443',0,.95),teal=material('#146878',.15,.6),seatBack=material('#174453',.1,.8),gold=material('#b89355',.75,.28),warm=material('#ffe0a0',.15,.3,'#ffb950'),cyan=material('#31c4ce',.2,.3,'#168892'),wall=material('#71665c'),black=material('#080e17');
  const glass=new THREE.MeshStandardMaterial({color:'#76b4bf',metalness:.4,roughness:.15,transparent:true,opacity:.5});materials.push(glass);
  const geo=<T extends THREE.BufferGeometry>(g:T)=>{geometries.push(g);return g;};
  const box=geo(new THREE.BoxGeometry(1,1,1)),softBox=geo(new RoundedBoxGeometry(1,1,1,2,.09));
@@ -71,16 +71,17 @@ export function renovateStadium(scene:THREE.Object3D){
   const gap=Math.asin((VENUE.aisleHalfWidth+.2)/(r-width/2));
   for(let q=0;q<4;q++){const g=geo(new THREE.RingGeometry(r-width/2,r+width/2,28,1,q*Math.PI/2+gap,Math.PI/2-2*gap));add('Venue_Seating_Terrace',g,carpet,[0,y,0],[-Math.PI/2,0,0]);const rise=r<60?(r===30?1:1.86):(r===62?1.9:2.3);add('Venue_Seating_Riser',geo(new THREE.CylinderGeometry(r-width/2,r-width/2,rise,28,1,true,q*Math.PI/2+gap,Math.PI/2-2*gap)),navy,[0,y-rise/2,0]);}
  }
+ const stairLight=material('#c49a60',.35,.5,'#b47732');stairLight.emissiveIntensity=.35;
  const stepItems:{p:number[];s:number[];yaw:number}[]=[],edgeItems:{p:number[];s:number[];yaw:number}[]=[],posts:{p:number[];s:number[]}[]=[];
  const depth=(A.stairTopZ-A.stairBottomZ)/A.steps;
  for(let q=0;q<4;q++){const angle=q*Math.PI/2,s=Math.sin(angle),c=Math.cos(angle);
   for(let i=0;i<A.steps;i++){const d=A.stairBottomZ+(i+.5)*depth,y=A.arenaY+(i+1)*(A.landingY-A.arenaY)/A.steps;
-   stepItems.push({p:[s*d,y/2,c*d],s:[A.width,y,depth],yaw:angle});edgeItems.push({p:[s*(d-depth*.42),y+.02,c*(d-depth*.42)],s:[A.width-.15,.035,.045],yaw:angle});}
+   stepItems.push({p:[s*d,y/2,c*d],s:[A.width,y,depth],yaw:angle});edgeItems.push({p:[s*(d-depth*.42),y+.02,c*(d-depth*.42)],s:[A.width-1.4,.025,.035],yaw:angle});}
   for(const side of [-1,1]){for(let i=0;i<=8;i++){const d=24+i*4,y=A.arenaY+i/8*(A.landingY-A.arenaY);posts.push({p:[s*d+c*side*4.15,y+.65,c*d-s*side*4.15],s:[.07,1.3,.07]});}
    const rail=add('Venue_Stair_Handrail',geo(new THREE.CylinderGeometry(.07,.07,Math.hypot(32,A.landingY-A.arenaY),8)),gold,[s*40+c*side*4.15,(A.landingY+A.arenaY)/2+1.3,c*40-s*side*4.15]);rail.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(s*32,A.landingY-A.arenaY,c*32).normalize());
   }
  }
- instances('Venue_Clear_Stairs',carpet,stepItems);instances('Venue_Stair_Lights',warm,edgeItems);instances('Venue_Stair_Posts',gold,posts);
+ instances('Venue_Clear_Stairs',carpet,stepItems);instances('Venue_Stair_Lights',stairLight,edgeItems);instances('Venue_Stair_Posts',gold,posts);
  add('Stadium_Upper_Concourse',geo(new THREE.RingGeometry(55,69,128)),carpet,[0,A.landingY,0],[-Math.PI/2,0,0]);
  // Balcony rail, guest-only perimeter, and decorative LED lines are continuous except at access gates.
  for(const [radius,y]of [[55,16.3],[18,1.7]]){
@@ -114,11 +115,12 @@ export function renovateStadium(scene:THREE.Object3D){
  ring('Venue_Lighting_Truss_Lower',21,31,.14,black);ring('Venue_Lighting_Truss_Upper',21,32,.14,black);
  for(let i=0;i<12;i++){const a=i*Math.PI/6,x=21*Math.sin(a),z=21*Math.cos(a);block('Venue_Truss_Brace',[x,31.5,z],[.13,1,.13],gold);
   const housing=add('Venue_Spotlight_Fixture',geo(new THREE.CylinderGeometry(.45,.5,1,12)),black,[x,30.7,z]);housing.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(-x,-29,-z).normalize());
-  if(i%3===0){const light=new THREE.SpotLight('#ffe1a6',2400,90,.36,.6,2);light.name='Venue_Host_Spotlight';light.position.set(x,30,z);light.target.position.set(0,1,0);light.userData.venueBaseIntensity=2400;light.userData.venueBaseDistance=90;root.add(light,light.target);}
+  if(i%3===0){const light=new THREE.SpotLight('#ffe1a6',2400,90,.36,.6,2);light.name='Venue_Host_Spotlight';light.position.set(x,30,z);light.target.position.set(0,1,0);light.userData.venueBaseIntensity=2400;light.userData.venueBaseDistance=90;root.add(light,light.target);const length=Math.hypot(x,29,z);const beamMat=new THREE.MeshBasicMaterial({color:'#ffe0ad',transparent:true,opacity:.025,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});materials.push(beamMat);const beam=add('Venue_Host_Light_Beam',geo(new THREE.ConeGeometry(4,length,24,1,true)),beamMat,[x/2,15.5,z/2]);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(x,29,z).normalize());}
  }
  for(const [x,z]of [[-30,15],[30,15],[0,-30]]){const light=new THREE.PointLight('#38bac9',350,65,2);light.position.set(x,19,z);light.userData.venueBaseIntensity=350;light.userData.venueBaseDistance=65;root.add(light);}
  // Ticker remains a normal named display node, facing the audience without mirrored text.
- const ticker=geo(new THREE.CylinderGeometry(55,55,2.8,128,1,true));const uv=ticker.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));const tickerMaterial=black.clone();tickerMaterial.side=THREE.BackSide;materials.push(tickerMaterial);add('Ticker_Board',ticker,tickerMaterial,[0,13.8,0]);
+ const ticker=geo(new THREE.CylinderGeometry(58,58,1.8,128,1,true));const uv=ticker.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setX(i,(1-uv.getX(i))*1.6);const tickerMaterial=black.clone();tickerMaterial.side=THREE.BackSide;materials.push(tickerMaterial);add('Ticker_Board',ticker,tickerMaterial,[0,18.2,0]);
+ const fill=new THREE.HemisphereLight('#d1e4ee','#79644c',1.3);fill.name='Venue_Architectural_Fill';root.add(fill);
  scene.add(root);scene.updateMatrixWorld(true);
  return {root,seats,dispose:()=>{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.remove(root);}};
 }
