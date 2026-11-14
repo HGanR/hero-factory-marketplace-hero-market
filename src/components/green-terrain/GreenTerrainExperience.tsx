@@ -1353,7 +1353,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const touchInput=useRef<WalkInput>({forward:0,strafe:0});
   const [worldFirstPerson, setWorldFirstPerson] = useState(false);
   const [worldFreeLook, setWorldFreeLook] = useState(false);
-  const presenceView=useTownPresence(!isEditorMode,eventConnection);
+  const presenceView=useTownPresence(!isEditorMode,eventConnection,readOnly);
 
 
   const handleAgentClick = useCallback((agent: AgentData) => {
