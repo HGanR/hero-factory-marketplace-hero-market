@@ -6,6 +6,8 @@ jobs:
   model-and-camera:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      NODE_PATH: /tmp/town-view-deps/node_modules
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
