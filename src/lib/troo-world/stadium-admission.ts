@@ -2,7 +2,7 @@ import {createHash,randomBytes} from 'node:crypto';
 import {createPublicClient,http,parseAbi,type Address,type Hex} from 'viem';
 import {polygon} from 'viem/chains';
 import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
-import {avatarFor,opaqueIdentity,reserveSeat} from './presence-store';
+import {avatarFor,opaqueIdentity,reserveSeat,presenceScope} from './presence-store';
 import {seatPose,hostPose,type PresenceIdentity} from './presence-model';
 import {getConnection} from '@/lib/db';
 import {loadGreenLayout} from './green-terrain-store';
@@ -10,7 +10,7 @@ import {admissionEvent,STADIUM_ROOM_PREFIX,type StadiumEvent} from './stadium-ev
 
 export class AdmissionError extends Error{constructor(message:string,public status=403){super(message)}}
 export const policyHash=(event:StadiumEvent)=>createHash('sha256').update(JSON.stringify([event.id,event.enabled,event.paid,event.admissionOpensAt,event.startsAt,event.endsAt,event.capacity,event.chainId,event.contractAddress,event.tokenId])).digest('hex');
-export const stadiumRoom=(event:StadiumEvent)=>STADIUM_ROOM_PREFIX+event.id+'-'+policyHash(event).slice(0,24);
+export const stadiumRoom=(event:StadiumEvent)=>STADIUM_ROOM_PREFIX+(presenceScope()==='production'?'':presenceScope()+'-')+event.id+'-'+policyHash(event).slice(0,24);
 const address=(value:unknown):Address=>{if(typeof value!=='string'||!/^0x[0-9a-fA-F]{40}$/.test(value)||/^0x0{40}$/.test(value))throw new AdmissionError('Choose a valid wallet',400);return value.toLowerCase() as Address};
 export async function currentStadiumEvent(id:unknown){
  const saved=await loadGreenLayout();const event=admissionEvent(saved?.layout.stadium);

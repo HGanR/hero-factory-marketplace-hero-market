@@ -13,10 +13,10 @@ export function useTownPresence(active:boolean,event:EventConnection|null){
  const refresh=useCallback(async()=>{try{const r=await fetch('/api/troo-world/presence',{credentials:'same-origin',cache:'no-store'});if(!r.ok){setProfile(null);return;}setProfile(await r.json())}catch{setProfile(null)}},[]);
  useEffect(()=>{void refresh();const onFocus=()=>void refresh();window.addEventListener('focus',onFocus);return()=>window.removeEventListener('focus',onFocus)},[refresh]);
  useEffect(()=>{if(event?.credentials.accountKey&&event.credentials.accountKey!==profile?.accountKey)void event.room.disconnect();
-  if(!active||event||!profile||world&&world.credentials.presence.identity!==profile.accountKey){void world?.room.disconnect();setWorld(null)}},[active,event,profile?.accountKey]);
+  if(!active||event||!profile||world&&world.credentials.presence.identity!==profile.accountKey){joinVersion.current++;void world?.room.disconnect();setWorld(null)}},[active,event,profile?.accountKey]);
  useEffect(()=>()=>{joinVersion.current++},[]);
  const join=useCallback(async()=>{const version=++joinVersion.current,accountKey=current.current.accountKey;setBusy(true);setError('');let r:Room|undefined;try{const credentials=await presenceRequest({action:'join'}) as PresenceCredentials;r=new Room();await r.connect(credentials.serverUrl,credentials.token,{autoSubscribe:false});if(version!==joinVersion.current||!current.current.active||current.current.event||current.current.accountKey!==accountKey){await r.disconnect();return;}setWorld({room:r,credentials})}catch(e){void r?.disconnect();setError(e instanceof Error?e.message:'Could not join nearby chat')}finally{setBusy(false)}},[]);
- const claim=useCallback(async()=>{setBusy(true);setError('');try{await presenceRequest({action:'claim-jarvon'});await refresh()}catch(e){setError(e instanceof Error?e.message:'Avatar assignment failed')}finally{setBusy(false)}},[refresh]);
+ const claim=useCallback(async()=>{setBusy(true);setError('');try{await presenceRequest({action:'claim-jarvon'});await (current.current.event?.room??world?.room)?.disconnect();setWorld(null);await refresh()}catch(e){setError(e instanceof Error?e.message:'Avatar assignment failed')}finally{setBusy(false)}},[refresh,world]);
  useEffect(()=>{
   if(!room||!connection){setConnected(false);setMic(false);setPeers([]);return;}
   let alive=true,seq=0;setConnected(true);setMic(false);const poses=new Map<string,{pose:PresencePose;seq:number;time:number}>();
@@ -27,11 +27,11 @@ export function useTownPresence(active:boolean,event:EventConnection|null){
   const disconnected=()=>{if(alive){setConnected(false);setMic(false);setPeers([]);setWorld(null)}};
   room.on(RoomEvent.TrackSubscribed,subscribed);room.on(RoomEvent.TrackUnsubscribed,unsubscribed);room.on(RoomEvent.DataReceived,receive);room.on(RoomEvent.Disconnected,disconnected);
   const tick=()=>{
-   const list:PeerAvatar[]=[];const candidates:Array<{p:RemoteParticipant;gain:number}>=[];
+   const list:PeerAvatar[]=[];const candidates:Array<{p:RemoteParticipant;gain:number;host:boolean}>=[];
    room.remoteParticipants.forEach(p=>{const data=known(p);if(!data)return;const packet=poses.get(p.identity);const current=data.role==='visitor'?(packet&&Date.now()-packet.time<3000?packet.pose:null):data.pose;if(!current)return;
-    const gain=muted.current.has(p.identity)?0:proximityGain(pose.current,current,data.role==='host');candidates.push({p,gain});if(current.zone===pose.current.zone)list.push({...data,pose:current,speaking:p.isSpeaking});
+    const gain=muted.current.has(p.identity)?0:proximityGain(pose.current,current,data.role==='host');candidates.push({p,gain,host:data.role==='host'});if(current.zone===pose.current.zone)list.push({...data,pose:current,speaking:p.isSpeaking});
    });
-   candidates.sort((a,b)=>b.gain-a.gain);const allowed=new Set(candidates.filter(c=>c.gain>0).slice(0,12).map(c=>c.p.identity));
+   candidates.sort((a,b)=>Number(b.host)-Number(a.host)||b.gain-a.gain);const allowed=new Set(candidates.filter(c=>c.gain>0).slice(0,12).map(c=>c.p.identity));
    room.remoteParticipants.forEach(p=>{const gain=candidates.find(c=>c.p===p)?.gain??0;const hear=allowed.has(p.identity);p.setVolume(hear?gain:0);p.audioTrackPublications.forEach(pub=>{if(pub.isSubscribed!==hear)pub.setSubscribed(hear)});});
    if(connection.credentials.presence.role==='visitor'){const packet={v:1,seq:++seq,pose:pose.current};void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(packet)),{reliable:false,topic:'troo-pose-v1'}).catch(()=>{});}
    if(alive)setPeers(list);
