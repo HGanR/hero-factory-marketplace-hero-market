@@ -17,6 +17,8 @@ import dynamic from "next/dynamic";
 import { GREEN_WORLD_ID, DEFAULT_BUILDINGS, validateLayout, modelUrl, type GreenLayout, type BuildingId, type BuildingState } from "@/lib/troo-world/green-terrain-layout";
 import AmbientTown from "@/components/green-terrain/AmbientTown";
 import {AIRPORT,isAirport,placeAirport,airportView,type ImportedPlacement} from '@/lib/troo-world/airport';
+import AirportRoutesEditor from '@/components/green-terrain/AirportRoutesEditor';
+import InteractionController from './TownEditorInteraction';
 import ImportedTownModels from "@/components/green-terrain/ImportedTownModels";
 import { WorldObjectRenderer, type WorldObjectType } from "@/components/green-terrain/WorldObjects";
 import { useSavedTownLayout } from "./useSavedTownLayout";
@@ -561,206 +563,6 @@ function Bridge({ start, end, width = 10 }: { start: [number, number, number]; e
 }
 
 // ─── Interaction controller ───────────────────────────────────────────────────
-interface ICProps {
-  trees: TreeData[];
-  placedObjects: PlacedObject[];
-  nexusPos: [number,number,number];
-  meridianPos: [number,number,number];
-  troothhertzPos: [number,number,number];
-  stadiumPos: [number,number,number];
-  veritasPos: [number,number,number];
-  isEditorMode: boolean;
-  onSelectTree: (id: number | null) => void;
-  onMoveTree: (id: number, pos: [number,number,number], saveHistory?: boolean) => void;
-  onSelectObject: (id: string | null) => void;
-  onMoveObject: (id: string, pos: [number,number,number], saveHistory?: boolean) => void;
-  onMoveNexus: (pos: [number,number,number], saveHistory?: boolean) => void;
-  onMoveMeridian: (pos: [number,number,number], saveHistory?: boolean) => void;
-  onMoveTroothhertz: (pos: [number,number,number], saveHistory?: boolean) => void;
-  onMoveStadium: (pos: [number,number,number], saveHistory?: boolean) => void;
-  onMoveVeritas: (pos: [number,number,number], saveHistory?: boolean) => void;
-  orbitRef: React.RefObject<any>;
-}
-
-function InteractionController(props: ICProps) {
-  const { camera, gl } = useThree();
-  const ray = useRef(new THREE.Raycaster());
-  const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0,1,0), 0));
-  const pt = useRef(new THREE.Vector3());
-  const ndc = useRef(new THREE.Vector2());
-  const dragging = useRef<
-    | { kind: "tree"; id: number }
-    | { kind: "object"; id: string }
-    | { kind: "nexus" }
-    | { kind: "meridian" }
-    | { kind: "troothhertz" }
-    | { kind: "stadium" }
-    | { kind: "veritas" }
-    | null
-  >(null);
-  const dragStartedRef = useRef(false);
-
-  const getNDC = (e: PointerEvent) => {
-    const r = gl.domElement.getBoundingClientRect();
-    ndc.current.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
-    return ndc.current;
-  };
-
-  // Object size mapping for more precise hit detection
-  const getObjectHitRadius = (type: string): number => {
-    switch (type) {
-      case "street": return 3;
-      case "sidewalk": return 2.5;
-      case "parkinglot": return 4;
-      case "lake": return 5;
-      case "pond": return 3;
-      case "bench": return 1;
-      case "lightpost": return 0.8;
-      default: return 2;
-    }
-  };
-
-  const hitTree = (e: PointerEvent) => {
-    ray.current.setFromCamera(getNDC(e), camera);
-    let best: { id: number; dist: number } | null = null;
-    for (const t of props.trees) {
-      const c = new THREE.Vector3(...t.pos).addScaledVector(new THREE.Vector3(0,1,0), 1.5*t.scale);
-      // Reduced radius for more precise selection
-      const s = new THREE.Sphere(c, 0.8*t.scale);
-      if (ray.current.ray.intersectsSphere(s)) {
-        const d = ray.current.ray.origin.distanceTo(c);
-        if (!best || d < best.dist) best = { id: t.id, dist: d };
-      }
-    }
-    return best?.id ?? null;
-  };
-
-  const hitObject = (e: PointerEvent) => {
-    ray.current.setFromCamera(getNDC(e), camera);
-    let best: { id: string; dist: number } | null = null;
-    for (const obj of props.placedObjects) {
-      const c = new THREE.Vector3(...obj.position).add(new THREE.Vector3(0, 0.5, 0));
-      // Use type-specific hit radius for more precise selection
-      const radius = getObjectHitRadius(obj.type);
-      const s = new THREE.Sphere(c, radius);
-      if (ray.current.ray.intersectsSphere(s)) {
-        const d = ray.current.ray.origin.distanceTo(c);
-        if (!best || d < best.dist) best = { id: obj.id, dist: d };
-      }
-    }
-    return best?.id ?? null;
-  };
-
-  const hitBuilding = (e: PointerEvent, pos: [number,number,number], radius: number) => {
-    ray.current.setFromCamera(getNDC(e), camera);
-    // Use center of building footprint, not elevated
-    const c = new THREE.Vector3(...pos).add(new THREE.Vector3(0, 5, 0));
-    return ray.current.ray.intersectsSphere(new THREE.Sphere(c, radius));
-  };
-
-  useEffect(() => {
-    if (!props.isEditorMode) return;
-    const el = gl.domElement;
-
-    const onDown = (e: PointerEvent) => {
-      dragStartedRef.current = false;
-      const treeHit = hitTree(e);
-      if (treeHit !== null) {
-        props.onSelectTree(treeHit);
-        props.onSelectObject(null);
-        dragging.current = { kind: "tree", id: treeHit };
-        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
-        el.setPointerCapture(e.pointerId);
-        return;
-      }
-      const objHit = hitObject(e);
-      if (objHit !== null) {
-        props.onSelectObject(objHit);
-        props.onSelectTree(null);
-        dragging.current = { kind: "object", id: objHit };
-        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
-        el.setPointerCapture(e.pointerId);
-        return;
-      }
-      // Reduced building hit radii for more precise selection
-      if (hitBuilding(e, props.nexusPos, 8)) {
-        dragging.current = { kind: "nexus" };
-        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
-        el.setPointerCapture(e.pointerId);
-        return;
-      }
-      if (hitBuilding(e, props.meridianPos, 10)) {
-        dragging.current = { kind: "meridian" };
-        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
-        el.setPointerCapture(e.pointerId);
-        return;
-      }
-      if (hitBuilding(e, props.troothhertzPos, 8)) {
-        dragging.current = { kind: "troothhertz" };
-        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
-        el.setPointerCapture(e.pointerId);
-        return;
-      }
-      if (hitBuilding(e, props.stadiumPos, 15)) {
-        dragging.current = { kind: "stadium" };
-        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
-        el.setPointerCapture(e.pointerId);
-        return;
-      }
-      if (hitBuilding(e, props.veritasPos, 18)) {
-        dragging.current = { kind: "veritas" };
-        if (props.orbitRef.current) props.orbitRef.current.enabled = false;
-        el.setPointerCapture(e.pointerId);
-        return;
-      }
-      props.onSelectTree(null);
-      props.onSelectObject(null);
-    };
-
-    const onMove = (e: PointerEvent) => {
-      if (!dragging.current) return;
-      ray.current.setFromCamera(getNDC(e), camera);
-      if (!ray.current.ray.intersectPlane(dragPlane.current, pt.current)) return;
-      const x = pt.current.x, z = pt.current.z;
-      const shouldSaveHistory = !dragStartedRef.current;
-      dragStartedRef.current = true;
-      if (dragging.current.kind === "tree") {
-        props.onMoveTree(dragging.current.id, [x, terrainHeight(x, z), z], shouldSaveHistory);
-      } else if (dragging.current.kind === "object") {
-        props.onMoveObject(dragging.current.id, [x, 0, z], shouldSaveHistory);
-      } else if (dragging.current.kind === "nexus") {
-        props.onMoveNexus([x, 0, z], shouldSaveHistory);
-      } else if (dragging.current.kind === "meridian") {
-        props.onMoveMeridian([x, 0, z], shouldSaveHistory);
-      } else if (dragging.current.kind === "troothhertz") {
-        props.onMoveTroothhertz([x, 0, z], shouldSaveHistory);
-      } else if (dragging.current.kind === "stadium") {
-        props.onMoveStadium([x, 0, z], shouldSaveHistory);
-      } else if (dragging.current.kind === "veritas") {
-        props.onMoveVeritas([x, 0, z], shouldSaveHistory);
-      }
-    };
-
-    const onUp = () => {
-      if (dragging.current) {
-        dragging.current = null;
-        if (props.orbitRef.current) props.orbitRef.current.enabled = true;
-      }
-    };
-
-    el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
-    return () => {
-      el.removeEventListener("pointerdown", onDown);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-    };
-  }, [props.isEditorMode, props.trees, props.placedObjects, props.nexusPos, props.meridianPos, props.troothhertzPos, props.stadiumPos, props.veritasPos, camera, gl, props]);
-
-  return null;
-}
-
 // ─── Collision Boxes for buildings ────────────────────────────────────────────
 // TROOTHHERTZ LLC Building dimensions (from TroothhertzTower.tsx)
 const TROOTHHERTZ_W = 14;  // Width
@@ -892,6 +694,9 @@ function getMeridianCollisionBoxes(
 // ─── Scene ────────────────────────────────────────────────────────────────────
 interface SceneProps {
   onFocusAirport:(placement:ImportedPlacement)=>void;
+  selectedAirportKey:string|null;
+  onSelectAirport:(key:string|null)=>void;
+  onMoveAirport:(key:string,pos:[number,number,number],saveHistory?:boolean)=>void;
   layout: GreenLayout;
   trees: TreeData[];
   placedObjects: PlacedObject[];
@@ -1030,7 +835,7 @@ function Scene(props: SceneProps) {
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
       <AmbientTown layout={props.layout}/>
-      <ImportedTownModels placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
+      <ImportedTownModels selectedAirportKey={props.selectedAirportKey} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {/* Plain labels — TROO CENTER and cardinal plains */}
       <PlainLabel position={[0, 0, 20]} name="TROO CENTER" />
       <PlainLabel position={[0, 0, -95]} name="TROO NORTH" />
@@ -1157,6 +962,10 @@ function Scene(props: SceneProps) {
 
       {props.isEditorMode && (
         <InteractionController
+          imports={props.layout.imports}
+          terrainHeight={terrainHeight}
+          onSelectAirport={props.onSelectAirport}
+          onMoveAirport={props.onMoveAirport}
           trees={props.trees}
           placedObjects={props.placedObjects}
           nexusPos={props.nexusPos}
@@ -1505,6 +1314,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [nexusSelected, setNexusSelected] = useState(false);
   const [meridianSelected, setMeridianSelected] = useState(false);
   const [troothhertzSelected, setTroothhertzSelected] = useState(false);
+  const [selectedAirportKey,setSelectedAirportKey]=useState<string|null>(null);
   const [stadiumSelected, setStadiumSelected] = useState(false);
   const [veritasSelected, setVeritasSelected] = useState(false);
   const [showNexusPanel, setShowNexusPanel] = useState(false);
@@ -1736,6 +1546,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [placedObjects, saveToHistory, snapPosition]);
 
   const handleSelectTree = useCallback((id: number | null) => {
+    setSelectedAirportKey(null);
     setSelectedTreeId(id);
     if (id !== null) { setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); setSelectedObjectId(null); }
   }, []);
@@ -1754,6 +1565,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [selectedTreeId, saveToHistory]);
 
   const handleSelectObject = useCallback((id: string | null) => {
+    setSelectedAirportKey(null);
     setSelectedObjectId(id);
     if (id !== null) { setSelectedTreeId(null); setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); }
   }, []);
@@ -1781,6 +1593,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [selectedObjectId]);
 
   const handleSelectNexus = useCallback(() => {
+    setSelectedAirportKey(null);
     setNexusSelected(true);
     setMeridianSelected(false);
     setTroothhertzSelected(false);
@@ -1795,6 +1608,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [isEditorMode]);
 
   const handleSelectMeridian = useCallback(() => {
+    setSelectedAirportKey(null);
     setMeridianSelected(true);
     setNexusSelected(false);
     setTroothhertzSelected(false);
@@ -1809,6 +1623,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [isEditorMode]);
 
   const handleSelectTroothhertz = useCallback(() => {
+    setSelectedAirportKey(null);
     setTroothhertzSelected(true);
     setNexusSelected(false);
     setMeridianSelected(false);
@@ -1823,6 +1638,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, [isEditorMode]);
 
   const handleSelectStadium = useCallback(() => {
+    setSelectedAirportKey(null);
     setStadiumSelected(true);
     setNexusSelected(false);
     setMeridianSelected(false);
@@ -1833,6 +1649,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   }, []);
 
   const handleSelectVeritas = useCallback(() => {
+    setSelectedAirportKey(null);
     setVeritasSelected(true);
     setNexusSelected(false);
     setMeridianSelected(false);
@@ -1860,6 +1677,15 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setMeridianPos(snappedPos);
   }, [snapPosition, saveToHistory]);
 
+  const handleSelectAirport=useCallback((key:string|null)=>{
+    setSelectedAirportKey(key);
+    if(key){setSelectedTreeId(null);setSelectedObjectId(null);setNexusSelected(false);setMeridianSelected(false);setTroothhertzSelected(false);setStadiumSelected(false);setVeritasSelected(false);}
+  },[]);
+  const handleMoveAirport=useCallback((key:string,pos:[number,number,number],saveHistory=false)=>{
+    if(saveHistory)saveToHistory();const snapped=snapPosition(pos);snapped[1]=pos[1];
+    setImports(rows=>rows.map(row=>row.elementKey===key?{...row,position:snapped}:row));
+  },[saveToHistory,snapPosition]);
+
   const handleMoveStadium = useCallback((pos: [number,number,number], saveHistory = false) => {
     if (saveHistory) saveToHistory();
     const snappedPos = snapPosition(pos);
@@ -1879,6 +1705,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if(readOnly)return;
+      if(!isEditorMode)return;
+      if(e.target instanceof Element&&e.target.closest('input,textarea,select,button,a,[contenteditable="true"]'))return;
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedTreeId !== null) handleDeleteTree();
         else if (selectedObjectId !== null) handleDeleteObject();
@@ -1923,6 +1751,10 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           }
         }
         // Move stadium
+        else if(selectedAirportKey){
+          const airport=imports.find(row=>row.elementKey===selectedAirportKey);
+          if(airport){const pos=[...airport.position] as [number,number,number];if(e.key==='ArrowUp')pos[2]-=step;if(e.key==='ArrowDown')pos[2]+=step;if(e.key==='ArrowLeft')pos[0]-=step;if(e.key==='ArrowRight')pos[0]+=step;handleMoveAirport(airport.elementKey,pos,true);}
+        }
         else if (stadiumSelected) {
           const [x, y, z] = stadiumPos;
           let newPos: [number, number, number] = [x, y, z];
@@ -1956,7 +1788,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [readOnly, selectedTreeId, selectedObjectId, stadiumSelected, stadiumPos, veritasSelected, veritasPos, trees, placedObjects, handleDeleteTree, handleDeleteObject, handleRotateObject, handleMoveTree, handleMoveObject, handleMoveStadium, handleMoveVeritas, undo, redo]);
+  }, [readOnly,isEditorMode,selectedAirportKey,imports,handleMoveAirport, selectedTreeId, selectedObjectId, stadiumSelected, stadiumPos, veritasSelected, veritasPos, trees, placedObjects, handleDeleteTree, handleDeleteObject, handleRotateObject, handleMoveTree, handleMoveObject, handleMoveStadium, handleMoveVeritas, undo, redo]);
 
   const selectedTree = trees.find(t => t.id === selectedTreeId) ?? null;
   const selectedObject = placedObjects.find(o => o.id === selectedObjectId) ?? null;
@@ -1993,7 +1825,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           nexusElevatorFloor={nexusElevatorFloor}
           meridianElevatorFloor={meridianElevatorFloor}
           troothhertzElevatorFloor={troothhertzElevatorFloor}
-          isEditorMode={isEditorMode}
+          isEditorMode={!readOnly&&isEditorMode}
           onSelectTree={handleSelectTree}
           onMoveTree={handleMoveTree}
           onSelectObject={handleSelectObject}
@@ -2019,6 +1851,9 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           onMoveVeritas={handleMoveVeritas}
           cameraState={cameraState}
           buildingTarget={buildingTarget}
+          selectedAirportKey={selectedAirportKey}
+          onSelectAirport={handleSelectAirport}
+          onMoveAirport={handleMoveAirport}
           onFocusAirport={handleFocusAirport}
           plainTarget={plainTarget}
           onEnterPlain={handleEnterPlain}
@@ -2132,7 +1967,11 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         troothhertzPosition={troothhertzPos}
         stadiumPosition={stadiumPos}
         stadiumScale={stadiumScale}
-        onStadiumScaleChange={setStadiumScale}
+        onStadiumScaleChange={value=>{saveToHistory();setStadiumScale(value);}}
+        veritasScale={presentation['veritas-school'].scale}
+        onVeritasScaleChange={value=>{saveToHistory();setPresentation(rows=>({...rows,'veritas-school':{...rows['veritas-school'],scale:value}}));}}
+        airportModels={imports.filter(isAirport)}
+        onAirportScaleChange={(key,value)=>{saveToHistory();setImports(rows=>rows.map(row=>row.elementKey===key?{...row,scale:value}:row));}}
         veritasPosition={veritasPos}
         trees={trees}
         placedObjects={placedObjects}
@@ -2152,6 +1991,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         <label><input type="checkbox" checked={ambient.sidewalks} onChange={e=>{saveToHistory();setAmbient(v=>({...v,sidewalks:e.target.checked,enabled:e.target.checked&&v.enabled}))}}/> Sidewalks alongside streets</label><br/>
         <label><input type="checkbox" disabled={!ambient.sidewalks} checked={ambient.enabled} onChange={e=>{saveToHistory();setAmbient(v=>({...v,enabled:e.target.checked}))}}/> Ambient pedestrians and gathering groups</label>
         <details><summary>Building visibility, size and rotation</summary><p>Review the interior walk-through after changing an exterior size.</p>{Object.entries(presentation).map(([id,b])=><fieldset key={id}><legend>{id}</legend><label><input type="checkbox" checked={b.visible} onChange={e=>{saveToHistory();setPresentation(v=>({...v,[id]:{...v[id as BuildingId],visible:e.target.checked}}))}}/> Visible</label><label> Scale <input type="number" min="0.05" max="20" step="0.05" value={id==='stadium-elyseum'?stadiumScale:b.scale} onChange={e=>{const n=Number(e.target.value);if(!Number.isFinite(n)||n<.05||n>20)return;saveToHistory();if(id==='stadium-elyseum')setStadiumScale(n);else setPresentation(v=>({...v,[id]:{...v[id as BuildingId],scale:n}}))}}/></label><label> Rotation ° <input type="number" value={Math.round(b.rotationY*180/Math.PI)} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=3600){saveToHistory();setPresentation(v=>({...v,[id]:{...v[id as BuildingId],rotationY:n*Math.PI/180}}))}}}/></label></fieldset>)}</details>
+        {isEditorMode&&imports.filter(isAirport).map(airport=><details key={airport.elementKey} open><summary>Airport flight routes</summary><AirportRoutesEditor destinations={airport.destinations??[]} onChange={destinations=>{saveToHistory();setImports(rows=>rows.map(row=>row.elementKey===airport.elementKey?{...row,destinations}:row));}}/></details>)}
         <details><summary>Additional saved buildings</summary>
           <label>Existing model URL <input value={newModelUrl} onChange={e=>setNewModelUrl(e.target.value)} placeholder="/models/…/building.glb"/></label>
           <button type="button" onClick={()=>{try{const url=modelUrl(newModelUrl);saveToHistory();setImports(v=>[...v,{elementKey:'building-'+crypto.randomUUID().slice(0,8),glbUrl:url,position:[45,0,40],scale:1,rotationY:0}]);setNewModelUrl('');setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Invalid model URL')}}}>Add model to town</button>

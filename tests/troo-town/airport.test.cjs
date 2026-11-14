@@ -25,3 +25,10 @@ test('source has the full cycle and static runway; each visitor owns independent
 test('only static terminal/tower meshes collide; runway, passengers and airliner remain unblocked',()=>{
  const a=lib.createAirportPlayback(gltf.scene,gltf.animations);let solids=0;a.object.traverse(n=>{if(n.userData.townSolid){solids++;assert.ok(['terminal','roof','tower','glass_dark'].includes(n.material.name));}});assert.ok(solids>0);assert.equal(a.object.getObjectByName('Airliner').userData.townSolid,undefined);assert.equal(gltf.scene.getObjectByName('Airport_Static').userData.townSolid,undefined);a.dispose();
 });
+
+test('destination validation preserves old layouts, round-trips named links and rejects unsafe or oversized lists',()=>{
+ const routes=[{id:'abc',name:'ABC',url:'https://member.example/world?visit=airport#arrival'},{id:'town',name:'Local Town',url:'/worlds/local'}];assert.deepEqual(lib.validateDestinations(routes),routes);
+ const airport={...lib.placeAirport([])[0],destinations:routes};const world={version:1,buildings:structuredClone(lib.DEFAULT_BUILDINGS),trees:[],objects:[],imports:[airport],ambient:{enabled:false,sidewalks:false}};assert.deepEqual(lib.validateLayout(JSON.parse(JSON.stringify(world))),world);
+ for(const url of ['javascript:alert(1)','data:text/html,hello','//evil.test','https://user:secret@member.example/world','http://member.example/world','/\\evil.test'])assert.throws(()=>lib.validateDestinations([{id:'a',name:'ABC',url}]));
+ assert.throws(()=>lib.validateDestinations([...routes,routes[0]]));assert.throws(()=>lib.validateDestinations(Array.from({length:25},(_,i)=>({id:String(i),name:'Town',url:'https://member.example'}))));assert.throws(()=>lib.validateDestinations([{id:'a',name:'  ',url:'https://member.example'}]));
+});
