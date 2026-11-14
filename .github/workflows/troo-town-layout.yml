@@ -11,6 +11,7 @@ on:
       - 'src/lib/troo-world/airport*'
       - 'src/lib/troo-world/stadium-*'
       - 'src/lib/troo-world/presence-*'
+      - 'src/lib/security/engine-route-access.ts'
       - 'src/app/api/troo-world/presence/**'
       - 'src/app/avatar-preview/**'
       - 'public/models/avatars/**'
@@ -81,6 +82,28 @@ jobs:
 
       - name: Install Chromium for actual WebGL airport interaction
         run: /tmp/town-test-deps/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start isolated loopback LiveKit fixture
+        if: ${{ !cancelled() }}
+        run: docker run -d --network host --name troo-voice-fixture livekit/livekit-server:v1.9.12 --dev --bind 127.0.0.1 --node-ip 127.0.0.1
+      - name: Two real browsers, voice RTP, nearby audio, exclusive avatar and event seating
+        if: ${{ !cancelled() }}
+        run: node tests/troo-town/presence-browser.cjs
+        timeout-minutes: 6
+        env:
+          TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: presence-voice-evidence
+          path: presence-artifacts/
+      - name: Isolated voice fixture logs and cleanup
+        if: always()
+        run: |
+          docker logs troo-voice-fixture || true
+          docker rm -f troo-voice-fixture || true
+
       - name: Actual R3F/Drei airport playback and visual evidence
         run: node tests/troo-town/airport-visual.cjs
         env:
@@ -103,24 +126,3 @@ jobs:
           name: airport-visual-evidence
           path: airport-visual-artifacts/
 
-      - name: Start isolated loopback LiveKit fixture
-        if: ${{ !cancelled() }}
-        run: docker run -d --network host --name troo-voice-fixture livekit/livekit-server:v1.9.12 --dev --bind 127.0.0.1 --node-ip 127.0.0.1
-      - name: Two real browsers, voice RTP, nearby audio, exclusive avatar and event seating
-        if: ${{ !cancelled() }}
-        run: node tests/troo-town/presence-browser.cjs
-        timeout-minutes: 6
-        env:
-          TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
-          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
-          NODE_PATH: /tmp/town-test-deps/node_modules
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: presence-voice-evidence
-          path: presence-artifacts/
-      - name: Isolated voice fixture logs and cleanup
-        if: always()
-        run: |
-          docker logs troo-voice-fixture || true
-          docker rm -f troo-voice-fixture || true

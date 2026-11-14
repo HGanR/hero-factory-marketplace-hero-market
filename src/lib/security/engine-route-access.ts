@@ -4,7 +4,7 @@ import { verifyNpcAdminJwt, npcJwtPayloadIsAdmin } from '@/lib/admin/admin-sessi
 export class EngineAccessError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
 }
-export type EngineRouteActor = { userId: number; admin: boolean };
+export type EngineRouteActor = { userId: number; admin: boolean; username?: string };
 
 /** Existing HS256 session verification; production missing-secret errors fail closed. */
 export async function engineRouteActor(req: { cookies: Pick<NextRequest['cookies'], 'get'> }): Promise<EngineRouteActor> {
@@ -19,7 +19,7 @@ export async function engineRouteActor(req: { cookies: Pick<NextRequest['cookies
     if (!Number.isSafeInteger(userId) || userId <= 0) continue;
     const admin = npcJwtPayloadIsAdmin(payload);
     if (name === 'admin-token' && !admin) continue;
-    return { userId, admin };
+    return { userId, admin, ...(typeof payload.username === 'string' && payload.username.trim() && payload.username.length <= 100 ? {username:payload.username} : {}) };
   }
   throw new EngineAccessError('Unauthorized', 401);
 }
@@ -37,3 +37,4 @@ INNER JOIN troo_identities AS identity_row ON identity_row.id = links.identityId
 WHERE identity_row.userId = ? AND links.chain = 'evm'
 AND LOWER(links.address) = ? AND links.verifiedAt IS NOT NULL
 LIMIT 1`;
+

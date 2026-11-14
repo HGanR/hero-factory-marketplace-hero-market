@@ -3,6 +3,7 @@ import {createPublicClient,http,parseAbi,type Address,type Hex} from 'viem';
 import {polygon} from 'viem/chains';
 import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
 import {avatarFor,opaqueIdentity,reserveSeat,presenceScope} from './presence-store';
+import {portraitFor} from './presence-portrait';
 import {seatPose,hostPose,type PresenceIdentity} from './presence-model';
 import {getConnection} from '@/lib/db';
 import {loadGreenLayout} from './green-terrain-store';
@@ -54,7 +55,7 @@ export async function proveStadiumAdmission(event:StadiumEvent,proof:{id?:unknow
  if(!await ownsStadiumToken(event,wallet,rpc))throw new AdmissionError('This wallet does not hold the required event NFT');
  return wallet;
 }
-export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hostUserId?:number,memberUserId?:number){
+export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hostUserId?:number,memberUserId?:number,adminUsername?:string){
  // Reload after potentially slow RPC; cancellation, time and policy edits take effect before issuance.
  const current=await currentStadiumEvent(event.id);
  if(policyHash(current)!==policyHash(event))throw new AdmissionError('The event admission policy changed. Try again',409);
@@ -66,7 +67,8 @@ export async function issueStadiumRoom(event:StadiumEvent,wallet:string|null,hos
  const identity=opaqueIdentity(hostUserId?'host':'attendee',hostUserId?'user:'+hostUserId:memberUserId?'user:'+memberUserId:wallet??randomBytes(16).toString('hex'));
  const saved=await loadGreenLayout(),frame=saved?.layout.buildings['stadium-elyseum'];if(!frame)throw new AdmissionError('The stadium layout is unavailable',503);
  const seat=hostUserId?null:await reserveSeat(room,event.id,policyHash(event),identity,service);
- const presence:PresenceIdentity={v:1,identity,avatar:await avatarFor(hostUserId??memberUserId),role:hostUserId?'host':'attendee',eventId:event.id,pose:hostUserId?hostPose(frame,event.id):seatPose(seat!.seatIndex,frame,event.id)};
+ const portrait=await portraitFor(hostUserId?{userId:hostUserId,admin:true,username:adminUsername}:memberUserId?{userId:memberUserId,admin:false}:undefined);
+ const presence:PresenceIdentity={...(portrait.portraitUrl?{portraitUrl:portrait.portraitUrl}:{}),v:1,identity,avatar:await avatarFor(hostUserId??memberUserId),role:hostUserId?'host':'attendee',eventId:event.id,pose:hostUserId?hostPose(frame,event.id):seatPose(seat!.seatIndex,frame,event.id)};
  const at=new AccessToken(key,secret,{identity,name:hostUserId?'Event host':'Attendee',metadata:JSON.stringify(presence),ttl:Math.max(1,Math.min(120,Math.floor((Date.parse(event.endsAt)-Date.now())/1000)))});
  at.addGrant({roomJoin:true,room,canSubscribe:true,canPublish:true,canPublishSources:[TrackSource.MICROPHONE],canPublishData:false,canUpdateOwnMetadata:false});
  return{token:await at.toJwt(),serverUrl:url,...((hostUserId??memberUserId)?{accountKey:opaqueIdentity('member','user:'+(hostUserId??memberUserId))}:{}),eventId:event.id,endsAt:event.endsAt,title:event.title,isHost:Boolean(hostUserId),presence,...(seat?{seatLeaseToken:seat.seatLeaseToken}:{})};
