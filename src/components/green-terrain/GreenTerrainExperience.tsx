@@ -13,7 +13,7 @@ import BuildingInteriorEditor from '../world-editor/BuildingInteriorEditor';
 import BuildingInteriorLayer from '../world-viewer/BuildingInteriorLayer';
 import {officeEntry,officeWalker,isOffice,importedBuildingName,BUILDING_NAMES} from '@/lib/troo-world/office-building';
 import type {InteriorItem} from '@/lib/world-assets/interior';
-import {STOREFRONT} from '@/lib/world-assets/storefront';
+import {STOREFRONT,STOREFRONTS} from '@/lib/world-assets/storefront';
 
 import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -1985,11 +1985,11 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         stadiumSettings={stadium}
         onStadiumSettingsChange={value=>{saveToHistory();setStadium(value);}}
         onOpenInterior={()=>{setIsEditorMode(true);setShowNexusPanel(false);setShowMeridianPanel(false);setShowTroothhertzPanel(false);}}
-        interiorPanel={<><p style={{color:'#e0f4ff'}}>Selected building: <strong>{selectedInteriorName??'None'}</strong></p>{layoutReady?<BuildingInteriorEditor key={selectedInteriorKey??'none'} placement={selectedInteriorKey&&selectedInterior?{id:selectedInteriorKey,assetId:selectedInteriorKey,position:[0,0,0],rotation:[0,0,0],scale:[1,1,1],interior:selectedInterior.interior}:null} freePlacement={!(selectedInterior&&'glbUrl'in selectedInterior&&isOffice(selectedInterior))} saveHint="Changes belong to this building. Save World Layout to show them in Troo Town." onChange={changeInterior}/>:<p>Load the current saved world before editing.</p>}</>}
+        interiorPanel={<><p style={{color:'#e0f4ff'}}>Selected building: <strong>{selectedInteriorName??'None'}</strong></p>{layoutReady?<BuildingInteriorEditor key={selectedInteriorKey??'none'} placement={selectedInteriorKey&&selectedInterior?{id:selectedInteriorKey,assetId:selectedInteriorKey,position:[0,0,0],rotation:[0,0,0],scale:[1,1,1],interior:selectedInterior.interior}:null} modelUrl={selectedInterior&&'glbUrl'in selectedInterior?selectedInterior.glbUrl:undefined} freePlacement={!(selectedInterior&&'glbUrl'in selectedInterior&&isOffice(selectedInterior))} saveHint="Changes belong to this building. Save World Layout to show them in Troo Town." onChange={changeInterior}/>:<p>Load the current saved world before editing.</p>}</>}
         onSaveSnapshot={saveSnapshot}
         saveReady={layoutReady}
         airportPlaced={imports.some(isAirport)}
-        onPlaceGlbAsset={key=>{if(key!==AIRPORT.key&&key!==STOREFRONT.key)return;try{if(imports.length>=100)throw new Error('The town supports 100 imported models.');const next=key===AIRPORT.key?placeAirport(imports):[...imports,{elementKey:STOREFRONT.key+'-'+crypto.randomUUID().slice(0,8),glbUrl:STOREFRONT.modelUrl,position:[...INTERSECTION_SPAWN] as [number,number,number],scale:1,rotationY:0}];if(next===imports)return;saveToHistory();setImports(next);setIsEditorMode(true);handleSelectAirport(next[next.length-1].elementKey);setSnapToPosition([...INTERSECTION_SPAWN]);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
+        onPlaceGlbAsset={key=>{const asset=STOREFRONTS.find(a=>a.key===key);if(key!==AIRPORT.key&&!asset)return;try{if(imports.length>=100)throw new Error('The town supports 100 imported models.');const next=key===AIRPORT.key?placeAirport(imports):[...imports,{elementKey:asset!.key+'-'+crypto.randomUUID().slice(0,8),glbUrl:asset!.modelUrl,position:[...INTERSECTION_SPAWN] as [number,number,number],scale:1,rotationY:0}];if(next===imports)return;saveToHistory();setImports(next);setIsEditorMode(true);handleSelectAirport(next[next.length-1].elementKey);setSnapToPosition([...INTERSECTION_SPAWN]);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
         isEditorMode={isEditorMode}
         onToggleEditor={() => {setWorldFirstPerson(false);setWorldFreeLook(false);setIsEditorMode(e => !e);}}
         currentWorldId={currentWorldId}

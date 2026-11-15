@@ -1,4 +1,4 @@
-import {STOREFRONT} from '../world-assets/storefront';
+import {STOREFRONTS} from '../world-assets/storefront';
 import jwt from 'jsonwebtoken';
 import { createHmac, randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
@@ -28,7 +28,7 @@ export async function prepareOrder(userId:number, assetId:string, walletInput:un
     const issuedBlock=(await rpc.getBlockNumber()).toString();const now=Math.floor(Date.now()/1000);
     const order:Order={kind:'world-troo-v1',userId,assetId,wallet,amount,price:String(asset.tokenPrice),issuedBlock,deadline:now+1800,nonce:randomUUID(),iat:now};
     const orderToken=jwt.sign(order,secret(),{algorithm:'HS256',audience:'world-asset-checkout',issuer:'troothhurtz.app'});
-    return {orderToken,message:walletMessage(order),order,assetName:asset.id===STOREFRONT.id?STOREFRONT.name:asset.name,chainId:CHAIN,token:TOKEN,treasury:TREASURY};
+    return {orderToken,message:walletMessage(order),order,assetName:STOREFRONTS.find(a=>a.id===asset.id)?.name??asset.name,chainId:CHAIN,token:TOKEN,treasury:TREASURY};
   } finally {await db.end();}
 }
 export async function verifyPayment(userId:number, assetId:string, body:any) {

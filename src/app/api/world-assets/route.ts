@@ -1,4 +1,4 @@
-import {STOREFRONT} from '@/lib/world-assets/storefront';
+import {storefrontForModel} from '@/lib/world-assets/storefront';
 /**
  * GET /api/world-assets — Published marketplace assets (excludes isPlatformOnly)
  */
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       assets: assets.map((a) => ({
         id: a.id,
         slug: a.slug,
-        name: a.modelUrl===STOREFRONT.modelUrl?STOREFRONT.name:a.name,
+        name: storefrontForModel(a.modelUrl)?.name??a.name,
         category: a.category,
         description: a.description,
         previewImageUrl: a.previewImageUrl,

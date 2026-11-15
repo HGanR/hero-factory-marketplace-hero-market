@@ -1,4 +1,4 @@
-import {STOREFRONT} from '@/lib/world-assets/storefront';
+import {storefrontForModel} from '@/lib/world-assets/storefront';
 /**
  * GET /api/world-assets/me — Assets owned by current user/workspace
  */
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         id: a.assetId,
         ownershipId: a.id,
         slug: a.slug,
-        name: a.modelUrl===STOREFRONT.modelUrl?STOREFRONT.name:a.name,
+        name: storefrontForModel(a.modelUrl)?.name??a.name,
         category: a.category,
         modelUrl: a.modelUrl,
         previewImageUrl: a.previewImageUrl,

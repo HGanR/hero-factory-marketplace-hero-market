@@ -17,6 +17,10 @@ on:
       - 'public/models/avatars/**'
       - 'sql/troo-avatar-presence.sql'
       - 'sql/stadium-speaker-floor.sql'
+      - 'public/models/world-assets/storefront-v3/**'
+      - 'src/lib/world-assets/**'
+      - 'scripts/register-level2-store.cjs'
+      - 'scripts/build-with-preview-setup.cjs'
       - 'src/lib/troo-world/day-night.ts'
       - 'src/app/worlds/**'
       - 'src/lib/troo-world/touch-navigation.ts'
@@ -54,7 +58,7 @@ jobs:
           node-version: '22'
       - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1 viem@2.41.2 livekit-server-sdk@2.15.2 livekit-client@2.18.7
       - name: Stadium admission policy, wallet signatures, protected tokens and connected sidewalks
-        run: node --test tests/troo-town/day-night.test.cjs tests/troo-town/office-building.test.cjs tests/troo-town/owned-interiors.test.cjs tests/troo-town/interior-editor-ui.test.cjs tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs tests/troo-town/presence-core.test.cjs tests/troo-town/speaker-floor.test.cjs
+        run: node --test tests/troo-town/level2-store.test.cjs tests/troo-town/day-night.test.cjs tests/troo-town/office-building.test.cjs tests/troo-town/owned-interiors.test.cjs tests/troo-town/interior-editor-ui.test.cjs tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs tests/troo-town/presence-core.test.cjs tests/troo-town/speaker-floor.test.cjs
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
@@ -84,7 +88,7 @@ jobs:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Real MySQL transactions, public reads and canonical signed-session gate
-        run: node --test tests/troo-town/sql.test.cjs tests/troo-town/presence-sql.test.cjs
+        run: node --test tests/troo-town/level2-store-sql.test.cjs tests/troo-town/sql.test.cjs tests/troo-town/presence-sql.test.cjs
         env:
           TOWN_SQL_URL: mysql://root:fixture@127.0.0.1:3306/town_layout_test
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
@@ -103,6 +107,17 @@ jobs:
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Level 2 Store selection, native furnishings, scaling, save and actual model entry
+        run: node tests/troo-town/green-interior-visual.cjs
+        env:
+          LEVEL2_STORE_TEST: '1'
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: level2-store-acceptance
+          path: level2-store-artifacts/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
