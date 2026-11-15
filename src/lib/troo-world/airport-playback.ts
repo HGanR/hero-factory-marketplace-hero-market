@@ -1,3 +1,5 @@
+import {createAirportRig} from './airport-rig';
+import type {AirportParts} from './airport-parts';
 import * as THREE from 'three';
 import {AIRPORT} from './airport';
 
@@ -24,16 +26,19 @@ export function createAirportPlayback(source:THREE.Object3D,clips:THREE.Animatio
    if(materials.some(m=>['terminal','roof','tower','glass_dark'].includes(m.name)))node.userData={...node.userData,townSolid:true};
   }
  });
- let action:THREE.AnimationAction|null=null,playing=true,rate=1;
+ const rig=createAirportRig(object);
+ let action:THREE.AnimationAction|null=null,playing=true,rate=1,custom=false;
+ const refresh=()=>{rig.restore();mixer.update(0);rig.apply();};
  return {object,mixer,
+  configure(parts:AirportParts|undefined,parentScale:number){const had=custom;custom=!!parts;rig.restore();rig.configure(parts,parentScale);if(action&&(custom||had))refresh();},
   activate(){action=mixer.clipAction(clip);action.setLoop(THREE.LoopRepeat,Infinity);action.play();},
-  update(delta:number){if(playing&&action&&Number.isFinite(delta)&&delta>=0)mixer.update(delta*rate);},
-  seek(time:number){if(!Number.isFinite(time)||time<0||time>=AIRPORT.duration)return;mixer.setTime(time);},
+  update(delta:number){if(action&&Number.isFinite(delta)&&delta>=0){rig.restore();mixer.update(playing?delta*rate:0);rig.apply();}},
+  seek(time:number){if(!Number.isFinite(time)||time<0||time>=AIRPORT.duration)return;rig.restore();mixer.setTime(time);rig.apply();},
   setPlaying(value:boolean){playing=value;},
   setRate(value:number){if([1,10,30].includes(value))rate=value;},
   get time(){return action?.time??0;},
   get playing(){return playing;},
-  dispose(){mixer.stopAllAction();mixer.uncacheRoot(object);action=null;},
+  dispose(){rig.restore();rig.dispose();mixer.stopAllAction();mixer.uncacheRoot(object);action=null;},
  };
 }
 

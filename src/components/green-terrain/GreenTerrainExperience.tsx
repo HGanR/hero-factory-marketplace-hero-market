@@ -9,6 +9,7 @@
 
 "use client";
 
+import {moveAirportPart,airportPartOrigin,type AirportPartId} from '@/lib/troo-world/airport-parts';
 import BuildingInteriorEditor from '../world-editor/BuildingInteriorEditor';
 import BuildingInteriorLayer from '../world-viewer/BuildingInteriorLayer';
 import {officeEntry,officeWalker,isOffice,importedBuildingName,BUILDING_NAMES} from '@/lib/troo-world/office-building';
@@ -680,8 +681,9 @@ interface SceneProps {
   onEnterOffice:(placement:ImportedPlacement)=>void;
   insideOfficeKey:string|null;
   selectedAirportKey:string|null;
-  onSelectAirport:(key:string|null)=>void;
-  onMoveAirport:(key:string,pos:[number,number,number],saveHistory?:boolean)=>void;
+  selectedAirportPart:AirportPartId|"whole";
+  onSelectAirport:(key:string|null,part?:AirportPartId|"whole")=>void;
+  onMoveAirport:(key:string,pos:[number,number,number],saveHistory?:boolean,part?:AirportPartId)=>void;
   layout: GreenLayout;
   trees: TreeData[];
   placedObjects: PlacedObject[];
@@ -817,7 +819,7 @@ function Scene(props: SceneProps) {
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
       <AmbientTown layout={props.layout}/>
-      <ImportedTownModels onEnterBuilding={props.cameraState==="world"?props.onEnterOffice:undefined} selectedAirportKey={props.selectedAirportKey} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
+      <ImportedTownModels onEnterBuilding={props.cameraState==="world"?props.onEnterOffice:undefined} selectedAirportKey={props.selectedAirportKey} selectedAirportPart={props.selectedAirportPart} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {Object.entries(props.layout.buildings).filter(([,frame])=>frame.visible).map(([id,frame])=><group key={'interior-'+id} position={frame.position} rotation={[0,frame.rotationY,0]} scale={frame.scale}><BuildingInteriorLayer value={frame.interior} allowPosition/>{props.isEditorMode&&(({'nexus-tower':props.nexusSelected,'meridian-tower':props.meridianSelected,'troothhertz-tower':props.troothhertzSelected,'stadium-elyseum':props.stadiumSelected,'veritas-school':props.veritasSelected} as Record<string,boolean>)[id])&&<mesh name={'Building selection ring '+id} position={[0,.12,0]} rotation={[-Math.PI/2,0,0]} raycast={()=>{}}><ringGeometry args={[id==='stadium-elyseum'?74:id==='veritas-school'?38:14,id==='stadium-elyseum'?74.5:id==='veritas-school'?38.5:14.3,96]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={THREE.DoubleSide} depthWrite={false}/></mesh>}</group>)}
       {/* Plain labels — TROO CENTER and cardinal plains */}
       {props.cameraState === "world" && (<PlainLabel position={[0, 0, 20]} name="TROO CENTER" />)}
@@ -1314,6 +1316,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [meridianSelected, setMeridianSelected] = useState(false);
   const [troothhertzSelected, setTroothhertzSelected] = useState(false);
   const [selectedAirportKey,setSelectedAirportKey]=useState<string|null>(null);
+  const [selectedAirportPart,setSelectedAirportPart]=useState<AirportPartId|"whole">("whole");
   const [stadiumSelected, setStadiumSelected] = useState(false);
   const [veritasSelected, setVeritasSelected] = useState(false);
   const [showNexusPanel, setShowNexusPanel] = useState(false);
@@ -1607,13 +1610,17 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
   const rotationTarget:TownSelection|null=selectedObjectId?{kind:'object',id:selectedObjectId}:selectedTreeId!==null?{kind:'tree',id:selectedTreeId}:selectedAirportKey?{kind:'import',id:selectedAirportKey}:nexusSelected?{kind:'building',id:'nexus-tower'}:meridianSelected?{kind:'building',id:'meridian-tower'}:troothhertzSelected?{kind:'building',id:'troothhertz-tower'}:stadiumSelected?{kind:'building',id:'stadium-elyseum'}:veritasSelected?{kind:'building',id:'veritas-school'}:null;
   const handleRotateObject = useCallback((delta:number)=>{
+    if(readOnly)return;
+    if(rotationTarget?.kind==='import'&&selectedAirportPart!=='whole'){
+      const airport=imports.find(p=>p.elementKey===rotationTarget.id);if(airport?.airportParts){saveToHistory();const id=selectedAirportPart;setImports(rows=>rows.map(p=>p.elementKey!==airport.elementKey?p:{...p,airportParts:{...p.airportParts!,[id]:{...p.airportParts![id],rotationY:Math.atan2(Math.sin(p.airportParts![id].rotationY+delta),Math.cos(p.airportParts![id].rotationY+delta))}}}));return;}
+    }
     if(!rotationTarget||readOnly)return;
     const next=rotateTownSelection(layout,rotationTarget,delta);saveToHistory();
     if(rotationTarget.kind==='object')setPlacedObjects(next.objects);
     else if(rotationTarget.kind==='tree')setTrees(next.trees);
     else if(rotationTarget.kind==='import')setImports(next.imports);
     else setPresentation(next.buildings);
-  },[rotationTarget,layout,readOnly,saveToHistory]);
+  },[rotationTarget,layout,readOnly,saveToHistory,selectedAirportPart,imports]);
 
   const handleSelectNexus = useCallback(() => {
     setSelectedAirportKey(null);
@@ -1696,13 +1703,14 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     if(rotationTarget?.kind==='building')setPresentation(rows=>({...rows,[selectedInteriorKey]:{...rows[selectedInteriorKey as BuildingId],interior:items}}));
     else setImports(rows=>rows.map(p=>p.elementKey===selectedInteriorKey?{...p,interior:items}:p));
   };
-  const handleSelectAirport=useCallback((key:string|null)=>{
+  const handleSelectAirport=useCallback((key:string|null,part:AirportPartId|"whole"="whole")=>{
+    setSelectedAirportPart(part);
     setSelectedAirportKey(key);
     if(key){setSelectedTreeId(null);setSelectedObjectId(null);setNexusSelected(false);setMeridianSelected(false);setTroothhertzSelected(false);setStadiumSelected(false);setVeritasSelected(false);}
   },[]);
-  const handleMoveAirport=useCallback((key:string,pos:[number,number,number],saveHistory=false)=>{
+  const handleMoveAirport=useCallback((key:string,pos:[number,number,number],saveHistory=false,part?:AirportPartId)=>{
     if(saveHistory)saveToHistory();const snapped=snapPosition(pos);snapped[1]=pos[1];
-    setImports(rows=>rows.map(row=>row.elementKey===key?{...row,position:snapped}:row));
+    setImports(rows=>rows.map(row=>row.elementKey===key?(part?moveAirportPart(row,part,snapped):{...row,position:snapped}):row));
   },[saveToHistory,snapPosition]);
 
   const handleMoveStadium = useCallback((pos: [number,number,number], saveHistory = false) => {
@@ -1731,6 +1739,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         else if (selectedObjectId !== null) handleDeleteObject();
       }
       if (e.key === "Escape") {
+        setSelectedAirportKey(null);
         setSelectedTreeId(null); setSelectedObjectId(null);
         setNexusSelected(false); setMeridianSelected(false); setTroothhertzSelected(false); setStadiumSelected(false); setVeritasSelected(false);
         setShowNexusPanel(false); setShowMeridianPanel(false); setShowTroothhertzPanel(false);
@@ -1772,7 +1781,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         // Move stadium
         else if(selectedAirportKey){
           const airport=imports.find(row=>row.elementKey===selectedAirportKey);
-          if(airport){const pos=[...airport.position] as [number,number,number];if(e.key==='ArrowUp')pos[2]-=step;if(e.key==='ArrowDown')pos[2]+=step;if(e.key==='ArrowLeft')pos[0]-=step;if(e.key==='ArrowRight')pos[0]+=step;handleMoveAirport(airport.elementKey,pos,true);}
+          if(airport){const part=selectedAirportPart==='whole'?undefined:selectedAirportPart;const pos=[...(part?airportPartOrigin(airport,part):airport.position)] as [number,number,number];if(e.key==='ArrowUp')pos[2]-=step;if(e.key==='ArrowDown')pos[2]+=step;if(e.key==='ArrowLeft')pos[0]-=step;if(e.key==='ArrowRight')pos[0]+=step;handleMoveAirport(airport.elementKey,pos,true,part);}
         }
         else if (stadiumSelected) {
           const [x, y, z] = stadiumPos;
@@ -1871,6 +1880,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           onMoveVeritas={handleMoveVeritas}
           cameraState={cameraState}
           buildingTarget={buildingTarget}
+          selectedAirportPart={selectedAirportPart}
           selectedAirportKey={selectedAirportKey}
           onSelectAirport={handleSelectAirport}
           onMoveAirport={handleMoveAirport}
@@ -2002,6 +2012,10 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onStadiumScaleChange={value=>{saveToHistory();setStadiumScale(value);}}
         veritasScale={presentation['veritas-school'].scale}
         onVeritasScaleChange={value=>{saveToHistory();setPresentation(rows=>({...rows,'veritas-school':{...rows['veritas-school'],scale:value}}));}}
+        selectedAirportPart={{key:selectedAirportKey??'',part:selectedAirportPart}}
+        onAirportFocus={handleFocusAirport}
+        onAirportPartSelect={handleSelectAirport}
+        onAirportPartsChange={(key,parts)=>{saveToHistory();setImports(rows=>rows.map(p=>p.elementKey===key?{...p,airportParts:parts}:p));handleSelectAirport(key,selectedAirportPart);}}
         airportModels={imports}
         onAirportScaleChange={(key,value)=>{saveToHistory();setImports(rows=>rows.map(row=>row.elementKey===key?{...row,scale:value}:row));}}
         veritasPosition={veritasPos}
@@ -2028,7 +2042,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           <label>Existing model URL <input value={newModelUrl} onChange={e=>setNewModelUrl(e.target.value)} placeholder="/models/…/building.glb"/></label>
           <button type="button" onClick={()=>{try{const url=modelUrl(newModelUrl),key='building-'+crypto.randomUUID().slice(0,8);saveToHistory();setImports(v=>[...v,{elementKey:key,glbUrl:url,position:[...INTERSECTION_SPAWN],scale:1,rotationY:0}]);setIsEditorMode(true);handleSelectAirport(key);setSnapToPosition([...INTERSECTION_SPAWN]);setNewModelUrl('');setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Invalid model URL')}}}>Add model to town</button>
           {modelError&&<p role="alert">{modelError}</p>}
-          {imports.map((model,index)=><fieldset key={model.elementKey}><legend>{importedBuildingName(model)}</legend>{isAirport(model)&&<p>Source runway: 600 metres. Default display scale: 0.10. Adjust placement, scale and rotation here, then Save World Layout to publish.</p>}{(['X','Y','Z'] as const).map((axis,n)=><label key={axis}>{axis}<input type="number" value={model.position[n]} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=1000)setImports(v=>v.map((p,i)=>i===index?{...p,position:p.position.map((x,j)=>j===n?value:x) as [number,number,number]}:p))}}/></label>)}
+          {imports.map((model,index)=><fieldset key={model.elementKey}><legend>{importedBuildingName(model)}</legend>{isAirport(model)&&<p>Source runway: 600 metres. Use Save → Airport parts for independent sizes and the NPC scale preset. Save World Layout to publish.</p>}{(['X','Y','Z'] as const).map((axis,n)=><label key={axis}>{axis}<input type="number" value={model.position[n]} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=1000)setImports(v=>v.map((p,i)=>i===index?{...p,position:p.position.map((x,j)=>j===n?value:x) as [number,number,number]}:p))}}/></label>)}
           <label>Scale<input type="number" min="0.05" max="20" step="0.05" value={model.scale} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&value>=.05&&value<=20)setImports(v=>v.map((p,i)=>i===index?{...p,scale:value}:p))}}/></label>
           <label>Rotation °<input type="number" value={Math.round(model.rotationY*180/Math.PI)} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=3600)setImports(v=>v.map((p,i)=>i===index?{...p,rotationY:value*Math.PI/180}:p))}}/></label>
           <button type="button" onClick={()=>{saveToHistory();setImports(v=>v.filter((_,i)=>i!==index))}}>Remove this building</button></fieldset>)}

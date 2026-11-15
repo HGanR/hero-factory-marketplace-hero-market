@@ -30,5 +30,6 @@ export function airportView(placement:ImportedPlacement){
   const c=Math.cos(placement.rotationY),s=Math.sin(placement.rotationY),k=placement.scale;
   return [placement.position[0]+k*(x*c+z*s),placement.position[1]+k*y,placement.position[2]+k*(-x*s+z*c)];
  };
+ const parts=placement.airportParts;if(parts){const width=300*parts.runway.scale*(parts.runway.stretch?.[0]??1),extent=Math.max(width,Math.abs(114+parts.terminal.offset[2])+40*parts.terminal.scale,Math.abs(140+parts.tower.offset[0])+10*parts.tower.scale);return{position:transform([extent*1.3,extent,extent*1.5]),lookAt:transform([0,15,extent*.2])};}
  return {position:transform([420,300,420]),lookAt:transform([0,15,60])};
 }

@@ -1,4 +1,5 @@
 'use client';
+import type {AirportPartId} from '@/lib/troo-world/airport-parts';
 import {isAirport,type ImportedPlacement} from '@/lib/troo-world/airport';
 import {isOffice,importedBuildingName} from '@/lib/troo-world/office-building';
 import AirportModel from './AirportModel';
@@ -22,9 +23,9 @@ function GlbModel({placement,selected,onEnter,onSelect}:{placement:ImportedPlace
  </>;
 }
 function ProceduralModel({kind,selected}:{kind:string;selected:boolean}){const object=useMemo(()=>kind==='procedural:apex'?buildApexExterior():buildHarborviewExterior(),[kind]);return <><primitive object={object}/>{selected&&<mesh name="Imported building selection ring" rotation={[-Math.PI/2,0,0]} position={[0,.1,0]}><ringGeometry args={[14,14.3,64]}/><meshBasicMaterial color="#ffdd44" side={THREE.DoubleSide}/></mesh>}</>}
-export default function ImportedTownModels({placements,onFocusAirport,canFocusAirport=true,editorMode=false,selectedAirportKey,onSelectAirport,onEnterBuilding}:{placements:GreenLayout['imports'];onFocusAirport?:(placement:ImportedPlacement)=>void;canFocusAirport?:boolean;editorMode?:boolean;selectedAirportKey?:string|null;onSelectAirport?:(key:string|null)=>void;onEnterBuilding?:(placement:ImportedPlacement)=>void}){
+export default function ImportedTownModels({placements,onFocusAirport,canFocusAirport=true,editorMode=false,selectedAirportKey,selectedAirportPart='whole',onSelectAirport,onEnterBuilding}:{placements:GreenLayout['imports'];onFocusAirport?:(placement:ImportedPlacement)=>void;canFocusAirport?:boolean;editorMode?:boolean;selectedAirportKey?:string|null;selectedAirportPart?:AirportPartId|'whole';onSelectAirport?:(key:string|null,part?:AirportPartId|'whole')=>void;onEnterBuilding?:(placement:ImportedPlacement)=>void}){
  return <group>{placements.map(p=><group name={'Imported '+p.elementKey} userData={{townSolid:!isAirport(p),airportPlacementKey:p.elementKey}} key={p.elementKey+':'+p.glbUrl} position={p.position} scale={p.scale} rotation={[0,p.rotationY,0]} onClick={event=>{event.stopPropagation();onSelectAirport?.(p.elementKey)}}>
- <ModelBoundary name={p.elementKey}><Suspense fallback={null}>{isAirport(p)?<AirportModel placement={p} onFocus={onFocusAirport} canFocus={canFocusAirport} editorMode={editorMode} selected={selectedAirportKey===p.elementKey} onSelect={()=>onSelectAirport?.(p.elementKey)}/>:p.glbUrl.startsWith('procedural:')?<ProceduralModel kind={p.glbUrl} selected={selectedAirportKey===p.elementKey}/>:<GlbModel placement={p} onSelect={editorMode?()=>onSelectAirport?.(p.elementKey):undefined} selected={selectedAirportKey===p.elementKey} onEnter={onEnterBuilding?()=>onEnterBuilding(p):undefined}/>}
+ <ModelBoundary name={p.elementKey}><Suspense fallback={null}>{isAirport(p)?<AirportModel placement={p} onFocus={onFocusAirport} canFocus={canFocusAirport} editorMode={editorMode} selected={selectedAirportKey===p.elementKey} selectedPart={selectedAirportPart} onSelect={part=>onSelectAirport?.(p.elementKey,part??'whole')}/>:p.glbUrl.startsWith('procedural:')?<ProceduralModel kind={p.glbUrl} selected={selectedAirportKey===p.elementKey}/>:<GlbModel placement={p} onSelect={editorMode?()=>onSelectAirport?.(p.elementKey):undefined} selected={selectedAirportKey===p.elementKey} onEnter={onEnterBuilding?()=>onEnterBuilding(p):undefined}/>}
  <BuildingInteriorLayer value={p.interior} allowPosition/>
  </Suspense></ModelBoundary></group>)}</group>;
 }
