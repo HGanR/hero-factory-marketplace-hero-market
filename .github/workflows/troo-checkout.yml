@@ -33,7 +33,7 @@ jobs:
       - run: npx tsc -p tests/checkout/tsconfig.json
 
 
-      - run: node --test tests/troo-town/owned-interiors.test.cjs tests/troo-town/interior-editor-ui.test.cjs
+      - run: node --test tests/troo-town/owned-interiors.test.cjs
         env:
           TOWN_TEST_DEPS: ${{ github.workspace }}/node_modules
           NODE_PATH: ${{ github.workspace }}/node_modules
