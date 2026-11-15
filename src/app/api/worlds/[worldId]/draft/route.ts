@@ -1,4 +1,4 @@
-import {validatePlacementInteriors,INTERIOR_MODEL} from '@/lib/world-assets/interior';
+import {validatePlacementInteriors,INTERIOR_MODELS} from '@/lib/world-assets/interior';
 /**
  * PUT /api/worlds/[worldId]/draft — Save draft chunk placements
  * Owner or admin only. Does not affect published version.
@@ -99,8 +99,8 @@ export async function PUT(
     }
 
     if(chunks.length>400)return NextResponse.json({error:'Too many world chunks'},{status:400});
-    const supported=await db.select({id:worldLibraryAssets.id}).from(worldLibraryAssets).where(eq(worldLibraryAssets.modelUrl,INTERIOR_MODEL));
-    try{validatePlacementInteriors(chunks,new Set(supported.map(a=>a.id)));}
+    const supported=await db.select({id:worldLibraryAssets.id,modelUrl:worldLibraryAssets.modelUrl}).from(worldLibraryAssets).where(inArray(worldLibraryAssets.modelUrl,INTERIOR_MODELS));
+    try{validatePlacementInteriors(chunks,new Map(supported.map(a=>[a.id,a.modelUrl])));}
     catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Invalid interior'},{status:400});}
     let [draftVersion] = await db
       .select()

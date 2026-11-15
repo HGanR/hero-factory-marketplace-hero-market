@@ -22,7 +22,7 @@ import ModelScaleControl from './ModelScaleControl';
 import type {ImportedPlacement} from '@/lib/troo-world/airport';
 import {importedBuildingName} from '@/lib/troo-world/office-building';
 import {isAirport} from '@/lib/troo-world/airport';
-import {STOREFRONT} from '@/lib/world-assets/storefront';
+import {STOREFRONT,LEVEL2_STORE,STOREFRONTS} from '@/lib/world-assets/storefront';
 import {AIRPORT} from '@/lib/troo-world/airport';
 import { useState, useCallback, useEffect } from "react";
 import type { WorldObjectType } from "./WorldObjects";
@@ -62,6 +62,7 @@ interface LibraryItem {
 }
 
 const OBJECT_LIBRARY: LibraryItem[] = [
+  {key:LEVEL2_STORE.key,label:LEVEL2_STORE.name,icon:'🏬',category:'Buildings',description:'Three floors, balconies, stair tower and roof deck. Marketplace price: 2,000,000 TROO.',kind:'glb'},
   {key:STOREFRONT.key,label:STOREFRONT.name,icon:'🏬',category:'Buildings',description:'Three floors, wall art and furnishing slots. Marketplace price: 5 TROO.',kind:'glb'},
   {key:AIRPORT.key,label:AIRPORT.name,icon:'✈',category:'Buildings',description:'Airport with departures to member worlds. Enable Editor Mode to manage flight routes.',kind:'glb'},
   // ── Buildings ──
@@ -843,7 +844,7 @@ export default function WorldManagementUI({
               </div>
 
               <div style={{color:'#b9e1ff',fontSize:12}}>
-                <button disabled={listingBusy} onClick={async()=>{setListingBusy(true);try{const res=await fetch('/api/admin/world-assets/storefront',{method:'POST'});const data=await res.json();if(!res.ok)throw new Error(data.error);setListingNotice(`${STOREFRONT.name} ${data.status==='draft'?'saved as a preview draft':'published'} for ${data.tokenPrice} TROO. ${data.status==='draft'?'Public sales remain off until the live release.':'Buyers find it in World Explorer → My asset library.'}`);}catch(error){setListingNotice(error instanceof Error?error.message:'Listing failed');}finally{setListingBusy(false);}}}>{listingBusy?'Registering…':'List Level 1 Office Bldg for 5 TROO'}</button>
+                {STOREFRONTS.map(asset=><button key={asset.key} disabled={listingBusy} onClick={async()=>{setListingBusy(true);try{const res=await fetch('/api/admin/world-assets/storefront',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assetKey:asset.key})});const data=await res.json();if(!res.ok)throw new Error(data.error);setListingNotice(`${asset.name} ${data.status==='draft'?'saved as a preview draft':'published'} for ${Number(data.tokenPrice).toLocaleString('en-US')} TROO. Buyers find it in World Explorer.`);}catch(error){setListingNotice(error instanceof Error?error.message:'Listing failed');}finally{setListingBusy(false);}}}>{listingBusy?'Registering…':`List ${asset.name} for ${asset.tokenPrice.toLocaleString('en-US')} TROO`}</button>)}
                 <p role="status">{listingNotice}</p>
               </div>
               {filteredLibrary.map(item => (

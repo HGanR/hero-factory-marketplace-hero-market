@@ -19,7 +19,7 @@ import { PlatformZoneLayer, type PlatformZone } from "@/components/world-viewer/
 import { WorldPlacementLayer } from "@/components/world-viewer/WorldPlacementLayer";
 import { NPCLayer, type NPCPosition } from "@/components/world-viewer/NPCLayer";
 import BuildingInteriorEditor from '@/components/world-editor/BuildingInteriorEditor';
-import {STOREFRONT} from '@/lib/world-assets/storefront';
+import {STOREFRONT,storefrontForModel} from '@/lib/world-assets/storefront';
 import { OwnedAssetLibrary } from "@/components/world-editor/OwnedAssetLibrary";
 import { DraftSaveBar } from "@/components/world-editor/DraftSaveBar";
 import { EditorNavBar, type EditorNavTab } from "@/components/world-editor/EditorNavBar";
@@ -764,7 +764,7 @@ export default function WorldEditorPage() {
               embedded
             />
           ) : editorNavTab === "interior" ? (
-            <BuildingInteriorEditor key={selectedPlacement?.id??'none'} placement={selectedAsset?.modelUrl===STOREFRONT.modelUrl?selectedPlacement:null}
+            <BuildingInteriorEditor key={selectedPlacement?.id??'none'} modelUrl={selectedAsset?.modelUrl} placement={selectedAsset?.modelUrl&&storefrontForModel(selectedAsset.modelUrl)?selectedPlacement:null}
               onChange={items=>{setPlacements(previous=>previous.map(p=>p.id===selectedId?{...p,interior:items}:p))}}/>
           ) : editorNavTab === "commerce" ? (
             <CommerceEditorPanel

@@ -1,0 +1,11 @@
+{
+  "id": "93859571-32a5-54dc-9dac-98d3c16d74bb",
+  "key": "storefront-v3",
+  "slug": "storefront-v3",
+  "name": "Level 2 Store",
+  "modelUrl": "/models/world-assets/storefront-v3/storefront_v3.glb",
+  "previewImageUrl": "/models/world-assets/storefront-v3/storefront_v3_preview.webp",
+  "manifestUrl": "/models/world-assets/storefront-v3/storefront_v3_slots.json",
+  "tokenPrice": 2000000,
+  "description": "Three-floor gunmetal store with front balconies, exterior stair tower, roof deck and furnishing/wall-art slots. Includes use and interior editing in your owned worlds."
+}

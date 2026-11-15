@@ -33,3 +33,16 @@ test('office avatar poses remain valid and separate nearby conversations by plac
  assert.equal(proximityGain(pose,{...pose,position:[19,.225,18]}),1);
  assert.equal(validPose({...pose,zone:'office:'+'x'.repeat(81)}),false);
 });
+
+test('Level 2 Store uses its real exterior switchback tower to reach the roof at resized and rotated placements',async()=>{
+ const {GLTFLoader}=await import(deps+'/three/examples/jsm/loaders/GLTFLoader.js'),THREE=await import(deps+'/three/build/three.module.js');
+ const b=fs.readFileSync(root+'/public/models/world-assets/storefront-v3/storefront_v3.glb');const model=await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'');
+ for(const scale of [.3,1,2]){
+  const frame={glbUrl:'/models/world-assets/storefront-v3/storefront_v3.glb',position:[17,3,-28],scale,rotationY:.73},group=new THREE.Group();group.add(model.scene.clone(true));group.position.fromArray(frame.position);group.scale.setScalar(scale);group.rotation.y=frame.rotationY;group.updateMatrixWorld(true);
+  group.traverse(n=>{if(n.name.startsWith('COL_'))n.visible=false});const walking=officeWalker(frame,()=>group);let p=officeEntry(frame).position;
+  const go=(x,z)=>{for(let i=0;i<600;i++){const local=toInteriorLocal(p,frame),dx=x-local[0],dz=z-local[2],d=Math.hypot(dx,dz);if(d<.01)break;const wanted=fromInteriorLocal([local[0]+dx/d*Math.min(.08,d),local[1],local[2]+dz/d*Math.min(.08,d)],frame);p=walking.move(p,wanted)}};
+  go(4.5,5.6);go(-9.3,5.6);go(-9.3,1.6);
+  for(let story=0;story<3;story++){go(-9.3,-2.4);go(-10.6,-2.4);go(-10.6,2.4);assert.ok(Math.abs(toInteriorLocal(p,frame)[1]-(5.75+story*3.6))<.08,'level '+(story+2)+' reached: '+JSON.stringify(toInteriorLocal(p,frame)));if(story<2)go(-9.3,2.4);}
+  go(-10.6,-2.4);go(-9.3,-2.4);go(-9.3,2.4);assert.ok(toInteriorLocal(p,frame)[1]<10,'roof stairs descend');
+ }
+});

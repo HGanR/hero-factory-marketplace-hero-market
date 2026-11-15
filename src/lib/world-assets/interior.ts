@@ -1,20 +1,25 @@
 import slots from './storefront-slots.json';
-import {STOREFRONT} from './storefront';
+import level2Slots from './level2-store-slots.json';
+import {STOREFRONT,LEVEL2_STORE} from './storefront';
 export type InteriorItem={id:string;kind:'desk'|'chair'|'lamp'|'wall-art'|'agent';slotId:string;rotationY:number;position?:[number,number,number];image?:string;href?:string;agentId?:string;label?:string};
 export const INTERIOR_SLOTS=[...slots.slots.furniture.map(s=>({...s,type:'furniture' as const})),...slots.slots.frames.map(s=>({...s,type:'frame' as const}))];
+export const LEVEL2_INTERIOR_SLOTS=[...level2Slots.slots.furniture.map(s=>({...s,id:'v3_'+s.id,type:'furniture' as const})),...level2Slots.slots.frames.map(s=>({...s,id:'v3_'+s.id,type:'frame' as const}))];
+export const ALL_INTERIOR_SLOTS=[...INTERIOR_SLOTS,...LEVEL2_INTERIOR_SLOTS];
+export const interiorSlotsForModel=(modelUrl?:string)=>modelUrl===LEVEL2_STORE.modelUrl?LEVEL2_INTERIOR_SLOTS:INTERIOR_SLOTS;
+export const INTERIOR_MODELS=[STOREFRONT.modelUrl,LEVEL2_STORE.modelUrl];
 export function safeInteriorLink(value:unknown):string|undefined{
  if(value===undefined||value==='')return undefined;
  if(typeof value!=='string'||value.length>1500)throw new Error('Invalid wall link.');
  const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password)throw new Error('Wall links must use HTTPS.');return u.href;
 }
 /** Server and renderer share strict data-only validation. No SVG, scripts or remote fetches. */
-export function validateInterior(value:unknown,allowPosition=false):InteriorItem[]{
+export function validateInterior(value:unknown,allowPosition=false,modelUrl?:string):InteriorItem[]{
  if(value===undefined)return [];
  if(!Array.isArray(value)||value.length>40)throw new Error('A building supports up to 40 interior items.');
  const ids=new Set<string>(),occupied=new Set<string>();
  return value.map(raw=>{
   if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Invalid interior item.');
-  const r=raw as Record<string,unknown>,slot=INTERIOR_SLOTS.find(s=>s.id===r.slotId);
+  const r=raw as Record<string,unknown>,slot=(modelUrl?interiorSlotsForModel(modelUrl):ALL_INTERIOR_SLOTS).find(s=>s.id===r.slotId);
   let position:[number,number,number]|undefined;
   if(r.position!==undefined){
    if(!allowPosition||!Array.isArray(r.position)||r.position.length!==3||r.position.some(n=>typeof n!=='number'||!Number.isFinite(n)||Math.abs(n)>150))throw new Error('Invalid interior position.');
@@ -47,10 +52,10 @@ export function validateInterior(value:unknown,allowPosition=false):InteriorItem
   return item;
  });
 }
-export function validatePlacementInteriors(chunks:Array<{placementsJson:unknown}>,assetIds:Set<string>){
+export function validatePlacementInteriors(chunks:Array<{placementsJson:unknown}>,assetIds:Set<string>|Map<string,string>){
  for(const chunk of chunks){if(!Array.isArray(chunk.placementsJson))throw new Error('Invalid placement list.');for(const p of chunk.placementsJson){
   if(!p||typeof p!=='object')throw new Error('Invalid placement.');
-  if(p.interior!==undefined){if(!assetIds.has(p.assetId))throw new Error('This asset does not support interior editing.');p.interior=validateInterior(p.interior);}
+  if(p.interior!==undefined){if(!assetIds.has(p.assetId))throw new Error('This asset does not support interior editing.');p.interior=validateInterior(p.interior,false,assetIds instanceof Map?assetIds.get(p.assetId):undefined);}
  }}
 }
 export const INTERIOR_MODEL=STOREFRONT.modelUrl;
