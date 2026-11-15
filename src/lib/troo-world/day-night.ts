@@ -7,3 +7,8 @@ export function townDaylight(date=new Date()){
  const altitude=Math.sin(angle),t=Math.max(0,Math.min(1,(altitude+.12)/.35)),daylight=t*t*(3-2*t);
  return{hour,daylight,twilight:Math.max(0,1-Math.abs(altitude)/.28),sun:[Math.cos(angle)*160,altitude*160,-70] as [number,number,number]};
 }
+/** Outdoor night light is reduced while daytime and stadium interior levels stay stable. */
+export function townLightLevels(daylight:number,interior=false){
+ if(interior)return{ambient:.24,directional:.25,hemisphere:.18};
+ const d=Math.max(0,Math.min(1,daylight));return{ambient:.24+d*.36,directional:.18+d*1.62,hemisphere:.18+d*.32};
+}

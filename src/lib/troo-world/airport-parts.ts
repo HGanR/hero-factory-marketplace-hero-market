@@ -33,3 +33,5 @@ export function moveAirportPart(placement:GreenLayout['imports'][number],id:Airp
  const origin=airportPartOrigin(placement,id),dx=(world[0]-origin[0])/placement.scale,dz=(world[2]-origin[2])/placement.scale,c=Math.cos(placement.rotationY),s=Math.sin(placement.rotationY),parts=placement.airportParts??identityAirportParts();
  return{...placement,airportParts:{...parts,[id]:{...parts[id],offset:[parts[id].offset[0]+dx*c-dz*s,parts[id].offset[1]+(world[1]-origin[1])/placement.scale,parts[id].offset[2]+dx*s+dz*c] as Vec3}}};
 }
+
+export function airportHeading(z:number,parts:AirportParts){const w=Math.max(0,Math.min(1,z/60)),delta=Math.atan2(Math.sin(parts.terminal.rotationY-parts.runway.rotationY),Math.cos(parts.terminal.rotationY-parts.runway.rotationY));return parts.runway.rotationY+delta*w+parts.airplane.rotationY*w;}
