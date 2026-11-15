@@ -36,3 +36,16 @@ export function createAirportPlayback(source:THREE.Object3D,clips:THREE.Animatio
   dispose(){mixer.stopAllAction();mixer.uncacheRoot(object);action=null;},
  };
 }
+
+/** Source-local runway edges: scale/rotation/translation are inherited from the airport. */
+export function airportRunwayLightPositions(source:THREE.Object3D):[number,number,number][]{
+ source.updateWorldMatrix(true,true);const box=new THREE.Box3(),point=new THREE.Vector3();
+ source.traverse(object=>{const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material],g=mesh.geometry,p=g.getAttribute('position');
+  const groups=g.groups.length?g.groups:[{start:0,count:g.index?.count??p.count,materialIndex:0}];
+  for(const group of groups){if(materials[group.materialIndex??0]?.name!=='runway')continue;for(let i=group.start;i<group.start+group.count;i++){point.fromBufferAttribute(p,g.index?g.index.getX(i):i).applyMatrix4(mesh.matrixWorld);box.expandByPoint(point);}}
+ });
+ if(box.isEmpty())return[];const alongX=box.max.x-box.min.x>=box.max.z-box.min.z,positions:[number,number,number][]=[];
+ const start=alongX?box.min.x:box.min.z,end=alongX?box.max.x:box.max.z,count=Math.max(1,Math.ceil((end-start)/20));
+ for(let i=0;i<=count;i++)for(const side of [-1,1]){const at=start+(end-start)*i/count;positions.push(alongX?[at,box.max.y+.9,side<0?box.min.z-1:box.max.z+1]:[side<0?box.min.x-1:box.max.x+1,box.max.y+.9,at]);}
+ return positions;
+}

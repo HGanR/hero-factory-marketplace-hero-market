@@ -32,6 +32,7 @@ interface FunctionalElevatorProps {
   currentFloor: number;
   onFloorChange: (floor: number) => void;
   showPad?: boolean;
+  showHud?: boolean;
   onTogglePad?: () => void;
   onElevatorStateChange?: (state: ElevatorState) => void;
   playerNearby?: boolean;
@@ -51,6 +52,7 @@ export default function FunctionalElevator({
   currentFloor,
   onFloorChange,
   showPad = false,
+  showHud = true,
   onTogglePad,
   onElevatorStateChange,
   playerNearby = false,
@@ -285,7 +287,7 @@ export default function FunctionalElevator({
       </mesh>
 
       {/* HTML-based call button (always visible when pad is closed) */}
-      {!showPad && (
+      {showHud && !showPad && (
         <Html
           position={[CABIN_WIDTH / 2 + 0.3, floors[displayFloor]?.y + 1.3, CABIN_DEPTH / 2 + 0.1]}
           distanceFactor={6}
@@ -314,7 +316,7 @@ export default function FunctionalElevator({
         </Html>
       )}
 
-      {showPad && (
+      {showHud && showPad && (
         <Html
           position={[CABIN_WIDTH / 2 + 1.0, floors[displayFloor]?.y + 1.5, 0]}
           distanceFactor={8}
@@ -407,3 +409,4 @@ export default function FunctionalElevator({
     </group>
   );
 }
+

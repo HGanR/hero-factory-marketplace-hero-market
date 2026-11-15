@@ -39,7 +39,7 @@ export default function SeatedAgent({
   onChat,
   isWaving = false,
   isSelected = false,
-  showHud = true,
+  showHud = false,
 }: SeatedAgentProps) {
   const groupRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Mesh>(null);
@@ -249,7 +249,7 @@ export default function SeatedAgent({
 
       {/* Name label — only when showHud (user looking at agent) */}
       {showHud && (
-      <Html position={[0, 1.75, 0]} center distanceFactor={12} zIndexRange={[100, 110]}>
+      <Html occlude position={[0, 1.75, 0]} center distanceFactor={12} zIndexRange={[100, 110]}>
         <div
           onClick={() => onChat(agent)}
           style={{
@@ -284,3 +284,4 @@ export default function SeatedAgent({
     </group>
   );
 }
+

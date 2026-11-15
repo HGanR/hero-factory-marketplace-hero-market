@@ -3,6 +3,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {useFrame,type ThreeEvent} from '@react-three/fiber';
 import {Html,useGLTF} from '@react-three/drei';
 import {AIRPORT,airportStage,type ImportedPlacement} from '@/lib/troo-world/airport';
+import RunwayLights from './AirportRunwayLights';
 import AirportDepartures from './AirportDepartures';
 import {createAirportPlayback,airportTerminalAnchor} from '@/lib/troo-world/airport-playback';
 
@@ -17,9 +18,10 @@ export default function AirportModel({placement,onFocus,canFocus=true,editorMode
  const seek=(value:number)=>{playback.seek(value);setTime(playback.time);};
  const buttonStyle={padding:'7px 10px',border:'1px solid #65bfff',borderRadius:7,background:'#102c45',color:'white',cursor:'pointer'};
  return <>
-  <primitive object={playback.object} onClick={(event:ThreeEvent<MouseEvent>)=>{event.stopPropagation();if(editorMode)onSelect?.();else setOpen(true);}}/>
+  <RunwayLights source={scene}/>
+  <primitive object={playback.object} onClick={(event:ThreeEvent<MouseEvent>)=>{event.stopPropagation();onSelect?.();if(!editorMode)setOpen(true);}}/>
   {editorMode&&selected&&<mesh name="Airport selection ring" rotation={[-Math.PI/2,0,0]} position={[0,1,59.5]}><ringGeometry args={[308,312,64]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={2}/></mesh>}
-  <Html position={terminalAnchor} center distanceFactor={45} occlude style={{pointerEvents:'auto'}}>
+  {selected&&<Html position={terminalAnchor} center distanceFactor={45} occlude style={{pointerEvents:'auto'}}>
    <div onPointerDown={event=>event.stopPropagation()} style={{fontFamily:'system-ui',fontSize:12,color:'white',background:'#081b2fed',border:'1px solid #65bfff',borderRadius:10,padding:9,width:open?270:undefined,maxWidth:'calc(100vw - 32px)',maxHeight:'calc(100vh - 190px)',overflowY:'auto'}}>
     <button type="button" aria-expanded={open} onClick={()=>setOpen(value=>!value)} style={buttonStyle}>✈ Airport · Departures</button>
     {open&&<><AirportDepartures destinations={placement.destinations??[]}/>{editorMode&&<details><summary>Animation preview (editor only)</summary><section aria-label="Airport animation preview">
@@ -34,6 +36,6 @@ export default function AirportModel({placement,onFocus,canFocus=true,editorMode
      <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:8}}>{AIRPORT.stages.map(stage=><button type="button" key={stage.time} style={buttonStyle} onClick={()=>seek(stage.time)}>{stage.name}</button>)}</div>
     </section></details>}</>}
    </div>
-  </Html>
+  </Html>}
  </>;
 }

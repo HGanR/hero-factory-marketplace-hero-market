@@ -35,6 +35,7 @@ export interface StadiumElyseumProps {
   tickerText?:string;
   eventSettings?:StadiumSettings;
   onEnter?:()=>void;
+  showHud?:boolean;
 }
 
 // Build TROO STADIUM holographic signage — bold white text with bright glow on dark blue band (matches inner ring style)
@@ -111,7 +112,7 @@ function buildVenueTexture():THREE.CanvasTexture{
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;texture.userData.venueName=VENUE_NAME;return texture;
 }
 
-export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle, tickerText=STADIUM_TICKER_TEXT,eventSettings,onEnter }: StadiumElyseumProps) {
+export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle, tickerText=STADIUM_TICKER_TEXT,eventSettings,onEnter,showHud=isSelected||animate }: StadiumElyseumProps) {
   const [now,setNow]=useState(()=>Date.now());
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
   const event=displayStadiumEvent(eventSettings,now);
@@ -183,7 +184,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
     <>
       <group ref={groupRef} position={position} scale={scale} onClick={(e) => { e.stopPropagation();let o:THREE.Object3D|null=e.object;while(o){if(onEnter&&o.name.startsWith("Venue_Exterior_Doors_")){onEnter?.();return;}o=o.parent;}onSelect?.(); }}>
         <primitive object={scene} />
-        {(media.needsPlay||media.error)&&<Html position={[0,18,-60]} center><div style={{background:'#07182d',color:'white',padding:8,borderRadius:8}}>{media.needsPlay&&<button type="button" onClick={e=>{e.stopPropagation();media.play()}}>Play stadium screen video</button>}{media.error&&<span role="status">{media.error}</span>}</div></Html>}
+        {showHud&&(media.needsPlay||media.error)&&<Html position={[0,18,-60]} center><div style={{background:'#07182d',color:'white',padding:8,borderRadius:8}}>{media.needsPlay&&<button type="button" onClick={e=>{e.stopPropagation();media.play()}}>Play stadium screen video</button>}{media.error&&<span role="status">{media.error}</span>}</div></Html>}
         {isSelected && (
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 1, 0]}>
             <ringGeometry args={[8, 10, 32]} />
