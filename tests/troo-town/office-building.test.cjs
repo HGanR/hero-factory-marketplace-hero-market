@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const deps=process.env.TOWN_TEST_DEPS||path.resolve(__dirname,'../../../stadium-test-deps/node_modules'),esbuild=require(deps+'/esbuild');
 const root=path.resolve(__dirname,'../..'),out=fs.mkdtempSync(os.tmpdir()+'/office-walk-');
-esbuild.buildSync({entryPoints:[root+'/src/lib/troo-world/office-building.ts',root+'/src/lib/troo-world/green-terrain-layout.ts',root+'/src/lib/world-assets/interior.ts',root+'/src/lib/troo-world/stadium-navigation.ts'],outdir:out,bundle:true,format:'cjs',platform:'node',external:['three']});
+esbuild.buildSync({entryPoints:[root+'/src/lib/troo-world/office-building.ts',root+'/src/lib/troo-world/green-terrain-layout.ts',root+'/src/lib/world-assets/interior.ts',root+'/src/lib/troo-world/stadium-navigation.ts',root+'/src/lib/troo-world/presence-model.ts'],outdir:out,bundle:true,format:'cjs',platform:'node',external:['three']});
 const {officeEntry,officeWalker}=require(out+'/troo-world/office-building.js'),{fromInteriorLocal,toInteriorLocal}=require(out+'/troo-world/stadium-navigation.js');
 const {validateLayout,DEFAULT_BUILDINGS}=require(out+'/troo-world/green-terrain-layout.js'),{validateInterior}=require(out+'/world-assets/interior.js');
 const desk={id:'custom-1',slotId:'custom-1',kind:'desk',position:[2,3.2,-1],rotationY:.8};
@@ -24,4 +24,12 @@ test('real office entry, stair ramps and room boundaries follow nondefault size,
   go(-5.5,3.7);go(-3,3.7);go(0,-3);go(5.5,-2.3);go(5.5,3.6);assert.ok(toInteriorLocal(p,frame)[1]<2.5,'stairs can be descended');
   go(100,100);const local=toInteriorLocal(p,frame);assert.ok(local[0]<=7.66&&local[2]<=6.56,'walls contain movement');
  }
+});
+
+test('office avatar poses remain valid and separate nearby conversations by placed office',()=>{
+ const {validPose,proximityGain}=require(out+'/troo-world/presence-model.js');
+ const pose={position:[18,.225,18],yaw:.3,mode:'standing',zone:'office:storefront-v2-test'};
+ assert.equal(validPose(pose),true);assert.equal(proximityGain(pose,{...pose,zone:'office:another-copy'}),0);
+ assert.equal(proximityGain(pose,{...pose,position:[19,.225,18]}),1);
+ assert.equal(validPose({...pose,zone:'office:'+'x'.repeat(81)}),false);
 });
