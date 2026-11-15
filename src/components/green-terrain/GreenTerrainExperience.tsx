@@ -921,6 +921,7 @@ function Scene(props: SceneProps) {
           isSelected={!props.isEditorMode&&props.stadiumSelected}
           onSelect={props.onSelectStadium}
           animate={props.insideBuilding === "stadium"}
+          showHud={props.stadiumSelected||props.insideBuilding === "stadium"}
           tickerText={props.layout.stadium?.tickerText}
           eventSettings={props.layout.stadium}
           onEnter={props.isEditorMode?undefined:props.onEnterStadium}
@@ -1022,6 +1023,7 @@ function Scene(props: SceneProps) {
       })}
 
       <FunctionalElevator
+        showHud={props.cameraState==="inside"&&props.insideBuilding==="nexus"}
         position={[props.nexusPos[0] + 5.5, props.nexusPos[1], props.nexusPos[2] - 3]}
         floors={[
           { label: "Lobby",            y: props.nexusPos[1] + 0.0 },
@@ -1042,6 +1044,7 @@ function Scene(props: SceneProps) {
       />
 
       <FunctionalElevator
+        showHud={props.cameraState==="inside"&&props.insideBuilding==="meridian"}
         position={[props.meridianPos[0] + 6.5, props.meridianPos[1], props.meridianPos[2] - 4]}
         floors={[
           { label: "Lobby",            y: props.meridianPos[1] + 0.0 },

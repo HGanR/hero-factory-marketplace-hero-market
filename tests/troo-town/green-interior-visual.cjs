@@ -22,7 +22,7 @@ const root=path.resolve(__dirname,'../..'),out=path.join(root,'green-interior-ar
  try{
   browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});const page=await browser.newPage({viewport:{width:1600,height:1050}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/Shader Error|VALIDATE_STATUS|WebGLProgram/.test(m.text()))errors.push(m.text())});
   const selectOffice=async()=>{await page.waitForFunction(()=>window.__officePick?.(),{},{timeout:60000});assert.equal(await page.getByRole('button',{name:'Enter the Building',exact:true}).count(),0);const p=await page.evaluate(()=>window.__officePick());await page.mouse.click(...p);await page.getByRole('button',{name:'Enter the Building',exact:true}).waitFor({timeout:30000})};
-  await page.goto('http://127.0.0.1:'+server.address().port);await selectOffice();
+  await page.goto('http://127.0.0.1:'+server.address().port);await selectOffice();assert.equal(await page.getByRole('button',{name:/🛗 Call/}).count(),0);assert.equal(await page.getByText('Marcus Chen',{exact:false}).count(),0);
   await page.getByRole('button',{name:'Interior',exact:true}).click();await page.getByRole('button',{name:'Select Level 1 Office Bldg',exact:true}).click();
   await page.getByLabel('Location',{exact:true}).selectOption('SLOT_furniture_F1_02');await page.getByRole('button',{name:'Add to building',exact:true}).click();
   await page.getByRole('button',{name:/Save$/,exact:false}).filter({hasText:'Save'}).first().click();

@@ -1960,6 +1960,7 @@ export default function TroothhertzTower({
       )}
 
       <FunctionalElevator
+        showHud={insideBuilding}
         position={[position[0] + W / 2 - 1.8, position[1], position[2] - D / 2 + 1.8]}
         floors={ELEVATOR_FLOORS}
         currentFloor={currentFloor}
