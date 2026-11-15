@@ -1,3 +1,5 @@
+import {AIRPORT} from './airport';
+import type {AirportParts} from './airport-parts';
 import {validateInterior,type InteriorItem} from '../world-assets/interior';
 import {validateStadiumSettings,type StadiumSettings} from './stadium-events';
 /** The editor and public town share this exact, versioned presentation contract. */
@@ -12,7 +14,7 @@ export type GreenLayout = {
  version:1; buildings:Record<BuildingId,BuildingState>;
  trees:Array<{id:number;pos:Vec3;scale:number;phase:number;rotationY?:number}>;
  objects:Array<{id:string;type:ObjectKind;position:Vec3;rotation:Vec3;scale:number}>;
- imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[];interior?:InteriorItem[]}>;
+ imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[];airportParts?:AirportParts;interior?:InteriorItem[]}>;
  ambient:{enabled:boolean;sidewalks:boolean};
  stadium?:StadiumSettings;
 };
@@ -38,6 +40,10 @@ export function validateDestinations(value:unknown):AirportDestination[]{
  if(new Set(rows.map(r=>r.id)).size!==rows.length)throw new LayoutError('Duplicate flight destination.');
  return rows;
 }
+export function validateAirportParts(value:unknown):AirportParts{
+ const row=object(value),ids=['terminal','runway','tower','airplane'];if(Object.keys(row).length!==4||Object.keys(row).some(k=>!ids.includes(k)))throw new LayoutError('Invalid airport parts');
+ return Object.fromEntries(ids.map(id=>{const p=object(row[id]);if(Object.keys(p).some(k=>!['offset','scale','rotationY','stretch'].includes(k)))throw new LayoutError('Unknown airport part field');const offset=list(p.offset,3);if(offset.length!==3)throw new LayoutError('Invalid airport offset');const out={offset:offset.map(n=>num(n,-4000,4000)) as Vec3,scale:num(p.scale,.001,40),rotationY:num(p.rotationY,-Math.PI*20,Math.PI*20),...(p.stretch===undefined?{}:{stretch:(()=>{if(id!=='runway')throw new LayoutError('Only the runway can stretch');const v=list(p.stretch,3);if(v.length!==3)throw new LayoutError('Invalid runway size');return v.map(n=>num(n,.05,10)) as Vec3})()})};return[id,out]})) as AirportParts;
+}
 export function validateLayout(input:unknown):GreenLayout{
  const v=object(input);if(v.version!==1)throw new LayoutError('Unsupported layout version');
  if(Object.keys(v).some(k=>!['version','buildings','trees','objects','imports','ambient','stadium'].includes(k)))throw new LayoutError('Unknown layout field');
@@ -45,7 +51,8 @@ export function validateLayout(input:unknown):GreenLayout{
  for(const id of BUILDING_IDS){const row=object(b[id]);buildings[id]={position:vec(row.position),scale:num(row.scale,.05,20),rotationY:num(row.rotationY,-Math.PI*20,Math.PI*20),visible:bool(row.visible),...(row.interior===undefined?{}:{interior:furnishings(row.interior)})}}
  const trees=list(v.trees,1000).map(x=>{const r=object(x);const id=num(r.id,0,1000000000);if(!Number.isInteger(id))throw new LayoutError('Invalid tree ID');return{id,pos:vec(r.pos),scale:num(r.scale,.05,20),phase:num(r.phase,0,1000),...(r.rotationY===undefined?{}:{rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20)})}});
  const objects=list(v.objects,400).map(x=>{const r=object(x);if(!kinds.includes(String(r.type)))throw new LayoutError('Unsupported environment object');return{id:str(r.id),type:r.type as ObjectKind,position:vec(r.position),rotation:vec(r.rotation),scale:num(r.scale,.05,20)}});
- const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)}),...(r.interior===undefined?{}:{interior:furnishings(r.interior)})}});
+ const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.airportParts===undefined?{}:{airportParts:validateAirportParts(r.airportParts)}),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)}),...(r.interior===undefined?{}:{interior:furnishings(r.interior)})}});
+ if(imports.some(p=>p.airportParts&&p.glbUrl.split(/[?#]/)[0]!==AIRPORT.modelUrl))throw new LayoutError("Airport parts require an airport model");
  for(const rows of [trees,objects,imports]){const ids=rows.map(r=>'id'in r?r.id:r.elementKey);if(new Set(ids).size!==ids.length)throw new LayoutError('Duplicate layout identity')}
  if(imports.some(r=>(BUILDING_IDS as readonly string[]).includes(r.elementKey)))throw new LayoutError('Imported model duplicates a built-in building');
  let stadium:StadiumSettings|undefined;

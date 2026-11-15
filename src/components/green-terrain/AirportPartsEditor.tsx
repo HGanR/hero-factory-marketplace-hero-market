@@ -1,0 +1,18 @@
+'use client';
+import type {ImportedPlacement} from '@/lib/troo-world/airport';
+import {AIRPORT_PART_IDS,AIRPORT_PART_NAMES,airportPartOrigin,fitAirportParts,identityAirportParts,moveAirportPart,type AirportPartId,type AirportParts} from '@/lib/troo-world/airport-parts';
+export default function AirportPartsEditor({placement,onChange,selected='whole',onSelect,onFocus}:{placement:ImportedPlacement;onChange:(parts:AirportParts)=>void;selected?:AirportPartId|'whole';onSelect:(part:AirportPartId|'whole')=>void;onFocus?:()=>void}){
+ const parts=placement.airportParts;const edit=(id:AirportPartId,patch:Partial<AirportParts[AirportPartId]>)=>{if(parts)onChange({...parts,[id]:{...parts[id],...patch}})};
+ return <section aria-label="Airport parts"><h3>Airport parts</h3><p>Click a part to drag it independently; hold Shift to drag the whole airport. Select a part below for its size, position and rotation. Changes appear in Troo Town after Save World Layout.</p>
+ {!parts&&<button type="button" onClick={()=>onChange(identityAirportParts())}>Separate airport controls</button>}
+ <button type="button" onClick={()=>onChange(fitAirportParts(placement.scale))}>Fit airport to NPC scale</button><button type="button" onClick={onFocus} disabled={!onFocus}>Frame airport</button><p>Preset: 150 × 48 m runway, life-size airplane and 1.7 m passengers. Moving the airport still moves all parts together.</p>
+ {parts&&<><label>Edit airport part <select aria-label="Edit airport part" value={selected} onChange={e=>onSelect(e.target.value as AirportPartId|'whole')}><option value="whole">Whole airport</option>{AIRPORT_PART_IDS.map(id=><option key={id} value={id}>{AIRPORT_PART_NAMES[id]}</option>)}</select></label>
+ {AIRPORT_PART_IDS.map(id=>{const p=parts[id],name=AIRPORT_PART_NAMES[id],origin=airportPartOrigin(placement,id);return <details key={id} open={selected===id}><summary onClick={()=>onSelect(id)}>{name}</summary>
+ <label>{name} size multiplier <input aria-label={name+' size multiplier'} type="range" min={.001} max={40} step={.01} value={p.scale} onChange={e=>edit(id,{scale:Number(e.target.value)})}/><input aria-label={name+' size value'} type="number" min={.001} max={40} step={.05} value={p.scale} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&n>=.001&&n<=40)edit(id,{scale:n})}}/></label>
+ {(['X','Y','Z'] as const).map((axis,i)=><label key={axis}>{name} {axis} · metres <input aria-label={name+' '+axis} type="number" step={.5} value={+origin[i].toFixed(3)} onChange={e=>{const n=Number(e.target.value);if(!Number.isFinite(n)||Math.abs(n)>1000)return;const at=[...origin] as [number,number,number];at[i]=n;onChange(moveAirportPart(placement,id,at).airportParts!)}}/></label>)}
+ <label>{name} rotation ° <input aria-label={name+' rotation'} type="number" step={15} value={Math.round(p.rotationY*180/Math.PI)} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=3600)edit(id,{rotationY:n*Math.PI/180})}}/></label>
+ {id==='runway'&&(['Length','Width'] as const).map((label,i)=>{const axis=i===0?0:2,base=(i===0?600:24)*placement.scale*p.scale,stretch=p.stretch??[1,1,1];return <label key={label}>Runway {label.toLowerCase()} · metres <input aria-label={'Runway '+label.toLowerCase()} type="number" min={base*.05} max={base*10} step={1} value={+(base*stretch[axis]).toFixed(2)} onChange={e=>{const n=Number(e.target.value)/base;if(Number.isFinite(n)&&n>=.05&&n<=10){const next=[...stretch] as [number,number,number];next[axis]=n;edit(id,{stretch:next})}}}/></label>})}
+ {id==='airplane'&&<p>Size and position set the parked airplane. Taxi, takeoff and landing remain aligned with the runway.</p>}
+ </details>})}</>}
+ </section>;
+}

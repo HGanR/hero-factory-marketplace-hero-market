@@ -18,6 +18,8 @@
 
 import StadiumEventsEditor from './StadiumEventsEditor';
 import type {StadiumSettings} from '@/lib/troo-world/stadium-events';
+import AirportPartsEditor from './AirportPartsEditor';
+import type {AirportPartId,AirportParts} from '@/lib/troo-world/airport-parts';
 import ModelScaleControl from './ModelScaleControl';
 import type {ImportedPlacement} from '@/lib/troo-world/airport';
 import {importedBuildingName} from '@/lib/troo-world/office-building';
@@ -196,6 +198,10 @@ interface WorldManagementUIProps {
   veritasScale?:number;
   onVeritasScaleChange?:(scale:number)=>void;
   airportModels?:ImportedPlacement[];
+  onAirportFocus?:(placement:ImportedPlacement)=>void;
+  onAirportPartsChange?:(key:string,parts:AirportParts)=>void;
+  selectedAirportPart?:{key:string;part:AirportPartId|"whole"};
+  onAirportPartSelect?:(key:string,part:AirportPartId|"whole")=>void;
   onAirportScaleChange?:(key:string,scale:number)=>void;
   veritasPosition: [number, number, number];
   trees: Array<{ id: number; pos: [number, number, number]; scale: number }>;
@@ -227,7 +233,7 @@ export default function WorldManagementUI({
   troothhertzPosition,
   stadiumPosition,
   stadiumScale,
-  onStadiumScaleChange,veritasScale=1,onVeritasScaleChange,airportModels=[],onAirportScaleChange,
+  onStadiumScaleChange,veritasScale=1,onVeritasScaleChange,airportModels=[],onAirportScaleChange,onAirportPartsChange,onAirportFocus,selectedAirportPart,onAirportPartSelect,
   veritasPosition,
   trees,
   placedObjects,
@@ -953,6 +959,7 @@ export default function WorldManagementUI({
                 </div>
                 {onVeritasScaleChange&&<ModelScaleControl label="Veritas" value={veritasScale} onChange={onVeritasScaleChange}/>}
                 {onAirportScaleChange&&airportModels.map(airport=><ModelScaleControl key={airport.elementKey} label={isAirport(airport)?"Airport":importedBuildingName(airport)} value={airport.scale} resetValue={isAirport(airport)?AIRPORT.defaultScale:1} onChange={value=>onAirportScaleChange(airport.elementKey,value)}/>)}
+                {onAirportPartsChange&&airportModels.filter(isAirport).map(airport=><AirportPartsEditor key={airport.elementKey} placement={airport} onFocus={()=>onAirportFocus?.(airport)} onChange={parts=>onAirportPartsChange(airport.elementKey,parts)} selected={selectedAirportPart?.key===airport.elementKey?selectedAirportPart.part:"whole"} onSelect={part=>onAirportPartSelect?.(airport.elementKey,part)}/>)}
                 <div style={{ color: "#fff", fontSize: 12 }}>🌲 {trees.length} trees</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>📦 {placedObjects.length} environment objects</div>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 4 }}>Publish target: {currentWorldId}</div>

@@ -55,3 +55,5 @@ test('administrator furniture for built-in buildings and resized office copies r
  const after=await(await GET()).json();assert.deepEqual(after.layout,layout);
  assert.equal(after.layout.imports.at(-1).scale,.45);assert.equal(after.layout.imports.at(-1).interior[0].kind,'chair');
 });
+
+test('independent airport parts persist through the administrator save and public SQL reload',async()=>{const before=await(await GET()).json(),layout=structuredClone(before.layout),part={offset:[0,0,0],scale:1,rotationY:0};const airport={elementKey:'split-airport',glbUrl:'/models/world-assets/airport_cycle_30min.glb',position:[12,0,25],scale:.1,rotationY:.3,airportParts:{terminal:{...part,scale:3,offset:[0,0,628]},tower:{...part,offset:[260,0,608]},runway:{...part,scale:10,stretch:[.25,1,2]},airplane:{...part,scale:10}},destinations:[{id:'abc',name:'ABC',url:'/worlds/abc'}]};layout.imports.push(airport);assert.equal((await PUT(req(layout,before.revision,false))).status,403);assert.equal((await PUT(req(layout,before.revision))).status,200);const after=await(await GET()).json();assert.deepEqual(after.layout,layout);assert.deepEqual(after.layout.imports.at(-1),airport);});

@@ -2,12 +2,13 @@
 import {useEffect,useRef} from 'react';
 import {useThree} from '@react-three/fiber';
 import * as THREE from 'three';
+import {airportPartOrigin,type AirportPartId} from '@/lib/troo-world/airport-parts';
 import type {ImportedPlacement} from '@/lib/troo-world/airport';
 interface ICProps {
   imports: ImportedPlacement[];
   terrainHeight:(x:number,z:number)=>number;
-  onSelectAirport:(key:string|null)=>void;
-  onMoveAirport:(key:string,pos:[number,number,number],saveHistory?:boolean)=>void;
+  onSelectAirport:(key:string|null,part?:AirportPartId|"whole")=>void;
+  onMoveAirport:(key:string,pos:[number,number,number],saveHistory?:boolean,part?:AirportPartId)=>void;
   trees: Array<{id:number;pos:[number,number,number];scale:number}>;
   placedObjects: Array<{id:string;position:[number,number,number];type:string}>;
   nexusPos: [number,number,number];
@@ -36,7 +37,7 @@ export default function InteractionController(props: ICProps) {
   const pt = useRef(new THREE.Vector3());
   const ndc = useRef(new THREE.Vector2());
   const dragging = useRef<
-    | { kind: "airport"; id:string; offsetX:number; offsetZ:number; y:number }
+    | { kind: "airport"; id:string; part?:AirportPartId; offsetX:number; offsetZ:number; y:number }
     | { kind: "tree"; id: number }
     | { kind: "object"; id: string }
     | { kind: "nexus" }
@@ -116,14 +117,15 @@ export default function InteractionController(props: ICProps) {
       dragStartedRef.current = false;
       ray.current.setFromCamera(getNDC(e),camera);
       const hits=ray.current.intersectObjects(scene.children,true);
-      let airportKey:string|undefined;
-      if(hits[0]){let node:THREE.Object3D|null=hits[0].object;while(node){if(typeof node.userData.airportPlacementKey==='string'){airportKey=node.userData.airportPlacementKey;break;}node=node.parent;}}
+      let airportKey:string|undefined,airportPart:AirportPartId|undefined;
+      if(hits[0]){let node:THREE.Object3D|null=hits[0].object;while(node){if(node.userData.airportPart)airportPart??=node.userData.airportPart;if(typeof node.userData.airportPlacementKey==='string'){airportKey=node.userData.airportPlacementKey;break;}node=node.parent;}}
       const airport=latest.current.imports.find(row=>row.elementKey===airportKey);
       if(airport){
-        dragPlane.current.constant=-airport.position[1];
+        const part=airport.airportParts&&!e.shiftKey?airportPart:undefined,origin=part?airportPartOrigin(airport,part):airport.position;
+        dragPlane.current.constant=-origin[1];
         if(!ray.current.ray.intersectPlane(dragPlane.current,pt.current))return;
-        latest.current.onSelectAirport(airport.elementKey);
-        dragging.current={kind:'airport',id:airport.elementKey,offsetX:airport.position[0]-pt.current.x,offsetZ:airport.position[2]-pt.current.z,y:airport.position[1]};
+        latest.current.onSelectAirport(airport.elementKey,part??'whole');
+        dragging.current={kind:'airport',id:airport.elementKey,part,offsetX:origin[0]-pt.current.x,offsetZ:origin[2]-pt.current.z,y:origin[1]};
         if(latest.current.orbitRef.current)latest.current.orbitRef.current.enabled=false;
         el.setPointerCapture(e.pointerId);return;
       }
@@ -191,7 +193,7 @@ export default function InteractionController(props: ICProps) {
       if(dragging.current.kind==='airport'){
         const drag=dragging.current;
         const clamp=(n:number)=>Math.max(-1000,Math.min(1000,n));
-        latest.current.onMoveAirport(drag.id,[clamp(x+drag.offsetX),drag.y,clamp(z+drag.offsetZ)],shouldSaveHistory);
+        latest.current.onMoveAirport(drag.id,[clamp(x+drag.offsetX),drag.y,clamp(z+drag.offsetZ)],shouldSaveHistory,drag.part);
       } else if (dragging.current.kind === "tree") {
         latest.current.onMoveTree(dragging.current.id, [x, latest.current.terrainHeight(x, z), z], shouldSaveHistory);
       } else if (dragging.current.kind === "object") {
