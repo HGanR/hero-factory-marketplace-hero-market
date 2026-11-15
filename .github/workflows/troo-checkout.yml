@@ -1,7 +1,7 @@
 name: TROO checkout verification
 on:
   push:
-    branches: ['feat/troo-verified-checkout-20261111', 'feat/storefront-owned-interiors-20261115']
+    branches: ['feat/troo-verified-checkout-20261111', 'feat/storefront-owned-interiors-20261115', 'feat/office-interior-selection-20261115']
   workflow_dispatch:
 permissions:
   contents: read

@@ -1,6 +1,6 @@
 import slots from './storefront-slots.json';
 import {STOREFRONT} from './storefront';
-export type InteriorItem={id:string;kind:'desk'|'chair'|'lamp'|'wall-art'|'agent';slotId:string;rotationY:number;image?:string;href?:string;agentId?:string;label?:string};
+export type InteriorItem={id:string;kind:'desk'|'chair'|'lamp'|'wall-art'|'agent';slotId:string;rotationY:number;position?:[number,number,number];image?:string;href?:string;agentId?:string;label?:string};
 export const INTERIOR_SLOTS=[...slots.slots.furniture.map(s=>({...s,type:'furniture' as const})),...slots.slots.frames.map(s=>({...s,type:'frame' as const}))];
 export function safeInteriorLink(value:unknown):string|undefined{
  if(value===undefined||value==='')return undefined;
@@ -8,20 +8,26 @@ export function safeInteriorLink(value:unknown):string|undefined{
  const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password)throw new Error('Wall links must use HTTPS.');return u.href;
 }
 /** Server and renderer share strict data-only validation. No SVG, scripts or remote fetches. */
-export function validateInterior(value:unknown):InteriorItem[]{
+export function validateInterior(value:unknown,allowPosition=false):InteriorItem[]{
  if(value===undefined)return [];
  if(!Array.isArray(value)||value.length>40)throw new Error('A building supports up to 40 interior items.');
  const ids=new Set<string>(),occupied=new Set<string>();
  return value.map(raw=>{
   if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Invalid interior item.');
   const r=raw as Record<string,unknown>,slot=INTERIOR_SLOTS.find(s=>s.id===r.slotId);
-  if(typeof r.id!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(r.id)||ids.has(r.id)||!slot||occupied.has(slot.id))throw new Error('Invalid or duplicate interior slot.');
-  ids.add(r.id);occupied.add(slot.id);
-  if(!['desk','chair','lamp','wall-art','agent'].includes(String(r.kind))||(r.kind==='wall-art')!==(slot.type==='frame'))throw new Error('Choose a compatible slot.');
+  let position:[number,number,number]|undefined;
+  if(r.position!==undefined){
+   if(!allowPosition||!Array.isArray(r.position)||r.position.length!==3||r.position.some(n=>typeof n!=='number'||!Number.isFinite(n)||Math.abs(n)>150))throw new Error('Invalid interior position.');
+   position=[...r.position] as [number,number,number];
+  }
+  const slotId=String(r.slotId??'');
+  if(typeof r.id!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(r.id)||ids.has(r.id)||(!slot&&!position)||!/^[a-zA-Z0-9_-]{1,80}$/.test(slotId)||occupied.has(slotId))throw new Error('Invalid or duplicate interior position.');
+  ids.add(r.id);occupied.add(slotId);
+  if(!['desk','chair','lamp','wall-art','agent'].includes(String(r.kind))||(!position&&(r.kind==='wall-art')!==(slot?.type==='frame')))throw new Error('Choose a compatible location.');
   const category={desk:'desk',chair:'seating',lamp:'lamp',agent:'display'}[r.kind as 'desk'|'chair'|'lamp'|'agent'];
-  if(slot.type==='furniture'&&!slot.allowedCategories.includes(category))throw new Error('This slot does not allow that furnishing.');
+  if(!position&&slot?.type==='furniture'&&!slot.allowedCategories.includes(category))throw new Error('This location does not allow that furnishing.');
   if(typeof r.rotationY!=='number'||!Number.isFinite(r.rotationY)||Math.abs(r.rotationY)>Math.PI*2)throw new Error('Invalid furnishing rotation.');
-  const item:InteriorItem={id:r.id,kind:r.kind as InteriorItem['kind'],slotId:slot.id,rotationY:r.rotationY};
+  const item:InteriorItem={id:r.id,kind:r.kind as InteriorItem['kind'],slotId,rotationY:r.rotationY,...(position?{position}:{})};
   if(item.kind==='wall-art'){
    if(typeof r.image!=='string'||r.image.length>140000||!/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/=]+$/.test(r.image))throw new Error('Upload a PNG image of at most 100 KB.');
    try{

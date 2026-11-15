@@ -1,8 +1,11 @@
 'use client';
 import {isAirport,type ImportedPlacement} from '@/lib/troo-world/airport';
+import {isOffice,importedBuildingName} from '@/lib/troo-world/office-building';
 import AirportModel from './AirportModel';
+import BuildingInteriorLayer from '../world-viewer/BuildingInteriorLayer';
 import {Component,Suspense,type ReactNode,useMemo} from 'react';
 import {useGLTF,Html} from '@react-three/drei';
+import * as THREE from 'three';
 import type {GreenLayout} from '@/lib/troo-world/green-terrain-layout';
 import {buildApexExterior} from '@/lib/troo-world/apex/ApexExterior';
 import {buildHarborviewExterior} from '@/lib/troo-world/harborview/HarborviewExterior';
@@ -10,6 +13,18 @@ class ModelBoundary extends Component<{name:string;children:ReactNode},{failed:b
  state={failed:false};static getDerivedStateFromError(){return{failed:true}}
  render(){return this.state.failed?<Html><span style={{color:'#ffe0d0',background:'#492011',padding:6}}>Model unavailable: {this.props.name}</span></Html>:this.props.children}
 }
-function GlbModel({url}:{url:string}){const{scene}=useGLTF(url);const object=useMemo(()=>{const copy=scene.clone(true);copy.traverse(node=>{if(/^(COL_|COLLISION$|SLOT_.*_placeholder$|AUDIO_|TRIGGER_|INTERACT_|SPAWN_)/.test(node.name))node.visible=false});return copy},[scene]);return <primitive object={object}/>}
-function ProceduralModel({kind}:{kind:string}){const object=useMemo(()=>kind==='procedural:apex'?buildApexExterior():buildHarborviewExterior(),[kind]);return <primitive object={object}/>}
-export default function ImportedTownModels({placements,onFocusAirport,canFocusAirport=true,editorMode=false,selectedAirportKey,onSelectAirport}:{placements:GreenLayout['imports'];onFocusAirport?:(placement:ImportedPlacement)=>void;canFocusAirport?:boolean;editorMode?:boolean;selectedAirportKey?:string|null;onSelectAirport?:(key:string|null)=>void}){return <group>{placements.map(p=><group userData={{townSolid:!isAirport(p),airportPlacementKey:p.elementKey}} key={p.elementKey+':'+p.glbUrl} position={p.position} scale={p.scale} rotation={[0,p.rotationY,0]} onClick={event=>{if(editorMode){event.stopPropagation();onSelectAirport?.(p.elementKey)}}}><ModelBoundary name={p.elementKey}><Suspense fallback={null}>{isAirport(p)?<AirportModel placement={p} onFocus={onFocusAirport} canFocus={canFocusAirport} editorMode={editorMode} selected={selectedAirportKey===p.elementKey} onSelect={()=>onSelectAirport?.(p.elementKey)}/>:p.glbUrl.startsWith('procedural:')?<ProceduralModel kind={p.glbUrl}/>:<GlbModel url={p.glbUrl}/>}</Suspense></ModelBoundary></group>)}</group>}
+function GlbModel({placement,selected,onEnter,onSelect}:{placement:ImportedPlacement;selected:boolean;onEnter?:()=>void;onSelect?:()=>void}){
+ const {scene}=useGLTF(placement.glbUrl);
+ const object=useMemo(()=>{const copy=scene.clone(true);copy.traverse(node=>{if(/^(COL_|COLLISION$|SLOT_.*_placeholder$|AUDIO_|TRIGGER_|INTERACT_|SPAWN_)/.test(node.name))node.visible=false});return copy},[scene]);
+ const box=useMemo(()=>new THREE.Box3().setFromObject(object),[object]);const size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3()),radius=Math.hypot(size.x,size.z)/2+.5;
+ return <><primitive object={object}/>{selected&&<mesh name="Imported building selection ring" rotation={[-Math.PI/2,0,0]} position={[center.x,.08,center.z]} raycast={()=>{}}><ringGeometry args={[radius,radius+.22,64]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={THREE.DoubleSide} depthWrite={false}/></mesh>}
+ {onEnter&&isOffice(placement)&&<Html center position={[center.x,box.max.y+1.2,center.z]}><div style={{whiteSpace:'nowrap',background:'#102b40ed',border:'1px solid #62c8ef',borderRadius:10,padding:10,color:'white',textAlign:'center'}}>{onSelect?<button aria-label={'Select '+importedBuildingName(placement)} style={{background:'transparent',color:'white',border:0,fontWeight:700,cursor:'pointer'}} onClick={e=>{e.stopPropagation();onSelect()}}>{importedBuildingName(placement)}</button>:<strong>{importedBuildingName(placement)}</strong>}<br/><button style={{marginTop:7,padding:'8px 14px',background:'#164b63',border:'1px solid #62c8ef',borderRadius:8,color:'white',cursor:'pointer'}} onClick={e=>{e.stopPropagation();onEnter()}}>Enter the Building</button></div></Html>}
+ </>;
+}
+function ProceduralModel({kind,selected}:{kind:string;selected:boolean}){const object=useMemo(()=>kind==='procedural:apex'?buildApexExterior():buildHarborviewExterior(),[kind]);return <><primitive object={object}/>{selected&&<mesh name="Imported building selection ring" rotation={[-Math.PI/2,0,0]} position={[0,.1,0]}><ringGeometry args={[14,14.3,64]}/><meshBasicMaterial color="#ffdd44" side={THREE.DoubleSide}/></mesh>}</>}
+export default function ImportedTownModels({placements,onFocusAirport,canFocusAirport=true,editorMode=false,selectedAirportKey,onSelectAirport,onEnterBuilding}:{placements:GreenLayout['imports'];onFocusAirport?:(placement:ImportedPlacement)=>void;canFocusAirport?:boolean;editorMode?:boolean;selectedAirportKey?:string|null;onSelectAirport?:(key:string|null)=>void;onEnterBuilding?:(placement:ImportedPlacement)=>void}){
+ return <group>{placements.map(p=><group name={'Imported '+p.elementKey} userData={{townSolid:!isAirport(p),airportPlacementKey:p.elementKey}} key={p.elementKey+':'+p.glbUrl} position={p.position} scale={p.scale} rotation={[0,p.rotationY,0]} onClick={event=>{if(editorMode){event.stopPropagation();onSelectAirport?.(p.elementKey)}}}>
+ <ModelBoundary name={p.elementKey}><Suspense fallback={null}>{isAirport(p)?<AirportModel placement={p} onFocus={onFocusAirport} canFocus={canFocusAirport} editorMode={editorMode} selected={selectedAirportKey===p.elementKey} onSelect={()=>onSelectAirport?.(p.elementKey)}/>:p.glbUrl.startsWith('procedural:')?<ProceduralModel kind={p.glbUrl} selected={editorMode&&selectedAirportKey===p.elementKey}/>:<GlbModel placement={p} onSelect={editorMode?()=>onSelectAirport?.(p.elementKey):undefined} selected={editorMode&&selectedAirportKey===p.elementKey} onEnter={onEnterBuilding?()=>onEnterBuilding(p):undefined}/>}
+ <BuildingInteriorLayer value={p.interior} allowPosition/>
+ </Suspense></ModelBoundary></group>)}</group>;
+}

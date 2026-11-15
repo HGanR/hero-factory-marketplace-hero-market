@@ -22,3 +22,12 @@ test('no selected owned storefront gives clear guidance without editing controls
  global.fetch=async()=>({ok:true,json:async()=>({npcs:[]})});render(React.createElement(Editor,{placement:null,onChange(){throw Error('Unexpected change')}}));
  await act(async()=>{});assert.match(screen.getByText(/Select your placed storefront/).textContent,/furnish/);assert.equal(screen.queryByRole('button',{name:'Add to building'}),null);
 });
+test('Green Terrain uses the same furniture editor with arbitrary building coordinates and no purchase action',async()=>{
+ const requests=[];global.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>({npcs:[]})}};
+ let items=[];const placement={id:'nexus-tower',assetId:'nexus-tower',position:[0,0,0],rotation:[0,0,0],scale:[1,1,1]};
+ function Harness(){const[value,setValue]=React.useState([]);return React.createElement(Editor,{placement:{...placement,interior:value},freePlacement:true,saveHint:'Save World Layout to show visitors.',onChange:v=>{items=v;setValue(v)}})}
+ render(React.createElement(Harness));await act(async()=>{});
+ fireEvent.change(screen.getByLabelText('New furnishing Y'),{target:{value:'6.4'}});fireEvent.click(screen.getByRole('button',{name:'Add to building'}));
+ assert.equal(items.length,1);assert.deepEqual(items[0].position,[0,6.4,0]);assert.deepEqual(requests,['/api/troo-world/npcs']);
+ assert.match(screen.getByText('Save World Layout to show visitors.').textContent,/Save World/);
+});

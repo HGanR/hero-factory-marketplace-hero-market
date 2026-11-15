@@ -1,3 +1,4 @@
+import {STOREFRONT} from '@/lib/world-assets/storefront';
 /**
  * GET /api/world-assets — Published marketplace assets (excludes isPlatformOnly)
  */
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       assets: assets.map((a) => ({
         id: a.id,
         slug: a.slug,
-        name: a.name,
+        name: a.modelUrl===STOREFRONT.modelUrl?STOREFRONT.name:a.name,
         category: a.category,
         description: a.description,
         previewImageUrl: a.previewImageUrl,
@@ -47,3 +48,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to load assets" }, { status: 500 });
   }
 }
+

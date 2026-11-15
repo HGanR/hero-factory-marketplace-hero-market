@@ -52,7 +52,7 @@ jobs:
           node-version: '22'
       - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1 viem@2.41.2 livekit-server-sdk@2.15.2 livekit-client@2.18.7
       - name: Stadium admission policy, wallet signatures, protected tokens and connected sidewalks
-        run: node --test tests/troo-town/owned-interiors.test.cjs tests/troo-town/interior-editor-ui.test.cjs tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs tests/troo-town/presence-core.test.cjs tests/troo-town/speaker-floor.test.cjs
+        run: node --test tests/troo-town/office-building.test.cjs tests/troo-town/owned-interiors.test.cjs tests/troo-town/interior-editor-ui.test.cjs tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs tests/troo-town/presence-core.test.cjs tests/troo-town/speaker-floor.test.cjs
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
@@ -91,6 +91,16 @@ jobs:
 
       - name: Install Chromium for actual WebGL airport interaction
         run: /tmp/town-test-deps/node_modules/.bin/playwright install --with-deps chromium
+      - name: Green Terrain office selection, scaling, interior persistence and actual entry
+        run: node tests/troo-town/green-interior-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: green-terrain-interior-acceptance
+          path: green-interior-artifacts/
       - name: Start isolated loopback LiveKit fixture
         if: ${{ !cancelled() }}
         run: docker run -d --network host --name troo-voice-fixture livekit/livekit-server:v1.9.12 --dev --bind 127.0.0.1 --node-ip 127.0.0.1

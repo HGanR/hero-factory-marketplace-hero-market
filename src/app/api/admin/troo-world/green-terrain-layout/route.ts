@@ -7,7 +7,7 @@ export async function PUT(request:NextRequest){
  try{
   const actor=await engineRouteActor(request);if(!actor.admin)throw new EngineAccessError('Administrator access required',403);
   requireSameOrigin(request);
-  const text=await request.text();if(text.length>750000)return NextResponse.json({ok:false,error:'World layout is too large'},{status:413});
+  const text=await request.text();if(text.length>3000000)return NextResponse.json({ok:false,error:'World layout is too large'},{status:413});
   let body;try{body=JSON.parse(text)}catch{throw new LayoutError('Invalid save body')}
   if(!body||typeof body!=='object'||Object.keys(body).some(k=>!['layout','expectedRevision'].includes(k))||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)throw new LayoutError('Invalid save revision');
   const layout=validateLayout(body.layout);
@@ -19,3 +19,4 @@ export async function PUT(request:NextRequest){
   return NextResponse.json({ok:false,error:'World was not saved. Check layout storage readiness and try again.'},{status:503});
  }
 }
+

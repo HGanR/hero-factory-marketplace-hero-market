@@ -13,7 +13,7 @@ export async function POST(request:NextRequest){
   const status=process.env.VERCEL_ENV==='production'?'published':'draft';
   if(existing){
    if(existing.id!==STOREFRONT.id)return NextResponse.json({error:'This slug is already used by another asset.'},{status:409});
-   if(status==='published'&&existing.status==='draft')await db.update(worldLibraryAssets).set({status:'published'}).where(eq(worldLibraryAssets.id,existing.id));
+   await db.update(worldLibraryAssets).set({name:STOREFRONT.name,...(status==='published'&&existing.status==='draft'?{status:'published' as const}:{})}).where(eq(worldLibraryAssets.id,existing.id));
    return NextResponse.json({success:true,alreadyExists:true,id:existing.id,tokenPrice:existing.tokenPrice,status});
   }
   await db.insert(worldLibraryAssets).values({id:STOREFRONT.id,slug:STOREFRONT.slug,name:STOREFRONT.name,category:'building',
