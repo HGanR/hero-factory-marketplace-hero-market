@@ -167,6 +167,7 @@ export const TROOTHHERTZ_AGENTS: TroothAgent[] = [
 import type { ElevatorState } from "./FunctionalElevator";
 
 interface TroothhertzTowerProps {
+  showBuildingHud?: boolean;
   position: [number, number, number];
   isSelected?: boolean;
   onSelect?: () => void;
@@ -1769,6 +1770,7 @@ export default function TroothhertzTower({
   onElevatorRideEnd,
   onEnterCabin,
   wavingAgentId,
+  showBuildingHud = isSelected,
   insideBuilding = false,
   hoveredAgentId = null,
   cameraPos,
@@ -1820,7 +1822,7 @@ export default function TroothhertzTower({
         hideExteriorDecor={insideBuilding}
       />
 
-      {!insideBuilding && (
+      {!insideBuilding && showBuildingHud && (
         <Html
           position={[position[0], position[1] + FH * 2 + 1.5, position[2]]}
           center
@@ -1904,7 +1906,7 @@ export default function TroothhertzTower({
         lobbyWallTexture={lobbyWallTex}
         onAgentChat={() => onAgentChat?.(evaana)}
         isAgentWaving={wavingAgentId === evaana.id}
-        showAgentHud={hoveredAgentId === "evaana-receptionist"}
+        showAgentHud={insideBuilding && hoveredAgentId === "evaana-receptionist"}
       />
 
       {nearDesk && (
@@ -1953,7 +1955,7 @@ export default function TroothhertzTower({
           rotation={0}
           onChat={() => onAgentChat?.(trooth)}
           isWaving={wavingAgentId === trooth.id}
-          showHud={hoveredAgentId === trooth.id}
+          showHud={insideBuilding && hoveredAgentId === trooth.id}
         />
       )}
 
@@ -2007,3 +2009,4 @@ export default function TroothhertzTower({
     </group>
   );
 }
+

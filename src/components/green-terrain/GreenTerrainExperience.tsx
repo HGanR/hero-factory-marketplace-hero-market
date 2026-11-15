@@ -25,6 +25,7 @@ import {admissionEvent,type StadiumEvent} from '@/lib/troo-world/stadium-events'
 import SelectionRotationControls from "./SelectionRotationControls";
 import {rotateTownSelection,INTERSECTION_SPAWN,type TownSelection} from "@/lib/troo-world/town-placement";
 import TownPresenceLayer from './TownPresenceLayer';
+import TownEnvironment from "./TownEnvironment";
 import TownVoicePanel from './TownVoicePanel';
 import {useTownPresence,type EventConnection} from './useTownPresence';
 import {eyeHeightFor,presenceLocked,presencePlacementKey,type PresenceIdentity,type PresencePose} from '@/lib/troo-world/presence-model';
@@ -184,23 +185,11 @@ function Tree({data,isSelected}:{data:TreeData;isSelected:boolean}) {
 }
 
 // ─── Sky dome ─────────────────────────────────────────────────────────────────
-function SkyDome() {
-  const geo = (() => {
-    const g=new THREE.SphereGeometry(400,32,16);
-    const zenith=new THREE.Color(0x1a5fa8),horizon=new THREE.Color(0x6ab8d4);
-    const pos=g.attributes.position as THREE.BufferAttribute;
-    const cols:number[]=[];
-    for(let i=0;i<pos.count;i++){const t=Math.max(0,Math.min(1,(pos.getY(i)+400)/800));const c=horizon.clone().lerp(zenith,t*t);cols.push(c.r,c.g,c.b);}
-    g.setAttribute("color",new THREE.Float32BufferAttribute(cols,3));return g;
-  })();
-  return <mesh geometry={geo}><meshBasicMaterial vertexColors side={THREE.BackSide}/></mesh>;
-}
-
 function Clouds() {
   const ref=useRef<THREE.Group>(null);
   const clouds=Array.from({length:14},(_,i)=>{const rng=(s:number)=>{s=(s^0xcafe1234)>>>0;s=Math.imul(s^(s>>>16),0x45d9f3b);return((s^(s>>>16))>>>0)/0xffffffff;};return{x:(rng(i*3)-0.5)*280,y:55+rng(i*3+1)*30,z:(rng(i*3+2)-0.5)*280,sx:18+rng(i)*20,sy:5+rng(i+1)*5,sz:12+rng(i+2)*14,sp:0.4+rng(i)*0.6};});
   useFrame(({clock})=>{if(!ref.current)return;const t=clock.getElapsedTime();ref.current.children.forEach((c,i)=>{c.position.x=clouds[i].x+Math.sin(t*0.05*clouds[i].sp+i)*8;});});
-  return <group ref={ref}>{clouds.map((c,i)=><mesh key={i} position={[c.x,c.y,c.z]} scale={[c.sx,c.sy,c.sz]}><sphereGeometry args={[1,8,6]}/><meshBasicMaterial color={0xffffff} transparent opacity={0.82}/></mesh>)}</group>;
+  return <group ref={ref}>{clouds.map((c,i)=><mesh key={i} position={[c.x,c.y,c.z]} scale={[c.sx,c.sy,c.sz]}><sphereGeometry args={[1,8,6]}/><meshLambertMaterial color={0xffffff} transparent opacity={0.65}/></mesh>)}</group>;
 }
 
 // Hills — only diagonals; no hills on bridge paths (N/S/E/W)
@@ -775,9 +764,9 @@ interface SceneProps {
   onWorldFreeLookChange: (v: boolean) => void;
 }
 
-function BuildingPresentation({state,alreadyScaled=false,children}:{state:BuildingState;alreadyScaled?:boolean;children:React.ReactNode}){
+function BuildingPresentation({state,alreadyScaled=false,onSelect,children}:{state:BuildingState;alreadyScaled?:boolean;onSelect?:()=>void;children:React.ReactNode}){
  if(!state.visible)return null;
- return <group userData={{townSolid:true}} position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
+ return <group onClick={onSelect?e=>{e.stopPropagation();onSelect()}:undefined} userData={{townSolid:true}} position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
 }
 
 function Scene(props: SceneProps) {
@@ -823,16 +812,7 @@ function Scene(props: SceneProps) {
         onExited={props.onCameraExited}
         orbitRef={orbitRef}
       />
-      <ambientLight intensity={props.insideBuilding === "stadium"?.24:.6} color={props.insideBuilding === "stadium"?0xb7d5e7:0xd4e8c0}/>
-      <directionalLight position={[60,80,40]} intensity={props.insideBuilding === "stadium"?.25:1.8} color={0xfff4d0} castShadow
-        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
-        shadow-camera-near={0.5} shadow-camera-far={300}
-        shadow-camera-left={-120} shadow-camera-right={120}
-        shadow-camera-top={120} shadow-camera-bottom={-120}/>
-      <directionalLight position={[-40,30,-60]} intensity={0.4} color={0xa0c8e0}/>
-      <hemisphereLight color={0x87ceeb} groundColor={0x3a6b2a} intensity={props.insideBuilding === "stadium"?.18:.5}/>
-      <fog attach="fog" args={["#8ecae6",100,240]}/>
-      <SkyDome/>
+      <TownEnvironment interior={props.insideBuilding === "stadium"}/>
       <Clouds/>
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
@@ -870,7 +850,7 @@ function Scene(props: SceneProps) {
         /></group>
       ))}
 
-      <BuildingPresentation state={props.layout.buildings["nexus-tower"]} >
+      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectNexus:undefined} state={props.layout.buildings["nexus-tower"]} >
       <Suspense fallback={null}>
         <CorporateBuilding
           position={props.nexusPos}
@@ -879,7 +859,7 @@ function Scene(props: SceneProps) {
           currentElevatorFloor={props.nexusElevatorFloor}
         />
       </Suspense>
-      {props.cameraState === "world" && (<NexusLabel
+      {props.cameraState === "world" && props.nexusSelected && (<NexusLabel
         position={props.nexusPos}
         isSelected={props.nexusSelected}
         onSelect={props.onSelectNexus}
@@ -888,7 +868,7 @@ function Scene(props: SceneProps) {
       />)}
       </BuildingPresentation>
 
-      <BuildingPresentation state={props.layout.buildings["meridian-tower"]} >
+      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectMeridian:undefined} state={props.layout.buildings["meridian-tower"]} >
       <Suspense fallback={null}>
         <MeridianTower
           position={props.meridianPos}
@@ -899,7 +879,7 @@ function Scene(props: SceneProps) {
           elevatorFloor={props.meridianElevatorFloor}
         />
       </Suspense>
-      {props.cameraState === "world" && (<MeridianLabel
+      {props.cameraState === "world" && props.meridianSelected && (<MeridianLabel
         position={props.meridianPos}
         isSelected={props.meridianSelected}
         onSelect={props.onSelectMeridian}
@@ -908,12 +888,13 @@ function Scene(props: SceneProps) {
       />)}
       </BuildingPresentation>
 
-      <BuildingPresentation state={props.layout.buildings["troothhertz-tower"]} >
+      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectTroothhertz:undefined} state={props.layout.buildings["troothhertz-tower"]} >
       <Suspense fallback={null}>
         <TroothhertzTower
           position={props.troothhertzPos}
           isSelected={!props.isEditorMode&&props.troothhertzSelected}
           onSelect={props.onSelectTroothhertz}
+          showBuildingHud={props.cameraState==="world"&&props.troothhertzSelected}
           onEnterBuilding={props.onEnterTroothhertz}
           onViewAgents={props.onViewTroothhertzAgents}
           onAgentChat={props.onTroothhertzAgentChat}
@@ -932,7 +913,7 @@ function Scene(props: SceneProps) {
       </Suspense>
       </BuildingPresentation>
 
-      <BuildingPresentation state={props.layout.buildings["stadium-elyseum"]} alreadyScaled >
+      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectStadium:undefined} state={props.layout.buildings["stadium-elyseum"]} alreadyScaled >
       <Suspense fallback={null}>
         <StadiumElyseum
           position={props.stadiumPos}
@@ -945,20 +926,20 @@ function Scene(props: SceneProps) {
           onEnter={props.isEditorMode?undefined:props.onEnterStadium}
         />
       </Suspense>
-      {props.cameraState === "world" && (<StadiumLabel
+      {props.cameraState === "world" && props.stadiumSelected && (<StadiumLabel
         position={props.stadiumPos}
         isSelected={props.stadiumSelected}
         onSelect={props.onSelectStadium}
         onEnter={props.onEnterStadium}
       />)}
       </BuildingPresentation>
-      <BuildingPresentation state={props.layout.buildings["veritas-school"]} >
+      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectVeritas:undefined} state={props.layout.buildings["veritas-school"]} >
       <VeritasSchool
         position={props.veritasPos}
         isSelected={!props.isEditorMode&&props.veritasSelected}
         onSelect={props.onSelectVeritas}
       />
-      {props.cameraState === "world" && (<VeritasLabel
+      {props.cameraState === "world" && props.veritasSelected && (<VeritasLabel
         position={props.veritasPos}
         isSelected={props.veritasSelected}
         onSelect={props.onSelectVeritas}
@@ -1009,6 +990,7 @@ function Scene(props: SceneProps) {
               position={[ax, floorY, bz - 1.5]}
               rotation={0}
               onChat={props.onAgentClick}
+              showHud={props.cameraState==="inside"&&props.insideBuilding==="nexus"}
               isWaving={props.wavingAgentId === agent.id}
             />
           );
@@ -1032,6 +1014,7 @@ function Scene(props: SceneProps) {
               position={[ax, floorY, bz - 1.5]}
               rotation={0}
               onChat={props.onAgentClick}
+              showHud={props.cameraState==="inside"&&props.insideBuilding==="meridian"}
               isWaving={props.wavingAgentId === `meridian-${agent.id}`}
             />
           );
@@ -1638,10 +1621,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setVeritasSelected(false);
     setSelectedTreeId(null);
     setSelectedObjectId(null);
-    // Only show panel if NOT in editor mode
-    if (!isEditorMode) {
-      setShowNexusPanel(true);
-    }
   }, [isEditorMode]);
 
   const handleSelectMeridian = useCallback(() => {
@@ -1653,10 +1632,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setVeritasSelected(false);
     setSelectedTreeId(null);
     setSelectedObjectId(null);
-    // Only show panel if NOT in editor mode
-    if (!isEditorMode) {
-      setShowMeridianPanel(true);
-    }
   }, [isEditorMode]);
 
   const handleSelectTroothhertz = useCallback(() => {
@@ -1668,10 +1643,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setVeritasSelected(false);
     setSelectedTreeId(null);
     setSelectedObjectId(null);
-    // Only show panel if NOT in editor mode
-    if (!isEditorMode) {
-      setShowTroothhertzPanel(true);
-    }
   }, [isEditorMode]);
 
   const handleSelectStadium = useCallback(() => {
@@ -1844,6 +1815,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       {layoutError&&<div role="status" style={{position:'absolute',top:12,left:12,right:12,zIndex:400,padding:12,background:'#102030',color:'white'}}>Could not refresh the saved town. The last loaded layout remains visible. <button type="button" onClick={retryLayout}>Retry refresh</button></div>}
       <Canvas
         shadows
+        onPointerMissed={()=>{if(cameraState!=="world")return;setNexusSelected(false);setMeridianSelected(false);setTroothhertzSelected(false);setStadiumSelected(false);setVeritasSelected(false);setSelectedAirportKey(null);}}
         camera={{ position: [0, 28, 65], fov: 55, near: 0.1, far: 500 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
         scene={{ background: new THREE.Color("#6ab8d4") }}

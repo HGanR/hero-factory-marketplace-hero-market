@@ -5,6 +5,7 @@
  * Read-only. Reuses terrain/camera patterns from Troo Town.
  */
 "use client";
+import TownEnvironment from "@/components/green-terrain/TownEnvironment";
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import type { ActivityPulse } from "@/components/world-viewer/ActivityPulseLayer";
@@ -26,33 +27,6 @@ import { useWorldActivityStream } from "@/hooks/useWorldActivityStream";
 import { WorldViewerDebug } from "@/components/world-viewer/WorldViewerDebug";
 
 // ─── Sky & environment (from Troo Town) ─────────────────────────────────────
-function SkyDome() {
-  return (
-    <mesh scale={[-400, 400, 400]}>
-      <sphereGeometry args={[1, 32, 16]} />
-      <meshBasicMaterial side={THREE.BackSide}>
-        <primitive
-          attach="map"
-          object={(() => {
-            const c = document.createElement("canvas");
-            c.width = 256;
-            c.height = 256;
-            const ctx = c.getContext("2d")!;
-            const g = ctx.createLinearGradient(0, 0, 0, 256);
-            g.addColorStop(0, "#5a9fd4");
-            g.addColorStop(0.4, "#87ceeb");
-            g.addColorStop(0.7, "#b0e2ff");
-            g.addColorStop(1, "#d0f0ff");
-            ctx.fillStyle = g;
-            ctx.fillRect(0, 0, 256, 256);
-            return new THREE.CanvasTexture(c);
-          })()}
-        />
-      </meshBasicMaterial>
-    </mesh>
-  );
-}
-
 function DistantHills() {
   return (
     <>
@@ -120,26 +94,7 @@ function Scene({ terrainSeed, zones, chunks, commerceNodes, worldLinks, activity
 
   return (
     <>
-      <ambientLight intensity={0.6} color={0xd4e8c0} />
-      <directionalLight
-        position={[60, 80, 40]}
-        intensity={1.8}
-        color={0xfff4d0}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-camera-near={0.5}
-        shadow-camera-far={300}
-        shadow-camera-left={-120}
-        shadow-camera-right={120}
-        shadow-camera-top={120}
-        shadow-camera-bottom={-120}
-        shadow-bias={-0.0001}
-      />
-      <directionalLight position={[-40, 30, -60]} intensity={0.4} color={0xa0c8e0} />
-      <hemisphereLight color={0x87ceeb} groundColor={0x3a6b2a} intensity={0.5} />
-      <fog attach="fog" args={["#8ecae6", 100, 240]} />
-      <SkyDome />
+      <TownEnvironment />
       <DistantHills />
 
       {/* 1. Terrain */}
@@ -590,3 +545,4 @@ export default function WorldViewerPage() {
     </div>
   );
 }
+

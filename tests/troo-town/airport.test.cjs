@@ -34,3 +34,7 @@ test('destination validation preserves old layouts, round-trips named links and 
 });
 
 test('departures anchor is measured above terminal faces rather than the runway or animated aircraft',()=>{const anchor=lib.airportTerminalAnchor(gltf.scene);assert.ok(anchor.every(Number.isFinite));assert.ok(anchor[1]>14&&anchor[1]<80);const before=[...anchor],playback=lib.createAirportPlayback(gltf.scene,gltf.animations);playback.activate();playback.seek(1450);assert.deepEqual(lib.airportTerminalAnchor(gltf.scene),before);playback.dispose()});
+
+test('blue runway lamps follow measured runway edges without adding collision or mutating the source',()=>{
+ const points=lib.airportRunwayLightPositions(gltf.scene);assert.equal(points.length,62);assert.equal(points[0][0],-300);assert.equal(points.at(-1)[0],300);assert.ok(points.every(p=>p.every(Number.isFinite)));assert.ok(points[0][2]!==points[1][2]);assert.ok(points.every((p,i)=>i<2||p[0]>=points[i-2][0]));
+});
