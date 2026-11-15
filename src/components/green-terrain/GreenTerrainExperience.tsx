@@ -923,6 +923,7 @@ function Scene(props: SceneProps) {
           isSelected={!props.isEditorMode&&props.stadiumSelected}
           onSelect={props.onSelectStadium}
           animate={props.insideBuilding === "stadium"}
+          interiorLighting={props.cameraState === "inside" && props.insideBuilding === "stadium"}
           showHud={props.stadiumSelected||props.insideBuilding === "stadium"}
           tickerText={props.layout.stadium?.tickerText}
           eventSettings={props.layout.stadium}
