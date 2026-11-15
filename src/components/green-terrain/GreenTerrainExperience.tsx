@@ -1840,7 +1840,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
   if(!layoutReady)return <main style={{padding:40,color:'white',background:'#102030',minHeight:'100vh'}}><h1>{readOnly?'Troo Town':'Green Terrain'}</h1><p role="status">{layoutError||'Loading the saved town…'}</p>{layoutError&&<button onClick={retryLayout}>Retry loading</button>}</main>;
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#6ab8d4", position: "relative", overflow: "hidden" }}>
+    <div style={{ width: "100vw", height: "100dvh", background: "#6ab8d4", position: "relative", overflow: "hidden" }}>
       {layoutError&&<div role="status" style={{position:'absolute',top:12,left:12,right:12,zIndex:400,padding:12,background:'#102030',color:'white'}}>Could not refresh the saved town. The last loaded layout remains visible. <button type="button" onClick={retryLayout}>Retry refresh</button></div>}
       <Canvas
         shadows
@@ -2065,7 +2065,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
       <TownVoicePanel value={presenceView} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       <TouchWalkControls input={touchInput} active={(!eventConnection||!presenceLocked(presenceView.identity))&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
-      <style>{`@media(pointer:coarse),(max-width:760px){.town-keyboard-help{display:none!important}}`}</style>
       {/* HUD overlays */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}>
         {/* Stats badge */}
@@ -2115,29 +2114,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
               <span>{worldFirstPerson ? "🚶" : "👁️"}</span>
               {worldFirstPerson ? "First Person" : "Orbit View"}
             </button>
-          </div>
-        )}
-
-        {/* First-person mode instructions */}
-        {worldFirstPerson && cameraState === "world" && (
-          <div className="town-keyboard-help" style={{
-            position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)",
-            background: "rgba(10,20,40,0.85)", backdropFilter: "blur(8px)",
-            border: "1px solid rgba(42,111,189,0.4)", borderRadius: 10,
-            padding: "10px 20px", color: "rgba(255,255,255,0.9)",
-            fontFamily: "system-ui, sans-serif", fontSize: 12,
-            display: "flex", alignItems: "center", gap: 16,
-            pointerEvents: "auto",
-          }}>
-            <span style={{ fontWeight: 600, color: "#a0d4ff" }}>
-              {worldFreeLook ? "🔓 Free Look Active" : "🔒 Click to Look Around"}
-            </span>
-            <span style={{ opacity: 0.7 }}>|</span>
-            <span><kbd style={{ background: "rgba(255,255,255,0.15)", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>W</kbd><kbd style={{ background: "rgba(255,255,255,0.15)", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>A</kbd><kbd style={{ background: "rgba(255,255,255,0.15)", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>S</kbd><kbd style={{ background: "rgba(255,255,255,0.15)", padding: "2px 6px", borderRadius: 4 }}>D</kbd> Move</span>
-            <span style={{ opacity: 0.7 }}>|</span>
-            <span><kbd style={{ background: "rgba(255,255,255,0.15)", padding: "2px 6px", borderRadius: 4 }}>Shift</kbd> Sprint</span>
-            <span style={{ opacity: 0.7 }}>|</span>
-            <span><kbd style={{ background: "rgba(255,255,255,0.15)", padding: "2px 6px", borderRadius: 4 }}>Esc</kbd> Release</span>
           </div>
         )}
 
@@ -2317,32 +2293,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
               </div>
             )}
 
-            {/* Bottom WASD hint */}
-            {!chatActiveAgent && (
-              <div style={{
-                position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)",
-                background: "rgba(5,12,28,0.78)", backdropFilter: "blur(8px)",
-                border: "1px solid rgba(42,111,189,0.3)", borderRadius: 10,
-                padding: "7px 16px", color: "rgba(140,185,230,0.8)",
-                fontFamily: "system-ui, sans-serif", fontSize: 11,
-                display: "flex", alignItems: "center", gap: 10,
-                pointerEvents: "none",
-              }}>
-                <span>
-                  <kbd style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px" }}>W</kbd>
-                  <kbd style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px" }}>A</kbd>
-                  <kbd style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px" }}>S</kbd>
-                  <kbd style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px" }}>D</kbd>
-                  {" "}Move
-                </span>
-                <span style={{ opacity: 0.4 }}>|</span>
-                <span><kbd style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px" }}>Shift</kbd> Sprint</span>
-                <span style={{ opacity: 0.4 }}>|</span>
-                <span>🛗 Walk near elevator to call it</span>
-                <span style={{ opacity: 0.4 }}>|</span>
-                <span>Click agent to chat</span>
-              </div>
-            )}
           </>
         )}
 
@@ -2398,18 +2348,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           </div>
         )}
 
-        {/* Idle hint */}
-        {!isEditorMode && !showNexusPanel && !showMeridianPanel && cameraState === "world" && (
-          <div style={{
-            position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)",
-            background: "rgba(10,20,40,0.6)", backdropFilter: "blur(6px)",
-            border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10,
-            padding: "8px 18px", color: "rgba(255,255,255,0.7)",
-            fontFamily: "system-ui, sans-serif", fontSize: 12,
-          }}>
-            Click 🏢 Nexus or 🏙️ Meridian labels to meet AI agents · Enable Editor Mode to place & move objects
-          </div>
-        )}
       </div>
 
       {/* Nexus agent panel */}

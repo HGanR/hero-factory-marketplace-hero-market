@@ -91,6 +91,11 @@ jobs:
 
       - name: Install Chromium for actual WebGL airport interaction
         run: /tmp/town-test-deps/node_modules/.bin/playwright install --with-deps chromium
+      - name: Mobile portrait, landscape and desktop walking and voice HUD stay in view
+        run: node tests/troo-town/walk-hud-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Green Terrain office selection, scaling, interior persistence and actual entry
         run: node tests/troo-town/green-interior-visual.cjs
         env:
