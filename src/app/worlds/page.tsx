@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import AccountAssetLibrary from '@/components/world-editor/AccountAssetLibrary';
 import Link from "next/link";
 
 interface WorldSummary {
@@ -160,6 +161,7 @@ export default function WorldsPage() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {isAuthenticated && <AccountAssetLibrary/>}
             {(myWorlds.length > 0 || isAuthenticated) && (
               <div>
                 <div
@@ -409,3 +411,4 @@ export default function WorldsPage() {
     </div>
   );
 }
+

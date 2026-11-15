@@ -5,15 +5,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { worldLibraryAssets } from "@/lib/db/schema.worlds";
-import { verifyToken } from "@/lib/auth";
+import {engineRouteActor,requireSameOrigin} from '@/lib/security/engine-route-access';
 import { eq, desc } from "drizzle-orm";
 import crypto from "crypto";
 
-function requireAdmin(req: NextRequest): boolean {
-  const token = req.cookies?.get?.("admin-token")?.value || req.cookies?.get?.("auth-token")?.value;
-  if (!token) return false;
-  const decoded = verifyToken(token);
-  return !!(decoded?.isAdmin || decoded?.userId);
+async function requireAdmin(req:NextRequest):Promise<boolean>{
+  try{return (await engineRouteActor(req)).admin}catch{return false}
 }
 
 function slugify(s: string): string {
@@ -24,7 +21,7 @@ function slugify(s: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const db = await getDb();
     const rows = await db.select().from(worldLibraryAssets).orderBy(desc(worldLibraryAssets.createdAt));
@@ -36,7 +33,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try{requireSameOrigin(req)}catch{return NextResponse.json({error:"Same-origin request required"},{status:403})}
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json().catch(() => ({}));
     const name = String(body?.name ?? "").trim();
@@ -90,3 +88,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create asset" }, { status: 500 });
   }
 }
+

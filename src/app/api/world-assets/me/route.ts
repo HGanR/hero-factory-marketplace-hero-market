@@ -52,9 +52,10 @@ export async function GET(request: NextRequest) {
         remainingPlacements: a.remainingPlacements,
         purchasedAt: a.purchasedAt?.toISOString(),
       })),
-    });
+    },{headers:{"Cache-Control":"private, no-store"}});
   } catch (e) {
     console.error("[api/world-assets/me GET]", e);
     return NextResponse.json({ error: "Failed to load owned assets" }, { status: 500 });
   }
 }
+

@@ -20,6 +20,7 @@ import StadiumEventsEditor from './StadiumEventsEditor';
 import type {StadiumSettings} from '@/lib/troo-world/stadium-events';
 import ModelScaleControl from './ModelScaleControl';
 import type {ImportedPlacement} from '@/lib/troo-world/airport';
+import {STOREFRONT} from '@/lib/world-assets/storefront';
 import {AIRPORT} from '@/lib/troo-world/airport';
 import { useState, useCallback, useEffect } from "react";
 import type { WorldObjectType } from "./WorldObjects";
@@ -59,6 +60,7 @@ interface LibraryItem {
 }
 
 const OBJECT_LIBRARY: LibraryItem[] = [
+  {key:STOREFRONT.key,label:STOREFRONT.name,icon:'🏬',category:'Buildings',description:'Three floors, wall art and furnishing slots. Marketplace price: 5 TROO.',kind:'glb'},
   {key:AIRPORT.key,label:AIRPORT.name,icon:'✈',category:'Buildings',description:'Airport with departures to member worlds. Enable Editor Mode to manage flight routes.',kind:'glb'},
   // ── Buildings ──
   {
@@ -235,6 +237,8 @@ export default function WorldManagementUI({
   onGridSizeChange,
 }: WorldManagementUIProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const [listingNotice,setListingNotice]=useState("");
+  const [listingBusy,setListingBusy]=useState(false);
   const [activeTab, setActiveTab] = useState<"worlds" | "library" | "events" | "save">("worlds");
   const [worlds, setWorlds] = useState<WorldRecord[]>([
     { id: "default", name: "Troo World", slug: "troo-world", isDefault: true, isPublished: true },
@@ -833,6 +837,10 @@ export default function WorldManagementUI({
                 ))}
               </div>
 
+              <div style={{color:'#b9e1ff',fontSize:12}}>
+                <button disabled={listingBusy} onClick={async()=>{setListingBusy(true);try{const res=await fetch('/api/admin/world-assets/storefront',{method:'POST'});const data=await res.json();if(!res.ok)throw new Error(data.error);setListingNotice(`Storefront ${data.status==='draft'?'saved as a preview draft':'published'} for ${data.tokenPrice} TROO. ${data.status==='draft'?'Public sales remain off until the live release.':'Buyers find it in World Explorer → My asset library.'}`);}catch(error){setListingNotice(error instanceof Error?error.message:'Listing failed');}finally{setListingBusy(false);}}}>{listingBusy?'Registering…':'List storefront for 5 TROO'}</button>
+                <p role="status">{listingNotice}</p>
+              </div>
               {filteredLibrary.map(item => (
                 <div
                   key={item.key}
@@ -853,7 +861,7 @@ export default function WorldManagementUI({
                     <div style={{ color: "rgba(42,111,189,0.7)", fontSize: 9, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>{item.category}</div>
                   </div>
                   {item.kind === 'glb' ? (
-                    <button type="button" disabled={!onPlaceGlbAsset||airportPlaced||!saveReady} onClick={()=>onPlaceGlbAsset?.(item.key)} style={{borderRadius:6,padding:'6px 9px',background:'#143c59',color:'white',border:'1px solid #65bfff'}}>{airportPlaced?'Placed':'+ Place'}</button>
+                    <button type="button" disabled={!onPlaceGlbAsset||(item.key===AIRPORT.key&&airportPlaced)||!saveReady} onClick={()=>onPlaceGlbAsset?.(item.key)} style={{borderRadius:6,padding:'6px 9px',background:'#143c59',color:'white',border:'1px solid #65bfff'}}>{item.key===AIRPORT.key&&airportPlaced?'Placed':'+ Place'}</button>
                   ) : item.kind === "env-object" && item.objectType ? (
                     <button
                       onClick={() => onPlaceObject(item.objectType!)}

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 
-export type EditorNavTab = "assets" | "commerce" | "portals" | "venue" | null;
+export type EditorNavTab = "assets" | "interior" | "commerce" | "portals" | "venue" | null;
 
 interface EditorNavBarProps {
   activeTab: EditorNavTab;
@@ -15,6 +15,8 @@ interface EditorNavBarProps {
 
 const TAB_STYLE = {
   padding: "10px 16px",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
   background: "transparent",
   border: "none",
   color: "rgba(224,244,255,0.9)",
@@ -68,7 +70,7 @@ export function EditorNavBar({
           padding: "8px 16px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth:0, maxWidth:"100%", overflowX:"auto" }}>
         <button
           type="button"
           onClick={() => onTabChange(activeTab === "assets" ? null : "assets")}
@@ -80,6 +82,7 @@ export function EditorNavBar({
         >
           📦 Owned Assets {assetsCount > 0 && `(${assetsCount})`}
         </button>
+        <button type="button" style={{...TAB_STYLE,borderBottomColor:activeTab==='interior'?'#10b981':'transparent'}} onClick={()=>onTabChange(activeTab==='interior'?null:'interior')}>Interior library</button>
         <button
           type="button"
           onClick={() => onTabChange(activeTab === "commerce" ? null : "commerce")}
@@ -142,3 +145,4 @@ export function EditorNavBar({
     </div>
   );
 }
+

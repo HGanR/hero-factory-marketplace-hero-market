@@ -52,7 +52,7 @@ jobs:
           node-version: '22'
       - run: npm install --prefix /tmp/town-test-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 drizzle-orm@0.45.0 mysql2@3.15.3 jose@5.9.6 react@19.2.0 react-dom@19.2.0 jsdom@26 @testing-library/react@16 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1 viem@2.41.2 livekit-server-sdk@2.15.2 livekit-client@2.18.7
       - name: Stadium admission policy, wallet signatures, protected tokens and connected sidewalks
-        run: node --test tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs tests/troo-town/presence-core.test.cjs tests/troo-town/speaker-floor.test.cjs
+        run: node --test tests/troo-town/owned-interiors.test.cjs tests/troo-town/interior-editor-ui.test.cjs tests/troo-town/stadium-events.test.cjs tests/troo-town/stadium-admission.test.cjs tests/troo-town/stadium-admission-ui.test.cjs tests/troo-town/touch-placement.test.cjs tests/troo-town/stadium-displays.test.cjs tests/troo-town/presence-core.test.cjs tests/troo-town/speaker-floor.test.cjs
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
@@ -118,6 +118,17 @@ jobs:
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
+      - name: Storefront and owner interior WebGL acceptance
+        run: node tests/troo-town/storefront-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
+          NODE_PATH: /tmp/town-test-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storefront-interior-acceptance
+          path: storefront-artifacts/
+
       - name: Actual stadium screens, seats, event upload and ticker editor
         if: ${{ !cancelled() }}
         run: node tests/troo-town/stadium-events-visual.cjs
@@ -134,4 +145,5 @@ jobs:
         with:
           name: airport-visual-evidence
           path: airport-visual-artifacts/
+
 

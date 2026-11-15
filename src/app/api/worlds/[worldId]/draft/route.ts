@@ -1,3 +1,4 @@
+import {validatePlacementInteriors,INTERIOR_MODEL} from '@/lib/world-assets/interior';
 /**
  * PUT /api/worlds/[worldId]/draft — Save draft chunk placements
  * Owner or admin only. Does not affect published version.
@@ -10,6 +11,7 @@ import {
   worldVersions,
   worldChunkPlacements,
   userWorldAssets,
+  worldLibraryAssets,
 } from "@/lib/db/schema.worlds";
 import { getAuthedUserId } from "@/lib/api/auth";
 import { verifyToken } from "@/lib/auth";
@@ -83,7 +85,10 @@ export async function PUT(
 
     let body: { chunks?: Array<{ chunkKey: string; placementsJson: unknown }> };
     try {
-      body = await request.json();
+      if(request.headers.get('origin')!==new URL(request.url).origin)return NextResponse.json({error:'Same-origin request required'},{status:403});
+      const text=await request.text();
+      if(text.length>3000000)return NextResponse.json({error:'World draft exceeds 3 MB. Use smaller wall images.'},{status:413});
+      body = JSON.parse(text);
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
@@ -93,6 +98,10 @@ export async function PUT(
       return NextResponse.json({ error: "chunks must be an array" }, { status: 400 });
     }
 
+    if(chunks.length>400)return NextResponse.json({error:'Too many world chunks'},{status:400});
+    const supported=await db.select({id:worldLibraryAssets.id}).from(worldLibraryAssets).where(eq(worldLibraryAssets.modelUrl,INTERIOR_MODEL));
+    try{validatePlacementInteriors(chunks,new Set(supported.map(a=>a.id)));}
+    catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Invalid interior'},{status:400});}
     let [draftVersion] = await db
       .select()
       .from(worldVersions)
@@ -200,3 +209,4 @@ export async function PUT(
     return NextResponse.json({ error: "Failed to save draft" }, { status: 500 });
   }
 }
+
