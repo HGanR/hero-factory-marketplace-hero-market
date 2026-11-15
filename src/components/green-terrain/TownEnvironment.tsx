@@ -1,9 +1,12 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
+import {useFrame} from '@react-three/fiber';
 import * as THREE from 'three';
 import {townDaylight,townLightLevels} from '@/lib/troo-world/day-night';
 /** Shared by public towns and their editors. No new network requests or persisted layout changes. */
 export default function TownEnvironment({interior=false,at}:{interior?:boolean;at?:Date}){
+ const skyRef=useRef<THREE.Group>(null);
+ useFrame(({camera})=>{skyRef.current?.position.copy(camera.position)});
  const[time,setTime]=useState(()=>Date.now());
  useEffect(()=>{if(at)return;const refresh=()=>setTime(Date.now());const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[at]);
  const phase=townDaylight(at??new Date(time)),d=phase.daylight,levels=townLightLevels(d,interior);
@@ -16,8 +19,10 @@ export default function TownEnvironment({interior=false,at}:{interior?:boolean;a
   <ambientLight intensity={levels.ambient} color={d>.5?'#d4e8c0':'#9dbbe6'}/>
   <directionalLight position={d>.05?phase.sun:[-60,90,40]} intensity={levels.directional} color={d>.5?'#fff4d0':'#aec8ff'} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-near={.5} shadow-camera-far={400} shadow-camera-left={-120} shadow-camera-right={120} shadow-camera-top={120} shadow-camera-bottom={-120} shadow-bias={-.0001}/>
   <hemisphereLight intensity={levels.hemisphere} color={horizon} groundColor="#28342b"/>
+  <group ref={skyRef} name="Camera-relative town sky">
   <mesh name="Town sky" renderOrder={-100} raycast={()=>{}}><sphereGeometry args={[390,32,16]}/><shaderMaterial args={[sky]}/></mesh>
   <points name="Night stars" raycast={()=>{}}><bufferGeometry><bufferAttribute attach="attributes-position" args={[stars,3]}/></bufferGeometry><pointsMaterial color="#d4e9ff" size={.8} transparent opacity={(1-d)*.8} depthWrite={false} sizeAttenuation fog={false}/></points>
   <mesh name={d>.05?'Sun':'Moon'} position={d>.05?phase.sun:[-60,110,40]} raycast={()=>{}}><sphereGeometry args={[d>.05?5:3,16,12]}/><meshBasicMaterial color={d>.05?'#ffe5ab':'#dbeaff'} fog={false}/></mesh>
+  </group>
  </group></>;
 }
