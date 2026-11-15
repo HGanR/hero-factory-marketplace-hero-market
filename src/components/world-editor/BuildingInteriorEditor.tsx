@@ -5,10 +5,15 @@ import {INTERIOR_SLOTS,validateInterior,type InteriorItem} from '@/lib/world-ass
 async function wallImage(file:File){
  if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>8000000)throw new Error('Choose a PNG, JPEG or WebP image under 8 MB.');
  const bitmap=await createImageBitmap(file);try{
-  const canvas=document.createElement('canvas'),ratio=Math.min(1,512/Math.max(bitmap.width,bitmap.height));
-  canvas.width=Math.max(1,Math.round(bitmap.width*ratio));canvas.height=Math.max(1,Math.round(bitmap.height*ratio));
-  canvas.getContext('2d')!.drawImage(bitmap,0,0,canvas.width,canvas.height);
-  const data=canvas.toDataURL('image/png');if(data.length>140000)throw new Error('Image is too detailed. Choose a smaller image (PNG under 100 KB).');return data;
+  const canvas=document.createElement('canvas');let edge=512;
+  while(edge>=96){
+   const ratio=Math.min(1,edge/Math.max(bitmap.width,bitmap.height));
+   canvas.width=Math.max(1,Math.round(bitmap.width*ratio));canvas.height=Math.max(1,Math.round(bitmap.height*ratio));
+   canvas.getContext('2d')!.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   const data=canvas.toDataURL('image/png');if(data.length<=140000)return data;
+   edge=Math.floor(edge*.75);
+  }
+  throw new Error('This image could not be prepared. Choose a smaller image.');
  }finally{bitmap.close();}
 }
 const kindLabels={desk:'Desk',chair:'Chair',lamp:'Lamp','wall-art':'Wall image',agent:'AI agent'};
