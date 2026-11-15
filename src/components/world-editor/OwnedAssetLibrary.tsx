@@ -166,7 +166,7 @@ export function OwnedAssetLibrary({
               </div>
               {catalog.some((a) => a.tokenPrice > 0) && !isConnected && (
                 <div style={{ color: "#fbbf24", fontSize: 11, marginBottom: 4 }}>
-                  Connect wallet (top right) to buy with TROO.
+                  Use Connect Wallet to buy with TROO.
                 </div>
               )}
               {catalogLoading ? (
