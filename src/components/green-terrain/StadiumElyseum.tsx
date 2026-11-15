@@ -8,9 +8,10 @@
  * When event is hosted, host performance/title displayed on screens.
  */
 import * as THREE from "three";
-import { useRef, useMemo, useEffect, useState } from "react";
+import { useRef, useMemo, useEffect, useLayoutEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
+import {setStadiumInteriorLighting} from '@/lib/troo-world/stadium-lighting';
 import {renovateStadium,VENUE_NAME} from "@/lib/troo-world/stadium-renovation";
 import {stadiumSignagePlacement,STADIUM_TICKER_TEXT,cloneStadiumExterior,disposeStadiumExterior} from "@/lib/troo-world/stadium-signage";
 
@@ -36,6 +37,7 @@ export interface StadiumElyseumProps {
   eventSettings?:StadiumSettings;
   onEnter?:()=>void;
   showHud?:boolean;
+  interiorLighting?:boolean;
 }
 
 // Build TROO STADIUM holographic signage — bold white text with bright glow on dark blue band (matches inner ring style)
@@ -112,7 +114,7 @@ function buildVenueTexture():THREE.CanvasTexture{
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;texture.userData.venueName=VENUE_NAME;return texture;
 }
 
-export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle, tickerText=STADIUM_TICKER_TEXT,eventSettings,onEnter,showHud=isSelected||animate }: StadiumElyseumProps) {
+export default function StadiumElyseum({ position, scale = 1, isSelected, onSelect, animate = false, activeEventTitle, tickerText=STADIUM_TICKER_TEXT,eventSettings,onEnter,showHud=isSelected||animate,interiorLighting=true }: StadiumElyseumProps) {
   const [now,setNow]=useState(()=>Date.now());
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
   const event=displayStadiumEvent(eventSettings,now);
@@ -125,8 +127,9 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
   useEffect(()=>()=>{billboards?.side.dispose();billboards?.score.dispose();},[billboards]);
   const gltf = useGLTF(MODEL_URL, ...GLTF_LOADER_OPTS);
   const groupRef = useRef<THREE.Group>(null);
-  const venue = useMemo(() => {const scene=cloneStadiumExterior(gltf.scene);return{scene,renovation:renovateStadium(scene)}}, [gltf.scene]);
+  const venue = useMemo(() => {const scene=cloneStadiumExterior(gltf.scene);const renovation=renovateStadium(scene);setStadiumInteriorLighting(scene,interiorLighting);return{scene,renovation}}, [gltf.scene]);
   const scene=venue.scene;
+  useLayoutEffect(()=>{setStadiumInteriorLighting(scene,interiorLighting)},[scene,interiorLighting]);
   useEffect(()=>()=>{venue.renovation.dispose();disposeStadiumExterior(scene)},[venue,scene]);
   useEffect(()=>{venue.renovation.root.traverse(o=>{const light=o as THREE.Light & {distance?:number};if(light.userData.venueBaseIntensity){light.intensity=light.userData.venueBaseIntensity*scale*scale;if(light.distance!==undefined)light.distance=light.userData.venueBaseDistance*scale;}})},[venue,scale]);
 
