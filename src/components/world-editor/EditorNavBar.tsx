@@ -15,6 +15,8 @@ interface EditorNavBarProps {
 
 const TAB_STYLE = {
   padding: "10px 16px",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
   background: "transparent",
   border: "none",
   color: "rgba(224,244,255,0.9)",
@@ -68,7 +70,7 @@ export function EditorNavBar({
           padding: "8px 16px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth:0, maxWidth:"100%", overflowX:"auto" }}>
         <button
           type="button"
           onClick={() => onTabChange(activeTab === "assets" ? null : "assets")}

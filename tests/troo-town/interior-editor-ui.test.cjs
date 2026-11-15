@@ -13,7 +13,7 @@ test('owner selects a compatible floor slot, adds and rotates furnishings, then 
  function Harness(){const [value,setValue]=React.useState([]);return React.createElement(Editor,{placement:{...placement,interior:value},onChange:v=>{items=v;setValue(v)}})}
  render(React.createElement(Harness));await act(async()=>{});await waitFor(()=>assert.ok(screen.getByRole('button',{name:'Add to building'}).disabled));
  fireEvent.change(screen.getByLabelText('Location'),{target:{value:'SLOT_furniture_F2_02'}});fireEvent.click(screen.getByRole('button',{name:'Add to building'}));assert.equal(items.length,1);assert.equal(items[0].kind,'desk');
- fireEvent.change(screen.getByLabelText('Rotation SLOT_furniture_F2_02'),{target:{value:'1.5'}});assert.equal(items[0].rotationY,1.5);
+ fireEvent.change(screen.getByLabelText('Rotation Floor 2 · Position 2'),{target:{value:'1.5'}});assert.equal(items[0].rotationY,1.5);
  fireEvent.click(screen.getByRole('button',{name:'Remove'}));assert.equal(items.length,0);
  fireEvent.change(screen.getByLabelText('Furnishing'),{target:{value:'agent'}});await screen.findByRole('option',{name:'Guide'});
  fireEvent.change(screen.getByLabelText('Public AI agent'),{target:{value:'public-guide'}});fireEvent.change(screen.getByLabelText('Location'),{target:{value:'SLOT_furniture_F2_02'}});fireEvent.click(screen.getByRole('button',{name:'Add to building'}));assert.equal(items[0].agentId,'public-guide');
