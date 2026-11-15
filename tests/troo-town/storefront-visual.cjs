@@ -1,0 +1,18 @@
+const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict'),esbuild=require('esbuild'),{chromium}=require('playwright');
+const root=path.resolve(__dirname,'../..'),out=path.join(root,'storefront-artifacts');
+(async()=>{fs.mkdirSync(out,{recursive:true});const result=await esbuild.build({entryPoints:[root+'/tests/troo-town/storefront-visual-entry.tsx'],bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',nodePaths:[process.env.TOWN_TEST_DEPS],tsconfigRaw:{compilerOptions:{baseUrl:root,paths:{'@/*':['src/*']}}}});
+ const server=http.createServer((req,res)=>{
+  if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');return res.end(result.outputFiles[0].contents)}
+  if(req.url==='/api/troo-world/npcs'){res.setHeader('Content-Type','application/json');return res.end('{"npcs":[]}')}
+  if(req.url==='/models/world-assets/storefront-v2/storefront_v2.glb'){res.setHeader('Content-Type','model/gltf-binary');return res.end(fs.readFileSync(root+'/public'+req.url))}
+  res.setHeader('Content-Type','text/html');res.end('<html><body style="margin:0"><div id="root" style="width:100vw;height:100vh"></div><script src="/app.js"></script></body></html>');
+ });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
+ try{browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.__storefront?.loaded&&window.__storefront.calls>0);assert.equal(await page.evaluate(()=>window.__storefront.colliderVisible),false);
+  await page.getByLabel('Location',{exact:true}).selectOption('SLOT_furniture_F2_02');await page.getByRole('button',{name:'Add to building'}).click();await page.locator('#item-count').filter({hasText:'1'}).waitFor();
+  await page.getByLabel('Furnishing',{exact:true}).selectOption('lamp');await page.getByLabel('Location',{exact:true}).selectOption('SLOT_furniture_F2_03');await page.getByRole('button',{name:'Add to building'}).click();
+  await page.getByLabel('Furnishing',{exact:true}).selectOption('wall-art');await page.getByLabel('Location',{exact:true}).selectOption('SLOT_frame_05');
+  await page.getByLabel('Wall image',{exact:true}).setInputFiles({name:'art.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ5kAAAAASUVORK5CYII=','base64')});
+  await page.getByLabel('Optional HTTPS link').fill('https://example.com/gallery');await page.getByRole('button',{name:'Add to building'}).click();await page.waitForFunction(()=>document.querySelector('#item-count').textContent==='3');
+  await page.getByRole('button',{name:'Save fixture'}).click();await page.reload();await page.waitForFunction(()=>window.__storefront?.loaded&&document.querySelector('#item-count').textContent==='3');await page.screenshot({path:out+'/storefront-furnished.png'});assert.deepEqual(errors,[]);console.log('Supplied GLB rendered with collision helpers hidden; actual owner editor added desk, lamp and linked uploaded image; serialized furnishings reloaded without page errors.');
+ }finally{await browser?.close();server.close()}
+})().catch(e=>{console.error(e);process.exitCode=1});

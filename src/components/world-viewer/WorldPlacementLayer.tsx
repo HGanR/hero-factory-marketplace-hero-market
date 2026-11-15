@@ -1,5 +1,7 @@
 "use client";
 
+import BuildingInteriorLayer from './BuildingInteriorLayer';
+import type {InteriorItem} from '@/lib/world-assets/interior';
 import { useMemo } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
@@ -14,6 +16,7 @@ export interface Placement {
   rotation: [number, number, number];
   scale: [number, number, number];
   ownerLayer?: string;
+  interior?: InteriorItem[];
 }
 
 interface ChunkData {
@@ -100,7 +103,8 @@ function ProceduralPlacement({
 
 function PlacementModel({ url }: { url: string }) {
   const gltf = useGLTF(url);
-  return <primitive object={gltf.scene.clone()} />;
+  const scene=useMemo(()=>{const copy=gltf.scene.clone(true);copy.traverse(node=>{if(/^(COL_|COLLISION$|SLOT_.*_placeholder$|AUDIO_|TRIGGER_|INTERACT_|SPAWN_)/.test(node.name))node.visible=false});return copy},[gltf.scene]);
+  return <primitive object={scene} />;
 }
 
 function PlacementPlaceholder({
@@ -186,6 +190,7 @@ export function WorldPlacementLayer({ chunks, selectedId, onSelect, assetMap = {
               }}
             >
               <PlacementModel url={glbUrl} />
+              <BuildingInteriorLayer value={p.interior}/>
               {selectedId === p.id && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 1, 0]}>
                   <ringGeometry args={[1.2, 1.5, 32]} />
@@ -221,3 +226,4 @@ export function WorldPlacementLayer({ chunks, selectedId, onSelect, assetMap = {
     </group>
   );
 }
+

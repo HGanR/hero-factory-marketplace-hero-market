@@ -1,0 +1,970 @@
+{
+  "asset": {
+    "assetId": "storefront",
+    "version": "2.0.0",
+    "units": "meters",
+    "upAxis": "Y",
+    "forwardAxis": "+Z",
+    "floors": 3,
+    "floorLevels": [
+      0.45,
+      4.05,
+      7.65
+    ],
+    "floorHeight": 3.6,
+    "layout": "open-plan",
+    "materials": "Gloss finish uses KHR_materials_clearcoat; reflections need an environment map (IBL) in the viewer.",
+    "conventions": "COL_* = collision (hidden), SLOT_* = attach points, AUDIO_* = emitters, TRIGGER_* = zones, INTERACT_* = interaction points, SPAWN_* = spawn points, DECOR_* = removable decoration. Slot nodes face +Z."
+  },
+  "movement": {
+    "stairSlopeDeg": 30.96,
+    "stepRise": 0.18,
+    "stepTread": 0.3,
+    "recommendation": "Collide with COL_* ramps (walkable), not visible steps; controller max slope >= 35 deg."
+  },
+  "slots": {
+    "frames": [
+      {
+        "id": "SLOT_frame_01",
+        "position": [
+          -5.5,
+          2.15,
+          -5.85
+        ],
+        "floor": 1,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_02",
+        "position": [
+          -1.8,
+          2.15,
+          -5.85
+        ],
+        "floor": 1,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_03",
+        "position": [
+          1.8,
+          2.15,
+          -5.85
+        ],
+        "floor": 1,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_04",
+        "position": [
+          5.5,
+          2.15,
+          -5.85
+        ],
+        "floor": 1,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_05",
+        "position": [
+          -5.5,
+          5.75,
+          -5.85
+        ],
+        "floor": 2,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_06",
+        "position": [
+          -1.8,
+          5.75,
+          -5.85
+        ],
+        "floor": 2,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_07",
+        "position": [
+          1.8,
+          5.75,
+          -5.85
+        ],
+        "floor": 2,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_08",
+        "position": [
+          5.5,
+          5.75,
+          -5.85
+        ],
+        "floor": 2,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_09",
+        "position": [
+          -5.5,
+          9.35,
+          -5.85
+        ],
+        "floor": 3,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_10",
+        "position": [
+          -1.8,
+          9.35,
+          -5.85
+        ],
+        "floor": 3,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_11",
+        "position": [
+          1.8,
+          9.35,
+          -5.85
+        ],
+        "floor": 3,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      },
+      {
+        "id": "SLOT_frame_12",
+        "position": [
+          5.5,
+          9.35,
+          -5.85
+        ],
+        "floor": 3,
+        "size": [
+          1.6,
+          1.0
+        ],
+        "aspect": "16:10"
+      }
+    ],
+    "billboards": [
+      {
+        "id": "SLOT_billboard_01",
+        "position": [
+          0.0,
+          13.25,
+          3.5
+        ],
+        "size": [
+          6.0,
+          2.4
+        ],
+        "aspect": "5:2"
+      }
+    ],
+    "tickers": [
+      {
+        "id": "SLOT_ticker_01",
+        "position": [
+          4.5,
+          3.25,
+          6.6
+        ],
+        "size": [
+          2.9,
+          0.32
+        ]
+      }
+    ],
+    "furniture": [
+      {
+        "id": "SLOT_furniture_F1_01",
+        "position": [
+          -2.5,
+          0.45,
+          0.5
+        ],
+        "floor": 1,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F1_02",
+        "position": [
+          -6.0,
+          0.45,
+          0.5
+        ],
+        "floor": 1,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F1_03",
+        "position": [
+          -6.0,
+          0.45,
+          -3.5
+        ],
+        "floor": 1,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F1_04",
+        "position": [
+          -2.5,
+          0.45,
+          -3.5
+        ],
+        "floor": 1,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F1_05",
+        "position": [
+          1.0,
+          0.45,
+          -3.5
+        ],
+        "floor": 1,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F1_06",
+        "position": [
+          1.0,
+          0.45,
+          1.0
+        ],
+        "floor": 1,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F2_01",
+        "position": [
+          -2.5,
+          4.05,
+          0.5
+        ],
+        "floor": 2,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F2_02",
+        "position": [
+          1.0,
+          4.05,
+          0.5
+        ],
+        "floor": 2,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F2_03",
+        "position": [
+          -2.5,
+          4.05,
+          -3.5
+        ],
+        "floor": 2,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F2_04",
+        "position": [
+          1.0,
+          4.05,
+          -3.5
+        ],
+        "floor": 2,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F2_05",
+        "position": [
+          5.5,
+          4.05,
+          -4.0
+        ],
+        "floor": 2,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F2_06",
+        "position": [
+          -6.0,
+          4.05,
+          -4.0
+        ],
+        "floor": 2,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F2_07",
+        "position": [
+          -1.5,
+          4.05,
+          4.6
+        ],
+        "floor": 2,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "display",
+          "seating",
+          "plant",
+          "lamp"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F3_01",
+        "position": [
+          -2.5,
+          7.65,
+          0.5
+        ],
+        "floor": 3,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F3_02",
+        "position": [
+          1.0,
+          7.65,
+          0.5
+        ],
+        "floor": 3,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F3_03",
+        "position": [
+          -2.5,
+          7.65,
+          -3.5
+        ],
+        "floor": 3,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F3_04",
+        "position": [
+          1.0,
+          7.65,
+          -3.5
+        ],
+        "floor": 3,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F3_05",
+        "position": [
+          5.5,
+          7.65,
+          0.5
+        ],
+        "floor": 3,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F3_06",
+        "position": [
+          5.5,
+          7.65,
+          -3.5
+        ],
+        "floor": 3,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "counter",
+          "shelf",
+          "seating",
+          "display",
+          "desk",
+          "plant",
+          "lamp",
+          "rug"
+        ]
+      },
+      {
+        "id": "SLOT_furniture_F3_07",
+        "position": [
+          -1.5,
+          7.65,
+          4.6
+        ],
+        "floor": 3,
+        "footprint": [
+          2.4,
+          1.8
+        ],
+        "allowedCategories": [
+          "display",
+          "seating",
+          "plant",
+          "lamp"
+        ]
+      }
+    ],
+    "props": [
+      {
+        "id": "SLOT_prop_exterior_01",
+        "position": [
+          -9.4,
+          0,
+          7.0
+        ],
+        "allowedCategories": [
+          "lamp",
+          "planter",
+          "bench",
+          "flag",
+          "sign"
+        ]
+      },
+      {
+        "id": "SLOT_prop_exterior_02",
+        "position": [
+          9.4,
+          0,
+          7.0
+        ],
+        "allowedCategories": [
+          "lamp",
+          "planter",
+          "bench",
+          "flag",
+          "sign"
+        ]
+      },
+      {
+        "id": "SLOT_prop_exterior_03",
+        "position": [
+          -9.4,
+          0,
+          0.5
+        ],
+        "allowedCategories": [
+          "lamp",
+          "planter",
+          "bench",
+          "flag",
+          "sign"
+        ]
+      },
+      {
+        "id": "SLOT_prop_exterior_04",
+        "position": [
+          9.4,
+          0,
+          0.5
+        ],
+        "allowedCategories": [
+          "lamp",
+          "planter",
+          "bench",
+          "flag",
+          "sign"
+        ]
+      },
+      {
+        "id": "SLOT_prop_exterior_05",
+        "position": [
+          -9.4,
+          0,
+          -5.0
+        ],
+        "allowedCategories": [
+          "lamp",
+          "planter",
+          "bench",
+          "flag",
+          "sign"
+        ]
+      },
+      {
+        "id": "SLOT_prop_exterior_06",
+        "position": [
+          9.4,
+          0,
+          -5.0
+        ],
+        "allowedCategories": [
+          "lamp",
+          "planter",
+          "bench",
+          "flag",
+          "sign"
+        ]
+      }
+    ],
+    "interact": [
+      {
+        "id": "INTERACT_counter_01",
+        "position": [
+          -2.5,
+          0.45,
+          2.2
+        ],
+        "linkedSlot": "SLOT_furniture_F1_01",
+        "radius": 1.2
+      }
+    ],
+    "audio": [
+      {
+        "id": "AUDIO_plaza",
+        "position": [
+          4.5,
+          2.0,
+          7.0
+        ],
+        "floor": 0,
+        "refDistance": 4.0,
+        "maxDistance": 18.0
+      },
+      {
+        "id": "AUDIO_floor_1",
+        "position": [
+          0,
+          2.0500000000000003,
+          0
+        ],
+        "floor": 1,
+        "refDistance": 4.0,
+        "maxDistance": 18.0
+      },
+      {
+        "id": "AUDIO_floor_2",
+        "position": [
+          0,
+          5.65,
+          0
+        ],
+        "floor": 2,
+        "refDistance": 4.0,
+        "maxDistance": 18.0
+      },
+      {
+        "id": "AUDIO_floor_3",
+        "position": [
+          0,
+          9.25,
+          0
+        ],
+        "floor": 3,
+        "refDistance": 4.0,
+        "maxDistance": 18.0
+      }
+    ],
+    "triggers": [
+      {
+        "id": "TRIGGER_enter_building",
+        "position": [
+          4.5,
+          1.2,
+          7.0
+        ],
+        "size": [
+          4.0,
+          2.4,
+          3.6
+        ],
+        "action": "show_enter_hud",
+        "label": "Enter Building"
+      },
+      {
+        "id": "TRIGGER_floor_1",
+        "position": [
+          0,
+          2.0500000000000003,
+          -1.0
+        ],
+        "size": [
+          16,
+          3.4,
+          10
+        ],
+        "action": "set_floor",
+        "floor": 1
+      },
+      {
+        "id": "TRIGGER_floor_2",
+        "position": [
+          0,
+          5.65,
+          -1.0
+        ],
+        "size": [
+          16,
+          3.4,
+          10
+        ],
+        "action": "set_floor",
+        "floor": 2
+      },
+      {
+        "id": "TRIGGER_floor_3",
+        "position": [
+          0,
+          9.25,
+          -1.0
+        ],
+        "size": [
+          16,
+          3.4,
+          10
+        ],
+        "action": "set_floor",
+        "floor": 3
+      }
+    ],
+    "spawn": [
+      {
+        "id": "SPAWN_entry",
+        "position": [
+          4.5,
+          0,
+          9.0
+        ],
+        "facing": "-Z"
+      }
+    ],
+    "decor": [
+      {
+        "id": "DECOR_tree_01",
+        "position": [
+          -11.6,
+          0,
+          -5.5
+        ],
+        "scale": 1.0
+      },
+      {
+        "id": "DECOR_tree_02",
+        "position": [
+          -11.6,
+          0,
+          0.5
+        ],
+        "scale": 1.15
+      },
+      {
+        "id": "DECOR_tree_03",
+        "position": [
+          -11.6,
+          0,
+          6.8
+        ],
+        "scale": 0.95
+      },
+      {
+        "id": "DECOR_tree_04",
+        "position": [
+          11.6,
+          0,
+          -5.5
+        ],
+        "scale": 1.1
+      },
+      {
+        "id": "DECOR_tree_05",
+        "position": [
+          11.6,
+          0,
+          0.5
+        ],
+        "scale": 0.95
+      },
+      {
+        "id": "DECOR_tree_06",
+        "position": [
+          11.6,
+          0,
+          6.8
+        ],
+        "scale": 1.1
+      },
+      {
+        "id": "DECOR_tree_07",
+        "position": [
+          11.6,
+          0,
+          10.5
+        ],
+        "scale": 1.0
+      },
+      {
+        "id": "DECOR_tree_08",
+        "position": [
+          -0.2,
+          0,
+          10.6
+        ],
+        "scale": 1.05
+      }
+    ]
+  }
+}

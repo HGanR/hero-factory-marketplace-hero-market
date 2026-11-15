@@ -9,6 +9,8 @@
 
 "use client";
 
+import {STOREFRONT} from '@/lib/world-assets/storefront';
+
 import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
@@ -1984,7 +1986,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onSaveSnapshot={saveSnapshot}
         saveReady={layoutReady}
         airportPlaced={imports.some(isAirport)}
-        onPlaceGlbAsset={key=>{if(key!==AIRPORT.key)return;try{const next=placeAirport(imports);if(next===imports)return;saveToHistory();setImports(next);setIsEditorMode(true);handleSelectAirport(next[next.length-1].elementKey);setSnapToPosition([...INTERSECTION_SPAWN]);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
+        onPlaceGlbAsset={key=>{if(key!==AIRPORT.key&&key!==STOREFRONT.key)return;try{if(imports.length>=100)throw new Error('The town supports 100 imported models.');const next=key===AIRPORT.key?placeAirport(imports):[...imports,{elementKey:STOREFRONT.key+'-'+crypto.randomUUID().slice(0,8),glbUrl:STOREFRONT.modelUrl,position:[...INTERSECTION_SPAWN] as [number,number,number],scale:1,rotationY:0}];if(next===imports)return;saveToHistory();setImports(next);setIsEditorMode(true);handleSelectAirport(next[next.length-1].elementKey);setSnapToPosition([...INTERSECTION_SPAWN]);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
         isEditorMode={isEditorMode}
         onToggleEditor={() => {setWorldFirstPerson(false);setWorldFreeLook(false);setIsEditorMode(e => !e);}}
         currentWorldId={currentWorldId}

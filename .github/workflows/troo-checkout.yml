@@ -1,7 +1,7 @@
 name: TROO checkout verification
 on:
   push:
-    branches: ['feat/troo-verified-checkout-20261111']
+    branches: ['feat/troo-verified-checkout-20261111', 'feat/storefront-owned-interiors-20261115']
   workflow_dispatch:
 permissions:
   contents: read
@@ -31,3 +31,10 @@ jobs:
           CHECKOUT_TEST_DATABASE: '1'
           DATABASE_URL: mysql://root:ci-checkout-only@127.0.0.1:3306/checkout_test
       - run: npx tsc -p tests/checkout/tsconfig.json
+
+
+      - run: node --test tests/troo-town/owned-interiors.test.cjs tests/troo-town/interior-editor-ui.test.cjs
+        env:
+          TOWN_TEST_DEPS: ${{ github.workspace }}/node_modules
+          NODE_PATH: ${{ github.workspace }}/node_modules
+      - run: npx tsc -p tests/world-assets/tsconfig.json

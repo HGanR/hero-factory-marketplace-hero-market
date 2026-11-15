@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 
-export type EditorNavTab = "assets" | "commerce" | "portals" | "venue" | null;
+export type EditorNavTab = "assets" | "interior" | "commerce" | "portals" | "venue" | null;
 
 interface EditorNavBarProps {
   activeTab: EditorNavTab;
@@ -80,6 +80,7 @@ export function EditorNavBar({
         >
           📦 Owned Assets {assetsCount > 0 && `(${assetsCount})`}
         </button>
+        <button type="button" style={{...TAB_STYLE,borderBottomColor:activeTab==='interior'?'#10b981':'transparent'}} onClick={()=>onTabChange(activeTab==='interior'?null:'interior')}>Interior library</button>
         <button
           type="button"
           onClick={() => onTabChange(activeTab === "commerce" ? null : "commerce")}
@@ -142,3 +143,4 @@ export function EditorNavBar({
     </div>
   );
 }
+

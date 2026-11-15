@@ -1,0 +1,43 @@
+import slots from './storefront-slots.json';
+import {STOREFRONT} from './storefront';
+export type InteriorItem={id:string;kind:'desk'|'chair'|'lamp'|'wall-art'|'agent';slotId:string;rotationY:number;image?:string;href?:string;agentId?:string;label?:string};
+export const INTERIOR_SLOTS=[...slots.slots.furniture.map(s=>({...s,type:'furniture' as const})),...slots.slots.frames.map(s=>({...s,type:'frame' as const}))];
+export function safeInteriorLink(value:unknown):string|undefined{
+ if(value===undefined||value==='')return undefined;
+ if(typeof value!=='string'||value.length>1500)throw new Error('Invalid wall link.');
+ const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password)throw new Error('Wall links must use HTTPS.');return u.href;
+}
+/** Server and renderer share strict data-only validation. No SVG, scripts or remote fetches. */
+export function validateInterior(value:unknown):InteriorItem[]{
+ if(value===undefined)return [];
+ if(!Array.isArray(value)||value.length>40)throw new Error('A building supports up to 40 interior items.');
+ const ids=new Set<string>(),occupied=new Set<string>();
+ return value.map(raw=>{
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Invalid interior item.');
+  const r=raw as Record<string,unknown>,slot=INTERIOR_SLOTS.find(s=>s.id===r.slotId);
+  if(typeof r.id!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(r.id)||ids.has(r.id)||!slot||occupied.has(slot.id))throw new Error('Invalid or duplicate interior slot.');
+  ids.add(r.id);occupied.add(slot.id);
+  if(!['desk','chair','lamp','wall-art','agent'].includes(String(r.kind))||(r.kind==='wall-art')!==(slot.type==='frame'))throw new Error('Choose a compatible slot.');
+  const category={desk:'desk',chair:'seating',lamp:'lamp',agent:'display'}[r.kind as 'desk'|'chair'|'lamp'|'agent'];
+  if(slot.type==='furniture'&&!slot.allowedCategories.includes(category))throw new Error('This slot does not allow that furnishing.');
+  if(typeof r.rotationY!=='number'||!Number.isFinite(r.rotationY)||Math.abs(r.rotationY)>Math.PI*2)throw new Error('Invalid furnishing rotation.');
+  const item:InteriorItem={id:r.id,kind:r.kind as InteriorItem['kind'],slotId:slot.id,rotationY:r.rotationY};
+  if(item.kind==='wall-art'){
+   if(typeof r.image!=='string'||r.image.length>140000||!/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/=]+$/.test(r.image))throw new Error('Upload a PNG image of at most 100 KB.');
+   item.image=r.image;item.href=safeInteriorLink(r.href);
+  }
+  if(item.kind==='agent'){
+   if(typeof r.agentId!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(r.agentId))throw new Error('Choose an existing public agent.');
+   item.agentId=r.agentId;
+  }
+  if(typeof r.label==='string')item.label=r.label.trim().slice(0,80);
+  return item;
+ });
+}
+export function validatePlacementInteriors(chunks:Array<{placementsJson:unknown}>,assetIds:Set<string>){
+ for(const chunk of chunks){if(!Array.isArray(chunk.placementsJson))throw new Error('Invalid placement list.');for(const p of chunk.placementsJson){
+  if(!p||typeof p!=='object')throw new Error('Invalid placement.');
+  if(p.interior!==undefined){if(!assetIds.has(p.assetId))throw new Error('This asset does not support interior editing.');p.interior=validateInterior(p.interior);}
+ }}
+}
+export const INTERIOR_MODEL=STOREFRONT.modelUrl;

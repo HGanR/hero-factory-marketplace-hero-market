@@ -1,3 +1,4 @@
+import type {InteriorItem} from '@/lib/world-assets/interior';
 /**
  * Chunk key and placement utilities for world editor.
  * Chunk size: 64m. Key format: "cx_cz" where cx = floor(x/64), cz = floor(z/64).
@@ -12,6 +13,7 @@ export interface Placement {
   rotation: [number, number, number];
   scale: [number, number, number];
   ownerLayer?: string;
+  interior?: InteriorItem[];
 }
 
 export function positionToChunkKey(x: number, z: number): string {
@@ -44,6 +46,7 @@ export function chunksToPlacements(
       for (const p of raw) {
         if (p && typeof p === "object" && Array.isArray((p as Placement).position)) {
           placements.push({
+            ...((p as Placement).interior === undefined ? {} : {interior:(p as Placement).interior}),
             id: (p as Placement).id ?? `obj-${chunk.chunkKey}-${placements.length}`,
             assetId: (p as Placement).assetId ?? "unknown",
             position: (p as Placement).position,
@@ -57,3 +60,4 @@ export function chunksToPlacements(
   }
   return placements;
 }
+

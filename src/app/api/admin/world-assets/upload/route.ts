@@ -7,13 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs/promises";
-import { verifyToken } from "@/lib/auth";
+import {engineRouteActor,requireSameOrigin} from '@/lib/security/engine-route-access';
 
-function requireAdmin(request: NextRequest) {
-  const token = request.cookies.get("admin-token")?.value || request.cookies.get("auth-token")?.value;
-  if (!token) throw new Error("Unauthorized");
-  const decoded = verifyToken(token);
-  if (!decoded?.isAdmin && !decoded?.userId) throw new Error("Forbidden");
+async function requireAdmin(request:NextRequest){
+  const actor=await engineRouteActor(request);if(!actor.admin)throw new Error('Forbidden');requireSameOrigin(request);
 }
 
 const MAX_GLB_BYTES = 50 * 1024 * 1024; // 50MB
@@ -22,7 +19,7 @@ const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
 export async function POST(request: NextRequest) {
   try {
-    requireAdmin(request);
+    await requireAdmin(request);
     const form = await request.formData();
     const glb = form.get("glb") as File | null;
     const previewImage = form.get("previewImage") as File | null;
@@ -78,3 +75,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

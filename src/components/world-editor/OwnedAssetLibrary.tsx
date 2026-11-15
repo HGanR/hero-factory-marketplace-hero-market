@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { transferTrooToTreasury } from "@/lib/troo-payment";
+import { purchaseWithWallet, recoverPurchase } from "@/lib/world-checkout/client";
 
 export interface OwnedAsset {
   id: string;
@@ -45,7 +45,8 @@ export function OwnedAssetLibrary({
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
-  const { isConnected } = useAccount();
+  const { isConnected, address, connector } = useAccount();
+  const [purchaseStatus, setPurchaseStatus] = useState("");
 
   const [catalogCategory, setCatalogCategory] = useState<string>("all");
 
@@ -68,23 +69,19 @@ export function OwnedAssetLibrary({
     setPurchaseError(null);
     setPurchasing(assetId);
     try {
-      let txRef: string | undefined;
+      let json;
       if (tokenPrice > 0) {
-        if (!isConnected) {
-          setPurchaseError("Connect your wallet to purchase with TROO.");
-          return;
-        }
-        const payment = await transferTrooToTreasury(tokenPrice);
-        txRef = payment.hash;
+        if (!isConnected || !address || !connector) throw new Error("Connect your Polygon wallet first.");
+        json = await purchaseWithWallet(assetId, connector, address, setPurchaseStatus);
+      } else {
+        const res = await fetch(`/api/world-assets/${encodeURIComponent(assetId)}/purchase`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          credentials: "same-origin", body: "{}",
+        });
+        json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Purchase failed");
       }
-      const res = await fetch(`/api/world-assets/${assetId}/purchase`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ txRef }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (res.ok && json.success) {
+      if (json.success) {
         onAssetPurchased?.();
         setShowCatalog(false);
       } else {
@@ -141,6 +138,7 @@ export function OwnedAssetLibrary({
           >
             {showCatalog ? "▼ Hide catalog" : "Browse & buy assets"}
           </button>
+          {purchaseStatus && <p role="status" style={{color:"#a0d4ff",fontSize:12}}>{purchaseStatus}</p>}
           {purchaseError && (
             <div style={{ color: "#f87171", fontSize: 11, marginBottom: 4 }}>{purchaseError}</div>
           )}
@@ -191,6 +189,13 @@ export function OwnedAssetLibrary({
                       }}
                     >
                       <span style={{ color: "#e0f4ff" }}>{a.name}</span>
+                      {a.tokenPrice > 0 && address && <button disabled={!!purchasing} onClick={async()=>{
+                        const hash=window.prompt("Recover an existing payment: full Polygon transaction hash. No new payment will be sent.");
+                        if(!hash)return;setPurchasing(a.id);setPurchaseError(null);
+                        try{await recoverPurchase(a.id,address,hash);onAssetPurchased?.();setShowCatalog(false);setPurchaseStatus("Purchase recovered.");}
+                        catch(error){setPurchaseError(error instanceof Error?error.message:"Recovery failed");}
+                        finally{setPurchasing(null);}
+                      }}>Recover payment</button>}
                       {ownedIds.has(a.id) ? (
                         <span style={{ color: "#10b981", fontSize: 10 }}>Owned</span>
                       ) : (
@@ -207,7 +212,7 @@ export function OwnedAssetLibrary({
                             cursor: purchasing === a.id ? "wait" : "pointer",
                           }}
                         >
-                          {purchasing === a.id ? "..." : a.tokenPrice > 0 ? `Buy (${a.tokenPrice})` : "Get free"}
+                          {purchasing === a.id ? "..." : a.tokenPrice > 0 ? `Buy (${a.tokenPrice} TROO)` : "Get free"}
                         </button>
                       )}
                     </div>
@@ -266,3 +271,4 @@ export function OwnedAssetLibrary({
     </div>
   );
 }
+
