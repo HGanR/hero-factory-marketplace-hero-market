@@ -24,6 +24,13 @@ export function validateInterior(value:unknown):InteriorItem[]{
   const item:InteriorItem={id:r.id,kind:r.kind as InteriorItem['kind'],slotId:slot.id,rotationY:r.rotationY};
   if(item.kind==='wall-art'){
    if(typeof r.image!=='string'||r.image.length>140000||!/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/=]+$/.test(r.image))throw new Error('Upload a PNG image of at most 100 KB.');
+   try{
+    const bytes=Uint8Array.from(atob(r.image.slice(22)),c=>c.charCodeAt(0));
+    const view=new DataView(bytes.buffer);
+    if(bytes.length<45||view.getUint32(0)!==0x89504e47||view.getUint32(4)!==0x0d0a1a0a||view.getUint32(8)!==13||view.getUint32(12)!==0x49484452||view.getUint32(bytes.length-8)!==0x49454e44||view.getUint32(bytes.length-4)!==0xae426082)throw new Error();
+    const width=view.getUint32(16),height=view.getUint32(20);
+    if(!width||!height||width>512||height>512)throw new Error();
+   }catch{throw new Error('Wall artwork must be a valid PNG no larger than 512 × 512 pixels.');}
    item.image=r.image;item.href=safeInteriorLink(r.href);
   }
   if(item.kind==='agent'){

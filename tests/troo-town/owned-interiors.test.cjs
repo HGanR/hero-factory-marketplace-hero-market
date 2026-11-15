@@ -15,6 +15,7 @@ test('furnishings and linked artwork survive world save/load without changing ot
 });
 test('malicious links, non-raster images, duplicates and incompatible furnishing slots are rejected',()=>{
  for(const bad of [{...art,href:'javascript:alert(1)'},{...art,href:'https://user:secret@example.com'},{...art,image:'data:image/svg+xml;base64,abcd'},{...desk,rotationY:NaN},{...desk,slotId:'SLOT_frame_01'},{...desk,slotId:'SLOT_furniture_F1_01'}])assert.throws(()=>validateInterior([bad]));
+ const oversized=Buffer.from(art.image.slice(22),'base64');oversized.writeUInt32BE(8192,16);assert.throws(()=>validateInterior([{...art,image:'data:image/png;base64,'+oversized.toString('base64')}]));
  assert.throws(()=>validateInterior([desk,{...desk,id:'other'}]));assert.throws(()=>validateInterior([art,{...art,id:'other',slotId:'SLOT_frame_02',image:'x'.repeat(140001)}]));
 });
 test('interior payload cannot be smuggled into an unsupported catalog asset',()=>{
