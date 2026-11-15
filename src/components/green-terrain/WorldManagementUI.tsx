@@ -20,6 +20,8 @@ import StadiumEventsEditor from './StadiumEventsEditor';
 import type {StadiumSettings} from '@/lib/troo-world/stadium-events';
 import ModelScaleControl from './ModelScaleControl';
 import type {ImportedPlacement} from '@/lib/troo-world/airport';
+import {importedBuildingName} from '@/lib/troo-world/office-building';
+import {isAirport} from '@/lib/troo-world/airport';
 import {STOREFRONT} from '@/lib/world-assets/storefront';
 import {AIRPORT} from '@/lib/troo-world/airport';
 import { useState, useCallback, useEffect } from "react";
@@ -176,6 +178,8 @@ interface WorldManagementUIProps {
   onStadiumSettingsChange?:(value:StadiumSettings)=>void;
   onSaveSnapshot?:()=>Promise<void>;
   saveReady?:boolean;
+  interiorPanel?:React.ReactNode;
+  onOpenInterior?:()=>void;
   onPlaceGlbAsset?:(key:string)=>void;
   airportPlaced?:boolean;
   isEditorMode: boolean;
@@ -211,6 +215,7 @@ interface WorldManagementUIProps {
 
 export default function WorldManagementUI({
   previewMode=false,stadiumSettings,onStadiumSettingsChange,
+  interiorPanel,onOpenInterior,
   onSaveSnapshot,saveReady=true,onPlaceGlbAsset,airportPlaced=false,
   isEditorMode,
   onToggleEditor,
@@ -239,7 +244,7 @@ export default function WorldManagementUI({
   const [isOpen, setIsOpen] = useState(true);
   const [listingNotice,setListingNotice]=useState("");
   const [listingBusy,setListingBusy]=useState(false);
-  const [activeTab, setActiveTab] = useState<"worlds" | "library" | "events" | "save">("worlds");
+  const [activeTab, setActiveTab] = useState<"worlds" | "library" | "events" | "interior" | "save">("worlds");
   const [worlds, setWorlds] = useState<WorldRecord[]>([
     { id: "default", name: "Troo World", slug: "troo-world", isDefault: true, isPublished: true },
     { id: "green-terrain", name: "Green Terrain World", slug: "green-terrain", isDefault: false, isPublished: false },
@@ -277,7 +282,7 @@ export default function WorldManagementUI({
           posZ: e.posZ,
         }));
         const cardinalLabels = new Set(DEFAULT_CARDINAL_PLAINS.map((p) => p.label));
-        const hasCardinal = dbPlains.some((p) => cardinalLabels.has(p.label));
+        const hasCardinal = dbPlains.some((p:{label:string}) => cardinalLabels.has(p.label));
         const merged = hasCardinal ? dbPlains : [...DEFAULT_CARDINAL_PLAINS, ...dbPlains];
         setPlains(merged);
       })
@@ -742,10 +747,10 @@ export default function WorldManagementUI({
 
         {/* Tabs */}
         <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          {(["worlds", "library", "events", "save"] as const).map(tab => (
+          {(["worlds", "library", "interior", "events", "save"] as const).map(tab => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {setActiveTab(tab);if(tab==='interior')onOpenInterior?.()}}
               style={{
                 flex: 1,
                 background: activeTab === tab ? "rgba(42,111,189,0.2)" : "transparent",
@@ -757,7 +762,7 @@ export default function WorldManagementUI({
                 fontSize: 11,
                 textTransform: "capitalize",
               }}
-            >{tab === "worlds" ? "🌍 Worlds" : tab === "library" ? "📦 Library" : tab === "events" ? "Events" : "💾 Save"}</button>
+            >{tab === "worlds" ? "🌍 Worlds" : tab === "library" ? "📦 Library" : tab === "events" ? "Events" : tab === "interior" ? "Interior" : "💾 Save"}</button>
           ))}
         </div>
 
@@ -838,7 +843,7 @@ export default function WorldManagementUI({
               </div>
 
               <div style={{color:'#b9e1ff',fontSize:12}}>
-                <button disabled={listingBusy} onClick={async()=>{setListingBusy(true);try{const res=await fetch('/api/admin/world-assets/storefront',{method:'POST'});const data=await res.json();if(!res.ok)throw new Error(data.error);setListingNotice(`Storefront ${data.status==='draft'?'saved as a preview draft':'published'} for ${data.tokenPrice} TROO. ${data.status==='draft'?'Public sales remain off until the live release.':'Buyers find it in World Explorer → My asset library.'}`);}catch(error){setListingNotice(error instanceof Error?error.message:'Listing failed');}finally{setListingBusy(false);}}}>{listingBusy?'Registering…':'List storefront for 5 TROO'}</button>
+                <button disabled={listingBusy} onClick={async()=>{setListingBusy(true);try{const res=await fetch('/api/admin/world-assets/storefront',{method:'POST'});const data=await res.json();if(!res.ok)throw new Error(data.error);setListingNotice(`${STOREFRONT.name} ${data.status==='draft'?'saved as a preview draft':'published'} for ${data.tokenPrice} TROO. ${data.status==='draft'?'Public sales remain off until the live release.':'Buyers find it in World Explorer → My asset library.'}`);}catch(error){setListingNotice(error instanceof Error?error.message:'Listing failed');}finally{setListingBusy(false);}}}>{listingBusy?'Registering…':'List Level 1 Office Bldg for 5 TROO'}</button>
                 <p role="status">{listingNotice}</p>
               </div>
               {filteredLibrary.map(item => (
@@ -892,6 +897,7 @@ export default function WorldManagementUI({
             </>
           )}
 
+          {activeTab === "interior" && interiorPanel}
           {activeTab === "events" && onStadiumSettingsChange && onSaveSnapshot && <StadiumEventsEditor value={stadiumSettings} onChange={onStadiumSettingsChange} onSave={onSaveSnapshot} disabled={!saveReady}/>}
           {/* ── Save tab ── */}
           {activeTab === "save" && (
@@ -945,7 +951,7 @@ export default function WorldManagementUI({
                   >Reset</button>
                 </div>
                 {onVeritasScaleChange&&<ModelScaleControl label="Veritas" value={veritasScale} onChange={onVeritasScaleChange}/>}
-                {onAirportScaleChange&&airportModels.map(airport=><ModelScaleControl key={airport.elementKey} label="Airport" value={airport.scale} resetValue={AIRPORT.defaultScale} onChange={value=>onAirportScaleChange(airport.elementKey,value)}/>)}
+                {onAirportScaleChange&&airportModels.map(airport=><ModelScaleControl key={airport.elementKey} label={isAirport(airport)?"Airport":importedBuildingName(airport)} value={airport.scale} resetValue={isAirport(airport)?AIRPORT.defaultScale:1} onChange={value=>onAirportScaleChange(airport.elementKey,value)}/>)}
                 <div style={{ color: "#fff", fontSize: 12 }}>🌲 {trees.length} trees</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>📦 {placedObjects.length} environment objects</div>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 4 }}>Publish target: {currentWorldId}</div>

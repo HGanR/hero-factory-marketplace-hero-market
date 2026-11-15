@@ -9,6 +9,10 @@
 
 "use client";
 
+import BuildingInteriorEditor from '../world-editor/BuildingInteriorEditor';
+import BuildingInteriorLayer from '../world-viewer/BuildingInteriorLayer';
+import {officeEntry,officeWalker,isOffice,importedBuildingName,BUILDING_NAMES} from '@/lib/troo-world/office-building';
+import type {InteriorItem} from '@/lib/world-assets/interior';
 import {STOREFRONT} from '@/lib/world-assets/storefront';
 
 import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from "react";
@@ -684,6 +688,8 @@ function getMeridianCollisionBoxes(
 // ─── Scene ────────────────────────────────────────────────────────────────────
 interface SceneProps {
   onFocusAirport:(placement:ImportedPlacement)=>void;
+  onEnterOffice:(placement:ImportedPlacement)=>void;
+  insideOfficeKey:string|null;
   selectedAirportKey:string|null;
   onSelectAirport:(key:string|null)=>void;
   onMoveAirport:(key:string,pos:[number,number,number],saveHistory?:boolean)=>void;
@@ -746,7 +752,7 @@ interface SceneProps {
   onNexusFloorChange: (floor: number) => void;
   onMeridianFloorChange: (floor: number) => void;
   onTroothhertzFloorChange: (floor: number) => void;
-  insideBuilding: "nexus" | "meridian" | "troothhertz" | "stadium" | null;
+  insideBuilding: "nexus" | "meridian" | "troothhertz" | "stadium" | "office" | null;
   targetFloorY: number | undefined;
   freeLook: boolean;
   onFreeLookChange: (v: boolean) => void;
@@ -776,15 +782,17 @@ function BuildingPresentation({state,alreadyScaled=false,children}:{state:Buildi
 
 function Scene(props: SceneProps) {
   const orbitRef = useRef<any>(null);
-  const { camera } = useThree();
+  const { camera,scene } = useThree();
+  const insideOffice=props.layout.imports.find(p=>p.elementKey===props.insideOfficeKey);
   const interiorMotion=useMemo(()=>{
+    if(props.insideBuilding==='office'&&insideOffice)return officeWalker(insideOffice,()=>scene.getObjectByName('Imported '+insideOffice.elementKey));
     const id=props.insideBuilding==='stadium'?'stadium-elyseum':props.insideBuilding==='nexus'?'nexus-tower':props.insideBuilding==='meridian'?'meridian-tower':'troothhertz-tower';
     const frame=props.layout.buildings[id] as InteriorFrame;
     if(props.insideBuilding==='stadium'&&presenceLocked(props.eventIdentity)){const pose=props.eventIdentity!.pose;return{move:()=>[pose.position[0],pose.position[1]+eyeHeightFor(pose),pose.position[2]] as [number,number,number],floor:()=>pose.position[1]};}
     if(props.insideBuilding==='stadium'){const stageAccess=props.eventIdentity?props.eventIdentity.role==='host'&&props.eventIdentity.floorRole!=='audience':!!props.presenceView.profile?.admin;const hostFrame={...frame,eyeHeight:1.7,stageAccess};return{move:(from:[number,number,number],wanted:[number,number,number])=>constrainStadiumMotion(from,wanted,hostFrame),floor:(x:number,z:number)=>stadiumFloorAt(x,z,hostFrame)};}
     const dimensions=props.insideBuilding==='nexus'?[5.5,5]:props.insideBuilding==='meridian'?[6.5,6]:[7,5.5];
     return{move:(_from:[number,number,number],wanted:[number,number,number])=>constrainRoomMotion(wanted,frame,dimensions[0],dimensions[1]),floor:undefined};
-  },[props.insideBuilding,props.layout,props.eventIdentity,props.presenceView.profile?.admin]);
+  },[props.insideBuilding,props.layout,props.eventIdentity,props.presenceView.profile?.admin,insideOffice,scene]);
   
   // Snap camera to position when a new object is placed
   useEffect(() => {
@@ -829,7 +837,8 @@ function Scene(props: SceneProps) {
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
       <AmbientTown layout={props.layout}/>
-      <ImportedTownModels selectedAirportKey={props.selectedAirportKey} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
+      <ImportedTownModels onEnterBuilding={props.cameraState==="world"?props.onEnterOffice:undefined} selectedAirportKey={props.selectedAirportKey} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
+      {Object.entries(props.layout.buildings).filter(([,frame])=>frame.visible).map(([id,frame])=><group key={'interior-'+id} position={frame.position} rotation={[0,frame.rotationY,0]} scale={frame.scale}><BuildingInteriorLayer value={frame.interior} allowPosition/>{props.isEditorMode&&(({'nexus-tower':props.nexusSelected,'meridian-tower':props.meridianSelected,'troothhertz-tower':props.troothhertzSelected,'stadium-elyseum':props.stadiumSelected,'veritas-school':props.veritasSelected} as Record<string,boolean>)[id])&&<mesh name={'Building selection ring '+id} position={[0,.12,0]} rotation={[-Math.PI/2,0,0]} raycast={()=>{}}><ringGeometry args={[id==='stadium-elyseum'?74:id==='veritas-school'?38:14,id==='stadium-elyseum'?74.5:id==='veritas-school'?38.5:14.3,96]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={THREE.DoubleSide} depthWrite={false}/></mesh>}</group>)}
       {/* Plain labels — TROO CENTER and cardinal plains */}
       {props.cameraState === "world" && (<PlainLabel position={[0, 0, 20]} name="TROO CENTER" />)}
       {props.cameraState === "world" && (<PlainLabel position={[0, 0, -95]} name="TROO NORTH" />)}
@@ -866,7 +875,7 @@ function Scene(props: SceneProps) {
         <CorporateBuilding
           position={props.nexusPos}
           onSelect={props.onSelectNexus}
-          isSelected={props.nexusSelected}
+          isSelected={!props.isEditorMode&&props.nexusSelected}
           currentElevatorFloor={props.nexusElevatorFloor}
         />
       </Suspense>
@@ -883,7 +892,7 @@ function Scene(props: SceneProps) {
       <Suspense fallback={null}>
         <MeridianTower
           position={props.meridianPos}
-          isSelected={props.meridianSelected}
+          isSelected={!props.isEditorMode&&props.meridianSelected}
           isEditorMode={props.isEditorMode}
           onSelect={props.onSelectMeridian}
           onShowInfo={props.onSelectMeridian}
@@ -903,7 +912,7 @@ function Scene(props: SceneProps) {
       <Suspense fallback={null}>
         <TroothhertzTower
           position={props.troothhertzPos}
-          isSelected={props.troothhertzSelected}
+          isSelected={!props.isEditorMode&&props.troothhertzSelected}
           onSelect={props.onSelectTroothhertz}
           onEnterBuilding={props.onEnterTroothhertz}
           onViewAgents={props.onViewTroothhertzAgents}
@@ -928,7 +937,7 @@ function Scene(props: SceneProps) {
         <StadiumElyseum
           position={props.stadiumPos}
           scale={props.stadiumScale}
-          isSelected={props.stadiumSelected}
+          isSelected={!props.isEditorMode&&props.stadiumSelected}
           onSelect={props.onSelectStadium}
           animate={props.insideBuilding === "stadium"}
           tickerText={props.layout.stadium?.tickerText}
@@ -946,7 +955,7 @@ function Scene(props: SceneProps) {
       <BuildingPresentation state={props.layout.buildings["veritas-school"]} >
       <VeritasSchool
         position={props.veritasPos}
-        isSelected={props.veritasSelected}
+        isSelected={!props.isEditorMode&&props.veritasSelected}
         onSelect={props.onSelectVeritas}
       />
       {props.cameraState === "world" && (<VeritasLabel
@@ -956,7 +965,7 @@ function Scene(props: SceneProps) {
       />)}
       </BuildingPresentation>
 
-      {props.isEditorMode && (
+      {props.isEditorMode && props.cameraState==="world" && (
         <InteractionController
           imports={props.layout.imports}
           terrainHeight={terrainHeight}
@@ -1072,7 +1081,7 @@ function Scene(props: SceneProps) {
       <FirstPersonControls
         touchInput={props.touchInput}
         active={props.cameraState === "inside"}
-        bounds={props.insideBuilding === "nexus" ? {
+        bounds={props.insideBuilding === "office"&&insideOffice?{minX:insideOffice.position[0]-20*insideOffice.scale,maxX:insideOffice.position[0]+20*insideOffice.scale,minZ:insideOffice.position[2]-20*insideOffice.scale,maxZ:insideOffice.position[2]+20*insideOffice.scale,floorY:insideOffice.position[1]+.45*insideOffice.scale}:props.insideBuilding === "nexus" ? {
           minX: props.nexusPos[0] - 5.5, maxX: props.nexusPos[0] + 5.5,
           minZ: props.nexusPos[2] - 4.5, maxZ: props.nexusPos[2] + 5.5,
           floorY: props.nexusPos[1] + props.nexusElevatorFloor * 3.2,  // 10 floors, 3.2m each
@@ -1092,7 +1101,7 @@ function Scene(props: SceneProps) {
         freeLook={props.freeLook}
         onFreeLookChange={props.onFreeLookChange}
         targetFloorY={props.targetFloorY}
-        elevatorPos={props.insideBuilding === "nexus"
+        elevatorPos={props.insideBuilding === "office"?new THREE.Vector3(9999,0,9999):props.insideBuilding === "nexus"
           ? new THREE.Vector3(props.nexusPos[0] + 5.5, 0, props.nexusPos[2] - 3)
           : props.insideBuilding === "meridian"
           ? new THREE.Vector3(props.meridianPos[0] + 6.5, 0, props.meridianPos[2] - 4)
@@ -1101,7 +1110,7 @@ function Scene(props: SceneProps) {
           : new THREE.Vector3(props.troothhertzPos[0] + 5.2, 0, props.troothhertzPos[2] - 3.7)
         }
         onElevatorNear={(near) => {
-          if (props.insideBuilding === "stadium") return;
+          if (props.insideBuilding === "stadium"||props.insideBuilding === "office") return;
           if (props.insideBuilding === "troothhertz") {
             props.onPlayerNearTroothhertzElevatorChange(near);
             if (near) props.onToggleTroothhertzElevatorPad();
@@ -1117,12 +1126,12 @@ function Scene(props: SceneProps) {
           ? [props.troothhertzPos[0] + 5.2, props.troothhertzPos[1], props.troothhertzPos[2] - 3.7]
           : undefined
         }
-        collisionBoxes={props.insideBuilding === "stadium" ? [] : props.collisionBoxes}
+        collisionBoxes={props.insideBuilding === "stadium"||props.insideBuilding === "office" ? [] : props.collisionBoxes}
         relocation={props.eventIdentity?{key:presencePlacementKey(props.eventIdentity),position:[props.eventIdentity.pose.position[0],props.eventIdentity.pose.position[1]+eyeHeightFor(props.eventIdentity.pose),props.eventIdentity.pose.position[2]],lookAt:[props.eventIdentity.pose.position[0]+Math.sin(props.eventIdentity.pose.yaw)*8,props.eventIdentity.pose.position[1]+eyeHeightFor(props.eventIdentity.pose)-.15,props.eventIdentity.pose.position[2]+Math.cos(props.eventIdentity.pose.yaw)*8]}:undefined}
         constrainMotion={interiorMotion.move}
         floorAt={interiorMotion.floor}
-        eyeHeight={props.eventIdentity?eyeHeightFor(props.eventIdentity.pose):1.7}
-        movementScale={props.insideBuilding === "stadium" ? props.stadiumScale : 1}
+        eyeHeight={props.insideBuilding==="office"&&insideOffice?1.7*insideOffice.scale:props.eventIdentity?eyeHeightFor(props.eventIdentity.pose):1.7}
+        movementScale={props.insideBuilding==="office"&&insideOffice?insideOffice.scale:props.insideBuilding === "stadium" ? props.stadiumScale : 1}
       />
 
       {/* World first-person controls (when in world view and first-person mode enabled) */}
@@ -1347,8 +1356,9 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [cameraState, setCameraState] = useState<CameraState>("world");
   const [buildingTarget, setBuildingTarget] = useState<BuildingTarget | null>(null);
   const [plainTarget, setPlainTarget] = useState<PlainTarget | null>(null);
-  const [insideBuilding, setInsideBuilding] = useState<"nexus" | "meridian" | "troothhertz" | "stadium" | null>(null);
+  const [insideBuilding, setInsideBuilding] = useState<"nexus" | "meridian" | "troothhertz" | "stadium" | "office" | null>(null);
 
+  const [insideOfficeKey,setInsideOfficeKey]=useState<string|null>(null);
   const [freeLook, setFreeLook] = useState(false);
   const [hoveredAgent, setHoveredAgent] = useState<HoveredAgentInfo | null>(null);
   const [eventConnection,setEventConnection]=useState<EventConnection|null>(null);
@@ -1407,6 +1417,12 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setChatActiveAgent(agentData);
   }, []);
 
+  const handleEnterOffice=useCallback((p:ImportedPlacement)=>{
+    if(!isOffice(p)||cameraState!=='world')return;
+    const target=officeEntry(p);setTargetFloorY(undefined);setInsideOfficeKey(p.elementKey);
+    setBuildingTarget({position:new THREE.Vector3(...target.position),lookAt:new THREE.Vector3(...target.lookAt)});
+    setPlainTarget(null);setInsideBuilding('office');setCameraState('flying-in');setFreeLook(false);
+  },[cameraState]);
   const handleEnterNexus = useCallback(() => {
     setBuildingTarget({
       position: new THREE.Vector3(nexusPos[0], nexusPos[1] + 1.7, nexusPos[2] + 4),
@@ -1568,7 +1584,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const handleSelectTree = useCallback((id: number | null) => {
     setSelectedAirportKey(null);
     setSelectedTreeId(id);
-    if (id !== null) { setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); setSelectedObjectId(null); }
+    if (id !== null) { setTroothhertzSelected(false); setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); setSelectedObjectId(null); }
   }, []);
 
   const handleMoveTree = useCallback((id: number, pos: [number,number,number], saveHistory = false) => {
@@ -1587,7 +1603,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const handleSelectObject = useCallback((id: string | null) => {
     setSelectedAirportKey(null);
     setSelectedObjectId(id);
-    if (id !== null) { setSelectedTreeId(null); setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); }
+    if (id !== null) { setTroothhertzSelected(false); setSelectedTreeId(null); setNexusSelected(false); setMeridianSelected(false); setStadiumSelected(false); setVeritasSelected(false); }
   }, []);
 
   const handleMoveObject = useCallback((id: string, pos: [number,number,number], saveHistory = false) => {
@@ -1698,6 +1714,14 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setMeridianPos(snappedPos);
   }, [snapPosition, saveToHistory]);
 
+  const selectedInterior=rotationTarget?.kind==='building'?layout.buildings[rotationTarget.id as BuildingId]:rotationTarget?.kind==='import'?imports.find(p=>p.elementKey===rotationTarget.id):undefined;
+  const selectedInteriorName=rotationTarget?.kind==='building'?BUILDING_NAMES[rotationTarget.id as string]:rotationTarget?.kind==='import'&&selectedInterior?importedBuildingName(selectedInterior as ImportedPlacement):undefined;
+  const selectedInteriorKey=rotationTarget&&(rotationTarget.kind==='building'||rotationTarget.kind==='import')?String(rotationTarget.id):null;
+  const changeInterior=(items:InteriorItem[])=>{
+    if(!layoutReady||readOnly||!selectedInteriorKey)return;saveToHistory();
+    if(rotationTarget?.kind==='building')setPresentation(rows=>({...rows,[selectedInteriorKey]:{...rows[selectedInteriorKey as BuildingId],interior:items}}));
+    else setImports(rows=>rows.map(p=>p.elementKey===selectedInteriorKey?{...p,interior:items}:p));
+  };
   const handleSelectAirport=useCallback((key:string|null)=>{
     setSelectedAirportKey(key);
     if(key){setSelectedTreeId(null);setSelectedObjectId(null);setNexusSelected(false);setMeridianSelected(false);setTroothhertzSelected(false);setStadiumSelected(false);setVeritasSelected(false);}
@@ -1875,6 +1899,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           selectedAirportKey={selectedAirportKey}
           onSelectAirport={handleSelectAirport}
           onMoveAirport={handleMoveAirport}
+          onEnterOffice={handleEnterOffice}
+          insideOfficeKey={insideOfficeKey}
           onFocusAirport={handleFocusAirport}
           plainTarget={plainTarget}
           onEnterPlain={handleEnterPlain}
@@ -1983,6 +2009,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         previewMode={previewMode}
         stadiumSettings={stadium}
         onStadiumSettingsChange={value=>{saveToHistory();setStadium(value);}}
+        onOpenInterior={()=>{setIsEditorMode(true);setShowNexusPanel(false);setShowMeridianPanel(false);setShowTroothhertzPanel(false);}}
+        interiorPanel={<><p style={{color:'#e0f4ff'}}>Selected building: <strong>{selectedInteriorName??'None'}</strong></p>{layoutReady?<BuildingInteriorEditor key={selectedInteriorKey??'none'} placement={selectedInteriorKey&&selectedInterior?{id:selectedInteriorKey,assetId:selectedInteriorKey,position:[0,0,0],rotation:[0,0,0],scale:[1,1,1],interior:selectedInterior.interior}:null} freePlacement={!(selectedInterior&&'glbUrl'in selectedInterior&&isOffice(selectedInterior))} saveHint="Changes belong to this building. Save World Layout to show them in Troo Town." onChange={changeInterior}/>:<p>Load the current saved world before editing.</p>}</>}
         onSaveSnapshot={saveSnapshot}
         saveReady={layoutReady}
         airportPlaced={imports.some(isAirport)}
@@ -1999,7 +2027,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onStadiumScaleChange={value=>{saveToHistory();setStadiumScale(value);}}
         veritasScale={presentation['veritas-school'].scale}
         onVeritasScaleChange={value=>{saveToHistory();setPresentation(rows=>({...rows,'veritas-school':{...rows['veritas-school'],scale:value}}));}}
-        airportModels={imports.filter(isAirport)}
+        airportModels={imports}
         onAirportScaleChange={(key,value)=>{saveToHistory();setImports(rows=>rows.map(row=>row.elementKey===key?{...row,scale:value}:row));}}
         veritasPosition={veritasPos}
         trees={trees}
@@ -2025,7 +2053,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
           <label>Existing model URL <input value={newModelUrl} onChange={e=>setNewModelUrl(e.target.value)} placeholder="/models/…/building.glb"/></label>
           <button type="button" onClick={()=>{try{const url=modelUrl(newModelUrl),key='building-'+crypto.randomUUID().slice(0,8);saveToHistory();setImports(v=>[...v,{elementKey:key,glbUrl:url,position:[...INTERSECTION_SPAWN],scale:1,rotationY:0}]);setIsEditorMode(true);handleSelectAirport(key);setSnapToPosition([...INTERSECTION_SPAWN]);setNewModelUrl('');setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Invalid model URL')}}}>Add model to town</button>
           {modelError&&<p role="alert">{modelError}</p>}
-          {imports.map((model,index)=><fieldset key={model.elementKey}><legend>{isAirport(model)?AIRPORT.name:model.elementKey}</legend>{isAirport(model)&&<p>Source runway: 600 metres. Default display scale: 0.10. Adjust placement, scale and rotation here, then Save World Layout to publish.</p>}{(['X','Y','Z'] as const).map((axis,n)=><label key={axis}>{axis}<input type="number" value={model.position[n]} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=1000)setImports(v=>v.map((p,i)=>i===index?{...p,position:p.position.map((x,j)=>j===n?value:x) as [number,number,number]}:p))}}/></label>)}
+          {imports.map((model,index)=><fieldset key={model.elementKey}><legend>{importedBuildingName(model)}</legend>{isAirport(model)&&<p>Source runway: 600 metres. Default display scale: 0.10. Adjust placement, scale and rotation here, then Save World Layout to publish.</p>}{(['X','Y','Z'] as const).map((axis,n)=><label key={axis}>{axis}<input type="number" value={model.position[n]} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=1000)setImports(v=>v.map((p,i)=>i===index?{...p,position:p.position.map((x,j)=>j===n?value:x) as [number,number,number]}:p))}}/></label>)}
           <label>Scale<input type="number" min="0.05" max="20" step="0.05" value={model.scale} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&value>=.05&&value<=20)setImports(v=>v.map((p,i)=>i===index?{...p,scale:value}:p))}}/></label>
           <label>Rotation °<input type="number" value={Math.round(model.rotationY*180/Math.PI)} onChange={e=>{const value=Number(e.target.value);if(Number.isFinite(value)&&Math.abs(value)<=3600)setImports(v=>v.map((p,i)=>i===index?{...p,rotationY:value*Math.PI/180}:p))}}/></label>
           <button type="button" onClick={()=>{saveToHistory();setImports(v=>v.filter((_,i)=>i!==index))}}>Remove this building</button></fieldset>)}
@@ -2200,7 +2228,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
                 {freeLook ? "🔓 Free Look ON" : "🔒 Free Look"}
               </button>
 
-              {insideBuilding !== "stadium" && (
+              {insideBuilding !== "stadium" && insideBuilding !== "office" && (
                 <button
                   onClick={() => {
                     if (insideBuilding === "nexus") setShowNexusPanel(v => !v);
