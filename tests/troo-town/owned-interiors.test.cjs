@@ -5,7 +5,7 @@ esbuild.buildSync({entryPoints:[root+'/src/lib/world-assets/interior.ts',root+'/
 const {validateInterior,validatePlacementInteriors,INTERIOR_SLOTS}=require(out+'/world-assets/interior.js');
 const {chunksToPlacements,placementsToChunks}=require(out+'/world-engine/chunk-utils.js');
 const desk={id:'desk-1',kind:'desk',slotId:'SLOT_furniture_F1_02',rotationY:0};
-const art={id:'art-1',kind:'wall-art',slotId:'SLOT_frame_01',rotationY:0,image:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ5kAAAAASUVORK5CYII=',href:'https://example.com/gallery'};
+const art={id:'art-1',kind:'wall-art',slotId:'SLOT_frame_01',rotationY:0,image:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAoCAIAAADBrGu+AAAAS0lEQVR4nO3PQQ3AIADAQEASnhCF24ngcVnSU9DOfe74s6UDXjWgNaA1oDWgNaA1oDWgNaA1oDWgNaA1oDWgNaA1oDWgNaA1oDWgfaN5AYAz1a5tAAAAAElFTkSuQmCC',href:'https://example.com/gallery'};
 test('furnishings and linked artwork survive world save/load without changing other building copies',()=>{
  const a={id:'a',assetId:'owned',position:[4,0,8],rotation:[0,1,0],scale:[2,2,2],interior:validateInterior([desk,art])};
  const b={...a,id:'b',interior:[]};const chunks=JSON.parse(JSON.stringify(placementsToChunks([a,b])));
