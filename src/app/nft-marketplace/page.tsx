@@ -274,6 +274,7 @@ export default function NFTMarketplacePage() {
   const [activeTab, setActiveTab] = useState<"browse" | "deploy" | "collection">("browse");
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [walletNfts, setWalletNfts] = useState<NFT[]>([]);
+  const [selectedNftDetails, setSelectedNftDetails] = useState<NFT | null>(null);
   const [loading, setLoading] = useState(false);
   const [walletNftsLoading, setWalletNftsLoading] = useState(false);
   const [selectedChain, setSelectedChain] = useState<string>("polygon");
@@ -580,7 +581,7 @@ export default function NFTMarketplacePage() {
           ) : nfts.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {nfts.slice(0, 10).map((nft) => (
-                <article key={nft.id} className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#11162b]">
+                <button key={nft.id} type="button" onClick={() => setSelectedNftDetails(nft)} aria-label={`View details for ${nft.name}`} className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#11162b] text-left transition hover:border-cyan-400/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
                   <div className="aspect-square overflow-hidden bg-gradient-to-br from-cyan-950 to-fuchsia-950">
                     {nft.imageUrl ? <img src={nft.imageUrl} alt={nft.name} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">Artwork unavailable</div>}
                   </div>
@@ -591,13 +592,37 @@ export default function NFTMarketplacePage() {
                       <span className={nft.isListed ? "text-emerald-300" : "text-slate-400"}>{nft.isListed ? "Listed" : "Not for sale"}</span>
                     </div>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
           ) : (
             <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">No NFTs returned for this network. Try All Chains or review the marketplace connection.</p>
           )}
         </section>
+        {selectedNftDetails ? (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 sm:p-6" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedNftDetails(null); }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="nft-details-heading" className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-cyan-400/40 bg-[#0b1027] p-4 shadow-[0_0_65px_rgba(0,209,255,.15)] sm:p-6">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div><p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">NFT details</p><h3 id="nft-details-heading" className="mt-1 break-words text-xl font-bold text-white sm:text-2xl">{selectedNftDetails.name}</h3></div>
+                <button type="button" onClick={() => setSelectedNftDetails(null)} aria-label="Close NFT details" className="shrink-0 rounded-full border border-white/30 px-3 py-1 text-white hover:bg-white/10">Close</button>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="aspect-square overflow-hidden rounded-xl bg-gradient-to-br from-cyan-950 to-fuchsia-950">
+                  {selectedNftDetails.imageUrl ? <img src={selectedNftDetails.imageUrl} alt={selectedNftDetails.name} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center text-slate-400">Artwork unavailable</div>}
+                </div>
+                <div className="min-w-0 space-y-4 text-sm">
+                  <div><p className="text-slate-400">Availability</p><p className="font-semibold text-white">{selectedNftDetails.isListed ? "Listed for sale" : "Not for sale"}</p></div>
+                  <div><p className="text-slate-400">Network</p><p className="font-semibold text-white">{selectedNftDetails.chain}</p></div>
+                  <div><p className="text-slate-400">Token ID</p><p className="break-all text-white">{selectedNftDetails.tokenId || "Not available"}</p></div>
+                  <div><p className="text-slate-400">Owner wallet (recorded)</p><p className="break-all font-mono text-xs text-white">{selectedNftDetails.ownerAddress || "Not available"}</p></div>
+                  <div><p className="text-slate-400">Contract address</p><p className="break-all font-mono text-xs text-white">{selectedNftDetails.contractAddress || "Not available"}</p></div>
+                  {selectedNftDetails.description ? <div><p className="text-slate-400">Description</p><p className="whitespace-pre-wrap break-words text-slate-200">{selectedNftDetails.description}</p></div> : null}
+                  <p className="text-xs text-slate-400">Ownership and listing information reflects marketplace records; on-chain verification is required before any transaction.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        ) : null}
         <div id="nft-live-market" className="scroll-mt-8" />
         {/* NFT Banner Carousel */}
         <OpenSeaBanner
