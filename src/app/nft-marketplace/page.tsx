@@ -710,20 +710,20 @@ function BrowseNFTs({
 
   return (
     <div>
-      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-cyan-400/20 bg-[#0b1431]/80 p-4 md:grid-cols-3">
         <div className="md:col-span-2">
           <Label className="text-slate-300">Search</Label>
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search name, description, or collection..."
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
           />
         </div>
         <div>
           <Label className="text-slate-300">Sort</Label>
           <Select value={sortBy} onValueChange={(v) => onSortChange(v as any)}>
-            <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+            <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -739,7 +739,7 @@ function BrowseNFTs({
       <div className="mb-6">
         <Label className="text-slate-300">Collection</Label>
         <Select value={collectionFilter} onValueChange={(v) => onCollectionChange(v)}>
-          <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+          <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
             <SelectValue placeholder={collectionsLoading ? "Loading..." : "All collections"} />
           </SelectTrigger>
           <SelectContent>
@@ -756,7 +756,7 @@ function BrowseNFTs({
       {publicCollections.length > 0 ? (
         <div className="mb-10">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-white">Collections</h3>
+            <h3 className="bg-gradient-to-r from-cyan-200 to-fuchsia-300 bg-clip-text text-2xl font-bold text-transparent">Featured Collections</h3>
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span>{publicCollections.length}</span>
               {isConnected ? (
@@ -790,13 +790,13 @@ function BrowseNFTs({
           {nftSyncStatus ? (
             <div className="mb-3 text-xs text-slate-400">{nftSyncStatus}</div>
           ) : null}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {publicCollections.map((c) => (
-              <Card key={c.id} className="bg-slate-800/40 border-white/10 overflow-hidden">
-                <div className="aspect-square bg-slate-900/60">
+              <Card key={c.id} className="group overflow-hidden rounded-2xl border border-fuchsia-400/35 bg-[#0b1431]/90 shadow-[0_0_20px_rgba(130,70,255,.12)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/80 hover:shadow-[0_0_30px_rgba(0,209,255,.28)]">
+                <div className="aspect-[5/4] overflow-hidden bg-gradient-to-br from-[#1a1d4a] to-[#071528]">
                   {c.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover" />
+                    <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   ) : (
                     <div className="h-full w-full grid place-items-center text-slate-500 text-xs">No image</div>
                   )}
@@ -935,7 +935,7 @@ function BrowseNFTs({
           <p className="text-slate-500 text-sm mt-2">Be the first to list an NFT!</p>
         </div>
       ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {nfts.map((nft) => (
               <NFTCard key={nft.id} nft={nft} />
             ))}
@@ -956,7 +956,7 @@ function BrowseNFTs({
               <p className="text-slate-500 text-sm mt-2">Try another chain or mint one.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {walletNfts.map((nft) => (
                 <NFTCard key={nft.id} nft={nft} isWalletNft />
               ))}
@@ -972,12 +972,12 @@ function BrowseNFTs({
 function NFTCard({ nft, isWalletNft = false }: { nft: NFT; isWalletNft?: boolean }) {
   return (
     <Card className={`bg-slate-800/40 border-white/10 hover:border-cyan-500/50 transition-all hover:scale-105 ${isWalletNft ? 'ring-2 ring-green-500/50' : ''}`}>
-      <div className="aspect-square bg-slate-700/40 relative overflow-hidden rounded-t-lg">
+      <div className="aspect-[5/4] bg-slate-700/40 relative overflow-hidden rounded-t-2xl">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={nft.imageUrl || "https://via.placeholder.com/400"}
           alt={nft.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
             e.currentTarget.src = "https://via.placeholder.com/400/374151/FFFFFF?text=NFT";
           }}
@@ -1268,7 +1268,7 @@ function MintNFT({ onMintSuccess }: { onMintSuccess: () => void }) {
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             required
           />
         </div>
@@ -1297,7 +1297,7 @@ function MintNFT({ onMintSuccess }: { onMintSuccess: () => void }) {
             type="url"
             value={formData.image}
             onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             required
           />
         </div>
@@ -1308,7 +1308,7 @@ function MintNFT({ onMintSuccess }: { onMintSuccess: () => void }) {
             Blockchain
           </Label>
           <Select value={formData.chain} onValueChange={(v) => setFormData({ ...formData, chain: v })}>
-            <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+            <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1726,7 +1726,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
             value={selectedNetwork} 
             onValueChange={(v) => setSelectedNetwork(v as "ETH" | "POL" | "XRPL" | "SOL")}
           >
-            <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+            <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1744,7 +1744,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Cyber Hero #001"
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
           />
         </div>
 
@@ -1775,7 +1775,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
               value={collectionSelection}
               onValueChange={(v) => setCollectionSelection(v)}
             >
-              <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+              <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
                 <SelectValue placeholder={collectionsLoading ? "Loading..." : "Choose a collection"} />
               </SelectTrigger>
               <SelectContent>
@@ -1800,7 +1800,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
                   value={collectionAddress}
                   onChange={(e) => setCollectionAddress(e.target.value)}
                   placeholder="0x..."
-                  className="mt-1 bg-slate-900 border-slate-700 text-white"
+                  className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                 />
               </div>
             ) : null}
@@ -1813,7 +1813,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
                 value={collectionAddress}
                 onChange={(e) => setCollectionAddress(e.target.value)}
                 placeholder="0x..."
-                className="mt-1 bg-slate-900 border-slate-700 text-white"
+                className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
               />
               <p className="text-xs text-slate-500 mt-1">
                 Leave empty to mint into the platform collection.
@@ -2255,7 +2255,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.name}
               onChange={(e) => setCollectionData({ ...collectionData, name: e.target.value })}
               placeholder="My Awesome Collection"
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
               required
             />
           </div>
@@ -2266,7 +2266,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.symbol}
               onChange={(e) => setCollectionData({ ...collectionData, symbol: e.target.value.toUpperCase().slice(0, 10) })}
               placeholder="MAC"
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
               maxLength={10}
               required
             />
@@ -2291,7 +2291,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.imageUrl}
               onChange={(e) => setCollectionData({ ...collectionData, imageUrl: e.target.value })}
               placeholder="https://... or upload below"
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             />
             <div className="mt-2">
               <Input
@@ -2312,7 +2312,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.chain} 
               onValueChange={(v) => setCollectionData({ ...collectionData, chain: v as any })}
             >
-              <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+              <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2357,7 +2357,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               placeholder="0.00"
               value={mintPrice}
               onChange={(e) => setMintPrice(e.target.value)}
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             />
           </div>
         </div>
@@ -2435,7 +2435,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
                             prev.map((v) => (v.id === item.id ? { ...v, name: e.target.value } : v))
                           )
                         }
-                        className="mt-1 bg-slate-900 border-slate-700 text-white"
+                        className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                       />
                     </div>
                     <div>
@@ -2452,7 +2452,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
                             )
                           )
                         }
-                        className="mt-1 bg-slate-900 border-slate-700 text-white"
+                        className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                       />
                     </div>
                   </div>
@@ -2482,7 +2482,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
                           )
                         }
                         placeholder="https://... or upload below"
-                        className="mt-1 bg-slate-900 border-slate-700 text-white"
+                        className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                       />
                       <Input
                         type="file"
