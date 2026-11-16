@@ -467,9 +467,9 @@ export default function NFTMarketplacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-[#050817] text-white">
       {/* Header */}
-      <header className="border-b border-white/10">
+      <header className="border-b border-fuchsia-500/30 bg-[#090d23]">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" asChild>
@@ -494,7 +494,48 @@ export default function NFTMarketplacePage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* Cinematic marketplace landing — live inventory remains below. */}
+      <section className="relative isolate overflow-hidden rounded-[28px] border border-fuchsia-500/40 bg-[#070a1d] shadow-[0_0_55px_rgba(102,40,230,.2)]">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_82%_20%,rgba(112,40,230,.55),transparent_48%),radial-gradient(ellipse_at_45%_100%,rgba(0,210,255,.25),transparent_50%)]" />
+        <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(70,180,255,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(70,180,255,.12)_1px,transparent_1px)] [background-size:52px_52px] [mask-image:linear-gradient(to_top,black,transparent)]" />
+        <div className="relative grid min-h-[360px] items-center gap-8 px-6 py-12 sm:px-12 lg:grid-cols-[1.15fr_.85fr] lg:py-16">
+          <div>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[.35em] text-cyan-300">Hero Market / NFT Market</p>
+            <h2 className="max-w-2xl bg-gradient-to-r from-cyan-300 via-blue-400 to-fuchsia-400 bg-clip-text text-5xl font-black uppercase leading-[.98] tracking-tight text-transparent sm:text-7xl">NFT<br/>Marketplace</h2>
+            <p className="mt-5 text-xl font-semibold text-white">Own · Create · Trade · Build in the TrooVerse</p>
+            <p className="mt-2 max-w-xl text-sm text-slate-300 sm:text-base">Explore digital collectibles, 3D world assets, buildings, avatars and creator collections across supported networks.</p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button type="button" onClick={() => { setActiveTab("browse"); document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" }); }} className="rounded-xl border border-cyan-300 bg-gradient-to-r from-fuchsia-600 to-blue-600 px-6 py-3 font-semibold text-white shadow-[0_0_22px_rgba(129,70,255,.6)] transition hover:brightness-125">Explore NFTs →</button>
+              <button type="button" onClick={() => setActiveTab("deploy")} className="rounded-xl border border-fuchsia-400 bg-white/5 px-6 py-3 font-semibold text-white transition hover:bg-white/15">Create NFT</button>
+            </div>
+          </div>
+          <div className="relative hidden min-h-[270px] items-center justify-center lg:flex" aria-hidden="true">
+            <div className="absolute h-64 w-64 rounded-full border border-cyan-400/60 shadow-[0_0_65px_rgba(0,209,255,.35),inset_0_0_50px_rgba(158,62,255,.25)]" />
+            <div className="absolute h-80 w-80 rotate-[-25deg] rounded-full border border-fuchsia-400/40" />
+            <div className="relative rounded-3xl border border-cyan-300/40 bg-slate-950/60 px-10 py-9 text-center shadow-[0_0_50px_rgba(113,58,255,.35)] backdrop-blur-lg">
+              <div className="bg-gradient-to-br from-cyan-300 to-fuchsia-400 bg-clip-text text-8xl font-black text-transparent">T</div>
+              <div className="mt-2 text-lg font-black tracking-[.3em] text-cyan-200">TROO VERSE</div>
+              <div className="mt-1 text-xs uppercase tracking-[.2em] text-slate-400">Create your legacy</div>
+            </div>
+          </div>
+        </div>
+        <div className="relative grid grid-cols-2 border-t border-white/10 bg-black/30 md:grid-cols-4">
+          {["Buildings & Land", "Vehicles & Aircraft", "Avatars & NPCs", "World Assets"].map((category) => <div key={category} className="border-r border-white/10 px-3 py-5 text-center text-xs font-semibold text-cyan-100 sm:text-sm">{category}</div>)}
+        </div>
+      </section>
+      <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_270px]">
+        <div className="rounded-2xl border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 to-fuchsia-500/10 px-6 py-5">
+          <h3 className="text-xl font-bold text-white">Featured Collections</h3>
+          <p className="mt-1 text-sm text-slate-300">Discover collections from the live Hero Market catalog below.</p>
+        </div>
+        <div className="rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/10 px-6 py-5">
+          <div className="text-sm font-semibold text-fuchsia-200">Powered by TROO</div>
+          <p className="mt-1 text-xs text-slate-300">Connect your wallet to explore your NFTs.</p>
+          <div className="mt-3"><MobileWalletButton /></div>
+        </div>
+      </div>
+        <div id="nft-live-market" className="scroll-mt-8" />
         {/* NFT Banner Carousel */}
         <OpenSeaBanner
           walletNfts={walletNfts as any}
