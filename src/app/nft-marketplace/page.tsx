@@ -498,6 +498,8 @@ export default function NFTMarketplacePage() {
       {/* Cinematic marketplace landing — live inventory remains below. */}
       <section className="relative isolate overflow-hidden rounded-[28px] border border-fuchsia-500/40 bg-[#070a1d] shadow-[0_0_55px_rgba(102,40,230,.2)]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_82%_20%,rgba(112,40,230,.55),transparent_48%),radial-gradient(ellipse_at_45%_100%,rgba(0,210,255,.25),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[url(/nft-marketplace/trooverse-skyline.svg)] bg-cover bg-center opacity-70" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070a1d] via-[#070a1d]/85 to-transparent" />
         <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(70,180,255,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(70,180,255,.12)_1px,transparent_1px)] [background-size:52px_52px] [mask-image:linear-gradient(to_top,black,transparent)]" />
         <div className="relative grid min-h-[360px] items-center gap-8 px-6 py-12 sm:px-12 lg:grid-cols-[1.15fr_.85fr] lg:py-16">
           <div>
