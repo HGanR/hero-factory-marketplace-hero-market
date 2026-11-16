@@ -31,8 +31,8 @@ const getConnection = async () => {
     // Do not disable certificate verification or alter the TiDB server setting.
     const databaseUrl = process.env.DATABASE_URL;
     const parsedUrl = new URL(databaseUrl);
-    const isTiDbCloud = /(?:^|\\.)tidbcloud\\.com$/i.test(parsedUrl.hostname) ||
-      /(?:^|\\.)pingcap\\.com$/i.test(parsedUrl.hostname);
+    const isTiDbCloud = parsedUrl.hostname.toLowerCase().endsWith(".tidbcloud.com") ||
+      parsedUrl.hostname.toLowerCase().endsWith(".pingcap.com");
     const connection = await mysql.createConnection(
       isTiDbCloud
         ? { uri: databaseUrl, ssl: { rejectUnauthorized: true } }
