@@ -924,6 +924,8 @@ function BrowseNFTs({
         </div>
       )}
 
+      {/* Existing live NFTs, rendered as premium marketplace cards. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-2xl font-bold text-white">Featured NFTs</h3><p className="text-sm text-cyan-200/70">Live assets from Hero Market — no sample listings</p></div><span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200">{showWalletNfts ? walletNfts.length : nfts.length} NFTs found</span></div>
       {/* NFT Grid - Public library vs wallet */}
       {!showWalletNfts && (
         <>
@@ -973,24 +975,25 @@ function BrowseNFTs({
 // NFT Card Component
 function NFTCard({ nft, isWalletNft = false }: { nft: NFT; isWalletNft?: boolean }) {
   return (
-    <Card className={`bg-slate-800/40 border-white/10 hover:border-cyan-500/50 transition-all hover:scale-105 ${isWalletNft ? 'ring-2 ring-green-500/50' : ''}`}>
+    <Card className={`group overflow-hidden rounded-2xl border border-cyan-400/40 bg-[#0b1230] text-white shadow-[0_0_22px_rgba(0,210,255,.12)] transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-400 hover:shadow-[0_0_30px_rgba(180,60,255,.38)] ${isWalletNft ? 'ring-2 ring-emerald-400/40' : ''}`}>
       <div className="aspect-[5/4] bg-slate-700/40 relative overflow-hidden rounded-t-2xl">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={nft.imageUrl || "https://via.placeholder.com/400"}
+          src={nft.imageUrl || "/nft-marketplace/trooverse-skyline.svg"}
           alt={nft.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
-            e.currentTarget.src = "https://via.placeholder.com/400/374151/FFFFFF?text=NFT";
+            if (!e.currentTarget.src.endsWith("/nft-marketplace/trooverse-skyline.svg")) e.currentTarget.src = "/nft-marketplace/trooverse-skyline.svg";
           }}
         />
+        <span className="absolute left-3 top-3 rounded-full border border-fuchsia-400 bg-[#120c35]/85 px-3 py-1 text-xs font-bold text-fuchsia-100">NFT</span>
         <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full p-1 border border-cyan-500/50">
           <ChainIcon chain={nft.chain} size={28} />
         </div>
       </div>
-      <CardContent className="p-4">
+      <CardContent className="border-t border-cyan-400/30 bg-gradient-to-b from-[#0e1a3a] to-[#080d24] p-4">
         <div className="flex items-center justify-between gap-2 mb-2">
-          <h3 className="text-lg font-bold text-white">{nft.name}</h3>
+          <h3 className="truncate text-base font-bold text-white" title={nft.name}>{nft.name}</h3>
           <Badge
             variant={nft.attributes?.some?.((a: any) => String(a?.trait_type || "").toLowerCase() === "visibility" && String(a?.value || "").toLowerCase() === "hidden") ? "outline" : "secondary"}
           >
