@@ -537,6 +537,67 @@ export default function NFTMarketplacePage() {
           <div className="mt-3"><MobileWalletButton /></div>
         </div>
       </div>
+        {/* Live discovery: never substitute invented collections, prices, or artwork. */}
+        <section aria-label="Discover NFT collections" className="mt-8 space-y-7">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[.24em] text-cyan-300">Explore the TrooVerse</p>
+              <h3 className="mt-2 text-2xl font-black text-white sm:text-3xl">Discover collections</h3>
+              <p className="mt-1 text-sm text-slate-400">Public collections from the Hero Market catalog.</p>
+            </div>
+            <button type="button" onClick={() => document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full border border-cyan-400/40 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/10">Browse marketplace</button>
+          </div>
+          {collectionsLoading ? (
+            <p role="status" className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">Loading collections…</p>
+          ) : publicCollections.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {publicCollections.slice(0, 8).map((collection) => {
+                const artwork = nfts.find((nft) => nft.contractAddress && collection.contractAddress && nft.contractAddress.toLowerCase() === collection.contractAddress.toLowerCase())?.imageUrl || collection.imageUrl;
+                return (
+                  <button key={collection.id} type="button" onClick={() => { setActiveTab("browse"); setCollectionFilter(String(collection.id)); document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" }); }} className="group min-w-0 overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#11162b] text-left transition hover:border-fuchsia-400/60 hover:shadow-[0_0_25px_rgba(155,70,255,.15)]">
+                    <div className="aspect-[5/4] overflow-hidden bg-gradient-to-br from-cyan-950 via-indigo-950 to-fuchsia-950">
+                      {artwork ? <img src={artwork} alt={collection.name + " collection artwork"} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-4xl font-black text-cyan-300/40" aria-hidden="true">{collection.name.slice(0, 1)}</div>}
+                    </div>
+                    <div className="p-4">
+                      <p className="truncate text-base font-bold text-white">{collection.name}</p>
+                      <p className="mt-1 text-xs text-slate-400">{collection.chain || "Supported network"} · Explore collection</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">No collections available from the marketplace service right now.</p>
+          )}
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-black text-white sm:text-3xl">Recently discovered NFTs</h3>
+              <p className="mt-1 text-sm text-slate-400">Original artwork from the live catalog. Not all NFTs are listed for sale.</p>
+            </div>
+          </div>
+          {loading ? (
+            <p role="status" className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">Loading NFTs…</p>
+          ) : nfts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {nfts.slice(0, 10).map((nft) => (
+                <article key={nft.id} className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#11162b]">
+                  <div className="aspect-square overflow-hidden bg-gradient-to-br from-cyan-950 to-fuchsia-950">
+                    {nft.imageUrl ? <img src={nft.imageUrl} alt={nft.name} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">Artwork unavailable</div>}
+                  </div>
+                  <div className="space-y-2 p-3">
+                    <p className="truncate text-sm font-semibold text-white" title={nft.name}>{nft.name}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-slate-400">
+                      <span>{nft.chain}</span>
+                      <span className={nft.isListed ? "text-emerald-300" : "text-slate-400"}>{nft.isListed ? "Listed" : "Not for sale"}</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">No NFTs returned for this network. Try All Chains or review the marketplace connection.</p>
+          )}
+        </section>
         <div id="nft-live-market" className="scroll-mt-8" />
         {/* NFT Banner Carousel */}
         <OpenSeaBanner
