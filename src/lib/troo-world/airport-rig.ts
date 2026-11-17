@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {renovateAirport} from './airport-renovation';
 import {AIRPORT_PIVOTS,airportHeading,airportFlightPoint,airportGate,identityAirportParts,partPoint,type AirportParts,type AirportPartId} from './airport-parts';
 import type {Vec3} from './green-terrain-layout';
 /** Split material triangles, including roof/glass shared by terminal and tower. Cached source stays untouched. */
@@ -19,6 +20,7 @@ export function createAirportRig(object:THREE.Object3D){
  const bridge=new THREE.Group();bridge.name='Adjusted boarding bridge';bridge.userData.airportPart='terminal';object.add(bridge);
  const bridgeGeo=new THREE.BoxGeometry(1,1,1);owned.push(bridgeGeo);const mat=new THREE.MeshStandardMaterial({color:'#63747e'}),glass=new THREE.MeshStandardMaterial({color:'#84c7e2',transparent:true,opacity:.35});
  const floor=new THREE.Mesh(bridgeGeo,mat),wall1=new THREE.Mesh(bridgeGeo,glass),wall2=new THREE.Mesh(bridgeGeo,glass);bridge.add(floor,wall1,wall2);bridge.visible=false;
+ const renovation=renovateAirport(plane,frames);
  let current:AirportParts|undefined,parentScale=.1;
  const native=new Map<THREE.Object3D,{position:THREE.Vector3;quaternion:THREE.Quaternion;scale:THREE.Vector3}>();
  const restore=()=>{for(const[n,t]of native){n.position.copy(t.position);n.quaternion.copy(t.quaternion);n.scale.copy(t.scale)}native.clear();jetBridge.visible=true;};
@@ -30,5 +32,5 @@ export function createAirportRig(object:THREE.Object3D){
   const retracted=Math.max(0,Math.min(1,jetBridge.position.z/28)),target=end.clone().lerp(start,retracted*.85),direction=target.clone().sub(start),length=direction.length(),width=1.6/parentScale,height=2.2/parentScale;bridge.position.copy(start).add(target).multiplyScalar(.5);bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),direction.normalize());floor.scale.set(width,.12/parentScale,length);wall1.scale.set(.07/parentScale,height,length);wall2.scale.copy(wall1.scale);wall1.position.set(-width/2,height/2,0);wall2.position.set(width/2,height/2,0);
   for(const n of passengers){const w=Math.max(0,Math.min(1,(n.position.z-62.9)/(99.5-62.9))),at=end.clone().lerp(start,w);n.position.copy(at);n.scale.multiplyScalar(1.7/(1.91*parentScale));n.rotation.y=Math.atan2(start.x-end.x,start.z-end.z);}
  };
- return{configure,apply,restore,frames,dispose:()=>{owned.forEach(g=>g.dispose());mat.dispose();glass.dispose()}};
+ return{configure,apply,restore,frames,updateDetails:renovation.update,dispose:()=>{renovation.dispose();owned.forEach(g=>g.dispose());mat.dispose();glass.dispose()}};
 }

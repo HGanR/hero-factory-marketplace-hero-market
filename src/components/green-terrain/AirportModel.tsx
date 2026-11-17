@@ -19,7 +19,8 @@ export default function AirportModel({placement,onFocus,canFocus=true,editorMode
  const radius=selectedPart==='whole'?Math.max(308,(parts?.runway.scale??1)*300*(parts?.runway.stretch?.[0]??1)):ringPart==='runway'?Math.hypot(300*ringParts.runway.scale*(ringParts.runway.stretch?.[0]??1),12*ringParts.runway.scale*(ringParts.runway.stretch?.[2]??1)):ringPart==='terminal'?105*ringParts.terminal.scale:ringPart==='tower'?8*ringParts.tower.scale:27*ringParts.airplane.scale;
  const [open,setOpen]=useState(false),[playing,setPlaying]=useState(true),[time,setTime]=useState(0),[rate,setRate]=useState(1);
  const elapsed=useRef(0);
- useEffect(()=>{playback.activate();return()=>playback.dispose();},[playback]);
+ const generations=useRef(new WeakMap<object,number>());
+ useEffect(()=>{const generation=(generations.current.get(playback)??0)+1;generations.current.set(playback,generation);playback.activate();return()=>{queueMicrotask(()=>{if(generations.current.get(playback)===generation)playback.dispose();});};},[playback]);
  useEffect(()=>{playback.configure(parts,placement.scale)},[playback,parts,placement.scale]);
  useFrame((_,delta)=>{playback.update(delta);elapsed.current+=delta;if(open&&editorMode&&elapsed.current>=.5){setTime(playback.time);elapsed.current=0;}});
  const seek=(value:number)=>{playback.seek(value);setTime(playback.time);};
