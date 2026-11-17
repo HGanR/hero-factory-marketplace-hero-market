@@ -4,7 +4,7 @@ const title = "Create a DIGITAL TRUST the SMART TRUST™ | TROOTHHURTZ";
 const description =
   "Explore TROOTHHURTZ Digital Trust Infrastructure: private trust records, digital assets and cryptographic evidence.";
 // This file must be uploaded as a real public asset before publishing the preview.
-const socialImage = "/digital-trust/smart-trust-social-banner.png";
+const socialImage = "/digital-trust/smart-trust-social-banner.jpg";
 
 export const metadata: Metadata = {
   title,
