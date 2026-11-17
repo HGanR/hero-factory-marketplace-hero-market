@@ -20,11 +20,11 @@ jobs:
           node-version: '22'
       - run: npm install --prefix /tmp/airport-detail-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 react@19.2.0 react-dom@19.2.0 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1
       - run: node /tmp/airport-detail-deps/node_modules/playwright/cli.js install chromium
-      - run: node tests/troo-town/airport-visual.cjs
+      - run: node tests/troo-town/transit-visual.cjs
         env:
           TOWN_TEST_DEPS: /tmp/airport-detail-deps/node_modules
           NODE_PATH: /tmp/airport-detail-deps/node_modules
-      - run: node tests/troo-town/transit-visual.cjs
+      - run: node tests/troo-town/airport-visual.cjs
         env:
           TOWN_TEST_DEPS: /tmp/airport-detail-deps/node_modules
           NODE_PATH: /tmp/airport-detail-deps/node_modules
