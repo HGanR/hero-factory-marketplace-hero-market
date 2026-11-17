@@ -498,7 +498,16 @@ export default function NFTMarketplacePage() {
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto w-full min-w-0 max-w-none px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
+      <main className="nft-market-pill-theme mx-auto w-full min-w-0 max-w-none px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
+      <style jsx>{`
+        .nft-market-pill-theme :global(button:not([role="tab"]):not([aria-label^="Show "])) {
+          border-radius: 9999px;
+        }
+        .nft-market-pill-theme :global(button:focus-visible) {
+          outline: 2px solid #67e8f9;
+          outline-offset: 3px;
+        }
+      `}</style>
       {/* Cinematic marketplace landing — live inventory remains below. */}
       <section className="relative isolate w-full min-w-0 overflow-hidden rounded-2xl border border-fuchsia-500/40 sm:rounded-[28px] bg-[#070a1d] shadow-[0_0_55px_rgba(102,40,230,.2)]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_82%_20%,rgba(112,40,230,.55),transparent_48%),radial-gradient(ellipse_at_45%_100%,rgba(0,210,255,.25),transparent_50%)]" />
@@ -512,8 +521,8 @@ export default function NFTMarketplacePage() {
             <p className="mt-5 text-base font-semibold text-white sm:text-xl">Own · Create · Trade · Build in the TrooVerse</p>
             <p className="mt-2 max-w-xl text-sm text-slate-300 sm:text-base">Explore digital collectibles, 3D world assets, buildings, avatars and creator collections across supported networks.</p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <button type="button" onClick={() => { setActiveTab("browse"); document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" }); }} className="rounded-xl border border-cyan-300 bg-gradient-to-r from-fuchsia-600 to-blue-600 px-6 py-3 font-semibold text-white shadow-[0_0_22px_rgba(129,70,255,.6)] transition hover:brightness-125">Explore NFTs →</button>
-              <button type="button" onClick={() => setActiveTab("deploy")} className="rounded-xl border border-fuchsia-400 bg-white/5 px-6 py-3 font-semibold text-white transition hover:bg-white/15">Create NFT</button>
+              <button type="button" onClick={() => { setActiveTab("browse"); document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" }); }} className="rounded-full border-2 border-cyan-300 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-blue-600 px-7 py-3 font-bold text-white shadow-[0_0_12px_rgba(240,60,255,.7),0_0_24px_rgba(0,209,255,.45)] transition hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">Explore NFTs →</button>
+              <button type="button" onClick={() => setActiveTab("deploy")} className="rounded-full border-2 border-fuchsia-400 bg-[#090d23]/70 px-7 py-3 font-bold text-white shadow-[0_0_12px_rgba(192,75,255,.5),0_0_20px_rgba(0,209,255,.28)] transition hover:border-cyan-300 hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">Create NFT</button>
             </div>
           </div>
           <div className="relative hidden min-h-[270px] items-center justify-center lg:flex" aria-hidden="true">
@@ -527,7 +536,7 @@ export default function NFTMarketplacePage() {
           </div>
         </div>
         <div className="relative flex items-center justify-between gap-2 border-t border-cyan-400/20 bg-[#070b21]/90 px-3 py-3 sm:px-6">
-          <button type="button" onClick={() => setHeroSlide((value) => (value + showcaseSlides.length - 1) % showcaseSlides.length)} aria-label="Previous showcase image" className="shrink-0 rounded-full border border-cyan-400/60 px-3 py-2 text-cyan-100 hover:bg-cyan-400/20">‹</button>
+          <button type="button" onClick={() => setHeroSlide((value) => (value + showcaseSlides.length - 1) % showcaseSlides.length)} aria-label="Previous showcase image" className="shrink-0 rounded-full border-2 border-cyan-400/70 bg-[#090d23]/80 px-3 py-2 text-cyan-100 shadow-[0_0_12px_rgba(0,209,255,.35)] hover:bg-cyan-400/20">‹</button>
           <div className="flex min-w-0 flex-1 snap-x gap-2 overflow-x-auto py-1 sm:gap-3" aria-label="Marketplace showcase image carousel">
             {showcaseSlides.map((slide, index) => (
               <button key={slide.title + index} type="button" onClick={() => setHeroSlide(index)} aria-label={`Show ${slide.title} in banner`} aria-pressed={heroSlide === index} className={`relative w-24 shrink-0 snap-start overflow-hidden rounded-xl border-2 text-left transition sm:w-40 md:w-48 ${heroSlide === index ? "border-cyan-300 shadow-[0_0_16px_rgba(0,209,255,.55)]" : "border-fuchsia-400/50 hover:border-cyan-300"}`}>
@@ -561,7 +570,7 @@ export default function NFTMarketplacePage() {
               <h3 className="mt-2 text-2xl font-black text-white sm:text-3xl">Discover collections</h3>
               <p className="mt-1 text-sm text-slate-400">Public collections from the Hero Market catalog.</p>
             </div>
-            <button type="button" onClick={() => document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full border border-cyan-400/40 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/10">Browse marketplace</button>
+            <button type="button" onClick={() => document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full border-2 border-cyan-400/70 bg-[#090d23]/70 px-5 py-2 text-sm font-bold text-cyan-100 shadow-[0_0_12px_rgba(0,209,255,.3)] hover:bg-cyan-400/10">Browse marketplace</button>
           </div>
           {collectionsLoading ? (
             <p role="status" className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">Loading collections…</p>
@@ -619,7 +628,7 @@ export default function NFTMarketplacePage() {
             <section role="dialog" aria-modal="true" aria-labelledby="nft-details-heading" className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-cyan-400/40 bg-[#0b1027] p-4 shadow-[0_0_65px_rgba(0,209,255,.15)] sm:p-6">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div><p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">NFT details</p><h3 id="nft-details-heading" className="mt-1 break-words text-xl font-bold text-white sm:text-2xl">{selectedNftDetails.name}</h3></div>
-                <button type="button" onClick={() => setSelectedNftDetails(null)} aria-label="Close NFT details" className="shrink-0 rounded-full border border-white/30 px-3 py-1 text-white hover:bg-white/10">Close</button>
+                <button type="button" onClick={() => setSelectedNftDetails(null)} aria-label="Close NFT details" className="shrink-0 rounded-full border-2 border-fuchsia-400/70 bg-[#090d23] px-4 py-2 text-white shadow-[0_0_12px_rgba(192,75,255,.35)] hover:bg-white/10">Close</button>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="aspect-square overflow-hidden rounded-xl bg-gradient-to-br from-cyan-950 to-fuchsia-950">
