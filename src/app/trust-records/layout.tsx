@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { AuthGate } from "@/components/AuthGate";
 import { IdentityStrip } from "@/components/IdentityStrip";
@@ -331,10 +331,12 @@ function TrustRecordsLayoutContent({ children }: { children: React.ReactNode }) 
 /** Preserve query (e.g. `tab=settings`, `trustId=`) when AuthGate sends users to `/?returnTo=`. */
 function TrustRecordsAuthGate({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const redirectTo = useMemo(() => {
     const qs = searchParams.toString();
-    return qs ? `/trust-records?${qs}` : "/trust-records";
-  }, [searchParams]);
+    const path = pathname?.startsWith("/trust-records") ? pathname : "/trust-records";
+    return qs ? `${path}?${qs}` : path;
+  }, [pathname, searchParams]);
 
   return (
     <AuthGate redirectTo={redirectTo} showWalletAuth={false}>
