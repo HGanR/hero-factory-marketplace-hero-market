@@ -4,7 +4,7 @@ import {INTERSECTION_SPAWN} from './town-placement';
 /** Admin's Green Terrain library only. These are not marketplace catalog entries. */
 export const TERRAIN_LIBRARY_ASSETS=[
  {key:'forest-habitat',name:'Forest Habitat',icon:'🌳',category:'Buildings',modelUrl:'/models/green-terrain/forest-habitat.glb',defaultScale:1,description:'Furnished forest habitat with patio, landscaping and architectural detail. Green Terrain placement only.'},
- {key:'troo-transit-bus',name:'TROO Transit Bus',icon:'🚌',category:'Transport',modelUrl:'/models/green-terrain/troo-transit-bus.glb',defaultScale:1,description:'Detailed bus with passengers, destination signs and lights. Placed parked; its source route animation is not started.'},
+ {key:'troo-transit-bus',name:'TROO Transit Bus',icon:'🚌',category:'Transport',modelUrl:'/models/green-terrain/troo-transit-bus.glb',defaultScale:1,description:'Detailed bus with passengers, destination signs and lights. Straight-street traffic in View Mode; parked in Editor Mode. Configure its route in Save.'},
 ] as const;
 export function terrainLibraryAssetForModel(url:string){return TERRAIN_LIBRARY_ASSETS.find(asset=>asset.modelUrl===url.split(/[?#]/)[0]);}
 export function placeTerrainLibraryAsset(imports:GreenLayout['imports'],key:string,identity:string):GreenLayout['imports']{

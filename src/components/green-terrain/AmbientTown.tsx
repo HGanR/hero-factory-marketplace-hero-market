@@ -1,9 +1,12 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {useFrame} from '@react-three/fiber';
+import {useFrame,useThree} from '@react-three/fiber';
 import * as THREE from 'three';
 import type {GreenLayout} from '@/lib/troo-world/green-terrain-layout';
 import {walkwaysFor,pedestrianPose,pedestrianRoutes,pedestrianRoutePose,pointOn,type Walkway,type PedestrianRoute} from '@/lib/troo-world/ambient-town';
+import type {ImportedFootprints} from '@/lib/troo-world/ambient-town';
+import type {ModelFootprint} from '@/lib/troo-world/model-footprint';
+import {measureModelFootprint} from '@/lib/troo-world/model-footprint';
 function Person({walkway,index,mode,reduced,route}:{route?:PedestrianRoute;walkway:Walkway;index:number;mode:'walk'|'talk'|'sit';reduced:boolean}){
  const root=useRef<THREE.Group>(null),left=useRef<THREE.Group>(null),right=useRef<THREE.Group>(null),arm=useRef<THREE.Group>(null);
  const clothes=['#237eb9','#a35692','#d29035','#41876a','#7859b0','#c25f4b'][index%6];
@@ -21,9 +24,16 @@ function Person({walkway,index,mode,reduced,route}:{route?:PedestrianRoute;walkw
  </group>;
 }
 export default function AmbientTown({layout}:{layout:GreenLayout}){
+ const{scene}=useThree();const[measured,setMeasured]=useState<ImportedFootprints>({}),last=useRef(''),timer=useRef(1);
+ useFrame((_,delta)=>{timer.current+=delta;if(timer.current<.25)return;timer.current=0;const rows:ImportedFootprints={};
+  scene.traverseVisible(root=>{if(root.userData.staticBuildingKey){const ids:number[]=[];root.traverseVisible(n=>{if((n as THREE.Mesh).isMesh)ids.push((n as THREE.Mesh).geometry.id)});const stamp=ids.join(',')+':'+root.userData.footprintScale;if(stamp!==root.userData.footprintStamp){root.userData.footprintStamp=stamp;root.userData.sidewalkFootprint=measureModelFootprint(root);}}
+   const f=root.userData.sidewalkFootprint as ModelFootprint|undefined;if(!f)return;let owner:THREE.Object3D|null=root;while(owner&&!owner.userData.airportPlacementKey&&!owner.userData.staticBuildingKey)owner=owner.parent;const key=owner?.userData.airportPlacementKey??owner?.userData.staticBuildingKey;if(typeof key!=='string')return;
+   root.updateWorldMatrix(true,false);const m=root.matrixWorld,center=new THREE.Vector3((f.minX+f.maxX)/2,0,(f.minZ+f.maxZ)/2).applyMatrix4(m),e=m.elements,sx=Math.hypot(e[0],e[1],e[2]),sz=Math.hypot(e[8],e[9],e[10]);(rows[key]??=[]).push({x:center.x,z:center.z,halfX:(f.maxX-f.minX)*sx/2,halfZ:(f.maxZ-f.minZ)*sz/2,yaw:Math.atan2(e[8],e[10]),padding:.4});
+  });const fingerprint=JSON.stringify(rows,(_,v)=>typeof v==='number'?Math.round(v*1000)/1000:v);if(fingerprint!==last.current){last.current=fingerprint;setMeasured(rows);}
+ });
  const[reduced,setReduced]=useState(false);
  useEffect(()=>{const media=matchMedia('(prefers-reduced-motion: reduce)'),update=()=>setReduced(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update)},[]);
- const paths=useMemo(()=>walkwaysFor(layout),[layout]);
+ const paths=useMemo(()=>walkwaysFor(layout,measured),[layout,measured]);
  const routes=useMemo(()=>pedestrianRoutes(paths),[paths]);
  if(!layout.ambient.sidewalks)return null;
  return <group name="ambient-town-sidewalks">

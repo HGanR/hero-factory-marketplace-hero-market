@@ -767,9 +767,9 @@ interface SceneProps {
   onWorldFreeLookChange: (v: boolean) => void;
 }
 
-function BuildingPresentation({state,alreadyScaled=false,onSelect,children}:{state:BuildingState;alreadyScaled?:boolean;onSelect?:()=>void;children:React.ReactNode}){
+function BuildingPresentation({state,alreadyScaled=false,onSelect,children,footprintKey}:{state:BuildingState;alreadyScaled?:boolean;onSelect?:()=>void;children:React.ReactNode;footprintKey?:string}){
  if(!state.visible)return null;
- return <group onClick={onSelect?e=>{e.stopPropagation();onSelect()}:undefined} userData={{townSolid:true}} position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
+ return <group onClick={onSelect?e=>{e.stopPropagation();onSelect()}:undefined} userData={{townSolid:true,staticBuildingKey:footprintKey,footprintScale:state.scale}} position={state.position} rotation={[0,state.rotationY,0]} scale={alreadyScaled?1:state.scale}><group position={[-state.position[0],-state.position[1],-state.position[2]]}>{children}</group></group>;
 }
 
 function Scene(props: SceneProps) {
@@ -820,7 +820,7 @@ function Scene(props: SceneProps) {
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
       <AmbientTown layout={props.layout}/>
-      <ImportedTownModels onEnterBuilding={props.cameraState==="world"?props.onEnterOffice:undefined} selectedAirportKey={props.selectedAirportKey} selectedAirportPart={props.selectedAirportPart} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
+      <ImportedTownModels roads={props.layout.objects} onEnterBuilding={props.cameraState==="world"?props.onEnterOffice:undefined} selectedAirportKey={props.selectedAirportKey} selectedAirportPart={props.selectedAirportPart} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {Object.entries(props.layout.buildings).filter(([,frame])=>frame.visible).map(([id,frame])=><group key={'interior-'+id} position={frame.position} rotation={[0,frame.rotationY,0]} scale={frame.scale}><BuildingInteriorLayer value={frame.interior} allowPosition/>{props.isEditorMode&&(({'nexus-tower':props.nexusSelected,'meridian-tower':props.meridianSelected,'troothhertz-tower':props.troothhertzSelected,'stadium-elyseum':props.stadiumSelected,'veritas-school':props.veritasSelected} as Record<string,boolean>)[id])&&<mesh name={'Building selection ring '+id} position={[0,.12,0]} rotation={[-Math.PI/2,0,0]} raycast={()=>{}}><ringGeometry args={[id==='stadium-elyseum'?74:id==='veritas-school'?38:14,id==='stadium-elyseum'?74.5:id==='veritas-school'?38.5:14.3,96]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={THREE.DoubleSide} depthWrite={false}/></mesh>}</group>)}
       {/* Plain labels — TROO CENTER and cardinal plains */}
       {props.cameraState === "world" && (<PlainLabel position={[0, 0, 20]} name="TROO CENTER" />)}
@@ -853,7 +853,7 @@ function Scene(props: SceneProps) {
         /></group>
       ))}
 
-      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectNexus:undefined} state={props.layout.buildings["nexus-tower"]} >
+      <BuildingPresentation footprintKey="nexus-tower" onSelect={props.cameraState==="world"?props.onSelectNexus:undefined} state={props.layout.buildings["nexus-tower"]} >
       <Suspense fallback={null}>
         <CorporateBuilding
           position={props.nexusPos}
@@ -871,7 +871,7 @@ function Scene(props: SceneProps) {
       />)}
       </BuildingPresentation>
 
-      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectMeridian:undefined} state={props.layout.buildings["meridian-tower"]} >
+      <BuildingPresentation footprintKey="meridian-tower" onSelect={props.cameraState==="world"?props.onSelectMeridian:undefined} state={props.layout.buildings["meridian-tower"]} >
       <Suspense fallback={null}>
         <MeridianTower
           position={props.meridianPos}
@@ -891,7 +891,7 @@ function Scene(props: SceneProps) {
       />)}
       </BuildingPresentation>
 
-      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectTroothhertz:undefined} state={props.layout.buildings["troothhertz-tower"]} >
+      <BuildingPresentation footprintKey="troothhertz-tower" onSelect={props.cameraState==="world"?props.onSelectTroothhertz:undefined} state={props.layout.buildings["troothhertz-tower"]} >
       <Suspense fallback={null}>
         <TroothhertzTower
           position={props.troothhertzPos}
@@ -916,7 +916,7 @@ function Scene(props: SceneProps) {
       </Suspense>
       </BuildingPresentation>
 
-      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectStadium:undefined} state={props.layout.buildings["stadium-elyseum"]} alreadyScaled >
+      <BuildingPresentation footprintKey="stadium-elyseum" onSelect={props.cameraState==="world"?props.onSelectStadium:undefined} state={props.layout.buildings["stadium-elyseum"]} alreadyScaled >
       <Suspense fallback={null}>
         <StadiumElyseum
           position={props.stadiumPos}
@@ -938,7 +938,7 @@ function Scene(props: SceneProps) {
         onEnter={props.onEnterStadium}
       />)}
       </BuildingPresentation>
-      <BuildingPresentation onSelect={props.cameraState==="world"?props.onSelectVeritas:undefined} state={props.layout.buildings["veritas-school"]} >
+      <BuildingPresentation footprintKey="veritas-school" onSelect={props.cameraState==="world"?props.onSelectVeritas:undefined} state={props.layout.buildings["veritas-school"]} >
       <VeritasSchool
         position={props.veritasPos}
         isSelected={!props.isEditorMode&&props.veritasSelected}
@@ -2018,6 +2018,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onAirportFocus={handleFocusAirport}
         onAirportPartSelect={handleSelectAirport}
         onAirportPartsChange={(key,parts)=>{saveToHistory();setImports(rows=>rows.map(p=>p.elementKey===key?{...p,airportParts:parts}:p));handleSelectAirport(key,selectedAirportPart);}}
+        onTransitSettingsChange={(key,transit)=>{saveToHistory();setImports(rows=>rows.map(p=>p.elementKey===key?{...p,transit}:p));}}
         airportModels={imports}
         onAirportScaleChange={(key,value)=>{saveToHistory();setImports(rows=>rows.map(row=>row.elementKey===key?{...row,scale:value}:row));}}
         veritasPosition={veritasPos}
