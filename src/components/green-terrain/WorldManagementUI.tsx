@@ -210,7 +210,7 @@ interface WorldManagementUIProps {
   onAirportScaleChange?:(key:string,scale:number)=>void;
   veritasPosition: [number, number, number];
   trees: Array<{ id: number; pos: [number, number, number]; scale: number }>;
-  placedObjects: Array<{ id: string; type: WorldObjectType; position: [number, number, number]; rotation?: [number, number, number] }>;
+  placedObjects: Array<{ id: string; type: WorldObjectType; position: [number, number, number]; rotation?: [number, number, number]; scale?:number }>;
   onPlaceObject: (type: WorldObjectType) => void;
   // Undo/Redo
   canUndo: boolean;
@@ -964,7 +964,7 @@ export default function WorldManagementUI({
                 </div>
                 {onVeritasScaleChange&&<ModelScaleControl label="Veritas" value={veritasScale} onChange={onVeritasScaleChange}/>}
                 {onAirportScaleChange&&airportModels.map(airport=><ModelScaleControl key={airport.elementKey} label={isAirport(airport)?"Airport":importedBuildingName(airport)} value={airport.scale} resetValue={isAirport(airport)?AIRPORT.defaultScale:1} onChange={value=>onAirportScaleChange(airport.elementKey,value)}/>)}
-                {onTransitSettingsChange&&airportModels.filter(isTransitBus).map(bus=><TransitRouteEditor roads={placedObjects} key={bus.elementKey} placement={bus} onChange={value=>onTransitSettingsChange(bus.elementKey,value)}/>)}
+                {onTransitSettingsChange&&airportModels.filter(isTransitBus).map(bus=><TransitRouteEditor roads={placedObjects.map(o=>({...o,rotation:o.rotation??[0,0,0],scale:o.scale??1}))} key={bus.elementKey} placement={bus} onChange={value=>onTransitSettingsChange(bus.elementKey,value)}/>)}
                 {onAirportPartsChange&&airportModels.filter(isAirport).map(airport=><AirportPartsEditor key={airport.elementKey} placement={airport} onFocus={()=>onAirportFocus?.(airport)} onChange={parts=>onAirportPartsChange(airport.elementKey,parts)} selected={selectedAirportPart?.key===airport.elementKey?selectedAirportPart.part:"whole"} onSelect={part=>onAirportPartSelect?.(airport.elementKey,part)}/>)}
                 <div style={{ color: "#fff", fontSize: 12 }}>🌲 {trees.length} trees</div>
                 <div style={{ color: "#fff", fontSize: 12 }}>📦 {placedObjects.length} environment objects</div>
