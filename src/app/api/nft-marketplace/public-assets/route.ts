@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConnection, getDb } from "@/lib/db";
-import { nftCollections, nfts } from "@/lib/db/schema";
-import { and, eq, desc, asc, like, or } from "drizzle-orm";
+import { getConnection } from "@/lib/db";
 
 function isVisible(attributes: string | null): boolean {
   if (!attributes) return true;
@@ -27,92 +25,74 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100");
     const offset = parseInt(searchParams.get("offset") || "0");
 
+    // Use the existing database tables directly. The shared Drizzle schema does not
+    // export NFT models at runtime, so references to nftCollections.isPublic
+    // previously threw before any query could execute.
     const connection = await getConnection();
-    let hasIsPublic = true;
-    try {
-      const [rows] = await connection.query(
-        "SELECT COLUMN_NAME AS columnName FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'nft_collections'"
-      );
-      const cols = new Set(
-        Array.isArray(rows)
-          ? rows.map((r: any) => r.columnName || r.COLUMN_NAME).filter(Boolean)
-          : []
-      );
-      hasIsPublic = cols.has("isPublic");
-    } catch {
-      hasIsPublic = false;
+    const [columnRows] = await connection.query(
+      "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('nfts', 'nft_collections')"
+    );
+    const columns = Array.isArray(columnRows) ? columnRows as Array<{ tableName: string; columnName: string }> : [];
+    const has = (table: string, column: string) =>
+      columns.some((row) => row.tableName === table && row.columnName === column);
+    if (!has("nfts", "id") || !has("nft_collections", "id")) {
+      return NextResponse.json({ ok: false, error: { code: "NFT_SCHEMA_UNAVAILABLE", message: "NFT inventory tables are unavailable in the selected database." } }, { status: 503 });
     }
 
-    const db = await getDb();
-
-    let baseCondition: any = hasIsPublic
-      ? and(
-          eq(nftCollections.isPublic, true),
-          chain === "all" ? eq(nftCollections.isPublic, true) : eq(nftCollections.chain, chain as any)
-        )
-      : chain === "all"
-        ? undefined
-        : eq(nftCollections.chain, chain as any);
-
+    const where: string[] = [];
+    const params: Array<string | number> = [];
+    if (has("nft_collections", "isPublic")) where.push("c.\`isPublic\` = 1");
+    if (chain !== "all") {
+      where.push("n.\`chain\` = ?");
+      params.push(chain);
+    }
     if (collectionId !== "all") {
-      const c = eq(nfts.collectionId, collectionId);
-      baseCondition = baseCondition ? and(baseCondition, c) : c;
+      where.push("n.\`collectionId\` = ?");
+      params.push(collectionId);
     }
-
     if (query) {
-      const likeQuery = `%${query}%`;
-      const searchCondition = or(
-        like(nfts.name, likeQuery),
-        like(nfts.description, likeQuery),
-        like(nftCollections.name, likeQuery),
-        like(nftCollections.symbol, likeQuery)
-      );
-      baseCondition = baseCondition ? and(baseCondition, searchCondition) : searchCondition;
+      where.push("(n.\`name\` LIKE ? OR n.\`description\` LIKE ? OR c.\`name\` LIKE ?)");
+      params.push(...Array(3).fill(`%${query}%`));
     }
-
-    const orderBy =
-      sort === "price_low"
-        ? asc(nfts.listPrice)
-        : sort === "price_high"
-          ? desc(nfts.listPrice)
-          : sort === "name"
-            ? asc(nfts.name)
-            : desc(nfts.mintedAt);
-
-    const rows = await db
-      .select({
-        nft: nfts,
-        collection: nftCollections,
-      })
-      .from(nfts)
-      .innerJoin(nftCollections, eq(nfts.collectionId, nftCollections.id))
-      .where(baseCondition as any)
-      .orderBy(orderBy)
-      .limit(limit)
-      .offset(offset);
-
-    const items = rows
-      .filter((row) => isVisible(row.nft.attributes))
-      .map((row) => ({
-        id: row.nft.id,
-        tokenId: row.nft.tokenId,
-        name: row.nft.name,
-        description: row.nft.description,
-        imageUrl: row.nft.imageUrl,
-        chain: row.nft.chain,
-        ownerAddress: row.nft.ownerAddress,
-        isListed: row.nft.isListed,
-        listPrice: row.nft.listPrice ? parseFloat(String(row.nft.listPrice)) : 0,
-        listCurrency: row.nft.listCurrency ?? "",
-        contractAddress: row.nft.contractAddress ?? null,
-        attributes: row.nft.attributes ? JSON.parse(row.nft.attributes) : null,
-        collection: {
-          id: row.collection.id,
-          name: row.collection.name,
-          symbol: row.collection.symbol,
-          contractAddress: row.collection.contractAddress,
-        },
-      }));
+    const order = sort === "price_low" ? "n.\`listPrice\` ASC" :
+      sort === "price_high" ? "n.\`listPrice\` DESC" :
+      sort === "name" ? "n.\`name\` ASC" : "n.\`mintedAt\` DESC";
+    const pageLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 100)) : 100;
+    const pageOffset = Number.isFinite(offset) ? Math.max(0, offset) : 0;
+    const [resultRows] = await connection.query(
+      `SELECT n.*, c.\`name\` AS collectionName, c.\`symbol\` AS collectionSymbol,
+        c.\`contractAddress\` AS collectionContractAddress
+        FROM \`nfts\` n INNER JOIN \`nft_collections\` c ON n.\`collectionId\` = c.\`id\`
+        ${where.length ? "WHERE " + where.join(" AND ") : ""}
+        ORDER BY ${order} LIMIT ? OFFSET ?`,
+      [...params, pageLimit, pageOffset]
+    );
+    const rows = Array.isArray(resultRows) ? resultRows as Array<Record<string, any>> : [];
+    const parseAttributes = (value: unknown) => {
+      if (!value) return null;
+      if (typeof value !== "string") return value;
+      try { return JSON.parse(value); } catch { return null; }
+    };
+    const items = rows.filter((row) => isVisible(typeof row.attributes === "string" ? row.attributes : JSON.stringify(row.attributes ?? null))).map((row) => ({
+      id: row.id,
+      tokenId: row.tokenId,
+      name: row.name,
+      description: row.description,
+      imageUrl: row.imageUrl,
+      chain: row.chain,
+      ownerAddress: row.ownerAddress,
+      isListed: Boolean(row.isListed),
+      listPrice: row.listPrice ? Number(row.listPrice) : 0,
+      listCurrency: row.listCurrency ?? "",
+      contractAddress: row.contractAddress ?? null,
+      attributes: parseAttributes(row.attributes),
+      collection: {
+        id: row.collectionId,
+        name: row.collectionName,
+        symbol: row.collectionSymbol,
+        contractAddress: row.collectionContractAddress,
+      },
+    }));
 
     return NextResponse.json({
       ok: true,

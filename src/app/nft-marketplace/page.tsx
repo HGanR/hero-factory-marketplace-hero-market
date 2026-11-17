@@ -274,6 +274,10 @@ export default function NFTMarketplacePage() {
   const [activeTab, setActiveTab] = useState<"browse" | "deploy" | "collection">("browse");
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [walletNfts, setWalletNfts] = useState<NFT[]>([]);
+  const [selectedNftDetails, setSelectedNftDetails] = useState<NFT | null>(null);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const showcaseSlides = [{ title: "Hero Market", image: "/nft-marketplace/hero-market-banner-first-slide.png", kind: "image" as const }, { title: "TrooVerse", image: "/nft-marketplace/trooverse-skyline.svg", kind: "image" as const }, ...nfts.filter((nft) => Boolean(nft.imageUrl)).slice(0, 5).map((nft) => ({ title: nft.name, image: nft.imageUrl, kind: "image" as const }))];
+  const currentSlide = showcaseSlides[heroSlide % showcaseSlides.length];
   const [loading, setLoading] = useState(false);
   const [walletNftsLoading, setWalletNftsLoading] = useState(false);
   const [selectedChain, setSelectedChain] = useState<string>("polygon");
@@ -467,18 +471,18 @@ export default function NFTMarketplacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-[#050817] text-white">
       {/* Header */}
-      <header className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="border-b border-fuchsia-500/30 bg-[#090d23]">
+        <div className="mx-auto flex w-full min-w-0 flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4">
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Dashboard
               </Link>
             </Button>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold sm:text-3xl bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
               NFT Marketplace
             </h1>
           </div>
@@ -494,7 +498,147 @@ export default function NFTMarketplacePage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="mx-auto w-full min-w-0 max-w-none px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
+      {/* Cinematic marketplace landing — live inventory remains below. */}
+      <section className="relative isolate w-full min-w-0 overflow-hidden rounded-2xl border border-fuchsia-500/40 sm:rounded-[28px] bg-[#070a1d] shadow-[0_0_55px_rgba(102,40,230,.2)]">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_82%_20%,rgba(112,40,230,.55),transparent_48%),radial-gradient(ellipse_at_45%_100%,rgba(0,210,255,.25),transparent_50%)]" />
+        <div className="absolute inset-0 bg-cover bg-center opacity-70 transition-all duration-500" style={{ backgroundImage: `url("${currentSlide.image}")` }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070a1d] via-[#070a1d]/85 to-transparent" />
+        <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(70,180,255,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(70,180,255,.12)_1px,transparent_1px)] [background-size:52px_52px] [mask-image:linear-gradient(to_top,black,transparent)]" />
+        <div className="relative grid min-h-[360px] min-w-0 items-center gap-6 px-4 py-10 sm:px-8 sm:py-12 lg:grid-cols-[1.15fr_.85fr] lg:px-12 lg:py-16 xl:min-h-[480px]">
+          <div>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[.35em] text-cyan-300">Hero Market / NFT Market</p>
+            <h2 className="max-w-2xl bg-gradient-to-r from-cyan-300 via-blue-400 to-fuchsia-400 bg-clip-text text-5xl font-black uppercase leading-[.98] tracking-tight text-transparent text-[clamp(2.4rem,8vw,5.5rem)]">NFT<br/>Marketplace</h2>
+            <p className="mt-5 text-base font-semibold text-white sm:text-xl">Own · Create · Trade · Build in the TrooVerse</p>
+            <p className="mt-2 max-w-xl text-sm text-slate-300 sm:text-base">Explore digital collectibles, 3D world assets, buildings, avatars and creator collections across supported networks.</p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button type="button" onClick={() => { setActiveTab("browse"); document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" }); }} className="rounded-full border-2 border-cyan-300 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-blue-600 px-7 py-3 font-bold text-white shadow-[0_0_12px_rgba(240,60,255,.7),0_0_24px_rgba(0,209,255,.45)] transition hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">Explore NFTs →</button>
+              <button type="button" onClick={() => setActiveTab("deploy")} className="rounded-full border-2 border-fuchsia-400 bg-[#090d23]/70 px-7 py-3 font-bold text-white shadow-[0_0_12px_rgba(192,75,255,.5),0_0_20px_rgba(0,209,255,.28)] transition hover:border-cyan-300 hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">Create NFT</button>
+            </div>
+          </div>
+          <div className="relative hidden min-h-[270px] items-center justify-center lg:flex" aria-hidden="true">
+            <div className="absolute h-64 w-64 rounded-full border border-cyan-400/60 shadow-[0_0_65px_rgba(0,209,255,.35),inset_0_0_50px_rgba(158,62,255,.25)]" />
+            <div className="absolute h-80 w-80 rotate-[-25deg] rounded-full border border-fuchsia-400/40" />
+            <div className="relative rounded-3xl border border-cyan-300/40 bg-slate-950/60 px-10 py-9 text-center shadow-[0_0_50px_rgba(113,58,255,.35)] backdrop-blur-lg">
+              <div className="bg-gradient-to-br from-cyan-300 to-fuchsia-400 bg-clip-text text-8xl font-black text-transparent">T</div>
+              <div className="mt-2 text-lg font-black tracking-[.3em] text-cyan-200">TROO VERSE</div>
+              <div className="mt-1 text-xs uppercase tracking-[.2em] text-slate-400">Create your legacy</div>
+            </div>
+          </div>
+        </div>
+        <div className="relative flex items-center justify-between gap-2 border-t border-cyan-400/20 bg-[#070b21]/90 px-3 py-3 sm:px-6">
+          <button type="button" onClick={() => setHeroSlide((value) => (value + showcaseSlides.length - 1) % showcaseSlides.length)} aria-label="Previous showcase image" className="shrink-0 rounded-full border-2 border-cyan-400/70 bg-[#090d23]/80 px-3 py-2 text-cyan-100 shadow-[0_0_12px_rgba(0,209,255,.35)] hover:bg-cyan-400/20">‹</button>
+          <div className="flex min-w-0 flex-1 snap-x gap-2 overflow-x-auto py-1 sm:gap-3" aria-label="Marketplace showcase image carousel">
+            {showcaseSlides.map((slide, index) => (
+              <button key={slide.title + index} type="button" onClick={() => setHeroSlide(index)} aria-label={`Show ${slide.title} in banner`} aria-pressed={heroSlide === index} className={`relative w-24 shrink-0 snap-start overflow-hidden rounded-xl border-2 text-left transition sm:w-40 md:w-48 ${heroSlide === index ? "border-cyan-300 shadow-[0_0_16px_rgba(0,209,255,.55)]" : "border-fuchsia-400/50 hover:border-cyan-300"}`}>
+                <img src={slide.image} alt={slide.title} loading="lazy" className="aspect-[16/9] w-full object-cover" />
+                <span className="block truncate bg-black/80 px-2 py-1 text-[10px] text-white sm:text-xs">{slide.title}</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setHeroSlide((value) => (value + 1) % showcaseSlides.length)} aria-label="Next showcase image" className="shrink-0 rounded-full border border-cyan-400/60 px-3 py-2 text-cyan-100 hover:bg-cyan-400/20">›</button>
+        </div>
+        <div className="relative grid grid-cols-2 border-t border-white/10 bg-black/30 sm:grid-cols-4">
+          {["Buildings & Land", "Vehicles & Aircraft", "Avatars & NPCs", "World Assets"].map((category) => <div key={category} className="min-w-0 border-r border-white/10 px-2 py-3 text-center text-[11px] font-semibold text-cyan-100 sm:px-3 sm:py-5 sm:text-sm">{category}</div>)}
+        </div>
+      </section>
+      <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_270px]">
+        <div className="rounded-2xl border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 to-fuchsia-500/10 px-6 py-5">
+          <h3 className="text-xl font-bold text-white">Featured Collections</h3>
+          <p className="mt-1 text-sm text-slate-300">Discover collections from the live Hero Market catalog below.</p>
+        </div>
+        <div className="rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/10 px-6 py-5">
+          <div className="text-sm font-semibold text-fuchsia-200">Powered by TROO</div>
+          <p className="mt-1 text-xs text-slate-300">Connect your wallet to explore your NFTs.</p>
+          <div className="mt-3"><MobileWalletButton /></div>
+        </div>
+      </div>
+        {/* Live discovery: never substitute invented collections, prices, or artwork. */}
+        <section aria-label="Discover NFT collections" className="mt-8 space-y-7">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[.24em] text-cyan-300">Explore the TrooVerse</p>
+              <h3 className="mt-2 text-2xl font-black text-white sm:text-3xl">Discover collections</h3>
+              <p className="mt-1 text-sm text-slate-400">Public collections from the Hero Market catalog.</p>
+            </div>
+            <button type="button" onClick={() => document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full border-2 border-cyan-400/70 bg-[#090d23]/70 px-5 py-2 text-sm font-bold text-cyan-100 shadow-[0_0_12px_rgba(0,209,255,.3)] hover:bg-cyan-400/10">Browse marketplace</button>
+          </div>
+          {collectionsLoading ? (
+            <p role="status" className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">Loading collections…</p>
+          ) : publicCollections.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {publicCollections.slice(0, 8).map((collection) => {
+                const artwork = nfts.find((nft) => nft.contractAddress && collection.contractAddress && nft.contractAddress.toLowerCase() === collection.contractAddress.toLowerCase())?.imageUrl || collection.imageUrl;
+                return (
+                  <button key={collection.id} type="button" onClick={() => { setActiveTab("browse"); setCollectionFilter(String(collection.id)); document.getElementById("nft-live-market")?.scrollIntoView({ behavior: "smooth" }); }} className="group min-w-0 overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#11162b] text-left transition hover:border-fuchsia-400/60 hover:shadow-[0_0_25px_rgba(155,70,255,.15)]">
+                    <div className="aspect-[5/4] overflow-hidden bg-gradient-to-br from-cyan-950 via-indigo-950 to-fuchsia-950">
+                      {artwork ? <img src={artwork} alt={collection.name + " collection artwork"} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-4xl font-black text-cyan-300/40" aria-hidden="true">{collection.name.slice(0, 1)}</div>}
+                    </div>
+                    <div className="p-4">
+                      <p className="truncate text-base font-bold text-white">{collection.name}</p>
+                      <p className="mt-1 text-xs text-slate-400">{collection.chain || "Supported network"} · Explore collection</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">No collections available from the marketplace service right now.</p>
+          )}
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-black text-white sm:text-3xl">Recently discovered NFTs</h3>
+              <p className="mt-1 text-sm text-slate-400">Original artwork from the live catalog. Not all NFTs are listed for sale.</p>
+            </div>
+          </div>
+          {loading ? (
+            <p role="status" className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">Loading NFTs…</p>
+          ) : nfts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {nfts.slice(0, 10).map((nft) => (
+                <button key={nft.id} type="button" onClick={() => setSelectedNftDetails(nft)} aria-label={`View details for ${nft.name}`} className="min-w-0 overflow-hidden rounded-2xl border-2 border-fuchsia-400/50 bg-[#11162b] text-left shadow-[0_0_12px_rgba(155,70,255,.2)] transition hover:border-cyan-300 hover:shadow-[0_0_25px_rgba(0,209,255,.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+                  <div className="aspect-square overflow-hidden bg-gradient-to-br from-cyan-950 to-fuchsia-950">
+                    {nft.imageUrl ? <img src={nft.imageUrl} alt={nft.name} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">Artwork unavailable</div>}
+                  </div>
+                  <div className="space-y-2 p-3">
+                    <p className="truncate text-sm font-semibold text-white" title={nft.name}>{nft.name}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-slate-400">
+                      <span>{nft.chain}</span>
+                      <span className={nft.isListed ? "text-emerald-300" : "text-slate-400"}>{nft.isListed ? "Listed" : "Not for sale"}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">No NFTs returned for this network. Try All Chains or review the marketplace connection.</p>
+          )}
+        </section>
+        {selectedNftDetails ? (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 sm:p-6" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedNftDetails(null); }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="nft-details-heading" className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-cyan-400/40 bg-[#0b1027] p-4 shadow-[0_0_65px_rgba(0,209,255,.15)] sm:p-6">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div><p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">NFT details</p><h3 id="nft-details-heading" className="mt-1 break-words text-xl font-bold text-white sm:text-2xl">{selectedNftDetails.name}</h3></div>
+                <button type="button" onClick={() => setSelectedNftDetails(null)} aria-label="Close NFT details" className="shrink-0 rounded-full border-2 border-fuchsia-400/70 bg-[#090d23] px-4 py-2 text-white shadow-[0_0_12px_rgba(192,75,255,.35)] hover:bg-white/10">Close</button>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="aspect-square overflow-hidden rounded-xl bg-gradient-to-br from-cyan-950 to-fuchsia-950">
+                  {selectedNftDetails.imageUrl ? <img src={selectedNftDetails.imageUrl} alt={selectedNftDetails.name} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center text-slate-400">Artwork unavailable</div>}
+                </div>
+                <div className="min-w-0 space-y-4 text-sm">
+                  <div><p className="text-slate-400">Availability</p><p className="font-semibold text-white">{selectedNftDetails.isListed ? "Listed for sale" : "Not for sale"}</p></div>
+                  <div><p className="text-slate-400">Network</p><p className="font-semibold text-white">{selectedNftDetails.chain}</p></div>
+                  <div><p className="text-slate-400">Token ID</p><p className="break-all text-white">{selectedNftDetails.tokenId || "Not available"}</p></div>
+                  <div><p className="text-slate-400">Owner wallet (recorded)</p><p className="break-all font-mono text-xs text-white">{selectedNftDetails.ownerAddress || "Not available"}</p></div>
+                  <div><p className="text-slate-400">Contract address</p><p className="break-all font-mono text-xs text-white">{selectedNftDetails.contractAddress || "Not available"}</p></div>
+                  {selectedNftDetails.description ? <div><p className="text-slate-400">Description</p><p className="whitespace-pre-wrap break-words text-slate-200">{selectedNftDetails.description}</p></div> : null}
+                  <p className="text-xs text-slate-400">Ownership and listing information reflects marketplace records; on-chain verification is required before any transaction.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        ) : null}
+        <div id="nft-live-market" className="scroll-mt-8" />
         {/* NFT Banner Carousel */}
         <OpenSeaBanner
           walletNfts={walletNfts as any}
@@ -669,20 +813,20 @@ function BrowseNFTs({
 
   return (
     <div>
-      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-cyan-400/20 bg-[#0b1431]/80 p-4 md:grid-cols-3">
         <div className="md:col-span-2">
           <Label className="text-slate-300">Search</Label>
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search name, description, or collection..."
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
           />
         </div>
         <div>
           <Label className="text-slate-300">Sort</Label>
           <Select value={sortBy} onValueChange={(v) => onSortChange(v as any)}>
-            <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+            <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -698,7 +842,7 @@ function BrowseNFTs({
       <div className="mb-6">
         <Label className="text-slate-300">Collection</Label>
         <Select value={collectionFilter} onValueChange={(v) => onCollectionChange(v)}>
-          <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+          <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
             <SelectValue placeholder={collectionsLoading ? "Loading..." : "All collections"} />
           </SelectTrigger>
           <SelectContent>
@@ -715,7 +859,7 @@ function BrowseNFTs({
       {publicCollections.length > 0 ? (
         <div className="mb-10">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-white">Collections</h3>
+            <h3 className="bg-gradient-to-r from-cyan-200 to-fuchsia-300 bg-clip-text text-2xl font-bold text-transparent">Featured Collections</h3>
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span>{publicCollections.length}</span>
               {isConnected ? (
@@ -749,13 +893,13 @@ function BrowseNFTs({
           {nftSyncStatus ? (
             <div className="mb-3 text-xs text-slate-400">{nftSyncStatus}</div>
           ) : null}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {publicCollections.map((c) => (
-              <Card key={c.id} className="bg-slate-800/40 border-white/10 overflow-hidden">
-                <div className="aspect-square bg-slate-900/60">
+              <Card key={c.id} className="group overflow-hidden rounded-2xl border border-fuchsia-400/35 bg-[#0b1431]/90 shadow-[0_0_20px_rgba(130,70,255,.12)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/80 hover:shadow-[0_0_30px_rgba(0,209,255,.28)]">
+                <div className="aspect-[5/4] overflow-hidden bg-gradient-to-br from-[#1a1d4a] to-[#071528]">
                   {c.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover" />
+                    <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   ) : (
                     <div className="h-full w-full grid place-items-center text-slate-500 text-xs">No image</div>
                   )}
@@ -881,6 +1025,8 @@ function BrowseNFTs({
         </div>
       )}
 
+      {/* Existing live NFTs, rendered as premium marketplace cards. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-2xl font-bold text-white">Featured NFTs</h3><p className="text-sm text-cyan-200/70">Live assets from Hero Market — no sample listings</p></div><span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200">{showWalletNfts ? walletNfts.length : nfts.length} NFTs found</span></div>
       {/* NFT Grid - Public library vs wallet */}
       {!showWalletNfts && (
         <>
@@ -894,7 +1040,7 @@ function BrowseNFTs({
           <p className="text-slate-500 text-sm mt-2">Be the first to list an NFT!</p>
         </div>
       ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {nfts.map((nft) => (
               <NFTCard key={nft.id} nft={nft} />
             ))}
@@ -915,7 +1061,7 @@ function BrowseNFTs({
               <p className="text-slate-500 text-sm mt-2">Try another chain or mint one.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {walletNfts.map((nft) => (
                 <NFTCard key={nft.id} nft={nft} isWalletNft />
               ))}
@@ -930,24 +1076,25 @@ function BrowseNFTs({
 // NFT Card Component
 function NFTCard({ nft, isWalletNft = false }: { nft: NFT; isWalletNft?: boolean }) {
   return (
-    <Card className={`bg-slate-800/40 border-white/10 hover:border-cyan-500/50 transition-all hover:scale-105 ${isWalletNft ? 'ring-2 ring-green-500/50' : ''}`}>
-      <div className="aspect-square bg-slate-700/40 relative overflow-hidden rounded-t-lg">
+    <Card className={`group overflow-hidden rounded-2xl border border-cyan-400/40 bg-[#0b1230] text-white shadow-[0_0_22px_rgba(0,210,255,.12)] transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-400 hover:shadow-[0_0_30px_rgba(180,60,255,.38)] ${isWalletNft ? 'ring-2 ring-emerald-400/40' : ''}`}>
+      <div className="aspect-[5/4] bg-slate-700/40 relative overflow-hidden rounded-t-2xl">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={nft.imageUrl || "https://via.placeholder.com/400"}
+          src={nft.imageUrl || "/nft-marketplace/trooverse-skyline.svg"}
           alt={nft.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
-            e.currentTarget.src = "https://via.placeholder.com/400/374151/FFFFFF?text=NFT";
+            if (!e.currentTarget.src.endsWith("/nft-marketplace/trooverse-skyline.svg")) e.currentTarget.src = "/nft-marketplace/trooverse-skyline.svg";
           }}
         />
+        <span className="absolute left-3 top-3 rounded-full border border-fuchsia-400 bg-[#120c35]/85 px-3 py-1 text-xs font-bold text-fuchsia-100">NFT</span>
         <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full p-1 border border-cyan-500/50">
           <ChainIcon chain={nft.chain} size={28} />
         </div>
       </div>
-      <CardContent className="p-4">
+      <CardContent className="border-t border-cyan-400/30 bg-gradient-to-b from-[#0e1a3a] to-[#080d24] p-4">
         <div className="flex items-center justify-between gap-2 mb-2">
-          <h3 className="text-lg font-bold text-white">{nft.name}</h3>
+          <h3 className="truncate text-base font-bold text-white" title={nft.name}>{nft.name}</h3>
           <Badge
             variant={nft.attributes?.some?.((a: any) => String(a?.trait_type || "").toLowerCase() === "visibility" && String(a?.value || "").toLowerCase() === "hidden") ? "outline" : "secondary"}
           >
@@ -1227,7 +1374,7 @@ function MintNFT({ onMintSuccess }: { onMintSuccess: () => void }) {
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             required
           />
         </div>
@@ -1256,7 +1403,7 @@ function MintNFT({ onMintSuccess }: { onMintSuccess: () => void }) {
             type="url"
             value={formData.image}
             onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             required
           />
         </div>
@@ -1267,7 +1414,7 @@ function MintNFT({ onMintSuccess }: { onMintSuccess: () => void }) {
             Blockchain
           </Label>
           <Select value={formData.chain} onValueChange={(v) => setFormData({ ...formData, chain: v })}>
-            <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+            <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1685,7 +1832,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
             value={selectedNetwork} 
             onValueChange={(v) => setSelectedNetwork(v as "ETH" | "POL" | "XRPL" | "SOL")}
           >
-            <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+            <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1703,7 +1850,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Cyber Hero #001"
-            className="mt-1 bg-slate-900 border-slate-700 text-white"
+            className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
           />
         </div>
 
@@ -1734,7 +1881,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
               value={collectionSelection}
               onValueChange={(v) => setCollectionSelection(v)}
             >
-              <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+              <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
                 <SelectValue placeholder={collectionsLoading ? "Loading..." : "Choose a collection"} />
               </SelectTrigger>
               <SelectContent>
@@ -1759,7 +1906,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
                   value={collectionAddress}
                   onChange={(e) => setCollectionAddress(e.target.value)}
                   placeholder="0x..."
-                  className="mt-1 bg-slate-900 border-slate-700 text-white"
+                  className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                 />
               </div>
             ) : null}
@@ -1772,7 +1919,7 @@ function DeployNFT({ onDeploySuccess }: { onDeploySuccess: () => void }) {
                 value={collectionAddress}
                 onChange={(e) => setCollectionAddress(e.target.value)}
                 placeholder="0x..."
-                className="mt-1 bg-slate-900 border-slate-700 text-white"
+                className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
               />
               <p className="text-xs text-slate-500 mt-1">
                 Leave empty to mint into the platform collection.
@@ -2214,7 +2361,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.name}
               onChange={(e) => setCollectionData({ ...collectionData, name: e.target.value })}
               placeholder="My Awesome Collection"
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
               required
             />
           </div>
@@ -2225,7 +2372,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.symbol}
               onChange={(e) => setCollectionData({ ...collectionData, symbol: e.target.value.toUpperCase().slice(0, 10) })}
               placeholder="MAC"
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
               maxLength={10}
               required
             />
@@ -2250,7 +2397,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.imageUrl}
               onChange={(e) => setCollectionData({ ...collectionData, imageUrl: e.target.value })}
               placeholder="https://... or upload below"
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             />
             <div className="mt-2">
               <Input
@@ -2271,7 +2418,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               value={collectionData.chain} 
               onValueChange={(v) => setCollectionData({ ...collectionData, chain: v as any })}
             >
-              <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
+              <SelectTrigger className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2316,7 +2463,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
               placeholder="0.00"
               value={mintPrice}
               onChange={(e) => setMintPrice(e.target.value)}
-              className="mt-1 bg-slate-900 border-slate-700 text-white"
+              className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
             />
           </div>
         </div>
@@ -2394,7 +2541,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
                             prev.map((v) => (v.id === item.id ? { ...v, name: e.target.value } : v))
                           )
                         }
-                        className="mt-1 bg-slate-900 border-slate-700 text-white"
+                        className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                       />
                     </div>
                     <div>
@@ -2411,7 +2558,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
                             )
                           )
                         }
-                        className="mt-1 bg-slate-900 border-slate-700 text-white"
+                        className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                       />
                     </div>
                   </div>
@@ -2441,7 +2588,7 @@ function DeployCollection({ onDeploySuccess }: { onDeploySuccess: () => void }) 
                           )
                         }
                         placeholder="https://... or upload below"
-                        className="mt-1 bg-slate-900 border-slate-700 text-white"
+                        className="mt-1 rounded-xl border-fuchsia-400/30 bg-[#0a1129] text-white focus-visible:ring-cyan-400"
                       />
                       <Input
                         type="file"
