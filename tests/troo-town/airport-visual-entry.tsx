@@ -1,4 +1,5 @@
 import AirportPartsEditor from '../../src/components/green-terrain/AirportPartsEditor';
+import RenovationShowcase from './airport-renovation-visual-entry';
 import {moveAirportPart,type AirportPartId} from '../../src/lib/troo-world/airport-parts';
 import TownEnvironment from '../../src/components/green-terrain/TownEnvironment';
 import React,{Suspense,useRef,useState} from 'react';
@@ -23,4 +24,5 @@ function App(){
  {editorMode&&<InteractionController imports={[model]} terrainHeight={()=>0} onSelectAirport={(key,part)=>{setSelected(key);setPart(part??"whole")}} onMoveAirport={(key,position,save,part)=>{moves.current++;if(save)history.current++;setModel(value=>part?moveAirportPart(value,part,position):({...value,position}));}} trees={[]} placedObjects={[]} nexusPos={[900,0,900]} meridianPos={[900,0,900]} troothhertzPos={[900,0,900]} stadiumPos={[900,0,900]} veritasPos={[900,0,900]} isEditorMode onSelectTree={noop} onMoveTree={noop} onSelectObject={noop} onMoveObject={noop} onMoveNexus={noop} onMoveMeridian={noop} onMoveTroothhertz={noop} onMoveStadium={noop} onMoveVeritas={noop} orbitRef={orbit}/>}
  <CameraController state={flying?"flying-in":"world"} buildingTarget={null} plainTarget={flying?target:null} orbitRef={orbit} onArrived={()=>setFlying(false)} onExited={()=>setFlying(false)}/><OrbitControls ref={orbit} enabled={!flying} minDistance={5} maxDistance={180}/><Probe/></Canvas></>;
 }
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
+const detailView=new URLSearchParams(location.search).get('detail');
+createRoot(document.getElementById('root')!).render(<React.StrictMode>{detailView?<RenovationShowcase view={detailView}/>:<App/>}</React.StrictMode>);

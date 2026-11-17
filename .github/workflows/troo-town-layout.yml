@@ -67,7 +67,7 @@ jobs:
         env:
           NODE_PATH: /tmp/town-test-deps/node_modules
       - name: Airport placement, actual GLB animation and visitor playback
-        run: node --test tests/troo-town/airport-parts.test.cjs tests/troo-town/airport.test.cjs tests/troo-town/airport-controls.test.cjs
+        run: node --test tests/troo-town/airport-parts.test.cjs tests/troo-town/airport-renovation.test.cjs tests/troo-town/airport.test.cjs tests/troo-town/airport-controls.test.cjs
         env:
           TOWN_TEST_DEPS: /tmp/town-test-deps/node_modules
           NODE_PATH: /tmp/town-test-deps/node_modules
