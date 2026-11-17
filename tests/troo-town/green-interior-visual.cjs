@@ -35,5 +35,15 @@ const root=path.resolve(__dirname,'../..'),out=path.join(root,level2?'level2-sto
   await page.getByRole('button',{name:/Exit Building/}).click();await page.getByRole('button',{name:'Enter the Building',exact:true}).waitFor({timeout:30000});
   await page.reload();await selectOffice();await page.getByRole('button',{name:'Interior',exact:true}).click();await page.getByRole('button',{name:'Select '+officeName,exact:true}).click();await page.getByRole('button',{name:'Remove',exact:true}).waitFor();assert.deepEqual(errors,[]);
   console.log('Actual Green Terrain scene: office name/HUD, exclusive selection, admin interior editing without purchase, half-size slider, saved reload, enter and exit all passed.');
+  if(!level2){
+   await page.getByRole('button',{name:'📦 Library',exact:true}).click();
+   for(const name of ['Forest Habitat','TROO Transit Bus']){const card=page.getByText(name,{exact:true}).locator('..').locator('..');await card.getByRole('button',{name:'+ Place',exact:true}).click();}
+   await page.waitForFunction(()=>window.__terrainAssetNodes?.().forest&&window.__terrainAssetNodes().bus,null,{timeout:60000});assert.equal(await page.evaluate(()=>window.__terrainAssetNodes().selected),true);
+   assert.equal(await page.getByRole('button',{name:/List (Forest Habitat|TROO Transit Bus)/}).count(),0);
+   const parked=await page.evaluate(()=>window.__terrainAssetNodes().busPosition);await page.waitForTimeout(700);assert.deepEqual(await page.evaluate(()=>window.__terrainAssetNodes().busPosition),parked);
+   await page.getByRole('button',{name:/Save$/,exact:false}).filter({hasText:'Save'}).first().click();await page.getByLabel('Forest Habitat scale',{exact:true}).fill('0.75');await page.getByLabel('TROO Transit Bus scale',{exact:true}).fill('1.1');await save.click();await page.waitForFunction(()=>document.body.textContent.includes('Saved revision 14'));
+   const forest=layout.imports.find(p=>p.glbUrl==='/models/green-terrain/forest-habitat.glb'),bus=layout.imports.find(p=>p.glbUrl==='/models/green-terrain/troo-transit-bus.glb');assert.deepEqual(forest.position,[0,0,0]);assert.deepEqual(bus.position,[0,0,0]);assert.equal(forest.scale,.75);assert.equal(bus.scale,1.1);assert.equal(writes,2);await page.screenshot({path:out+'/green-terrain-only-library-models.png'});
+   await page.reload();await page.waitForFunction(()=>window.__terrainAssetNodes?.().forest&&window.__terrainAssetNodes().bus,null,{timeout:60000});assert.deepEqual(errors,[]);console.log('Actual Green Terrain library Place buttons, native forest/bus rendering, selection, parked bus, per-model scale, saved reload and absence of marketplace listing buttons passed.');
+  }
  }finally{await browser?.close();server.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
