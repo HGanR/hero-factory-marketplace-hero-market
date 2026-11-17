@@ -131,6 +131,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
   useEffect(()=>{venue.renovation.root.traverse(o=>{const light=o as THREE.Light & {distance?:number};if(light.userData.venueBaseIntensity){light.intensity=light.userData.venueBaseIntensity*scale*scale;if(light.distance!==undefined)light.distance=light.userData.venueBaseDistance*scale;}})},[venue,scale]);
 
   const signageRef = useRef<THREE.Mesh>(null);
+  const searchlightRefs = useRef<Array<THREE.Group | null>>([]);
   const signage = useMemo(()=>stadiumSignagePlacement(scene),[scene]);
   const signageTex = useMemo(() => buildSignageTexture(tickerText,eventSettings?.tickerLetterScale??1), [tickerText,eventSettings?.tickerLetterScale]);
 
@@ -173,6 +174,11 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
         }
       });
     }
+    searchlightRefs.current.forEach((head, index) => {
+      if (!head) return;
+      head.rotation.y = Math.sin(t * 0.36 + index * Math.PI / 2) * 0.55;
+      head.rotation.z = Math.sin(t * 0.48 + index * Math.PI / 2) * 0.24;
+    });
     if (signageRef.current?.material) {
       const m = signageRef.current.material as THREE.MeshBasicMaterial;
       if (m.map) m.map.offset.x = (t * 0.04) % 1;
@@ -184,6 +190,32 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
     <>
       <group ref={groupRef} position={position} scale={scale} onClick={(e) => { e.stopPropagation();let o:THREE.Object3D|null=e.object;while(o){if(onEnter&&o.name.startsWith("Venue_Exterior_Doors_")){onEnter?.();return;}o=o.parent;}onSelect?.(); }}>
         <primitive object={scene} />
+        {/* Four synchronized skyward searchlights inherit stadium position and scale. */}
+        {([-1, 1] as const).flatMap((x) =>
+          ([-1, 1] as const).map((z, zi) => {
+            const index = (x === -1 ? 0 : 2) + zi;
+            return (
+              <group key={index} name={`Stadium_Searchlight_${index + 1}`} position={[x * 49, 2.5, z * 49]}>
+                <mesh position={[0, 1.5, 0]}>
+                  <cylinderGeometry args={[0.45, 0.8, 3, 12]} />
+                  <meshStandardMaterial color={0x243b56} metalness={0.7} roughness={0.35} />
+                </mesh>
+                <group position={[0, 3.2, 0]} ref={(node) => { searchlightRefs.current[index] = node; }}>
+                  <mesh rotation={[Math.PI, 0, 0]} position={[0, 27, 0]}>
+                    <coneGeometry args={[3.5, 54, 16, 1, true]} />
+                    <meshBasicMaterial color={0x9bdfff} transparent opacity={0.12}
+                      depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+                  </mesh>
+                  <mesh>
+                    <cylinderGeometry args={[0.7, 0.7, 0.5, 16]} />
+                    <meshStandardMaterial color={0x9fdfff} emissive={0x5bbcff} emissiveIntensity={2} />
+                  </mesh>
+                </group>
+              </group>
+            );
+          })
+        )}
+
         {showHud&&(media.needsPlay||media.error)&&<Html position={[0,18,-60]} center><div style={{background:'#07182d',color:'white',padding:8,borderRadius:8}}>{media.needsPlay&&<button type="button" onClick={e=>{e.stopPropagation();media.play()}}>Play stadium screen video</button>}{media.error&&<span role="status">{media.error}</span>}</div></Html>}
         {isSelected && (
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 1, 0]}>
