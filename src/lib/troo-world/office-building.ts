@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import {terrainLibraryAssetForModel} from './terrain-library';
 import {fromInteriorLocal,toInteriorLocal,type InteriorFrame} from './stadium-navigation';
 import {STOREFRONT,LEVEL2_STORE,storefrontForModel} from '../world-assets/storefront';
 export const isOffice=(p:{glbUrl:string})=>!!storefrontForModel(p.glbUrl);
 export const BUILDING_NAMES:Record<string,string>={'nexus-tower':'Nexus Tower','meridian-tower':'Meridian Tower','troothhertz-tower':'Troothhertz Tower','stadium-elyseum':'TROOTHHERTZ Stadium','veritas-school':'Veritas'};
-export function importedBuildingName(p:{glbUrl:string;elementKey:string}){return storefrontForModel(p.glbUrl)?.name??(p.elementKey.startsWith('airport-')?'Airport':p.elementKey);}
+export function importedBuildingName(p:{glbUrl:string;elementKey:string}){return storefrontForModel(p.glbUrl)?.name??terrainLibraryAssetForModel(p.glbUrl)?.name??(p.elementKey.startsWith('airport-')?'Airport':p.elementKey);}
 export function officeEntry(frame:InteriorFrame){return{position:fromInteriorLocal([4.5,2.15,2.8],frame),lookAt:fromInteriorLocal([0,2.15,-2],frame)};}
 /** Read the supplied model's walkable collision meshes, including its sloping stair ramps. */
 export function officeWalker(frame:InteriorFrame&{glbUrl?:string},findModel:()=>THREE.Object3D|undefined){
