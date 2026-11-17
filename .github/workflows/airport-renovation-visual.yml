@@ -1,0 +1,30 @@
+name: Airport renovation and sky searchlights
+on:
+  pull_request:
+    paths:
+      - 'src/components/green-terrain/**'
+      - 'src/lib/troo-world/**'
+      - 'tests/troo-town/airport*'
+      - '.github/workflows/airport-renovation-visual.yml'
+permissions:
+  contents: read
+jobs:
+  webgl-details:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/airport-detail-deps --ignore-scripts --no-audit --no-fund esbuild@0.25.12 react@19.2.0 react-dom@19.2.0 three@0.182.0 @react-three/fiber@9.4.2 @react-three/drei@10.7.7 playwright@1.62.1
+      - run: node /tmp/airport-detail-deps/node_modules/playwright/cli.js install chromium
+      - run: node tests/troo-town/airport-visual.cjs
+        env:
+          TOWN_TEST_DEPS: /tmp/airport-detail-deps/node_modules
+          NODE_PATH: /tmp/airport-detail-deps/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airport-renovation-review
+          path: airport-visual-artifacts/
