@@ -1,4 +1,5 @@
 import {AIRPORT} from './airport';
+import {validateTransitSettings,isTransitBus,type TransitSettings} from './transit-settings';
 import type {AirportParts} from './airport-parts';
 import {validateInterior,type InteriorItem} from '../world-assets/interior';
 import {validateStadiumSettings,type StadiumSettings} from './stadium-events';
@@ -14,11 +15,12 @@ export type GreenLayout = {
  version:1; buildings:Record<BuildingId,BuildingState>;
  trees:Array<{id:number;pos:Vec3;scale:number;phase:number;rotationY?:number}>;
  objects:Array<{id:string;type:ObjectKind;position:Vec3;rotation:Vec3;scale:number}>;
- imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[];airportParts?:AirportParts;interior?:InteriorItem[]}>;
+ imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[];airportParts?:AirportParts;interior?:InteriorItem[];transit?:TransitSettings}>;
  ambient:{enabled:boolean;sidewalks:boolean};
  stadium?:StadiumSettings;
 };
 export class LayoutError extends Error {}
+const transitRoute=(v:unknown):TransitSettings=>{try{return validateTransitSettings(v)}catch(error){throw new LayoutError(error instanceof Error?error.message:'Invalid bus route')}};
 const furnishings=(v:unknown):InteriorItem[]=>{try{return validateInterior(v,true)}catch(error){throw new LayoutError(error instanceof Error?error.message:'Invalid interior furnishings')}};
 const object=(v:unknown):Record<string,unknown>=>{if(!v||typeof v!=='object'||Array.isArray(v))throw new LayoutError('Invalid layout object');return v as Record<string,unknown>};
 const num=(v:unknown,min=-1000,max=1000)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw new LayoutError('Invalid layout number');return v};
@@ -51,7 +53,8 @@ export function validateLayout(input:unknown):GreenLayout{
  for(const id of BUILDING_IDS){const row=object(b[id]);buildings[id]={position:vec(row.position),scale:num(row.scale,.05,20),rotationY:num(row.rotationY,-Math.PI*20,Math.PI*20),visible:bool(row.visible),...(row.interior===undefined?{}:{interior:furnishings(row.interior)})}}
  const trees=list(v.trees,1000).map(x=>{const r=object(x);const id=num(r.id,0,1000000000);if(!Number.isInteger(id))throw new LayoutError('Invalid tree ID');return{id,pos:vec(r.pos),scale:num(r.scale,.05,20),phase:num(r.phase,0,1000),...(r.rotationY===undefined?{}:{rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20)})}});
  const objects=list(v.objects,400).map(x=>{const r=object(x);if(!kinds.includes(String(r.type)))throw new LayoutError('Unsupported environment object');return{id:str(r.id),type:r.type as ObjectKind,position:vec(r.position),rotation:vec(r.rotation),scale:num(r.scale,.05,20)}});
- const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.airportParts===undefined?{}:{airportParts:validateAirportParts(r.airportParts)}),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)}),...(r.interior===undefined?{}:{interior:furnishings(r.interior)})}});
+ const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.airportParts===undefined?{}:{airportParts:validateAirportParts(r.airportParts)}),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)}),...(r.interior===undefined?{}:{interior:furnishings(r.interior)}),...(r.transit===undefined?{}:{transit:transitRoute(r.transit)})}});
+ if(imports.some(p=>p.transit&&!isTransitBus(p)))throw new LayoutError("Bus route settings require a TROO Transit bus");
  if(imports.some(p=>p.airportParts&&p.glbUrl.split(/[?#]/)[0]!==AIRPORT.modelUrl))throw new LayoutError("Airport parts require an airport model");
  for(const rows of [trees,objects,imports]){const ids=rows.map(r=>'id'in r?r.id:r.elementKey);if(new Set(ids).size!==ids.length)throw new LayoutError('Duplicate layout identity')}
  if(imports.some(r=>(BUILDING_IDS as readonly string[]).includes(r.elementKey)))throw new LayoutError('Imported model duplicates a built-in building');

@@ -1,25 +1,29 @@
 import type {GreenLayout,Vec3} from './green-terrain-layout';
+import {isTransitBus} from './transit-settings';
 export type Road={center:Vec3;yaw:number;length:number;width:number};
 export type Walkway={id:string;center:Vec3;yaw:number;length:number;width:number};
-export type Obstacle={x:number;z:number;halfX:number;halfZ:number;yaw:number};
+export type Obstacle={x:number;z:number;halfX:number;halfZ:number;yaw:number;padding?:number};
+export type ImportedFootprints=Record<string,Obstacle[]>;
 const local=(p:Vec3,c:Vec3,yaw:number)=>{const x=p[0]-c[0],z=p[2]-c[2];return[x*Math.cos(yaw)-z*Math.sin(yaw),x*Math.sin(yaw)+z*Math.cos(yaw)]};
 export function onRoad(p:Vec3,roads:Road[],margin=.6){return roads.some(r=>{const[x,z]=local(p,r.center,r.yaw);return Math.abs(x)<=r.width/2+margin&&Math.abs(z)<=r.length/2+margin})}
-export function atBuilding(p:Vec3,obstacles:Obstacle[]){return obstacles.some(b=>{const[x,z]=local(p,[b.x,0,b.z],b.yaw);return Math.abs(x)<=b.halfX+.8&&Math.abs(z)<=b.halfZ+.8})}
+export function atBuilding(p:Vec3,obstacles:Obstacle[]){return obstacles.some(b=>{const[x,z]=local(p,[b.x,0,b.z],b.yaw);return Math.abs(x)<=b.halfX+(b.padding??.8)&&Math.abs(z)<=b.halfZ+(b.padding??.8)})}
 export function pointOn(w:Walkway,along:number,lateral=0):Vec3{return[w.center[0]+Math.cos(w.yaw)*lateral+Math.sin(w.yaw)*along,w.center[1],w.center[2]-Math.sin(w.yaw)*lateral+Math.cos(w.yaw)*along]}
 export function roadsFor(layout:Pick<GreenLayout,'objects'>):Road[]{return[
  {center:[0,.35,-47.5],yaw:0,length:95,width:10},{center:[0,.35,47.5],yaw:0,length:95,width:10},
  {center:[47.5,.35,0],yaw:Math.PI/2,length:95,width:10},{center:[-47.5,.35,0],yaw:Math.PI/2,length:95,width:10},
  ...layout.objects.filter(o=>o.type==='street').map(o=>({center:o.position,yaw:o.rotation[1],length:20*o.scale,width:8*o.scale})),
 ]}
-export function obstaclesFor(layout:GreenLayout):Obstacle[]{
+export function obstaclesFor(layout:GreenLayout,measured:ImportedFootprints={}):Obstacle[]{
  const dimensions:Record<string,[number,number]>={'nexus-tower':[15,15],'meridian-tower':[15,15],'troothhertz-tower':[20,20],'stadium-elyseum':[45,45],'veritas-school':[37,28]};
- return[...Object.entries(layout.buildings).filter(([,b])=>b.visible).map(([id,b])=>({x:b.position[0],z:b.position[2],halfX:dimensions[id][0]*b.scale,halfZ:dimensions[id][1]*b.scale,yaw:b.rotationY})),
- ...layout.imports.map(b=>({x:b.position[0],z:b.position[2],halfX:20*b.scale,halfZ:20*b.scale,yaw:b.rotationY})),
+ return[...Object.entries(layout.buildings).filter(([,b])=>b.visible).flatMap(([id,b])=>measured[id]??[{x:b.position[0],z:b.position[2],halfX:dimensions[id][0]*b.scale,halfZ:dimensions[id][1]*b.scale,yaw:b.rotationY}]),
+ // Moving vehicles never reserve pavement. Other imports contribute only their
+ // measured ground-level structure after loading, with no guessed 40 m square.
+ ...layout.imports.filter(b=>!isTransitBus(b)).flatMap(b=>measured[b.elementKey]??[]),
  ...layout.objects.filter(o=>['lake','pond','parkinglot'].includes(o.type)).map(o=>({x:o.position[0],z:o.position[2],halfX:12*o.scale,halfZ:12*o.scale,yaw:o.rotation[1]}))];
 }
 /** Split at every intersection/obstacle; NPCs never cross streets or teleport between routes. */
-function straightWalkwaysFor(layout:GreenLayout):Walkway[]{
- const roads=roadsFor(layout),obstacles=obstaclesFor(layout),out:Walkway[]=[];
+function straightWalkwaysFor(layout:GreenLayout,measured:ImportedFootprints):Walkway[]{
+ const roads=roadsFor(layout),obstacles=obstaclesFor(layout,measured),out:Walkway[]=[];
  for(const[rid,road]of roads.entries())for(const side of[-1,1]){
   const offset=side*(road.width/2+1.6),origin:Walkway={id:rid+':'+side,center:road.center,yaw:road.yaw,length:road.length,width:2.4};
   let start:number|null=null;
@@ -30,8 +34,8 @@ function straightWalkwaysFor(layout:GreenLayout):Walkway[]{
  return out.slice(0,60);
 }
 /** Connect safe pavement ends around curbs and placed obstacles, never across a road. */
-export function walkwaysFor(layout:GreenLayout):Walkway[]{
- const base=straightWalkwaysFor(layout),roads=roadsFor(layout),obstacles=obstaclesFor(layout);
+export function walkwaysFor(layout:GreenLayout,measured:ImportedFootprints={}):Walkway[]{
+ const base=straightWalkwaysFor(layout,measured),roads=roadsFor(layout),obstacles=obstaclesFor(layout,measured);
  if(!base.length)return base;
  let remainingChecks=20000; // Keep automatic junction generation bounded on large editor scenes.
  const safe=(p:Vec3)=>--remainingChecks>=0&&[-.8,0,.8].every(x=>[-.8,0,.8].every(z=>!onRoad([p[0]+x,p[1],p[2]+z],roads,.6)&&!atBuilding([p[0]+x,p[1],p[2]+z],obstacles)));

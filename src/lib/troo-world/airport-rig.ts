@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {renovateAirport} from './airport-renovation';
+import {measureModelFootprint} from './model-footprint';
 import {AIRPORT_PIVOTS,airportHeading,airportFlightPoint,airportGate,identityAirportParts,partPoint,type AirportParts,type AirportPartId} from './airport-parts';
 import type {Vec3} from './green-terrain-layout';
 /** Split material triangles, including roof/glass shared by terminal and tower. Cached source stays untouched. */
@@ -25,6 +26,7 @@ export function createAirportRig(object:THREE.Object3D){
  const native=new Map<THREE.Object3D,{position:THREE.Vector3;quaternion:THREE.Quaternion;scale:THREE.Vector3}>();
  const restore=()=>{for(const[n,t]of native){n.position.copy(t.position);n.quaternion.copy(t.quaternion);n.scale.copy(t.scale)}native.clear();jetBridge.visible=true;};
  const configure=(parts:AirportParts|undefined,scale:number)=>{current=parts;parentScale=scale;const p=parts??identityAirportParts();for(const id of ['terminal','runway','tower'] as const){const f=frames[id],v=p[id],pivot=AIRPORT_PIVOTS[id],stretch=v.stretch??[1,1,1];f.position.set(...pivot).add(new THREE.Vector3(...v.offset));f.rotation.y=v.rotationY;f.scale.set(v.scale*stretch[0],v.scale*stretch[1],v.scale*stretch[2]);for(const n of f.children)n.position.set(-pivot[0],-pivot[1],-pivot[2]);}
+  for(const id of ['terminal','tower'] as const)frames[id].userData.sidewalkFootprint=measureModelFootprint(frames[id]);
   for(const t of sourceTaxi){const a=t.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;for(let i=0;i<a.count;i++){const at=i*3,v=airportFlightPoint([t.positions[at],t.positions[at+1],t.positions[at+2]],p,true);a.setXYZ(i,...v)}a.needsUpdate=true;t.mesh.geometry.computeVertexNormals();t.mesh.geometry.computeBoundingSphere();t.mesh.geometry.computeBoundingBox();}
  };
  const apply=()=>{bridge.visible=!!current;jetBridge.visible=!current;if(!current)return;for(const n of [plane,...passengers])native.set(n,{position:n.position.clone(),quaternion:n.quaternion.clone(),scale:n.scale.clone()});const p=current,base=plane.position.toArray() as Vec3;plane.position.set(...airportFlightPoint(base,p));plane.scale.multiplyScalar(p.airplane.scale);const yaw=airportHeading(base[2],p);plane.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yaw));
