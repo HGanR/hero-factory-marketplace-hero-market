@@ -276,7 +276,7 @@ export default function NFTMarketplacePage() {
   const [walletNfts, setWalletNfts] = useState<NFT[]>([]);
   const [selectedNftDetails, setSelectedNftDetails] = useState<NFT | null>(null);
   const [heroSlide, setHeroSlide] = useState(0);
-  const showcaseSlides = [{ title: "TrooVerse", image: "/nft-marketplace/trooverse-skyline.svg", kind: "image" as const }, ...nfts.filter((nft) => Boolean(nft.imageUrl)).slice(0, 5).map((nft) => ({ title: nft.name, image: nft.imageUrl, kind: "image" as const }))];
+  const showcaseSlides = [{ title: "Hero Market", image: "/nft-marketplace/hero-market-banner-first-slide.webp", kind: "image" as const }, { title: "TrooVerse", image: "/nft-marketplace/trooverse-skyline.svg", kind: "image" as const }, ...nfts.filter((nft) => Boolean(nft.imageUrl)).slice(0, 5).map((nft) => ({ title: nft.name, image: nft.imageUrl, kind: "image" as const }))];
   const currentSlide = showcaseSlides[heroSlide % showcaseSlides.length];
   const [loading, setLoading] = useState(false);
   const [walletNftsLoading, setWalletNftsLoading] = useState(false);
