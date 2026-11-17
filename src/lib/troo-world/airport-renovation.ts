@@ -16,7 +16,11 @@ export function renovateAirport(plane:THREE.Object3D,frames:Record<'terminal'|'t
  const instances=(parent:THREE.Object3D,name:string,g:THREE.BufferGeometry,m:THREE.Material,items:{p:number[];s:number[]}[])=>{const o=new THREE.InstancedMesh(g,m,items.length),d=new THREE.Object3D();o.name=name;items.forEach((v,i)=>{d.position.fromArray(v.p);d.scale.fromArray(v.s);d.updateMatrix();o.setMatrixAt(i,d.matrix)});o.computeBoundingSphere();parent.add(o);return o;};
  // Recolor only this clone's fuselage; never mutate the loader's shared materials.
  const sourceMaterials:Array<{mesh:THREE.Mesh;material:THREE.Material|THREE.Material[]}>=[];
+ const retired:Array<THREE.Object3D>=[];
+ for(const name of ['AirlinerBody_1','AirlinerBody_3']){const old=plane.getObjectByName(name);if(old){old.visible=false;retired.push(old);}}
  plane.traverse(n=>{const m=n as THREE.Mesh;if(m.isMesh&&!Array.isArray(m.material)&&m.material.name==='plane_white'){sourceMaterials.push({mesh:m,material:m.material});m.material=skin;}});
+ const wing=(name:string,outline:number[][],y:number)=>{const shape=new THREE.Shape();outline.forEach(([x,z],i)=>i?shape.lineTo(x,z):shape.moveTo(x,z));shape.closePath();const g=geo(new THREE.ExtrudeGeometry(shape,{depth:.16,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.04,bevelThickness:.04}));g.rotateX(Math.PI/2);const p=g.getAttribute('position');for(let i=0;i<p.count;i++)p.setY(i,p.getY(i)+y+Math.abs(p.getZ(i))*.035);g.computeVertexNormals();return mesh(aircraft,name,g,silver,[0,0,0]);};
+ for(const side of [-1,1]){wing('Swept_Main_Wing',[[3.2,side*2.1],[-3.9,side*17],[-6.1,side*17],[-5,side*2.1]],-.6);wing('Swept_Tailplane',[[-13.8,side*1.4],[-18.8,side*6.1],[-20,side*6.1],[-19.3,side*1.4]],1.4);const winglet=block(aircraft,'Winglet',[-4.9,.75,side*17],[1.7,1.2,.11],skin);winglet.rotation.x=side*.25;}
  const passenger:{p:number[];s:number[]}[]=[],framesList:{p:number[];s:number[]}[]=[];
  for(const side of [-1,1])for(let i=0;i<29;i++){const x=-11.6+i*.8,y=.9,z=side*Math.sqrt(2.6**2-y**2);framesList.push({p:[x,y,z],s:[1.25,1.13,.20]});passenger.push({p:[x,y,z+side*.055],s:[1,.92,.22]});}
  instances(aircraft,'Passenger_Window_Frames',pane,silver,framesList);instances(aircraft,'Passenger_Windows',pane,window,passenger);
@@ -45,13 +49,14 @@ export function renovateAirport(plane:THREE.Object3D,frames:Record<'terminal'|'t
  for(const name of ['Gear_Nose','Gear_MainLeft','Gear_MainRight']){const gear=plane.getObjectByName(name);if(!gear)continue;const detail=group(gear,'Landing_Gear_Detail');for(const side of [-1,1]){const h=mesh(detail,'Wheel_Hub',wheelHub,silver,[0,name==='Gear_Nose'?-1:-1.2,side*(name==='Gear_Nose'?.19:.57)]);h.rotation.x=Math.PI/2;}}
  // Steady port red / starboard green / tail white, plus anti-collision flashes.
  const lens=(parent:THREE.Object3D,name:string,p:number[],color:string,r:number,kind?:'strobe'|'beacon')=>{const m=new THREE.MeshBasicMaterial({color,toneMapped:false});materials.push(m);const o=mesh(parent,name,sphere,m,p,[r,r,r]);if(kind)flashes.push({mesh:o,kind});return o;};
- lens(aircraft,'Navigation_Port_Red',[-2,-.2,-17],'#ff1818',.14);lens(aircraft,'Navigation_Starboard_Green',[-2,-.2,17],'#16ff6c',.14);lens(aircraft,'Navigation_Tail_White',[-20.25,1.3,0],'#ffffff',.13);
- lens(aircraft,'Wing_Strobe_Left',[-2.3,-.2,-16.9],'#ffffff',.18,'strobe');lens(aircraft,'Wing_Strobe_Right',[-2.3,-.2,16.9],'#ffffff',.18,'strobe');lens(aircraft,'AntiCollision_Top',[0,2.67,0],'#ff1818',.18,'beacon');lens(aircraft,'AntiCollision_Belly',[0,-2.67,0],'#ff1818',.15,'beacon');
+ lens(aircraft,'Navigation_Port_Red',[-4.2,.05,-17],'#ff1818',.14);lens(aircraft,'Navigation_Starboard_Green',[-4.2,.05,17],'#16ff6c',.14);lens(aircraft,'Navigation_Tail_White',[-20.25,1.3,0],'#ffffff',.13);
+ lens(aircraft,'Wing_Strobe_Left',[-5.6,.05,-17],'#ffffff',.18,'strobe');lens(aircraft,'Wing_Strobe_Right',[-5.6,.05,17],'#ffffff',.18,'strobe');lens(aircraft,'AntiCollision_Top',[0,2.67,0],'#ff1818',.18,'beacon');lens(aircraft,'AntiCollision_Belly',[0,-2.67,0],'#ff1818',.15,'beacon');
  for(const side of [-1,1]){lens(aircraft,'Landing_Light_Lens',[2.0,-.7,side*3.5],'#fff6dc',.20);const light=new THREE.SpotLight('#fff3cf',24,45,.22,.55,2);light.name='Aircraft_Landing_Light';light.position.set(2,-.7,side*3.5);light.target.position.set(38,-4,side*3.5);aircraft.add(light,light.target);}
  // Terminal curtain-wall mullions, a sheltered entry, roof plant and boarding-gate signage.
  const mullions:{p:number[];s:number[]}[]=[],roofLights:{p:number[];s:number[]}[]=[];
  for(const z of [99.60,128.18]){for(let x=-87;x<=87;x+=6)mullions.push({p:[x,7.8,z],s:[.20,8.3,.22]});for(const y of [4.2,8,11.8])mullions.push({p:[0,y,z],s:[176,.16,.22]});roofLights.push({p:[0,11.7,z-.1],s:[178,.12,.12]});}
  instances(terminal,'Terminal_Window_Mullions',box,trim,mullions);instances(terminal,'Terminal_Roof_Light_Strips',box,warm,roofLights);
+ const glazing:{p:number[];s:number[]}[]=[];for(const z of [99.52,128.13])for(let x=-84;x<=84;x+=6)for(const y of [6.1,9.9])glazing.push({p:[x,y,z],s:[5.72,3.55,.10]});instances(terminal,'Terminal_Curtain_Glazing',box,glass,glazing);
  block(terminal,'Terminal_Entrance_Canopy',[0,7,132],[25,.4,10],silver);for(const x of [-11,11])block(terminal,'Terminal_Entrance_Column',[x,3.4,135],[.4,6.8,.4],silver);
  for(const x of [-3.2,0,3.2])block(terminal,'Terminal_Entrance_Glass',[x,3.1,128.25],[2.9,5.8,.18],glass);
  sign(terminal,'Terminal_Departures_Sign','TERMINAL  /  DEPARTURES',[0,9.2,128.35],32,3.1);
@@ -63,9 +68,9 @@ export function renovateAirport(plane:THREE.Object3D,frames:Record<'terminal'|'t
   block(tower,'Tower_Cab_Sill_Light',[140+side*5.15,30.5,115],[.13,.14,10.3],window);block(tower,'Tower_Cab_Sill_Light',[140,30.5,115+side*5.15],[10.3,.14,.13],window);
   for(const z of [112,118])lens(tower,'Tower_Obstruction_Red',[140+side*5,36.2,z],'#ff2424',.22,'beacon');
  }
- for(const y of [5,11,17,23]){block(tower,'Tower_Service_Window',[140,y,111.91],[2.3,2,.12],window);block(tower,'Tower_Service_Sill',[140,y-1.1,111.8],[2.7,.16,.3],trim);}
+ for(const y of [5,11,17,23])for(const side of [-1,1]){block(tower,'Tower_Service_Window',[140,y,115+side*3.06],[2.0,2,.12],window);block(tower,'Tower_Service_Window',[140+side*3.06,y,115],[.12,2,2.0],window);}
  block(tower,'Tower_Antenna_Mast',[140,38.7,115],[.20,5.5,.20],silver);const radar=new THREE.Group();radar.name='Tower_Rotating_Radar';radar.position.set(140,39,115);tower.add(radar);block(radar,'Radar_Array',[0,0,0],[5,.7,.30],trim);lens(tower,'Tower_Mast_Beacon',[140,41.5,115],'#ff2424',.26,'beacon');
  const update=(time:number)=>{fans.forEach((f,i)=>f.rotation.x=time*8*(i?1:-1));radar.rotation.y=time*.35;flashes.forEach(({mesh,kind})=>{const phase=time%(kind==='strobe'?1.3:1.5);mesh.visible=kind==='strobe'?phase<.06||(phase>.15&&phase<.21):phase<.15;});};
  update(0);
- return{aircraft,terminal,tower,update,dispose:()=>{roots.forEach(r=>r.removeFromParent());sourceMaterials.forEach(v=>v.mesh.material=v.material);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}};
+ return{aircraft,terminal,tower,update,dispose:()=>{roots.forEach(r=>r.removeFromParent());retired.forEach(n=>n.visible=true);sourceMaterials.forEach(v=>v.mesh.material=v.material);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}};
 }
