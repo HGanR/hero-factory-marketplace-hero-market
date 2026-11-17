@@ -26,6 +26,7 @@ import {importedBuildingName} from '@/lib/troo-world/office-building';
 import {isAirport} from '@/lib/troo-world/airport';
 import {STOREFRONT,LEVEL2_STORE,STOREFRONTS} from '@/lib/world-assets/storefront';
 import {AIRPORT} from '@/lib/troo-world/airport';
+import {TERRAIN_LIBRARY_ASSETS} from '@/lib/troo-world/terrain-library';
 import { useState, useCallback, useEffect } from "react";
 import type { WorldObjectType } from "./WorldObjects";
 
@@ -64,6 +65,7 @@ interface LibraryItem {
 }
 
 const OBJECT_LIBRARY: LibraryItem[] = [
+  ...TERRAIN_LIBRARY_ASSETS.map(asset=>({key:asset.key,label:asset.name,icon:asset.icon,category:asset.category,description:asset.description,kind:'glb' as const})),
   {key:LEVEL2_STORE.key,label:LEVEL2_STORE.name,icon:'🏬',category:'Buildings',description:'Three floors, balconies, stair tower and roof deck. Marketplace price: 2,000,000 TROO.',kind:'glb'},
   {key:STOREFRONT.key,label:STOREFRONT.name,icon:'🏬',category:'Buildings',description:'Three floors, wall art and furnishing slots. Marketplace price: 5 TROO.',kind:'glb'},
   {key:AIRPORT.key,label:AIRPORT.name,icon:'✈',category:'Buildings',description:'Airport with departures to member worlds. Enable Editor Mode to manage flight routes.',kind:'glb'},

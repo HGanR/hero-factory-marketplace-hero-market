@@ -34,6 +34,7 @@ import TouchWalkControls from "./TouchWalkControls";
 import type {WalkInput} from "@/lib/troo-world/touch-navigation";
 import AmbientTown from "@/components/green-terrain/AmbientTown";
 import {AIRPORT,isAirport,placeAirport,airportView,type ImportedPlacement} from '@/lib/troo-world/airport';
+import {TERRAIN_LIBRARY_ASSETS,placeTerrainLibraryAsset} from '@/lib/troo-world/terrain-library';
 import AirportRoutesEditor from '@/components/green-terrain/AirportRoutesEditor';
 import InteractionController from './TownEditorInteraction';
 import ImportedTownModels from "@/components/green-terrain/ImportedTownModels";
@@ -2000,7 +2001,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onSaveSnapshot={saveSnapshot}
         saveReady={layoutReady}
         airportPlaced={imports.some(isAirport)}
-        onPlaceGlbAsset={key=>{const asset=STOREFRONTS.find(a=>a.key===key);if(key!==AIRPORT.key&&!asset)return;try{if(imports.length>=100)throw new Error('The town supports 100 imported models.');const next=key===AIRPORT.key?placeAirport(imports):[...imports,{elementKey:asset!.key+'-'+crypto.randomUUID().slice(0,8),glbUrl:asset!.modelUrl,position:[...INTERSECTION_SPAWN] as [number,number,number],scale:1,rotationY:0}];if(next===imports)return;saveToHistory();setImports(next);setIsEditorMode(true);handleSelectAirport(next[next.length-1].elementKey);setSnapToPosition([...INTERSECTION_SPAWN]);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place airport');}}}
+        onPlaceGlbAsset={key=>{const asset=STOREFRONTS.find(a=>a.key===key),terrainAsset=TERRAIN_LIBRARY_ASSETS.find(a=>a.key===key);if(key!==AIRPORT.key&&!asset&&!terrainAsset)return;try{if(imports.length>=100)throw new Error('The town supports 100 imported models.');const next=key===AIRPORT.key?placeAirport(imports):terrainAsset?placeTerrainLibraryAsset(imports,key,crypto.randomUUID().slice(0,8)):[...imports,{elementKey:asset!.key+'-'+crypto.randomUUID().slice(0,8),glbUrl:asset!.modelUrl,position:[...INTERSECTION_SPAWN] as [number,number,number],scale:1,rotationY:0}];if(next===imports)return;saveToHistory();setImports(next);setIsEditorMode(true);handleSelectAirport(next[next.length-1].elementKey);setSnapToPosition([...INTERSECTION_SPAWN]);setModelError('');}catch(error){setModelError(error instanceof Error?error.message:'Unable to place asset');}}}
         isEditorMode={isEditorMode}
         onToggleEditor={() => {setWorldFirstPerson(false);setWorldFreeLook(false);setIsEditorMode(e => !e);}}
         currentWorldId={currentWorldId}
