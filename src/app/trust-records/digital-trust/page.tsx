@@ -56,14 +56,33 @@ export default function DigitalTrustPage() {
             <p className="mt-6 max-w-xl text-base leading-7 text-[#cbd5e1]">Explore a dual-rail approach to statutory trust records and cryptographic attestations. Legal instruments govern; digital fingerprints provide supporting integrity evidence.</p>
             <div className="mt-7 flex flex-wrap gap-3"><a href="#trust-workflow" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#22d3ee] to-[#2563eb] px-5 py-3 font-semibold text-[#07111e] hover:brightness-110">Explore the workflow <ArrowRight size={17}/></a><a href="#document-fingerprint" className="rounded-xl border border-[#22d3ee]/45 px-5 py-3 text-[#a5f3fc] hover:bg-[#22d3ee]/10">Document fingerprint</a></div>
           </div>
-          <div ref={cardRef} onMouseMove={handleCardMove} onMouseLeave={resetCard} className="relative mx-auto w-full max-w-sm rounded-[2rem] border border-[#22d3ee]/40 bg-gradient-to-br from-[#1a2250] to-[#0a1024] p-6 text-center shadow-[0_0_65px_rgba(34,211,238,.13)] transition-transform duration-200 ease-out motion-reduce:transform-none" style={{ transform: tilt.active ? `perspective(1000px) rotateX(${tilt.x.toFixed(2)}deg) rotateY(${tilt.y.toFixed(2)}deg) scale3d(1.02,1.02,1.02)` : "perspective(1000px) rotateX(0deg) rotateY(0deg)", transformStyle: "preserve-3d", willChange: "transform" }}><div ref={glareRef} aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[2rem] transition-opacity duration-300" style={{ opacity: tilt.active ? 1 : 0, background: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, rgba(34,211,238,0.25), transparent 65%)` }} />
-            <div className="flex justify-between gap-2 border-b border-[#22d3ee]/20 pb-4 text-left text-xs uppercase tracking-widest text-[#22d3ee]"><span>Soulbound authority</span><span>Concept</span></div>
-            <div className="relative mx-auto my-8 flex aspect-square max-w-[235px] items-center justify-center rounded-full border border-dashed border-[#22d3ee]/50 shadow-[0_0_65px_rgba(34,211,238,.16)]">
-              <div className="absolute inset-4 rounded-full border border-[#22d3ee]/35" />
-              <div className="flex h-[73%] w-[73%] flex-col items-center justify-center rounded-full border-4 border-[#22d3ee] bg-gradient-to-br from-[#193c68] via-[#101a3a] to-[#070e20] shadow-[inset_0_0_30px_rgba(34,211,238,.17),0_0_35px_rgba(34,211,238,.22)]"><ShieldCheck className="mb-3 h-14 w-14 text-[#a5f3fc]"/><span className="font-serif text-2xl font-bold tracking-wide text-[#67e8f9]">DIGITAL</span><span className="text-xs font-semibold tracking-[.38em] text-[#67e8f9]">TRUST</span></div>
+          <div ref={cardRef} onMouseMove={handleCardMove} onMouseLeave={resetCard} className="relative mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-[#f4cc59]/70 bg-gradient-to-br from-[#241b0a] via-[#15120c] to-[#080a10] p-6 text-center shadow-[0_0_28px_rgba(255,195,39,.38),0_0_75px_rgba(212,175,55,.19)] transition-transform duration-200 ease-out motion-reduce:transform-none" style={{ transform: tilt.active ? `perspective(1000px) rotateX(${tilt.x.toFixed(2)}deg) rotateY(${tilt.y.toFixed(2)}deg) scale3d(1.02,1.02,1.02)` : "perspective(1000px) rotateX(0deg) rotateY(0deg)", transformStyle: "preserve-3d", willChange: "transform" }}>
+            <div ref={glareRef} aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[2rem] transition-opacity duration-300" style={{ opacity: tilt.active ? 1 : 0, background: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, rgba(255,214,83,.28), transparent 65%)` }} />
+            <div className="relative flex justify-between gap-2 border-b border-[#f4cc59]/35 pb-4 text-left text-xs uppercase tracking-widest text-[#ffe17d]"><span>Soulbound authority</span><span>Concept</span></div>
+            <div className="relative my-6 flex items-center justify-center overflow-hidden rounded-xl border border-[#d4af37]/30 bg-[#080a10]/80 py-8">
+              <div aria-hidden="true" className="trust-gold-glow pointer-events-none absolute h-36 w-36 rounded-full bg-[#f9cb43]/30 blur-2xl" />
+              <svg className="relative z-10 h-44 w-44 drop-shadow-[0_0_14px_rgba(255,203,50,.65)]" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated gold cryptographic seal with rotating rings and crystalline core">
+                <circle cx="100" cy="100" r="88" stroke="#FFD95B" strokeWidth="2" strokeDasharray="6 6" strokeOpacity=".95" className="trust-gold-ring" />
+                <polygon points="100,22 168,61 168,139 100,178 32,139 32,61" stroke="#F9E79F" strokeWidth="2" strokeOpacity=".85" className="trust-gold-hex" />
+                <circle cx="100" cy="100" r="54" fill="#0B0F17" stroke="#FFD95B" strokeWidth="2.5" />
+                <polygon points="100,58 128,100 100,116 72,100" fill="url(#digitalTrustGoldGradient)" />
+                <polygon points="100,122 128,106 100,144 72,106" fill="#D4AF37" fillOpacity=".95" />
+                <defs><linearGradient id="digitalTrustGoldGradient" x1="72" y1="58" x2="128" y2="116" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#FFF4B8" /><stop offset="50%" stopColor="#FFD95B" /><stop offset="100%" stopColor="#B8860B" /></linearGradient></defs>
+              </svg>
             </div>
-            <p className="font-serif text-xl text-[#67e8f9]">Soulbound Trust NFT</p><p className="mt-2 text-xs text-[#94a3b8]">Visual concept only · No token minted or verified</p>
+            <p className="font-serif text-xl font-semibold text-[#ffe17d] drop-shadow-[0_0_10px_rgba(255,211,68,.65)]">Soulbound Trust NFT</p>
+            <p className="mt-2 text-xs text-[#c1b79b]">Visual concept only · No token minted or verified</p>
           </div>
+          <style jsx global>{`
+            .trust-gold-ring, .trust-gold-hex { transform-box: fill-box; transform-origin: center; }
+            .trust-gold-ring { animation: trust-gold-spin 24s linear infinite; }
+            .trust-gold-hex { animation: trust-gold-reverse 36s linear infinite; }
+            .trust-gold-glow { animation: trust-gold-pulse 3s ease-in-out infinite; }
+            @keyframes trust-gold-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            @keyframes trust-gold-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+            @keyframes trust-gold-pulse { 0%, 100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.12); } }
+            @media (prefers-reduced-motion: reduce) { .trust-gold-ring, .trust-gold-hex, .trust-gold-glow { animation: none !important; } }
+          `}</style>
         </div>
         <div className="grid gap-4 md:grid-cols-3">{pillars.map(p => <div key={p.title} className="rounded-2xl border border-[#22d3ee]/20 bg-[#111b38]/85 p-5"><p.icon className="mb-4 h-7 w-7 text-[#22d3ee]"/><h2 className="font-serif text-xl font-semibold">{p.title}</h2><p className="mt-2 text-sm leading-6 text-[#94a3b8]">{p.detail}</p></div>)}</div>
       </div>
