@@ -14,7 +14,10 @@ export function createStadiumSkyLights(){
  for(let i=0;i<4;i++){
   const a=Math.PI/4+i*Math.PI/2,x=68*Math.sin(a),z=68*Math.cos(a),pivot=new THREE.Group();pivot.name='Stadium_Sky_Fixture_'+i;pivot.position.set(x,37,z);root.add(pivot);
   const body=new THREE.Mesh(bodyGeometry,bodyMaterial);body.position.y=.2;pivot.add(body);const lens=new THREE.Mesh(lensGeometry,lensMaterial);lens.position.y=1;pivot.add(lens);
-  const beam=new THREE.Mesh(beamGeometry,beamMaterial);beam.name='Stadium_Sky_Beam_'+i;beam.raycast=()=>{};beam.position.y=1;pivot.add(beam);
+  const beam=new THREE.Mesh(beamGeometry,beamMaterial);beam.name='Stadium_Sky_Beam_'+i;beam.raycast=()=>{};beam.position.y=1;
+  // Box3 honors object bounds before geometry bounds. Light has no solid volume:
+  // exclude only the beam from the stadium's exterior collision/focus envelope.
+  Object.assign(beam,{boundingBox:new THREE.Box3()});pivot.add(beam);
   // Empty sky has no surface to light. The volumetric mesh supplies the beam
   // without four extra PBR light evaluations on every seat and building pixel.
   fixtures.push({pivot,beam,index:i});
