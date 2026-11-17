@@ -130,7 +130,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
   const groupRef = useRef<THREE.Group>(null);
   const venue = useMemo(() => {const scene=cloneStadiumExterior(gltf.scene);const renovation=renovateStadium(scene);const skyLights=createStadiumSkyLights();scene.add(skyLights.root);setStadiumInteriorLighting(scene,interiorLighting);return{scene,renovation,skyLights}}, [gltf.scene]);
   const scene=venue.scene;
-  useLayoutEffect(()=>{setStadiumInteriorLighting(scene,interiorLighting)},[scene,interiorLighting]);
+  useLayoutEffect(()=>{setStadiumInteriorLighting(scene,interiorLighting);venue.skyLights.root.visible=!interiorLighting},[scene,venue,interiorLighting]);
   const venueGenerations=useRef(new WeakMap<object,number>());
   useEffect(()=>{const generation=(venueGenerations.current.get(venue)??0)+1;venueGenerations.current.set(venue,generation);return()=>{queueMicrotask(()=>{if(venueGenerations.current.get(venue)===generation){venue.skyLights.dispose();venue.renovation.dispose();disposeStadiumExterior(scene);}})}},[venue,scene]);
   useEffect(()=>{venue.renovation.root.traverse(o=>{const light=o as THREE.Light & {distance?:number};if(light.userData.venueBaseIntensity){light.intensity=light.userData.venueBaseIntensity*scale*scale;if(light.distance!==undefined)light.distance=light.userData.venueBaseDistance*scale;}})},[venue,scale]);
@@ -158,7 +158,7 @@ export default function StadiumElyseum({ position, scale = 1, isSelected, onSele
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    venue.skyLights.update(t);
+    if(venue.skyLights.root.visible)venue.skyLights.update(t);
     if (animate && scene) {
       scene.traverse((obj) => {
         if (!(obj as THREE.Mesh).isMesh) return;
