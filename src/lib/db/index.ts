@@ -26,7 +26,18 @@ const getConnection = async () => {
   }
   
   try {
-    const connection = await mysql.createConnection(process.env.DATABASE_URL);
+    // TiDB Cloud requires TLS. Explicitly enable certificate-verified encryption
+    // instead of relying on URL query-string SSL parsing by mysql2.
+    // Do not disable certificate verification or alter the TiDB server setting.
+    const databaseUrl = process.env.DATABASE_URL;
+    const parsedUrl = new URL(databaseUrl);
+    const isTiDbCloud = parsedUrl.hostname.toLowerCase().endsWith(".tidbcloud.com") ||
+      parsedUrl.hostname.toLowerCase().endsWith(".pingcap.com");
+    const connection = await mysql.createConnection(
+      isTiDbCloud
+        ? { uri: databaseUrl, ssl: { rejectUnauthorized: true } }
+        : databaseUrl,
+    );
     cachedConnection = connection;
     return connection;
   } catch (error) {
