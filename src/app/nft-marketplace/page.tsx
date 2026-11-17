@@ -275,6 +275,9 @@ export default function NFTMarketplacePage() {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [walletNfts, setWalletNfts] = useState<NFT[]>([]);
   const [selectedNftDetails, setSelectedNftDetails] = useState<NFT | null>(null);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const showcaseSlides = [{ title: "TrooVerse", image: "/nft-marketplace/trooverse-skyline.svg", kind: "image" as const }, ...nfts.filter((nft) => Boolean(nft.imageUrl)).slice(0, 5).map((nft) => ({ title: nft.name, image: nft.imageUrl, kind: "image" as const }))];
+  const currentSlide = showcaseSlides[heroSlide % showcaseSlides.length];
   const [loading, setLoading] = useState(false);
   const [walletNftsLoading, setWalletNftsLoading] = useState(false);
   const [selectedChain, setSelectedChain] = useState<string>("polygon");
@@ -499,7 +502,7 @@ export default function NFTMarketplacePage() {
       {/* Cinematic marketplace landing — live inventory remains below. */}
       <section className="relative isolate w-full min-w-0 overflow-hidden rounded-2xl border border-fuchsia-500/40 sm:rounded-[28px] bg-[#070a1d] shadow-[0_0_55px_rgba(102,40,230,.2)]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_82%_20%,rgba(112,40,230,.55),transparent_48%),radial-gradient(ellipse_at_45%_100%,rgba(0,210,255,.25),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[url(/nft-marketplace/trooverse-skyline.svg)] bg-cover bg-center opacity-70" />
+        <div className="absolute inset-0 bg-cover bg-center opacity-70 transition-all duration-500" style={{ backgroundImage: `url("${currentSlide.image}")` }} />
         <div className="absolute inset-0 bg-gradient-to-r from-[#070a1d] via-[#070a1d]/85 to-transparent" />
         <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(70,180,255,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(70,180,255,.12)_1px,transparent_1px)] [background-size:52px_52px] [mask-image:linear-gradient(to_top,black,transparent)]" />
         <div className="relative grid min-h-[360px] min-w-0 items-center gap-6 px-4 py-10 sm:px-8 sm:py-12 lg:grid-cols-[1.15fr_.85fr] lg:px-12 lg:py-16 xl:min-h-[480px]">
@@ -522,6 +525,18 @@ export default function NFTMarketplacePage() {
               <div className="mt-1 text-xs uppercase tracking-[.2em] text-slate-400">Create your legacy</div>
             </div>
           </div>
+        </div>
+        <div className="relative flex items-center justify-between gap-2 border-t border-cyan-400/20 bg-[#070b21]/90 px-3 py-3 sm:px-6">
+          <button type="button" onClick={() => setHeroSlide((value) => (value + showcaseSlides.length - 1) % showcaseSlides.length)} aria-label="Previous showcase image" className="shrink-0 rounded-full border border-cyan-400/60 px-3 py-2 text-cyan-100 hover:bg-cyan-400/20">‹</button>
+          <div className="flex min-w-0 flex-1 snap-x gap-2 overflow-x-auto py-1 sm:gap-3" aria-label="Marketplace showcase image carousel">
+            {showcaseSlides.map((slide, index) => (
+              <button key={slide.title + index} type="button" onClick={() => setHeroSlide(index)} aria-label={`Show ${slide.title} in banner`} aria-pressed={heroSlide === index} className={`relative w-24 shrink-0 snap-start overflow-hidden rounded-xl border-2 text-left transition sm:w-40 md:w-48 ${heroSlide === index ? "border-cyan-300 shadow-[0_0_16px_rgba(0,209,255,.55)]" : "border-fuchsia-400/50 hover:border-cyan-300"}`}>
+                <img src={slide.image} alt={slide.title} loading="lazy" className="aspect-[16/9] w-full object-cover" />
+                <span className="block truncate bg-black/80 px-2 py-1 text-[10px] text-white sm:text-xs">{slide.title}</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setHeroSlide((value) => (value + 1) % showcaseSlides.length)} aria-label="Next showcase image" className="shrink-0 rounded-full border border-cyan-400/60 px-3 py-2 text-cyan-100 hover:bg-cyan-400/20">›</button>
         </div>
         <div className="relative grid grid-cols-2 border-t border-white/10 bg-black/30 sm:grid-cols-4">
           {["Buildings & Land", "Vehicles & Aircraft", "Avatars & NPCs", "World Assets"].map((category) => <div key={category} className="min-w-0 border-r border-white/10 px-2 py-3 text-center text-[11px] font-semibold text-cyan-100 sm:px-3 sm:py-5 sm:text-sm">{category}</div>)}
@@ -581,7 +596,7 @@ export default function NFTMarketplacePage() {
           ) : nfts.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {nfts.slice(0, 10).map((nft) => (
-                <button key={nft.id} type="button" onClick={() => setSelectedNftDetails(nft)} aria-label={`View details for ${nft.name}`} className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#11162b] text-left transition hover:border-cyan-400/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+                <button key={nft.id} type="button" onClick={() => setSelectedNftDetails(nft)} aria-label={`View details for ${nft.name}`} className="min-w-0 overflow-hidden rounded-2xl border-2 border-fuchsia-400/50 bg-[#11162b] text-left shadow-[0_0_12px_rgba(155,70,255,.2)] transition hover:border-cyan-300 hover:shadow-[0_0_25px_rgba(0,209,255,.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
                   <div className="aspect-square overflow-hidden bg-gradient-to-br from-cyan-950 to-fuchsia-950">
                     {nft.imageUrl ? <img src={nft.imageUrl} alt={nft.name} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">Artwork unavailable</div>}
                   </div>
