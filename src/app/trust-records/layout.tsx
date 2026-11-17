@@ -327,9 +327,9 @@ function TrustRecordsLayoutContent({ children }: { children: React.ReactNode }) 
             <span className="text-slate-500">— structured intake → Smart Trust draft</span>
           </div>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d4af37]/40 bg-[#0e0d0b] px-5 py-4 text-sm text-[#f0e3c5]">
-          <div><span className="font-semibold text-[#e5c368]">Digital Trust Infrastructure</span><span className="ml-2 text-[#b9ad94]">Soulbound NFT concept, trust workflow and local document fingerprints</span></div>
-          <Link href="/trust-records/digital-trust" className="rounded-lg border border-[#d4af37]/50 px-4 py-2 font-semibold text-[#f1d47e] hover:bg-[#d4af37]/10">Explore Digital Trust →</Link>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#22d3ee]/40 bg-[#0b1430] px-5 py-4 text-sm text-[#e2e8f0]">
+          <div><span className="font-semibold text-[#67e8f9]">Digital Trust Infrastructure</span><span className="ml-2 text-[#94a3b8]">Soulbound NFT concept, trust workflow and local document fingerprints</span></div>
+          <Link href="/trust-records/digital-trust" className="rounded-lg border border-[#22d3ee]/50 px-4 py-2 font-semibold text-[#a5f3fc] hover:bg-[#22d3ee]/10">Explore Digital Trust →</Link>
         </div>
         {children}
       </div>
