@@ -19,6 +19,7 @@ export const DASHBOARD_TOOL_MAIN_SECTIONS: ToolSection[] = [
       { href: "/entity-maps", label: "Entity Mapping" },
       { href: "/trust-records?tab=settings", label: "Trust Records" },
       { href: "/seal-maker", label: "Seal Maker" },
+      { href: "/barcode-registry", label: "Barcode Registry & Certificates" },
       { href: "/trademark-prep", label: "Trademark Prep" },
       { href: "/copyright-steps", label: "Copyright Steps" },
     ],
