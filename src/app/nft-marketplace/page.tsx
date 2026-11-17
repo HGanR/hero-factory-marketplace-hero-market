@@ -498,16 +498,7 @@ export default function NFTMarketplacePage() {
       </header>
 
       {/* Main Content */}
-      <main className="nft-market-pill-theme mx-auto w-full min-w-0 max-w-none px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
-      <style jsx>{`
-        .nft-market-pill-theme :global(button:not([role="tab"]):not([aria-label^="Show "])) {
-          border-radius: 9999px;
-        }
-        .nft-market-pill-theme :global(button:focus-visible) {
-          outline: 2px solid #67e8f9;
-          outline-offset: 3px;
-        }
-      `}</style>
+      <main className="mx-auto w-full min-w-0 max-w-none px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
       {/* Cinematic marketplace landing — live inventory remains below. */}
       <section className="relative isolate w-full min-w-0 overflow-hidden rounded-2xl border border-fuchsia-500/40 sm:rounded-[28px] bg-[#070a1d] shadow-[0_0_55px_rgba(102,40,230,.2)]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_82%_20%,rgba(112,40,230,.55),transparent_48%),radial-gradient(ellipse_at_45%_100%,rgba(0,210,255,.25),transparent_50%)]" />
