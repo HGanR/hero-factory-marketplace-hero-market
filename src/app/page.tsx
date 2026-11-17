@@ -2,14 +2,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedReturnTo = searchParams.get("returnTo");
+  // Only allow same-origin application paths; reject protocol-relative and backslash paths.
+  const safeReturnTo = requestedReturnTo && requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//") && !requestedReturnTo.includes("\\") ? requestedReturnTo : null;
   const welcomeMenuRef = useRef<HTMLDetailsElement | null>(null);
-  const [isRegistering, setIsRegistering] = useState(true);
+  const [isRegistering, setIsRegistering] = useState(!safeReturnTo);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -19,6 +23,10 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    if (safeReturnTo) setIsRegistering(false);
+  }, [safeReturnTo]);
 
   useEffect(() => {
     try {
@@ -79,7 +87,7 @@ export default function Home() {
       } else {
         localStorage.setItem("user", JSON.stringify(data.user));
         setIsLoggedIn(true);
-        router.push("/dashboard");
+        router.replace(safeReturnTo ?? "/dashboard");
       }
     } catch (err) {
       setError("Login failed");
