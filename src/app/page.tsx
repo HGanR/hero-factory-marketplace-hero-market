@@ -2,18 +2,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const requestedReturnTo = searchParams.get("returnTo");
-  // Only allow same-origin application paths; reject protocol-relative and backslash paths.
-  const safeReturnTo = requestedReturnTo && requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//") && !requestedReturnTo.includes("\\") ? requestedReturnTo : null;
+  const [safeReturnTo, setSafeReturnTo] = useState<string | null>(null);
   const welcomeMenuRef = useRef<HTMLDetailsElement | null>(null);
-  const [isRegistering, setIsRegistering] = useState(!safeReturnTo);
+  const [isRegistering, setIsRegistering] = useState(true);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -25,8 +22,13 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    if (safeReturnTo) setIsRegistering(false);
-  }, [safeReturnTo]);
+    const requested = new URLSearchParams(window.location.search).get("returnTo");
+    // Restrict navigation to local paths, excluding protocol-relative and backslash URLs.
+    if (requested && requested.startsWith("/") && !requested.startsWith("//") && !requested.includes("\\") && !/[\\u0000-\\u001f]/.test(requested)) {
+      setSafeReturnTo(requested);
+      setIsRegistering(false);
+    }
+  }, []);
 
   useEffect(() => {
     try {
