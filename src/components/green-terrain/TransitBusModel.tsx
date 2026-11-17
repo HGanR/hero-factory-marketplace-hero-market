@@ -3,7 +3,8 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {useFrame} from '@react-three/fiber';
 import {useGLTF} from '@react-three/drei';
 import * as THREE from 'three';
-import {transitPose,BUS_SIZE,transitCorridor} from '@/lib/troo-world/transit-route';
+import {transitPose,BUS_SIZE,transitCorridor,createTransitService} from '@/lib/troo-world/transit-route';
+import {trafficTime} from '@/lib/troo-world/traffic-signals';
 import {transitSettings} from '@/lib/troo-world/transit-settings';
 import {onRoad,roadsFor} from '@/lib/troo-world/ambient-town';
 import type {GreenLayout} from '@/lib/troo-world/green-terrain-layout';
@@ -21,12 +22,12 @@ export default function TransitBusModel({placement,roads=[],editorMode,selected}
  const generations=useRef(new WeakMap<object,number>());
  useEffect(()=>{const n=(generations.current.get(model)??0)+1;generations.current.set(model,n);return()=>queueMicrotask(()=>{if(generations.current.get(model)===n)model.dispose();});},[model]);
  useEffect(()=>{const media=matchMedia('(prefers-reduced-motion: reduce)'),update=()=>setReduced(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update)},[]);
- const phase=useMemo(()=>Array.from(placement.elementKey).reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0)%1000,[placement.elementKey]);
+ const service=useMemo(()=>createTransitService(placement,{objects:roads}),[placement,roads]);
  const local=useMemo(()=>new THREE.Vector3(),[]),road=useMemo(()=>transitCorridor(placement,{objects:roads}),[placement,roads]),parkOnRoad=useMemo(()=>onRoad(placement.position,roadsFor({objects:roads}),0),[placement,roads]);
- useFrame((_,delta)=>{const root=motion.current;if(!root)return;const pose=transitPose(placement,{objects:roads},Date.now()/1000+phase,road),moving=!editorMode&&!reduced&&settings.enabled&&!!pose;
-  if(moving&&pose){const dx=pose.position[0]-placement.position[0],dz=pose.position[2]-placement.position[2],c=Math.cos(placement.rotationY),s=Math.sin(placement.rotationY);local.set((dx*c-dz*s)/placement.scale,(pose.position[1]-placement.position[1])/placement.scale,(dx*s+dz*c)/placement.scale);root.position.copy(local);root.rotation.y=pose.yaw-placement.rotationY;root.visible=pose.visible;root.userData.destination=pose.destination;model.setDestination(pose.destination);model.mixer.update(delta*settings.speed/(8*placement.scale));}
+ useFrame((_,delta)=>{const root=motion.current;if(!root)return;const pose=service(trafficTime()),running=!editorMode&&!reduced&&settings.enabled&&!!pose;
+  if(running&&pose){const dx=pose.position[0]-placement.position[0],dz=pose.position[2]-placement.position[2],c=Math.cos(placement.rotationY),s=Math.sin(placement.rotationY);local.set((dx*c-dz*s)/placement.scale,(pose.position[1]-placement.position[1])/placement.scale,(dx*s+dz*c)/placement.scale);root.position.copy(local);root.rotation.y=pose.yaw-placement.rotationY;root.visible=pose.visible;root.userData.destination=pose.destination;model.setDestination(pose.destination);if(!pose.stopped&&pose.visible)model.mixer.update(delta*settings.speed/(8*placement.scale));}
   else{root.visible=true;root.position.set(0,0,0);root.rotation.y=0;if(road&&parkOnRoad)root.position.y=(road.height+.01)/placement.scale;model.setDestination(transitPose(placement,{objects:roads},0,road)?.destination??'TROO NORTH');}
-  root.userData.moving=moving;
+  root.userData.moving=running&&!!pose?.visible&&!pose.stopped;root.userData.running=running;root.userData.stopped=pose?.stopped;root.userData.onBreak=pose?.onBreak;
  });
  return <group ref={motion} name={'Transit motion '+placement.elementKey}><primitive object={model.object}/>{selected&&<mesh name="Imported building selection ring" position={[0,.09,0]} rotation={[-Math.PI/2,0,0]} raycast={()=>{}}><ringGeometry args={[Math.hypot(BUS_SIZE.width,BUS_SIZE.length)/2+.4,Math.hypot(BUS_SIZE.width,BUS_SIZE.length)/2+.62,64]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={THREE.DoubleSide} depthWrite={false}/></mesh>}</group>;
 }
