@@ -296,7 +296,7 @@ function TrustRecordsLayoutContent({ children }: { children: React.ReactNode }) 
 
   return (
     <TrustActiveServerProvider value={trustServerContext}>
-      <div className="mx-auto max-w-6xl space-y-4 p-6">
+      <div className="mx-auto w-full max-w-none space-y-4 px-3 py-4 sm:px-6 lg:px-8">
         <AgentHudPills context={assistantContext} position="bottom-right" />
         <IdentityStrip
           clientId={active?.clientId ?? clientId ?? undefined}
