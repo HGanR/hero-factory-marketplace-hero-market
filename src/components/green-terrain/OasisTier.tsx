@@ -19,6 +19,17 @@ export function OasisPlatform() {
       <cylinderGeometry args={[edge, edge - 6, 6, 96]}/>
       <meshStandardMaterial color="#253b43" metalness={0.5} roughness={0.65}/>
     </mesh>
+    {/* Deep armored outer skirt and layered neon perimeter: visible from orbit below. */}
+    <mesh position={[0,OASIS_HEIGHT-8,0]} castShadow>
+      <cylinderGeometry args={[edge-4,edge-11,10,96,1,true]}/>
+      <meshStandardMaterial color="#101c30" metalness={0.78} roughness={0.26} side={THREE.DoubleSide}/>
+    </mesh>
+    {[OASIS_HEIGHT-1,OASIS_HEIGHT-4,OASIS_HEIGHT-10].map((y,i)=>
+      <mesh key={i} position={[0,y,0]} rotation={[-Math.PI/2,0,0]}>
+        <torusGeometry args={[edge-(i===2?10:2),i===1?0.95:0.6,12,128]}/>
+        <meshStandardMaterial color={i===1?"#ffab35":"#35eaff"} emissive={i===1?"#ff7a00":"#00cfff"} emissiveIntensity={2.4} toneMapped={false}/>
+      </mesh>
+    )}
     <mesh position={[0, OASIS_HEIGHT + 0.1, 0]} receiveShadow>
       <cylinderGeometry args={[edge - 1, edge - 1, 0.25, 96]}/>
       <meshStandardMaterial color="#438a62" roughness={0.9}/>
