@@ -1828,6 +1828,32 @@ export default function TrustCertificatesConsolePage() {
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
       <div className="mx-auto max-w-6xl">
+        {/* Guided navigation is additive: the complete original console remains below. */}
+        <section aria-labelledby="trust-guided-title" className="mb-6 rounded-2xl border border-cyan-400/40 bg-slate-900 p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">Trust Records Workspace</p>
+              <h1 id="trust-guided-title" className="mt-1 text-2xl font-semibold">What would you like to do?</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">Choose a starting point. All existing records, certificates, tools, and settings remain available below.</p>
+            </div>
+            <a href="#trust-records-original-console" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-cyan-200 hover:bg-slate-800">View all existing tools</a>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <a href="/smart-trust" className="rounded-xl border border-cyan-400/30 bg-slate-950 p-4 hover:border-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <div className="font-semibold text-white">1. Start or continue trust setup</div>
+              <p className="mt-2 text-sm text-slate-300">Open the existing Smart Trust workspace and supported creation flows.</p>
+            </a>
+            <a href="/trust-records/wizard/irrevocable-trust" className="rounded-xl border border-cyan-400/30 bg-slate-950 p-4 hover:border-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <div className="font-semibold text-white">2. Irrevocable trust workflow</div>
+              <p className="mt-2 text-sm text-slate-300">Use the existing dedicated irrevocable trust wizard.</p>
+            </a>
+            <a href="#trust-records-original-console" className="rounded-xl border border-cyan-400/30 bg-slate-950 p-4 hover:border-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <div className="font-semibold text-white">3. Manage records and certificates</div>
+              <p className="mt-2 text-sm text-slate-300">Continue with registries, minutes, assets, certificates, and document settings.</p>
+            </a>
+          </div>
+          <p className="mt-4 text-xs text-slate-400">Organizing a record or preparing a document does not by itself establish or fund a legally effective trust. Requirements vary by jurisdiction.</p>
+        </section>
         {/* Network warning banner for token holders not on Polygon */}
         {!networkOk && (
           <Alert className="mb-6 border-amber-500/50 bg-amber-950/20">
@@ -1842,6 +1868,7 @@ export default function TrustCertificatesConsolePage() {
           </Alert>
         )}
 
+        <div id="trust-records-original-console" className="scroll-mt-6" />
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-3">
             <div className={`${NEON_TILE} p-3 shadow-sm`}>
