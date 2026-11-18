@@ -684,6 +684,7 @@ function getMeridianCollisionBoxes(
 interface SceneProps {
   oasisPreview?: boolean;
   activeTier?: WorldTier;
+  sideViewRequest?: number;
   onFocusAirport:(placement:ImportedPlacement)=>void;
   onEnterOffice:(placement:ImportedPlacement)=>void;
   insideOfficeKey:string|null;
@@ -795,6 +796,13 @@ function Scene(props: SceneProps) {
     orbitRef.current.target.y = THREE.MathUtils.clamp(orbitRef.current.target.y,floor,ceiling);
     if (props.activeTier === "oasis") camera.position.y = Math.max(camera.position.y,OASIS_HEIGHT + 2);
   });
+  useEffect(() => {
+    if (!props.oasisPreview || !props.sideViewRequest || !orbitRef.current || !worldOrbitEnabled(props.cameraState,props.worldFirstPerson)) return;
+    // Deliberately frame both levels from the side without crossing either platform.
+    camera.position.set(0, OASIS_HEIGHT - 12, 290);
+    orbitRef.current.target.set(0, OASIS_HEIGHT / 2, 0);
+    orbitRef.current.update();
+  }, [props.sideViewRequest]);
   const { camera,scene } = useThree();
   const insideOffice=props.layout.imports.find(p=>p.elementKey===props.insideOfficeKey);
   const interiorMotion=useMemo(()=>{
@@ -1202,6 +1210,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [previewMode,setPreviewMode]=useState(false);
   const [oasisPreview,setOasisPreview]=useState(true);
   const [activeTier,setActiveTier]=useState<WorldTier>("metropolis");
+  const [sideViewRequest,setSideViewRequest]=useState(0);
   // The transporter operates only in the isolated editor preview. Public Troo Town
   // continues to render the saved single-level layout until publication is implemented.
   const transportTo = useCallback((tier: WorldTier) => {
@@ -1886,6 +1895,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         <Scene
           oasisPreview={oasisPreview && !readOnly}
           activeTier={activeTier}
+          sideViewRequest={sideViewRequest}
           layout={layout}
           trees={trees}
           placedObjects={placedObjects}
@@ -2121,6 +2131,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
             <button type="button" onClick={()=>setActiveTier("oasis")} style={{color:"white",background:"#173047",padding:6,borderRadius:6}}>Oasis</button>
           </div>
         </details>
+        <button type="button" onClick={()=>{setCameraState("world");setWorldFirstPerson(false);setSideViewRequest(n=>n+1)}} style={{display:"block",marginTop:8,color:"#d8faff",background:"#11475b",borderRadius:7,padding:"7px 10px",fontSize:12}}>View both levels · Side</button>
         <button type="button" onClick={()=>setOasisPreview(v=>!v)} style={{display:"block",marginTop:6,color:"#9dddea",fontSize:11}}>{oasisPreview?"Hide Oasis preview":"Show Oasis preview"}</button>
       </div>}
       {isEditorMode && <PropertyAgentAssignmentEditor worldId={currentWorldId} />}
