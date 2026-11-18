@@ -1199,7 +1199,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [ambient,setAmbient]=useState<GreenLayout['ambient']>({enabled:false,sidewalks:false});
   const [revision,setRevision]=useState(0);
   const [previewMode,setPreviewMode]=useState(false);
-  const [oasisPreview,setOasisPreview]=useState(false);
+  const [oasisPreview,setOasisPreview]=useState(true);
   const [activeTier,setActiveTier]=useState<WorldTier>("metropolis");
   // The transporter operates only in the isolated editor preview. Public Troo Town
   // continues to render the saved single-level layout until publication is implemented.
