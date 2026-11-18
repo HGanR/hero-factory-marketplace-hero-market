@@ -18,6 +18,18 @@ export default function PropertyListings({ worldId }: { worldId: string }) {
       .catch(() => { if (active) setListings([]); });
     return () => { active = false; };
   }, [worldId]);
+  useEffect(() => {
+    const open = () => {
+      const first = listings[0];
+      if (!first) return;
+      setSelected(first);
+      setMessages([]);
+      setSessionId(null);
+      setError("");
+    };
+    window.addEventListener("green-terrain:open-property-listings", open);
+    return () => window.removeEventListener("green-terrain:open-property-listings", open);
+  }, [listings]);
   async function send() {
     if (!selected || !input.trim() || busy) return;
     const text = input.trim();
