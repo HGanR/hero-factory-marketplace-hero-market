@@ -2849,6 +2849,15 @@ export default function TrustCertificatesConsolePage() {
 
             {/* Settings */}
             <TabsContent value="settings" className="mt-6">
+              <div className="mb-4 rounded-xl border border-cyan-400/30 bg-slate-900/70 p-4">
+                <h2 className="text-lg font-semibold text-white">Document appearance & advanced settings</h2>
+                <p className="mt-1 text-sm text-slate-300">Customize certificates, seals, watermarks, QR codes, and record configuration when you need them. All existing controls are preserved.</p>
+              </div>
+              <details className="group rounded-xl border border-slate-700 bg-slate-950/40" open={undefined}>
+                <summary className="cursor-pointer list-item rounded-xl px-4 py-4 text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+                  Show all certificate, identity, and document settings
+                </summary>
+                <div className="p-3 pt-0 sm:p-4 sm:pt-0">
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
                 <Card className={`${NEON_TILE} lg:col-span-2`}>
                   <CardHeader>
@@ -3226,6 +3235,8 @@ export default function TrustCertificatesConsolePage() {
                   </CardContent>
                 </Card>
               </div>
+                </div>
+              </details>
             </TabsContent>
 
             {/* Meetings */}
