@@ -118,7 +118,26 @@ export default function InteractionController(props: ICProps) {
       ray.current.setFromCamera(getNDC(e),camera);
       const hits=ray.current.intersectObjects(scene.children,true);
       let airportKey:string|undefined,airportPart:AirportPartId|undefined;
-      // Inspect intersections until an imported placement is found; decorative meshes and\n      // overlapping transit models must not mask a selected rental sign.\n      for(const hit of hits){let node:THREE.Object3D|null=hit.object;while(node){if(node.userData.airportPart)airportPart??=node.userData.airportPart;if(typeof node.userData.airportPlacementKey==='string'){airportKey=node.userData.airportPlacementKey;break;}node=node.parent;}if(airportKey)break;}
+      // Inspect intersections until an imported placement is found; decorative meshes and\n      // overlapping transit models must not mask a selected rental sign.\n      for(const hit of hits){
+        let node:THREE.Object3D|null=hit.object;
+        let candidateKey:string|undefined;
+        let candidatePart:AirportPartId|undefined;
+        while(node){
+          if(node.userData.airportPart)candidatePart??=node.userData.airportPart;
+          if(typeof node.userData.airportPlacementKey==='string'){candidateKey=node.userData.airportPlacementKey;break;}
+          node=node.parent;
+        }
+        if(!candidateKey)continue;
+        const placement=latest.current.imports.find(row=>row.elementKey===candidateKey);
+        if(!placement)continue;
+        // A transit bus can overlap the asset staging area. Prefer a stationary
+        // import hit rather than swallowing clicks meant for a sign or model.
+        if(placement.glbUrl.includes('transit-bus') || placement.elementKey.toLowerCase().includes('transit-bus')){
+          if(!airportKey){airportKey=candidateKey;airportPart=candidatePart;}
+          continue;
+        }
+        airportKey=candidateKey;airportPart=candidatePart;break;
+      }
       const airport=latest.current.imports.find(row=>row.elementKey===airportKey);
       if(airport){
         const part=airport.airportParts&&!e.shiftKey?airportPart:undefined,origin=part?airportPartOrigin(airport,part):airport.position;
