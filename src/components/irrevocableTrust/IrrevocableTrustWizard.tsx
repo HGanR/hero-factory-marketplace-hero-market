@@ -50,6 +50,7 @@ export default function IrrevocableTrustWizard() {
   const [data, setData] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [packetDigest, setPacketDigest] = useState<string | null>(null);
 
   const stepIndex = useMemo(() => STEPS.findIndex(s => s.key === currentStep), [currentStep]);
 
@@ -84,6 +85,22 @@ export default function IrrevocableTrustWizard() {
       if (next) setCurrentStep(next);
     } catch (e: any) {
       setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareReviewPacket() {
+    if (!sessionId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const response = await apiGet<{ ok: true; packet: { sha256: string } }>(
+        "/api/wizard/irrevocable/review-packet?sessionId=" + encodeURIComponent(sessionId)
+      );
+      setPacketDigest(response.packet.sha256);
+    } catch (e: any) {
+      setErr(e.message || "Unable to prepare review packet");
     } finally {
       setBusy(false);
     }
@@ -210,7 +227,7 @@ export default function IrrevocableTrustWizard() {
           )}
 
           {currentStep === "generate" && (
-            <GenerateStep busy={busy} snapshot={data} onBack={() => setCurrentStep("review")} onGenerate={generate} />
+            <GenerateStep busy={busy} snapshot={data} packetDigest={packetDigest} onPrepareReview={prepareReviewPacket} onBack={() => setCurrentStep("review")} onGenerate={generate} />
           )}
         </main>
       </div>
@@ -503,7 +520,7 @@ function ReviewStep({ snapshot, defaultValue, busy, onBack, onNext }: { snapshot
   );
 }
 
-function GenerateStep({ busy, snapshot, onBack, onGenerate }: { busy: boolean; snapshot: any; onBack: () => void; onGenerate: () => void }) {
+function GenerateStep({ busy, snapshot, packetDigest, onPrepareReview, onBack, onGenerate }: { busy: boolean; snapshot: any; packetDigest: string | null; onPrepareReview: () => void; onBack: () => void; onGenerate: () => void }) {
   const person = (value: any) => value?.fullName || "Not provided";
   const people = (values: any[]) => Array.isArray(values) && values.length ? values.map(person).join("; ") : "Not provided";
   const sections = [
@@ -534,6 +551,12 @@ function GenerateStep({ busy, snapshot, onBack, onGenerate }: { busy: boolean; s
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{section.content}</p>
           </section>
         ))}
+      </div>
+      <div className="space-y-2 rounded-lg border p-4">
+        <h3 className="font-semibold">Legal-review intake packet</h3>
+        <p className="text-sm">Validate saved answers and prepare the authenticated drafting-instructions packet.</p>
+        <Button type="button" variant="secondary" disabled={busy} onClick={onPrepareReview}>Prepare review packet</Button>
+        {packetDigest && <p role="status" className="break-all text-xs">Review packet prepared · SHA-256: {packetDigest}. This has not been submitted for attorney review.</p>}
       </div>
       <p className="text-xs text-amber-700">Document generation is not yet connected. The action below will check availability without locking your saved intake.</p>
       <div className="flex justify-between">
