@@ -118,7 +118,7 @@ export default function InteractionController(props: ICProps) {
       ray.current.setFromCamera(getNDC(e),camera);
       const hits=ray.current.intersectObjects(scene.children,true);
       let airportKey:string|undefined,airportPart:AirportPartId|undefined;
-      if(hits[0]){let node:THREE.Object3D|null=hits[0].object;while(node){if(node.userData.airportPart)airportPart??=node.userData.airportPart;if(typeof node.userData.airportPlacementKey==='string'){airportKey=node.userData.airportPlacementKey;break;}node=node.parent;}}
+      // Inspect intersections until an imported placement is found; decorative meshes and\n      // overlapping transit models must not mask a selected rental sign.\n      for(const hit of hits){let node:THREE.Object3D|null=hit.object;while(node){if(node.userData.airportPart)airportPart??=node.userData.airportPart;if(typeof node.userData.airportPlacementKey==='string'){airportKey=node.userData.airportPlacementKey;break;}node=node.parent;}if(airportKey)break;}
       const airport=latest.current.imports.find(row=>row.elementKey===airportKey);
       if(airport){
         const part=airport.airportParts&&!e.shiftKey?airportPart:undefined,origin=part?airportPartOrigin(airport,part):airport.position;
