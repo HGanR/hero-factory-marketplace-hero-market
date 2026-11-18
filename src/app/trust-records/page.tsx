@@ -2069,7 +2069,12 @@ export default function TrustCertificatesConsolePage() {
               startTabTransition(() => setActiveTab(v));
             }}
           >
-            <TabsList className="grid w-full grid-cols-2 bg-slate-900 md:grid-cols-7">
+            <div className="mb-3 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-100">Your records and certificate tools</p>
+              <p className="mt-1 text-xs text-slate-300">Choose a task below. All seven original sections are available; scroll horizontally on smaller screens.</p>
+            </div>
+            <div className="w-full overflow-x-auto pb-2" role="region" aria-label="Trust records tools" tabIndex={0}>
+            <TabsList className="flex h-auto min-w-max flex-nowrap justify-start gap-1 bg-slate-900 p-1">
               <TabsTrigger value="issue" className="gap-2">
                 <FilePlus2 className="h-4 w-4" />
                 Issue
@@ -2099,6 +2104,7 @@ export default function TrustCertificatesConsolePage() {
                 Settings
               </TabsTrigger>
             </TabsList>
+            </div>
 
             {/* Issue */}
             <TabsContent value="issue" className="mt-6">
