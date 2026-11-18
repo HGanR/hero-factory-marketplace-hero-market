@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { oasisNpcs, trooWorldPlacements } from "@/lib/db/schema";
+import { oasisNpcs, oasisNpcSessions, trooWorldPlacements } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { POST as npcChatPost } from "@/app/api/troo-world/npc-chat/route";
 
@@ -39,6 +39,15 @@ export async function POST(request: NextRequest) {
       .where(and(eq(oasisNpcs.npcId, agentId), eq(oasisNpcs.worldId, worldId), eq(oasisNpcs.isActive, true)))
       .limit(1);
     if (!npc) return NextResponse.json({ error: "Property agent unavailable" }, { status: 404 });
+
+    // Never reuse a chat session owned by a different NPC.
+    if (sessionId) {
+      const [session] = await db.select({ npcNpcId: oasisNpcSessions.npcNpcId })
+        .from(oasisNpcSessions).where(eq(oasisNpcSessions.sessionId, sessionId)).limit(1);
+      if (!session || session.npcNpcId !== agentId) {
+        return NextResponse.json({ error: "Invalid property chat session" }, { status: 403 });
+      }
+    }
 
     const forwarded = new NextRequest(request.url, {
       method: "POST",
