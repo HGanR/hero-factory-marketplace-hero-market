@@ -19,9 +19,10 @@ export default function PropertyListings({ worldId }: { worldId: string }) {
     return () => { active = false; };
   }, [worldId]);
   useEffect(() => {
-    const open = () => {
+    const open = (event: Event) => {
       if (!listings.length) return;
-      setSelected(null);
+      const buildingId = (event as CustomEvent<{buildingId?: string | null}>).detail?.buildingId;
+      setSelected(buildingId ? listings.find(item => item.buildingId === buildingId) ?? null : null);
       setMessages([]);
       setSessionId(null);
       setError("");
