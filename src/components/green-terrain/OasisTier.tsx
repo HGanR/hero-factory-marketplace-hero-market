@@ -80,3 +80,17 @@ export function TierCameraGuard({ tier, orbitEnabled }: { tier: WorldTier; orbit
   });
   return null;
 }
+
+/** Decorative lower-world rim; mounted only in the isolated two-tier preview. */
+export function MetropolisRim() {
+  return <group name="Metropolis neon perimeter">
+    <mesh position={[0,-5,0]} castShadow>
+      <cylinderGeometry args={[OASIS_WIDTH/2,OASIS_WIDTH/2-4,10,96,1,true]}/>
+      <meshStandardMaterial color="#13283a" metalness={0.8} roughness={0.3} side={THREE.DoubleSide}/>
+    </mesh>
+    {[-0.5,-3,-8].map((y,i)=><mesh key={i} rotation={[-Math.PI/2,0,0]} position={[0,y,0]}>
+      <torusGeometry args={[OASIS_WIDTH/2-(i===2?3:0),i===1?1.2:0.65,12,128]}/>
+      <meshStandardMaterial color="#25e8ff" emissive="#00c8f5" emissiveIntensity={2} toneMapped={false}/>
+    </mesh>)}
+  </group>;
+}
