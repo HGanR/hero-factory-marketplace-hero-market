@@ -15,6 +15,18 @@ import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 
 type StepKey = "state" | "parties" | "terms" | "distributions" | "powers" | "funding" | "review" | "generate";
 
+type ReviewFlag = { code: string; severity: "attention" | "information"; message: string };
+type ReviewPacketSummary = { sha256: string; reviewFlags: ReviewFlag[] };
+const REVIEW_FLAG_STEPS: Record<string, StepKey> = {
+  PRIMARY_SHARES: "parties",
+  SUCCESSION: "parties",
+  PURPOSE: "terms",
+  DISTRIBUTION_SCHEDULE: "distributions",
+  PROTECTOR: "powers",
+  FUNDING_SCHEDULE: "funding",
+  ACKNOWLEDGEMENTS: "review",
+};
+
 const STEPS: { key: StepKey; title: string }[] = [
   { key: "state", title: "State & Effective Date" },
   { key: "parties", title: "Parties" },
@@ -50,7 +62,7 @@ export default function IrrevocableTrustWizard() {
   const [data, setData] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [packetDigest, setPacketDigest] = useState<string | null>(null);
+  const [reviewPacket, setReviewPacket] = useState<ReviewPacketSummary | null>(null);
 
   const stepIndex = useMemo(() => STEPS.findIndex(s => s.key === currentStep), [currentStep]);
 
@@ -81,6 +93,7 @@ export default function IrrevocableTrustWizard() {
         nextStep: next,
       });
       const sessionData = res.session.dataJson ? JSON.parse(res.session.dataJson) : {};
+      setReviewPacket(null);
       setData(sessionData);
       if (next) setCurrentStep(next);
     } catch (e: any) {
@@ -95,10 +108,10 @@ export default function IrrevocableTrustWizard() {
     setBusy(true);
     setErr(null);
     try {
-      const response = await apiGet<{ ok: true; packet: { sha256: string } }>(
+      const response = await apiGet<{ ok: true; packet: ReviewPacketSummary }>(
         "/api/wizard/irrevocable/review-packet?sessionId=" + encodeURIComponent(sessionId)
       );
-      setPacketDigest(response.packet.sha256);
+      setReviewPacket(response.packet);
     } catch (e: any) {
       setErr(e.message || "Unable to prepare review packet");
     } finally {
@@ -227,7 +240,7 @@ export default function IrrevocableTrustWizard() {
           )}
 
           {currentStep === "generate" && (
-            <GenerateStep busy={busy} snapshot={data} packetDigest={packetDigest} onPrepareReview={prepareReviewPacket} onBack={() => setCurrentStep("review")} onGenerate={generate} />
+            <GenerateStep busy={busy} snapshot={data} reviewPacket={reviewPacket} onNavigate={setCurrentStep} onPrepareReview={prepareReviewPacket} onBack={() => setCurrentStep("review")} onGenerate={generate} />
           )}
         </main>
       </div>
@@ -520,7 +533,7 @@ function ReviewStep({ snapshot, defaultValue, busy, onBack, onNext }: { snapshot
   );
 }
 
-function GenerateStep({ busy, snapshot, packetDigest, onPrepareReview, onBack, onGenerate }: { busy: boolean; snapshot: any; packetDigest: string | null; onPrepareReview: () => void; onBack: () => void; onGenerate: () => void }) {
+function GenerateStep({ busy, snapshot, reviewPacket, onNavigate, onPrepareReview, onBack, onGenerate }: { busy: boolean; snapshot: any; reviewPacket: ReviewPacketSummary | null; onNavigate: (step: StepKey) => void; onPrepareReview: () => void; onBack: () => void; onGenerate: () => void }) {
   const person = (value: any) => value?.fullName || "Not provided";
   const people = (values: any[]) => Array.isArray(values) && values.length ? values.map(person).join("; ") : "Not provided";
   const sections = [
@@ -556,7 +569,21 @@ function GenerateStep({ busy, snapshot, packetDigest, onPrepareReview, onBack, o
         <h3 className="font-semibold">Legal-review intake packet</h3>
         <p className="text-sm">Validate saved answers and prepare the authenticated drafting-instructions packet.</p>
         <Button type="button" variant="secondary" disabled={busy} onClick={onPrepareReview}>Prepare review packet</Button>
-        {packetDigest && <p role="status" className="break-all text-xs">Review packet prepared · SHA-256: {packetDigest}. This has not been submitted for attorney review.</p>}
+        {reviewPacket && <div role="status" className="space-y-3 text-sm">
+          <p className="break-all text-xs">Review packet prepared · SHA-256: {reviewPacket.sha256}. Not submitted for attorney review.</p>
+          <h4 className="font-semibold">Completeness findings ({reviewPacket.reviewFlags.length})</h4>
+          {reviewPacket.reviewFlags.length === 0 ? <p>No automated completeness flags. Legal review is still required.</p> : (
+            <ul className="space-y-2">
+              {reviewPacket.reviewFlags.map((flag) => (
+                <li key={flag.code} className="rounded-md border p-3">
+                  <p className="text-xs font-semibold uppercase">{flag.severity === "attention" ? "Needs attention" : "Information"}</p>
+                  <p className="mt-1">{flag.message}</p>
+                  {REVIEW_FLAG_STEPS[flag.code] && <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => onNavigate(REVIEW_FLAG_STEPS[flag.code])}>Review related step</Button>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>}
       </div>
       <p className="text-xs text-amber-700">Document generation is not yet connected. The action below will check availability without locking your saved intake.</p>
       <div className="flex justify-between">
