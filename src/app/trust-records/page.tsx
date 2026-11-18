@@ -3073,6 +3073,42 @@ export default function TrustCertificatesConsolePage() {
             </CardContent>
           </Card>
         ) : null}
+        {/* Additive guided entry on the current production baseline; existing console remains untouched. */}
+        <section aria-labelledby="trust-records-guide-heading" className="mb-6 rounded-2xl border border-cyan-400/40 bg-slate-900 p-4 text-slate-100 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">Trust Records</p>
+              <h2 id="trust-records-guide-heading" className="mt-1 text-xl font-semibold sm:text-2xl">What would you like to work on?</h2>
+              <p className="mt-1 text-sm text-slate-300">Follow a simple preparation path or open any of the existing tools below.</p>
+            </div>
+            <a href="#trust-records-tools" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-cyan-200 hover:bg-slate-800">All existing tools</a>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <a href="/smart-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <strong className="block">Start or continue a trust</strong>
+              <span className="mt-2 block text-sm text-slate-300">Open the existing Smart Trust preparation workspace.</span>
+            </a>
+            <a href="/trust-records/wizard/irrevocable-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <strong className="block">Irrevocable trust workflow</strong>
+              <span className="mt-2 block text-sm text-slate-300">Continue with the existing dedicated wizard.</span>
+            </a>
+            <a href="#trust-records-tools" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <strong className="block">Manage trust records</strong>
+              <span className="mt-2 block text-sm text-slate-300">Access assets, instruments, certificates, bonds, governance, and estate tools.</span>
+            </a>
+          </div>
+          <details className="mt-4 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-cyan-200">View the five-step preparation guide</summary>
+            <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-slate-300">
+              <li>Choose the appropriate trust type and purpose in Smart Trust.</li>
+              <li>Identify the grantor, trustees, successors, and beneficiaries.</li>
+              <li>Organize assets and review the funding plan.</li>
+              <li>Prepare applicable instruments, supporting records, and governance documents.</li>
+              <li>Review documents and follow jurisdiction-specific execution and funding requirements.</li>
+            </ol>
+          </details>
+          <p className="mt-3 text-xs text-slate-400">Preparing records does not by itself establish or fund a legally effective trust.</p>
+        </section>
         {/* Network warning banner for token holders not on Polygon */}
         {shouldShowNetworkWarning && (
           <Alert className="mb-6 border-amber-500/50 bg-amber-950/20">
@@ -3606,7 +3642,8 @@ export default function TrustCertificatesConsolePage() {
               router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
             }}
           >
-            <TabsList className="grid w-full grid-cols-2 bg-slate-900 md:grid-cols-10 pointer-events-auto">
+            <div id="trust-records-tools" className="scroll-mt-5 overflow-x-auto pb-2" role="region" aria-label="Trust records tools" tabIndex={0}>
+            <TabsList className="flex h-auto min-w-max flex-nowrap justify-start gap-1 bg-slate-900 p-1 pointer-events-auto">
               <TabsTrigger
                 value="settings"
                 className={cn(
@@ -3728,6 +3765,7 @@ export default function TrustCertificatesConsolePage() {
                 Meetings
               </TabsTrigger>
             </TabsList>
+            </div>
 
             {/* Instruments */}
             <TabsContent value="instruments" className="mt-6">
