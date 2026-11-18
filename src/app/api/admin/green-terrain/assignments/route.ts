@@ -6,7 +6,7 @@ import { and, eq, sql } from "drizzle-orm";
 export const dynamic = "force-dynamic";
 const validId = (x: unknown): x is string => typeof x === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$/.test(x);
 const isAdmin = (r: NextRequest) => {
-  const token = r.cookies.get("admin-token")?.value;
+  const token = r.cookies.get("admin-token")?.value || r.cookies.get("auth-token")?.value;
   return !!token && verifyToken(token)?.isAdmin === true;
 };
 export async function GET(request: NextRequest) {
