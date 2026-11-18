@@ -20,9 +20,8 @@ export default function PropertyListings({ worldId }: { worldId: string }) {
   }, [worldId]);
   useEffect(() => {
     const open = () => {
-      const first = listings[0];
-      if (!first) return;
-      setSelected(first);
+      if (!listings.length) return;
+      setSelected(null);
       setMessages([]);
       setSessionId(null);
       setError("");
