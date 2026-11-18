@@ -1,0 +1,34 @@
+"use client";
+import { Html } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { useState } from "react";
+/** Lightweight procedural sign; no external GLB or asset download required. */
+export default function PropertyRentSign({ onOpen, editorMode = false }: { onOpen?: () => void; editorMode?: boolean }) {
+  const [night, setNight] = useState(false);
+  useFrame(() => {
+    const hour = new Date().getHours();
+    const isNight = hour < 7 || hour >= 19;
+    setNight(old => old === isNight ? old : isNight);
+  });
+  return <group name="For Rent / For Sale sign">
+    <mesh position={[0, 1.55, 0]} castShadow>
+      <boxGeometry args={[2.8, 1.3, 0.16]}/>
+      <meshStandardMaterial color="#11213a" metalness={0.6} roughness={0.32}/>
+    </mesh>
+    <mesh position={[0, 1.55, 0.095]}>
+      <planeGeometry args={[2.55, 1.06]}/>
+      <meshStandardMaterial color="#16314a" emissive="#04c9ef" emissiveIntensity={night ? 0.35 : 0.08}/>
+    </mesh>
+    {[-1.12,1.12].map(x => <mesh key={x} position={[x, 0.83, 0]} castShadow><boxGeometry args={[0.12, 1.65, 0.14]}/><meshStandardMaterial color="#374151" metalness={0.7} roughness={0.4}/></mesh>)}
+    {[-0.86,0.86].map(x => <group key={x} position={[x, 2.32, 0.42]} rotation={[-0.42, 0, 0]}>
+      <mesh><cylinderGeometry args={[0.16, 0.2, 0.24, 12]}/><meshStandardMaterial color="#1f2937" metalness={0.7}/></mesh>
+      {night && <spotLight color="#fff2be" intensity={2.4} distance={7} angle={0.62} penumbra={0.7} position={[0,0.08,0]} target-position={[0,-0.8,-0.4]}/>}
+    </group>)}
+    <Html transform center position={[0,1.56,0.115]} distanceFactor={4.6} occlude={false}>
+      <button type="button" disabled={editorMode || !onOpen} onClick={e=>{e.stopPropagation();onOpen?.();}} style={{width:220,height:80,border:0,background:"transparent",color:"#fff",fontFamily:"system-ui",textAlign:"center",cursor:editorMode?"default":"pointer",textShadow:"0 0 8px #00d5ff"}}>
+        <strong style={{display:"block",fontSize:23,letterSpacing:2}}>FOR RENT</strong>
+        <span style={{fontSize:13,color:"#a5f3fc"}}>FOR SALE · ASK OUR AGENT</span>
+      </button>
+    </Html>
+  </group>;
+}
