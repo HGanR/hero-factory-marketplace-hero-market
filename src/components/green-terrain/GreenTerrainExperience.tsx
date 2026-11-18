@@ -1788,8 +1788,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         setNexusSelected(false); setMeridianSelected(false); setTroothhertzSelected(false); setStadiumSelected(false); setVeritasSelected(false);
         setShowNexusPanel(false); setShowMeridianPanel(false); setShowTroothhertzPanel(false);
       }
-      if (e.key === "q" || e.key === "Q") handleRotateObject(-Math.PI / 8);
-      if (e.key === "e" || e.key === "E") handleRotateObject(Math.PI / 8);
+      if ((e.key === "q" || e.key === "Q") && rotationTarget) { e.preventDefault(); handleRotateObject(-Math.PI / 8); }
+      if ((e.key === "e" || e.key === "E") && rotationTarget) { e.preventDefault(); handleRotateObject(Math.PI / 8); }
       
       // Arrow key movement for selected objects/trees
       const step = e.shiftKey ? MOVE_STEP_LARGE : MOVE_STEP;
@@ -1860,7 +1860,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [readOnly,isEditorMode,selectedAirportKey,imports,handleMoveAirport, selectedTreeId, selectedObjectId, stadiumSelected, stadiumPos, veritasSelected, veritasPos, trees, placedObjects, handleDeleteTree, handleDeleteObject, handleRotateObject, handleMoveTree, handleMoveObject, handleMoveStadium, handleMoveVeritas, undo, redo]);
+  }, [rotationTarget,readOnly,isEditorMode,selectedAirportKey,imports,handleMoveAirport, selectedTreeId, selectedObjectId, stadiumSelected, stadiumPos, veritasSelected, veritasPos, trees, placedObjects, handleDeleteTree, handleDeleteObject, handleRotateObject, handleMoveTree, handleMoveObject, handleMoveStadium, handleMoveVeritas, undo, redo]);
 
   const selectedTree = trees.find(t => t.id === selectedTreeId) ?? null;
   const selectedObject = placedObjects.find(o => o.id === selectedObjectId) ?? null;
@@ -1871,12 +1871,12 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       {layoutError&&<div role="status" style={{position:'absolute',top:12,left:12,right:12,zIndex:400,padding:12,background:'#102030',color:'white'}}>Could not refresh the saved town. The last loaded layout remains visible. <button type="button" onClick={retryLayout}>Retry refresh</button></div>}
       <Canvas
         shadows
-        onPointerMissed={()=>{if(cameraState!=="world")return;setNexusSelected(false);setMeridianSelected(false);setTroothhertzSelected(false);setStadiumSelected(false);setVeritasSelected(false);setSelectedAirportKey(null);}}
+        onPointerMissed={()=>{if(cameraState!=="world" || isEditorMode)return;setNexusSelected(false);setMeridianSelected(false);setTroothhertzSelected(false);setStadiumSelected(false);setVeritasSelected(false);setSelectedAirportKey(null);}}
         camera={{ position: [0, 28, 65], fov: 55, near: 0.1, far: 1200 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
         scene={{ background: new THREE.Color("#6ab8d4") }}
-        dpr={[1, 2]}
-        style={{ position: "absolute", inset: 0 }}
+        dpr={[1, 1.5]}
+        style={{ position: "absolute", inset: 0, touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
       >
         <Scene
           oasisPreview={oasisPreview && !readOnly}
