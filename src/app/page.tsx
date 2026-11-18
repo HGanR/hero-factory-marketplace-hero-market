@@ -567,6 +567,22 @@ function HomePageContent() {
                     Grant Writing
                   </Link>
                   <Link
+                    href="/fiduciary-academy"
+                    className={`${LINK_PILL} w-full justify-center`}
+                    onClick={() => {
+                      trackLandingCta(
+                        LANDING_HOME_SITE_EVENTS.WELCOME_MENU_CTA,
+                        "welcome_menu",
+                        "Fiduciary Academy",
+                        "/fiduciary-academy",
+                      );
+                      setShowWelcomeMenu(false);
+                    }}
+                    role="menuitem"
+                  >
+                    Fiduciary Academy
+                  </Link>
+                  <Link
                     href="/smart-trust"
                     className={`${LINK_PILL} w-full justify-center`}
                     onClick={() => {
