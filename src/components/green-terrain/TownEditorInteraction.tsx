@@ -4,6 +4,7 @@ import {useThree} from '@react-three/fiber';
 import * as THREE from 'three';
 import {airportPartOrigin,type AirportPartId} from '@/lib/troo-world/airport-parts';
 import type {ImportedPlacement} from '@/lib/troo-world/airport';
+import {isTransitBus} from '@/lib/troo-world/transit-settings';
 interface ICProps {
   imports: ImportedPlacement[];
   terrainHeight:(x:number,z:number)=>number;
@@ -132,7 +133,7 @@ export default function InteractionController(props: ICProps) {
         if(!placement)continue;
         // A transit bus can overlap the asset staging area. Prefer a stationary
         // import hit rather than swallowing clicks meant for a sign or model.
-        if(placement.glbUrl.includes('transit-bus') || placement.elementKey.toLowerCase().includes('transit-bus')){
+        if(isTransitBus(placement)){
           if(!airportKey){airportKey=candidateKey;airportPart=candidatePart;}
           continue;
         }
