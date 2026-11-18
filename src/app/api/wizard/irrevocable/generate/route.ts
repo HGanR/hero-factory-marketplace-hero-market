@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { wizardSessions, generatedDocuments } from "@/lib/db/schema";
+import { wizardSessions } from "@/lib/db/schema";
 import { getAuthedUserId } from "@/lib/api/auth";
 import { eq, and } from "drizzle-orm";
 import { IrrevocableTrustWizardSchema } from "@/lib/irrevocableTrust/schema";
-import crypto from "crypto";
-import { v4 as uuidv4 } from "uuid";
 
-function sha256Hex(data: Buffer | string): string {
-  const hash = crypto.createHash("sha256");
-  hash.update(typeof data === "string" ? Buffer.from(data, "utf-8") : data);
-  return hash.digest("hex");
-}
-
+/**
+ * Do not report a trust instrument as generated until a real document
+ * has been assembled, stored, and made available through authorized access.
+ * The previous implementation saved only a JSON storage-key placeholder
+ * and permanently locked the session.
+ */
 export async function POST(req: NextRequest) {
   const userId = await getAuthedUserId();
   if (!userId) {
@@ -21,73 +19,41 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { sessionId } = body as { sessionId: string };
+    const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";
+    if (!sessionId) {
+      return NextResponse.json({ ok: false, error: { code: "INVALID_REQUEST", message: "Session ID is required" } }, { status: 400 });
+    }
 
     const db = await getDb();
-    const sessionRows = await db
-      .select()
-      .from(wizardSessions)
+    const rows = await db.select().from(wizardSessions)
       .where(and(eq(wizardSessions.id, sessionId), eq(wizardSessions.userId, userId)))
       .limit(1);
-
-    if (sessionRows.length === 0) {
+    if (rows.length === 0) {
       return NextResponse.json({ ok: false, error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
     }
 
-    const session = sessionRows[0];
+    const session = rows[0];
     if (session.status === "LOCKED" || session.status === "GENERATED") {
-      return NextResponse.json(
-        { ok: false, error: { code: "ALREADY_GENERATED", message: "Already generated/locked" } },
-        { status: 409 }
-      );
+      return NextResponse.json({ ok: false, error: { code: "ALREADY_GENERATED", message: "This session is locked; contact support for review" } }, { status: 409 });
     }
 
-    const data = JSON.parse(session.dataJson || "{}");
-    const parsed = IrrevocableTrustWizardSchema.safeParse(data);
+    const parsed = IrrevocableTrustWizardSchema.safeParse(JSON.parse(session.dataJson || "{}"));
     if (!parsed.success) {
-      return NextResponse.json(
-        { ok: false, error: { code: "VALIDATION", message: "Wizard is incomplete or invalid", details: parsed.error.flatten() } },
-        { status: 422 }
-      );
+      return NextResponse.json({
+        ok: false,
+        error: { code: "VALIDATION", message: "Complete the required wizard fields before document assembly", details: parsed.error.flatten() },
+      }, { status: 422 });
     }
 
-    // Lock before generating to prevent drift
-    await db.update(wizardSessions).set({ status: "LOCKED" }).where(eq(wizardSessions.id, sessionId));
-
-    // Placeholder until you wire doc generation:
-    // In production, you would:
-    // 1. Use docxtemplater to render a DOCX template
-    // 2. Upload to S3/R2 storage
-    // 3. Store the storage key
-    const placeholder = Buffer.from(JSON.stringify({ generatedAt: new Date().toISOString(), data: parsed.data }, null, 2));
-    const digest = sha256Hex(placeholder);
-    const storageKey = `trust-wizard/irrevocable/${sessionId}/${digest}.json`;
-
-    const doc = await db.insert(generatedDocuments).values({
-      id: uuidv4(),
-      sessionId,
-      title: `${parsed.data.terms.trustName} - Irrevocable Trust (Draft)`,
-      mimeType: "application/json",
-      storageKey,
-      sha256: digest,
-    });
-
-    await db.update(wizardSessions).set({ status: "GENERATED" }).where(eq(wizardSessions.id, sessionId));
-
-    // Fetch the created document
-    const docId = (doc as any).insertId || uuidv4();
-    const docRows = await db
-      .select()
-      .from(generatedDocuments)
-      .where(eq(generatedDocuments.sessionId, sessionId))
-      .limit(1);
-
-    return NextResponse.json({ ok: true, documentId: docRows[0]?.id || docId });
-  } catch (error: any) {
-    console.error("Generate document error:", error);
-    return NextResponse.json(
-      { ok: false, error: { code: "INTERNAL_ERROR", message: error?.message || "Failed to generate document" } },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      ok: false,
+      error: {
+        code: "DOCUMENT_ENGINE_PENDING",
+        message: "Your wizard data is valid, but the full trust declaration generator is not yet connected. Your session remains editable. No trust instrument has been issued or approved.",
+      },
+    }, { status: 501 });
+  } catch (error) {
+    console.error("Trust instrument generation failed", error);
+    return NextResponse.json({ ok: false, error: { code: "INTERNAL_ERROR", message: "Unable to process the document request" } }, { status: 500 });
   }
 }
