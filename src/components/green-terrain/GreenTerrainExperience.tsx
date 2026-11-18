@@ -11,6 +11,7 @@
 import TownIntersection from './TownIntersection';
 import PropertyAgentAssignmentEditor from "./PropertyAgentAssignmentEditor";
 import PropertyListings from "./PropertyListings";
+import { OasisPlatform, OASIS_HEIGHT, type WorldTier } from "./OasisTier";
 
 import {moveAirportPart,airportPartOrigin,type AirportPartId} from '@/lib/troo-world/airport-parts';
 import BuildingInteriorEditor from '../world-editor/BuildingInteriorEditor';
@@ -681,6 +682,8 @@ function getMeridianCollisionBoxes(
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
 interface SceneProps {
+  oasisPreview?: boolean;
+  activeTier?: WorldTier;
   onFocusAirport:(placement:ImportedPlacement)=>void;
   onEnterOffice:(placement:ImportedPlacement)=>void;
   insideOfficeKey:string|null;
@@ -777,6 +780,20 @@ function BuildingPresentation({state,alreadyScaled=false,onSelect,children,footp
 
 function Scene(props: SceneProps) {
   const orbitRef = useRef<any>(null);
+  useEffect(() => {
+    if (!props.oasisPreview || !orbitRef.current || !worldOrbitEnabled(props.cameraState,props.worldFirstPerson)) return;
+    const upper = props.activeTier === "oasis";
+    orbitRef.current.target.set(0,upper ? OASIS_HEIGHT + 2 : 2,0);
+    camera.position.set(35,upper ? OASIS_HEIGHT + 35 : 34,65);
+    orbitRef.current.update();
+  },[props.activeTier,props.oasisPreview,props.cameraState,props.worldFirstPerson]);
+  useFrame(() => {
+    if (!props.oasisPreview || !worldOrbitEnabled(props.cameraState,props.worldFirstPerson) || !orbitRef.current) return;
+    const floor = props.activeTier === "oasis" ? OASIS_HEIGHT + 2 : 2;
+    const ceiling = props.activeTier === "oasis" ? OASIS_HEIGHT + 180 : OASIS_HEIGHT - 4;
+    camera.position.y = THREE.MathUtils.clamp(camera.position.y,floor,ceiling);
+    orbitRef.current.target.y = THREE.MathUtils.clamp(orbitRef.current.target.y,floor,ceiling);
+  });
   const { camera,scene } = useThree();
   const insideOffice=props.layout.imports.find(p=>p.elementKey===props.insideOfficeKey);
   const interiorMotion=useMemo(()=>{
@@ -822,6 +839,7 @@ function Scene(props: SceneProps) {
       <Clouds/>
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
+      {props.oasisPreview && <OasisPlatform />}
       <TownIntersection/><AmbientTown layout={props.layout}/>
       <ImportedTownModels roads={props.layout.objects} onEnterBuilding={props.cameraState==="world"?props.onEnterOffice:undefined} selectedAirportKey={props.selectedAirportKey} selectedAirportPart={props.selectedAirportPart} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {Object.entries(props.layout.buildings).filter(([,frame])=>frame.visible).map(([id,frame])=><group key={'interior-'+id} position={frame.position} rotation={[0,frame.rotationY,0]} scale={frame.scale}><BuildingInteriorLayer value={frame.interior} allowPosition/>{props.isEditorMode&&(({'nexus-tower':props.nexusSelected,'meridian-tower':props.meridianSelected,'troothhertz-tower':props.troothhertzSelected,'stadium-elyseum':props.stadiumSelected,'veritas-school':props.veritasSelected} as Record<string,boolean>)[id])&&<mesh name={'Building selection ring '+id} position={[0,.12,0]} rotation={[-Math.PI/2,0,0]} raycast={()=>{}}><ringGeometry args={[id==='stadium-elyseum'?74:id==='veritas-school'?38:14,id==='stadium-elyseum'?74.5:id==='veritas-school'?38.5:14.3,96]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={THREE.DoubleSide} depthWrite={false}/></mesh>}</group>)}
@@ -1181,6 +1199,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [ambient,setAmbient]=useState<GreenLayout['ambient']>({enabled:false,sidewalks:false});
   const [revision,setRevision]=useState(0);
   const [previewMode,setPreviewMode]=useState(false);
+  const [oasisPreview,setOasisPreview]=useState(false);
+  const [activeTier,setActiveTier]=useState<WorldTier>("metropolis");
 
   const [trees, setTrees] = useState<TreeData[]>(() => generateInitialTrees());
   const [selectedTreeId, setSelectedTreeId] = useState<number | null>(null);
@@ -1840,6 +1860,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         style={{ position: "absolute", inset: 0 }}
       >
         <Scene
+          oasisPreview={oasisPreview && !readOnly}
+          activeTier={activeTier}
           layout={layout}
           trees={trees}
           placedObjects={placedObjects}
@@ -2060,6 +2082,10 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
       <TownVoicePanel value={presenceView} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       <TouchWalkControls input={touchInput} active={(!eventConnection||!presenceLocked(presenceView.identity))&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
+      {!readOnly && <div style={{position:"absolute",left:270,bottom:18,zIndex:90,background:"#081a2de8",border:"1px solid #13d9f5",borderRadius:12,padding:10,color:"#fff",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",maxWidth:"calc(100vw - 290px)"}}>
+        <button type="button" onClick={()=>setOasisPreview(v=>!v)} style={{background:"#10465a",padding:"8px 12px",borderRadius:8,color:"white"}}>{oasisPreview?"Hide Oasis preview":"Preview upper Oasis plane"}</button>
+        {oasisPreview && <><span>Orbit level:</span><button type="button" aria-pressed={activeTier==="metropolis"} onClick={()=>setActiveTier("metropolis")} style={{background:activeTier==="metropolis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↓ Metropolis</button><button type="button" aria-pressed={activeTier==="oasis"} onClick={()=>setActiveTier("oasis")} style={{background:activeTier==="oasis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↑ Oasis</button><span style={{fontSize:11,color:"#9dddea"}}>Preview only · not published</span></>}
+      </div>}
       {isEditorMode && <PropertyAgentAssignmentEditor worldId={currentWorldId} />}
       {!isEditorMode && <PropertyListings worldId={currentWorldId} />}
       {/* HUD overlays */}
