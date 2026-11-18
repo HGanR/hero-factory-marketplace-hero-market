@@ -1852,6 +1852,36 @@ export default function TrustCertificatesConsolePage() {
               <p className="mt-2 text-sm text-slate-300">Continue with registries, minutes, assets, certificates, and document settings.</p>
             </a>
           </div>
+          <details className="mt-4 rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-cyan-200">See the recommended trust preparation sequence</summary>
+            <ol className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">1. Choose the trust and purpose</strong>
+                <p className="mt-1 text-slate-300">Use the existing Smart Trust workspace to choose a supported trust workflow. Revocable living trust preparation may require a jurisdiction-specific process.</p>
+                <a href="/smart-trust" className="mt-2 inline-block text-cyan-300 underline">Open Smart Trust</a>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">2. Identify the people and roles</strong>
+                <p className="mt-1 text-slate-300">Record the grantor, trustees, successors, and beneficiaries in the applicable trust workflow.</p>
+                <a href="/smart-trust" className="mt-2 inline-block text-cyan-300 underline">Continue trust setup</a>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">3. Organize assets and records</strong>
+                <p className="mt-1 text-slate-300">Review the asset register before preparing supporting records.</p>
+                <button type="button" className="mt-2 text-cyan-300 underline" onClick={() => { startTabTransition(() => setActiveTab("assets")); document.getElementById("trust-records-original-console")?.scrollIntoView({ behavior: "smooth" }); }}>Open asset register</button>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">4. Prepare supporting documents</strong>
+                <p className="mt-1 text-slate-300">Use existing minutes and governance tools for records appropriate to the selected trust.</p>
+                <button type="button" className="mt-2 text-cyan-300 underline" onClick={() => { startTabTransition(() => setActiveTab("governance")); document.getElementById("trust-records-original-console")?.scrollIntoView({ behavior: "smooth" }); }}>Open minutes</button>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3 sm:col-span-2">
+                <strong className="block text-white">5. Review, save, and manage</strong>
+                <p className="mt-1 text-slate-300">Review existing documents and certificates. Execution, witnessing, notarization, and funding requirements depend on the jurisdiction and trust type.</p>
+                <button type="button" className="mt-2 text-cyan-300 underline" onClick={() => { startTabTransition(() => setActiveTab("registry")); document.getElementById("trust-records-original-console")?.scrollIntoView({ behavior: "smooth" }); }}>Open certificate registry</button>
+              </li>
+            </ol>
+          </details>
           <p className="mt-4 text-xs text-slate-400">Organizing a record or preparing a document does not by itself establish or fund a legally effective trust. Requirements vary by jurisdiction.</p>
         </section>
         {/* Network warning banner for token holders not on Polygon */}
