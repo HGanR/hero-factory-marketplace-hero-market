@@ -784,7 +784,7 @@ function Scene(props: SceneProps) {
     if (!props.oasisPreview || !orbitRef.current || !worldOrbitEnabled(props.cameraState,props.worldFirstPerson)) return;
     const upper = props.activeTier === "oasis";
     orbitRef.current.target.set(0,upper ? OASIS_HEIGHT + 2 : 2,0);
-    camera.position.set(35,upper ? OASIS_HEIGHT + 35 : 34,65);
+    camera.position.set(0,upper ? OASIS_HEIGHT + 32 : 24,upper ? 75 : 72);
     orbitRef.current.update();
   },[props.activeTier,props.oasisPreview,props.cameraState,props.worldFirstPerson]);
   useFrame(() => {
@@ -793,6 +793,7 @@ function Scene(props: SceneProps) {
     const ceiling = props.activeTier === "oasis" ? OASIS_HEIGHT + 180 : OASIS_HEIGHT - 4;
     camera.position.y = THREE.MathUtils.clamp(camera.position.y,floor,ceiling);
     orbitRef.current.target.y = THREE.MathUtils.clamp(orbitRef.current.target.y,floor,ceiling);
+    if (props.activeTier === "oasis") camera.position.y = Math.max(camera.position.y,OASIS_HEIGHT + 2);
   });
   const { camera,scene } = useThree();
   const insideOffice=props.layout.imports.find(p=>p.elementKey===props.insideOfficeKey);
@@ -2083,8 +2084,8 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onGridSizeChange={setGridSize}
       />}
 
-      {!readOnly&&<section aria-label="Town presentation settings" style={{position:'absolute',right:18,top:100,zIndex:30,background:'#102030ed',color:'white',padding:14,borderRadius:12,maxHeight:'45vh',overflow:'auto',maxWidth:310}}>
-        <h2>Town presentation</h2><p>Saved revision {revision}. Switches take effect for visitors after Save World Layout.</p>
+      {!readOnly&&<details aria-label="Town presentation settings" style={{position:"absolute",right:18,top:114,zIndex:30,background:"#102030ed",color:"white",padding:10,borderRadius:12,maxHeight:"min(55vh,440px)",overflow:"auto",width:"min(300px,calc(100vw - 36px))",boxSizing:"border-box",fontSize:12}}>
+        <summary style={{cursor:"pointer",fontWeight:700,fontSize:13}}>Town presentation</summary><p>Saved revision {revision}. Switches take effect for visitors after Save World Layout.</p>
         <label><input type="checkbox" checked={ambient.sidewalks} onChange={e=>{saveToHistory();setAmbient(v=>({...v,sidewalks:e.target.checked,enabled:e.target.checked&&v.enabled}))}}/> Sidewalks alongside streets</label><br/>
         <label><input type="checkbox" disabled={!ambient.sidewalks} checked={ambient.enabled} onChange={e=>{saveToHistory();setAmbient(v=>({...v,enabled:e.target.checked}))}}/> Ambient pedestrians and gathering groups</label>
         <details><summary>Building visibility, size and rotation</summary><p>Review the interior walk-through after changing an exterior size.</p>{Object.entries(presentation).map(([id,b])=><fieldset key={id}><legend>{id}</legend><label><input type="checkbox" checked={b.visible} onChange={e=>{saveToHistory();setPresentation(v=>({...v,[id]:{...v[id as BuildingId],visible:e.target.checked}}))}}/> Visible</label><label> Scale <input type="number" min="0.05" max="20" step="0.05" value={id==='stadium-elyseum'?stadiumScale:b.scale} onChange={e=>{const n=Number(e.target.value);if(!Number.isFinite(n)||n<.05||n>20)return;saveToHistory();if(id==='stadium-elyseum')setStadiumScale(n);else setPresentation(v=>({...v,[id]:{...v[id as BuildingId],scale:n}}))}}/></label><label> Rotation ° <input type="number" value={Math.round(b.rotationY*180/Math.PI)} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=3600){saveToHistory();setPresentation(v=>({...v,[id]:{...v[id as BuildingId],rotationY:n*Math.PI/180}}))}}}/></label></fieldset>)}</details>
@@ -2101,7 +2102,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         </details>
         <p>Ambient figures are visual extras. They do not chat, use AI services or replace your interactive agents.</p>
         <a href="/troo-town" target="_blank" rel="noopener noreferrer">Open public town ↗</a>
-      </section>}
+      </details>}
 
       <TownVoicePanel value={presenceView} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       <TouchWalkControls input={touchInput} active={(!eventConnection||!presenceLocked(presenceView.identity))&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
