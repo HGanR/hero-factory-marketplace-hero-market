@@ -162,13 +162,21 @@ export default function IrrevocableTrustWizard() {
             {STEPS.map((s, idx) => (
               <li key={s.key}>
                 <button
-                  className={`w-full text-left text-sm rounded-md px-3 py-2 ${
-                    idx === stepIndex ? "bg-neutral-100 font-medium" : "hover:bg-neutral-50"
+                  aria-current={idx === stepIndex ? "step" : undefined}
+                  aria-label={`${s.title} — ${s.key !== "generate" && data[s.key] ? "completed" : idx === stepIndex ? "current" : "not completed"}`}
+                  className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 ${
+                    s.key !== "generate" && data[s.key]
+                      ? idx === stepIndex
+                        ? "border-amber-600 bg-amber-400 font-semibold text-amber-950 ring-2 ring-amber-600"
+                        : "border-amber-500 bg-amber-400 font-semibold text-amber-950 hover:bg-amber-300"
+                      : idx === stepIndex
+                        ? "border-slate-500 bg-slate-200 font-semibold text-slate-900"
+                        : "border-transparent text-inherit hover:bg-neutral-100"
                   }`}
                   onClick={() => setCurrentStep(s.key)}
                   disabled={!sessionId || busy}
                 >
-                  {idx + 1}. {s.title}
+                  {s.key !== "generate" && data[s.key] ? "✓ " : ""}{idx + 1}. {s.title}
                 </button>
               </li>
             ))}
