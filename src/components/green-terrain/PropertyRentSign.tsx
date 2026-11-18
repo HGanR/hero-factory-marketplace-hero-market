@@ -3,10 +3,11 @@ import { Html } from "@react-three/drei";
 import { useEffect } from "react";
 import { useState } from "react";
 /** Lightweight procedural sign; no external GLB or asset download required. */
-export default function PropertyRentSign({ onOpen, editorMode = false }: { onOpen?: () => void; editorMode?: boolean }) {
+export default function PropertyRentSign({ onOpen, editorMode = false, selected = false, onSelect }: { onOpen?: () => void; editorMode?: boolean; selected?: boolean; onSelect?: () => void }) {
   const [night, setNight] = useState(false);
   useEffect(() => { const update = () => { const hour = new Date().getHours(); setNight(hour < 7 || hour >= 19); }; update(); const timer = setInterval(update, 60000); return () => clearInterval(timer); }, []);
   return <group name="For Rent / For Sale sign">
+    {selected && <mesh name="Selected rental sign ring" rotation={[-Math.PI/2,0,0]} position={[0,0.09,0]} raycast={()=>{}}><ringGeometry args={[1.9,2.18,64]}/><meshBasicMaterial color="#ffdd44" transparent opacity={0.95} side={2} depthWrite={false}/></mesh>}
     <mesh position={[0, 1.55, 0]} castShadow>
       <boxGeometry args={[2.8, 1.3, 0.16]}/>
       <meshStandardMaterial color="#11213a" metalness={0.6} roughness={0.32}/>
@@ -23,7 +24,8 @@ export default function PropertyRentSign({ onOpen, editorMode = false }: { onOpe
     <Html transform center position={[0,1.56,0.115]} distanceFactor={4.6} occlude={false}>
       <button type="button" disabled={editorMode ? !onSelect : !onOpen} onClick={e=>{e.stopPropagation();if(editorMode)onSelect?.();else onOpen?.();}} style={{width:240,minHeight:96,border:0,background:"transparent",color:"#fff",fontFamily:"system-ui",textAlign:"center",cursor:"pointer",textShadow:"0 0 8px #00d5ff"}}>
         <strong style={{display:"block",fontSize:23,letterSpacing:2}}>FOR RENT</strong>
-        <span style={{display:"block",fontSize:13,color:"#a5f3fc"}}>FOR SALE · ASK OUR AGENT</span>\n        <span style={{display:"inline-block",marginTop:4,padding:"3px 9px",borderRadius:999,background:"#00c7e8",color:"#082236",fontSize:13,fontWeight:800}}>CLICK HERE · CONTACT AGENT</span>
+        <span style={{display:"block",fontSize:13,color:"#a5f3fc"}}>FOR SALE · ASK OUR AGENT</span>
+        <span style={{display:"inline-block",marginTop:4,padding:"3px 9px",borderRadius:999,background:"#00c7e8",color:"#082236",fontSize:13,fontWeight:800}}>CLICK HERE · CONTACT AGENT</span>
       </button>
     </Html>
   </group>;
