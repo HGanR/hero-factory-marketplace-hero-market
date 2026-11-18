@@ -11,7 +11,7 @@
 import TownIntersection from './TownIntersection';
 import PropertyAgentAssignmentEditor from "./PropertyAgentAssignmentEditor";
 import PropertyListings from "./PropertyListings";
-import { OasisPlatform, OASIS_HEIGHT, type WorldTier } from "./OasisTier";
+import { OasisPlatform, MetropolisRim, OASIS_HEIGHT, type WorldTier } from "./OasisTier";
 
 import {moveAirportPart,airportPartOrigin,type AirportPartId} from '@/lib/troo-world/airport-parts';
 import BuildingInteriorEditor from '../world-editor/BuildingInteriorEditor';
@@ -839,7 +839,7 @@ function Scene(props: SceneProps) {
       <Clouds/>
       <DistantHills/>
       <Terrain stadiumPos={props.stadiumPos} />
-      {props.oasisPreview && <OasisPlatform />}
+      {props.oasisPreview && <><OasisPlatform /><MetropolisRim /></>}
       <TownIntersection/><AmbientTown layout={props.layout}/>
       <ImportedTownModels roads={props.layout.objects} onEnterBuilding={props.cameraState==="world"?props.onEnterOffice:undefined} selectedAirportKey={props.selectedAirportKey} selectedAirportPart={props.selectedAirportPart} onSelectAirport={props.onSelectAirport} editorMode={props.isEditorMode} placements={props.layout.imports} onFocusAirport={props.onFocusAirport} canFocusAirport={props.cameraState==="world"}/>
       {Object.entries(props.layout.buildings).filter(([,frame])=>frame.visible).map(([id,frame])=><group key={'interior-'+id} position={frame.position} rotation={[0,frame.rotationY,0]} scale={frame.scale}><BuildingInteriorLayer value={frame.interior} allowPosition/>{props.isEditorMode&&(({'nexus-tower':props.nexusSelected,'meridian-tower':props.meridianSelected,'troothhertz-tower':props.troothhertzSelected,'stadium-elyseum':props.stadiumSelected,'veritas-school':props.veritasSelected} as Record<string,boolean>)[id])&&<mesh name={'Building selection ring '+id} position={[0,.12,0]} rotation={[-Math.PI/2,0,0]} raycast={()=>{}}><ringGeometry args={[id==='stadium-elyseum'?74:id==='veritas-school'?38:14,id==='stadium-elyseum'?74.5:id==='veritas-school'?38.5:14.3,96]}/><meshBasicMaterial color="#ffdd44" transparent opacity={.85} side={THREE.DoubleSide} depthWrite={false}/></mesh>}</group>)}
