@@ -8,6 +8,7 @@
 import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import PropertyListings from "@/components/green-terrain/PropertyListings";
 import { useSearchParams } from "next/navigation";
 import type { Placement } from "@/components/troo-world/TrooWorldUnifiedViewer";
 import type { WorldElementData } from "@/lib/troo-world/WorldElementSystem";
@@ -202,6 +203,7 @@ function TrooWorldPageContent() {
           {error}
         </div>
       )}
+      <PropertyListings worldId={DEFAULT_WORLD_ID} />
       <TrooWorldUnifiedViewer
         worldTitle="TROO WORLD"
         initialBuilding={validBuilding}
