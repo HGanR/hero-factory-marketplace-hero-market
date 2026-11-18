@@ -21,9 +21,9 @@ export default function PropertyRentSign({ onOpen, editorMode = false }: { onOpe
       {night && <spotLight color="#fff2be" intensity={2.4} distance={7} angle={0.62} penumbra={0.7} position={[0,0.08,0]} />}
     </group>)}
     <Html transform center position={[0,1.56,0.115]} distanceFactor={4.6} occlude={false}>
-      <button type="button" disabled={editorMode || !onOpen} onClick={e=>{e.stopPropagation();onOpen?.();}} style={{width:220,height:80,border:0,background:"transparent",color:"#fff",fontFamily:"system-ui",textAlign:"center",cursor:editorMode?"default":"pointer",textShadow:"0 0 8px #00d5ff"}}>
+      <button type="button" disabled={editorMode || !onOpen} onClick={e=>{e.stopPropagation();onOpen?.();}} style={{width:240,minHeight:96,border:0,background:"transparent",color:"#fff",fontFamily:"system-ui",textAlign:"center",cursor:editorMode?"default":"pointer",textShadow:"0 0 8px #00d5ff"}}>
         <strong style={{display:"block",fontSize:23,letterSpacing:2}}>FOR RENT</strong>
-        <span style={{fontSize:13,color:"#a5f3fc"}}>FOR SALE · ASK OUR AGENT</span>
+        <span style={{display:"block",fontSize:13,color:"#a5f3fc"}}>FOR SALE · ASK OUR AGENT</span>\n        <span style={{display:"inline-block",marginTop:4,padding:"3px 9px",borderRadius:999,background:"#00c7e8",color:"#082236",fontSize:13,fontWeight:800}}>CLICK HERE · CONTACT AGENT</span>
       </button>
     </Html>
   </group>;
