@@ -50,12 +50,13 @@ export default function WorldFirstPersonControls({
       initialized.current = false;
       return;
     }
-    // Snap: lock to current position and orientation when switching to first person
-    const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ");
-    yaw.current = euler.y;
-    pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, euler.x));
-    // Ensure camera Y stays at EYE_HEIGHT when activating (no drift from orbit)
-    camera.position.y = EYE_HEIGHT;
+    // TROO SOUTH arrival: fixed street-level spawn facing north toward TROO CENTER.
+    // The southern road ends at z=120; 108 leaves a safe margin within terrain bounds.
+    camera.position.set(0, EYE_HEIGHT, 108);
+    yaw.current = 0;
+    pitch.current = 0;
+    camera.quaternion.setFromEuler(new THREE.Euler(0, 0, 0, "YXZ"));
+    keys.current = {};
     initialized.current = true;
   }, [active, camera]);
 
