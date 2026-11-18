@@ -1219,20 +1219,6 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
     setCameraState("world");
     setWorldFirstPerson(false);
   }, [readOnly,oasisPreview]);
-  useEffect(() => {
-    if (readOnly || !oasisPreview) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-      const element = event.target as HTMLElement | null;
-      if (element?.closest("input, textarea, select, [contenteditable=true]")) return;
-      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        event.preventDefault();
-        transportTo(event.key === "ArrowUp" ? "oasis" : "metropolis");
-      }
-    };
-    window.addEventListener("keydown",onKey);
-    return () => window.removeEventListener("keydown",onKey);
-  },[readOnly,oasisPreview,transportTo]);
 
 
   const [trees, setTrees] = useState<TreeData[]>(() => generateInitialTrees());
