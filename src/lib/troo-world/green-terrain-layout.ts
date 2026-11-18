@@ -29,7 +29,7 @@ const str=(v:unknown,max=120)=>{if(typeof v!=='string'||!v.trim()||v.length>max|
 const vec=(v:unknown):Vec3=>{if(!Array.isArray(v)||v.length!==3)throw new LayoutError('Invalid layout vector');return [num(v[0]),num(v[1]),num(v[2])]};
 const list=(v:unknown,max:number):unknown[]=>{if(!Array.isArray(v)||v.length>max)throw new LayoutError('Layout exceeds object limit');return v};
 const kinds=['street','sidewalk','lake','pond','bench','lightpost','parkinglot'];
-export function modelUrl(value:unknown){const url=str(value,1500);if(url==='procedural:apex'||url==='procedural:harborview')return url;if(/^\/(?!\/)[^\s\\]*$/.test(url))return url;try{const u=new URL(url);if(u.protocol==='https:'&&!u.username&&!u.password&&(/(^|\.)(ipfs.io|mypinata.cloud|pinata.cloud)$/.test(u.hostname)))return url}catch{}throw new LayoutError('Only same-site model URLs or supported IPFS gateways are allowed')}
+export function modelUrl(value:unknown){const url=str(value,1500);if(url==='procedural:apex'||url==='procedural:harborview'||url==='procedural:for-rent-sign')return url;if(/^\/(?!\/)[^\s\\]*$/.test(url))return url;try{const u=new URL(url);if(u.protocol==='https:'&&!u.username&&!u.password&&(/(^|\.)(ipfs.io|mypinata.cloud|pinata.cloud)$/.test(u.hostname)))return url}catch{}throw new LayoutError('Only same-site model URLs or supported IPFS gateways are allowed')}
 /** Curated hyperlinks only; destination URLs are never fetched by the server. */
 export function destinationUrl(value:unknown){
  const url=str(value,1500).trim();
