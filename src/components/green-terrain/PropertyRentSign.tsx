@@ -21,8 +21,8 @@ export default function PropertyRentSign({ onOpen, editorMode = false, selected 
       <mesh><cylinderGeometry args={[0.16, 0.2, 0.24, 12]}/><meshStandardMaterial color="#1f2937" metalness={0.7}/></mesh>
       {night && <spotLight color="#fff2be" intensity={2.4} distance={7} angle={0.62} penumbra={0.7} position={[0,0.08,0]} />}
     </group>)}
-    <Html transform center position={[0,1.56,0.115]} distanceFactor={4.6} occlude={false}>
-      <button type="button" disabled={editorMode ? !onSelect : !onOpen} onClick={e=>{e.stopPropagation();if(editorMode)onSelect?.();else onOpen?.();}} style={{width:240,minHeight:96,border:0,background:"transparent",color:"#fff",fontFamily:"system-ui",textAlign:"center",cursor:"pointer",textShadow:"0 0 8px #00d5ff"}}>
+    <Html transform center position={[0,1.56,0.115]} distanceFactor={4.6} occlude={false} style={{pointerEvents:editorMode?"none":"auto"}}>
+      <button type="button" disabled={editorMode || !onOpen} onClick={e=>{e.stopPropagation();onOpen?.();}} style={{width:240,minHeight:96,border:0,background:"transparent",color:"#fff",fontFamily:"system-ui",textAlign:"center",cursor:editorMode?"grab":"pointer",pointerEvents:editorMode?"none":"auto",textShadow:"0 0 8px #00d5ff"}}>
         <strong style={{display:"block",fontSize:23,letterSpacing:2}}>FOR RENT</strong>
         <span style={{display:"block",fontSize:13,color:"#a5f3fc"}}>FOR SALE · ASK OUR AGENT</span>
         <span style={{display:"inline-block",marginTop:4,padding:"3px 9px",borderRadius:999,background:"#00c7e8",color:"#082236",fontSize:13,fontWeight:800}}>CLICK HERE · CONTACT AGENT</span>
