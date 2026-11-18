@@ -1160,7 +1160,7 @@ function Scene(props: SceneProps) {
         enablePan={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
         enableZoom={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
         enableRotate={worldOrbitEnabled(props.cameraState,props.worldFirstPerson)}
-        minDistance={5} maxDistance={180}
+        minDistance={5} maxDistance={520}
         maxPolarAngle={Math.PI/2-0.05}
         target={[0,0,0]}
         enableDamping={false}
@@ -1876,7 +1876,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       <Canvas
         shadows
         onPointerMissed={()=>{if(cameraState!=="world")return;setNexusSelected(false);setMeridianSelected(false);setTroothhertzSelected(false);setStadiumSelected(false);setVeritasSelected(false);setSelectedAirportKey(null);}}
-        camera={{ position: [0, 28, 65], fov: 55, near: 0.1, far: 500 }}
+        camera={{ position: [0, 28, 65], fov: 55, near: 0.1, far: 1200 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
         scene={{ background: new THREE.Color("#6ab8d4") }}
         dpr={[1, 2]}
@@ -2083,7 +2083,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
         onGridSizeChange={setGridSize}
       />}
 
-      {!readOnly&&<section aria-label="Town presentation settings" style={{position:'absolute',right:18,bottom:18,zIndex:30,background:'#102030ed',color:'white',padding:14,borderRadius:12,maxHeight:'45vh',overflow:'auto',maxWidth:310}}>
+      {!readOnly&&<section aria-label="Town presentation settings" style={{position:'absolute',right:18,top:100,zIndex:30,background:'#102030ed',color:'white',padding:14,borderRadius:12,maxHeight:'45vh',overflow:'auto',maxWidth:310}}>
         <h2>Town presentation</h2><p>Saved revision {revision}. Switches take effect for visitors after Save World Layout.</p>
         <label><input type="checkbox" checked={ambient.sidewalks} onChange={e=>{saveToHistory();setAmbient(v=>({...v,sidewalks:e.target.checked,enabled:e.target.checked&&v.enabled}))}}/> Sidewalks alongside streets</label><br/>
         <label><input type="checkbox" disabled={!ambient.sidewalks} checked={ambient.enabled} onChange={e=>{saveToHistory();setAmbient(v=>({...v,enabled:e.target.checked}))}}/> Ambient pedestrians and gathering groups</label>
@@ -2105,9 +2105,22 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
 
       <TownVoicePanel value={presenceView} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       <TouchWalkControls input={touchInput} active={(!eventConnection||!presenceLocked(presenceView.identity))&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
-      {!readOnly && <div style={{position:"absolute",left:270,bottom:18,zIndex:90,background:"#081a2de8",border:"1px solid #13d9f5",borderRadius:12,padding:10,color:"#fff",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",maxWidth:"calc(100vw - 290px)"}}>
-        <button type="button" onClick={()=>setOasisPreview(v=>!v)} style={{background:"#10465a",padding:"8px 12px",borderRadius:8,color:"white"}}>{oasisPreview?"Hide Oasis preview":"Preview upper Oasis plane"}</button>
-        {oasisPreview && <><span>Orbit level:</span><button type="button" aria-pressed={activeTier==="metropolis"} onClick={()=>setActiveTier("metropolis")} style={{background:activeTier==="metropolis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↓ Metropolis</button><button type="button" aria-pressed={activeTier==="oasis"} onClick={()=>setActiveTier("oasis")} style={{background:activeTier==="oasis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↑ Oasis</button><button type="button" aria-label="Transport to upper Oasis level" onClick={()=>transportTo("oasis")} style={{background:"#075e75",color:"#fff",padding:8,borderRadius:7}}>⇧ Transport up</button><button type="button" aria-label="Transport to lower Metropolis level" onClick={()=>transportTo("metropolis")} style={{background:"#075e75",color:"#fff",padding:8,borderRadius:7}}>⇩ Transport down</button><span style={{fontSize:11,color:"#9dddea"}}>Preview only · not published</span></>}
+      {!readOnly && <div style={{position:"absolute",left:14,top:128,zIndex:90,background:"#081a2de8",border:"1px solid #13d9f5",borderRadius:12,padding:8,color:"#fff",maxWidth:225}}>
+        <details>
+          <summary style={{cursor:"pointer",fontWeight:700,padding:"8px 12px",borderRadius:999,background:"#075e75"}}>⇅ Transport</summary>
+          <div style={{display:"grid",gap:6,marginTop:8}}>
+            <button type="button" onClick={()=>transportTo("oasis")} style={{background:"#10465a",color:"white",padding:8,borderRadius:8}}>↑ Go to Oasis</button>
+            <button type="button" onClick={()=>transportTo("metropolis")} style={{background:"#10465a",color:"white",padding:8,borderRadius:8}}>↓ Go to Metropolis</button>
+          </div>
+        </details>
+        <details style={{marginTop:6}}>
+          <summary style={{cursor:"pointer",fontSize:12,color:"#b8eaff"}}>Orbit level · {activeTier==="oasis"?"Oasis":"Metropolis"}</summary>
+          <div style={{display:"flex",gap:5,marginTop:6}}>
+            <button type="button" onClick={()=>setActiveTier("metropolis")} style={{color:"white",background:"#173047",padding:6,borderRadius:6}}>Metropolis</button>
+            <button type="button" onClick={()=>setActiveTier("oasis")} style={{color:"white",background:"#173047",padding:6,borderRadius:6}}>Oasis</button>
+          </div>
+        </details>
+        <button type="button" onClick={()=>setOasisPreview(v=>!v)} style={{display:"block",marginTop:6,color:"#9dddea",fontSize:11}}>{oasisPreview?"Hide Oasis preview":"Show Oasis preview"}</button>
       </div>}
       {isEditorMode && <PropertyAgentAssignmentEditor worldId={currentWorldId} />}
       {!isEditorMode && <PropertyListings worldId={currentWorldId} />}
