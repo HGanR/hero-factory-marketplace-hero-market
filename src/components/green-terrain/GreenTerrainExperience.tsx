@@ -10,6 +10,7 @@
 "use client";
 import TownIntersection from './TownIntersection';
 import PropertyAgentAssignmentEditor from "./PropertyAgentAssignmentEditor";
+import PropertyListings from "./PropertyListings";
 
 import {moveAirportPart,airportPartOrigin,type AirportPartId} from '@/lib/troo-world/airport-parts';
 import BuildingInteriorEditor from '../world-editor/BuildingInteriorEditor';
@@ -2060,6 +2061,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       <TownVoicePanel value={presenceView} active={!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       <TouchWalkControls input={touchInput} active={(!eventConnection||!presenceLocked(presenceView.identity))&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       {isEditorMode && <PropertyAgentAssignmentEditor worldId={currentWorldId} />}
+      {!isEditorMode && <PropertyListings worldId={currentWorldId} />}
       {/* HUD overlays */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}>
         {/* Stats badge */}
