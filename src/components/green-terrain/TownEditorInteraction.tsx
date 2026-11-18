@@ -119,7 +119,9 @@ export default function InteractionController(props: ICProps) {
       ray.current.setFromCamera(getNDC(e),camera);
       const hits=ray.current.intersectObjects(scene.children,true);
       let airportKey:string|undefined,airportPart:AirportPartId|undefined;
-      // Inspect intersections until an imported placement is found; decorative meshes and\n      // overlapping transit models must not mask a selected rental sign.\n      for(const hit of hits){
+      // Inspect intersections until an imported placement is found; decorative meshes and
+      // overlapping transit models must not mask a selected rental sign.
+      for(const hit of hits){
         let node:THREE.Object3D|null=hit.object;
         let candidateKey:string|undefined;
         let candidatePart:AirportPartId|undefined;
