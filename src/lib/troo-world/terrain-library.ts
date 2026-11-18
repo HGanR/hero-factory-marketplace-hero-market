@@ -13,5 +13,11 @@ export function placeTerrainLibraryAsset(imports:GreenLayout['imports'],key:stri
  if(imports.length>=100)throw new Error('The town supports 100 imported models.');
  if(!/^[a-zA-Z0-9-]{1,36}$/.test(identity))throw new Error('Invalid placement identity.');
  const elementKey=asset.key+'-'+identity;if(imports.some(p=>p.elementKey===elementKey))throw new Error('This placement already exists.');
- return[...imports,{elementKey,glbUrl:asset.modelUrl,position:[...INTERSECTION_SPAWN],scale:asset.defaultScale,rotationY:0}];
+ // Keep new assets clear of the central bus and previously placed imports.
+ // Alternate between roadside staging slots; do not move any saved placement.
+ const occupied=(x:number,z:number)=>imports.some(p=>Math.hypot(p.position[0]-x,p.position[2]-z)<8);
+ const slots:Array<[number,number]>=[];
+ for(let row=0;row<7;row++)for(let col=0;col<4;col++)slots.push([22+col*11,24+row*11]);
+ const slot=slots.find(([x,z])=>!occupied(x,z))??[22,24];
+ return[...imports,{elementKey,glbUrl:asset.modelUrl,position:[slot[0],INTERSECTION_SPAWN[1],slot[1]] as [number,number,number],scale:asset.defaultScale,rotationY:0}];
 }
