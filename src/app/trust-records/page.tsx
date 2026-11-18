@@ -3073,12 +3073,18 @@ export default function TrustCertificatesConsolePage() {
             </CardContent>
           </Card>
         ) : null}
-        {/* Additive guided entry on the current production baseline; existing console remains untouched. */}
+        {/* Digital Trust workspace banner and guided entry; preserve existing console and links. */}
+        <header className="mb-5 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950/60 px-5 py-6 text-slate-100 sm:px-7 sm:py-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">TROOTHHURTZ · Trust Records</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Digital Trust Creation</h1>
+          <p className="mt-1 text-base font-medium text-slate-200">Digital Trust Workspace</p>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">Prepare a trust step by step, organize its records, and assemble information for professional legal review. Existing trust tools and certificate previews remain available below.</p>
+        </header>
         <section aria-labelledby="trust-records-guide-heading" className="mb-6 rounded-2xl border border-cyan-400/40 bg-slate-900 p-4 text-slate-100 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">Trust Records</p>
-              <h2 id="trust-records-guide-heading" className="mt-1 text-xl font-semibold sm:text-2xl">What would you like to work on?</h2>
+              <h2 id="trust-records-guide-heading" className="mt-1 text-xl font-semibold sm:text-2xl">Your trust preparation pathway</h2>
               <p className="mt-1 text-sm text-slate-300">Follow a simple preparation path or open any of the existing tools below.</p>
             </div>
             <a href="#trust-records-tools" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-cyan-200 hover:bg-slate-800">All existing tools</a>
@@ -3097,8 +3103,8 @@ export default function TrustCertificatesConsolePage() {
               <span className="mt-2 block text-sm text-slate-300">Access assets, instruments, certificates, bonds, governance, and estate tools.</span>
             </a>
           </div>
-          <details className="mt-4 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
-            <summary className="cursor-pointer text-sm font-semibold text-cyan-200">View the five-step preparation guide</summary>
+          <details open className="mt-4 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-cyan-200">Step-by-step preparation guide</summary>
             <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-slate-300">
               <li>Choose the appropriate trust type and purpose in Smart Trust.</li>
               <li>Identify the grantor, trustees, successors, and beneficiaries.</li>
