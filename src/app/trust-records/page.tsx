@@ -1259,6 +1259,7 @@ export default function TrustCertificatesConsolePage() {
   const [trustRole, setTrustRole] = useState<"Manager" | "Trustee">("Manager");
   const [hydratedFromServer, setHydratedFromServer] = useState(false);
   const [activeTab, setActiveTab] = useState("issue");
+  const [settingsStep, setSettingsStep] = useState(0);
   const [isTabPending, startTabTransition] = useTransition();
   const [tokenStatusCollapsed, setTokenStatusCollapsed] = useState(true);
 
@@ -4867,10 +4868,27 @@ export default function TrustCertificatesConsolePage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <p className="text-sm text-slate-300">Work through the sections in order, or expand any section to revisit its original controls.</p>
+                    <p className="text-sm text-slate-300">Complete one section at a time. Your existing workspace values stay in place as you move between steps.</p>
+                    <div aria-label="Trust workspace progress" className="space-y-2">
+                      <div className="flex items-center justify-between text-xs text-cyan-200">
+                        <span>Step {settingsStep + 1} of 5</span>
+                        <span>{Math.round(((settingsStep + 1) / 5) * 100)}% of sections visited</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                        <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${((settingsStep + 1) / 5) * 100}%` }} />
+                      </div>
+                      <div className="flex flex-wrap gap-2" aria-label="Choose a preparation step">
+                        {["Identity", "Fiduciaries", "Governance", "Documents", "Maintenance"].map((name, index) => (
+                          <button key={name} type="button" onClick={() => setSettingsStep(index)}
+                            aria-current={settingsStep === index ? "step" : undefined}
+                            className={`rounded-md border px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 ${settingsStep === index ? "border-cyan-400 bg-cyan-950 text-cyan-100" : "border-slate-700 text-slate-300 hover:bg-slate-800"}`}>
+                            {index + 1}. {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                    <details open className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
-                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 1 · Workspace and identity</summary>
+                    <details open className={`${settingsStep === 0 ? "" : "hidden " }rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4`}>\n                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 1 · Workspace and identity</summary>
                       <p className="mt-2 text-xs leading-relaxed text-slate-300">Select the existing trust workspace, verify the entity and client contact information, and confirm the address used in records.</p>
                       <div className="mt-4 space-y-4">
 
@@ -5065,8 +5083,7 @@ export default function TrustCertificatesConsolePage() {
                       </div>
                     </details>
 
-                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
-                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 2 · Certificates and fiduciary parties</summary>
+                    <details open className={`${settingsStep === 1 ? "" : "hidden " }rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4`}>\n                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 2 · Certificates and fiduciary parties</summary>
                       <p className="mt-2 text-xs leading-relaxed text-slate-300">Review certificate numbering and units, trustee display names, grantor or trustee roles, and party contact details. A fiduciary manages responsibilities under the governing trust terms.</p>
                       <div className="mt-4 space-y-4">
                     <div className="space-y-2">
@@ -5314,8 +5331,7 @@ export default function TrustCertificatesConsolePage() {
                       </div>
                     </details>
 
-                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
-                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 3 · Classification and governance</summary>
+                    <details open className={`${settingsStep === 2 ? "" : "hidden " }rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4`}>\n                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 3 · Classification and governance</summary>
                       <p className="mt-2 text-xs leading-relaxed text-slate-300">Choose the applicable trust category, formation and governance modes, and any relevant entity or tax classifications. Have counsel verify jurisdiction-specific legal and tax requirements.</p>
                       <div className="mt-4 space-y-4">
                     <Separator />
@@ -5544,8 +5560,7 @@ export default function TrustCertificatesConsolePage() {
                       </div>
                     </details>
 
-                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
-                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 4 · Document appearance and verification</summary>
+                    <details open className={`${settingsStep === 3 ? "" : "hidden " }rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4`}>\n                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 4 · Document appearance and verification</summary>
                       <p className="mt-2 text-xs leading-relaxed text-slate-300">Prepare seals, watermarks, asset links, QR codes, barcodes, and certificate styling only when needed for document production.</p>
                       <div className="mt-4 space-y-4">
                     <Separator />
@@ -5836,8 +5851,7 @@ export default function TrustCertificatesConsolePage() {
                       </div>
                     </details>
 
-                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
-                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 5 · Administrative maintenance</summary>
+                    <details open className={`${settingsStep === 4 ? "" : "hidden " }rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4`}>\n                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 5 · Administrative maintenance</summary>
                       <p className="mt-2 text-xs leading-relaxed text-slate-300">Review reset controls carefully. Reset Local Data clears browser-stored information; it is not a trust dissolution process.</p>
                       <div className="mt-4 space-y-4">
                     <Separator />
@@ -5861,6 +5875,11 @@ export default function TrustCertificatesConsolePage() {
 
                       </div>
                     </details>
+                    <div className="flex items-center justify-between gap-3 border-t border-slate-700 pt-4">
+                      <Button type="button" variant="secondary" disabled={settingsStep === 0} onClick={() => setSettingsStep((step) => Math.max(0, step - 1))}>Previous step</Button>
+                      <span className="text-xs text-slate-400">Section {settingsStep + 1} / 5</span>
+                      <Button type="button" disabled={settingsStep === 4} onClick={() => setSettingsStep((step) => Math.min(4, step + 1))}>Next step</Button>
+                    </div>
                   </CardContent>
                 </Card>
 
