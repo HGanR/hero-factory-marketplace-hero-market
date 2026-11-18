@@ -4861,6 +4861,13 @@ export default function TrustCertificatesConsolePage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <p className="text-sm text-slate-300">Work through the sections in order, or expand any section to revisit its original controls.</p>
+
+                    <details open className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 1 · Workspace and identity</summary>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-300">Select the existing trust workspace, verify the entity and client contact information, and confirm the address used in records.</p>
+                      <div className="mt-4 space-y-4">
+
                 <div className="space-y-2">
                   <Label>Workspace ({store.config.entityType})</Label>
                   <Select
@@ -5048,6 +5055,14 @@ export default function TrustCertificatesConsolePage() {
                   ) : null}
                 </div>
 
+
+                      </div>
+                    </details>
+
+                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 2 · Certificates and fiduciary parties</summary>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-300">Review certificate numbering and units, trustee display names, grantor or trustee roles, and party contact details. A fiduciary manages responsibilities under the governing trust terms.</p>
+                      <div className="mt-4 space-y-4">
                     <div className="space-y-2">
                       <Label>Authorized Units (optional)</Label>
                       <Input
@@ -5289,6 +5304,14 @@ export default function TrustCertificatesConsolePage() {
                   ) : null}
                 </div>
 
+
+                      </div>
+                    </details>
+
+                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 3 · Classification and governance</summary>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-300">Choose the applicable trust category, formation and governance modes, and any relevant entity or tax classifications. Have counsel verify jurisdiction-specific legal and tax requirements.</p>
+                      <div className="mt-4 space-y-4">
                     <Separator />
 
                     {/* Canonical Trust Taxonomy */}
@@ -5511,6 +5534,14 @@ export default function TrustCertificatesConsolePage() {
                       </Alert>
                     </div>
 
+
+                      </div>
+                    </details>
+
+                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 4 · Document appearance and verification</summary>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-300">Prepare seals, watermarks, asset links, QR codes, barcodes, and certificate styling only when needed for document production.</p>
+                      <div className="mt-4 space-y-4">
                     <Separator />
 
                     <div className="space-y-2">
@@ -5795,6 +5826,14 @@ export default function TrustCertificatesConsolePage() {
                       {saveMessage ? <div className="text-xs text-slate-300">{saveMessage}</div> : null}
                     </div>
 
+
+                      </div>
+                    </details>
+
+                    <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 sm:p-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Step 5 · Administrative maintenance</summary>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-300">Review reset controls carefully. Reset Local Data clears browser-stored information; it is not a trust dissolution process.</p>
+                      <div className="mt-4 space-y-4">
                     <Separator />
 
                     <div className="space-y-2">
@@ -5813,6 +5852,9 @@ export default function TrustCertificatesConsolePage() {
                       </Button>
                       <div className="text-xs text-slate-400">Clears localStorage only. Does not affect any external system.</div>
                     </div>
+
+                      </div>
+                    </details>
                   </CardContent>
                 </Card>
 
