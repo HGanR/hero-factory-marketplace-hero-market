@@ -210,7 +210,7 @@ export default function IrrevocableTrustWizard() {
           )}
 
           {currentStep === "generate" && (
-            <GenerateStep busy={busy} onBack={() => setCurrentStep("review")} onGenerate={generate} />
+            <GenerateStep busy={busy} snapshot={data} onBack={() => setCurrentStep("review")} onGenerate={generate} />
           )}
         </main>
       </div>
@@ -503,20 +503,44 @@ function ReviewStep({ snapshot, defaultValue, busy, onBack, onNext }: { snapshot
   );
 }
 
-function GenerateStep({ busy, onBack, onGenerate }: { busy: boolean; onBack: () => void; onGenerate: () => void }) {
+function GenerateStep({ busy, snapshot, onBack, onGenerate }: { busy: boolean; snapshot: any; onBack: () => void; onGenerate: () => void }) {
+  const person = (value: any) => value?.fullName || "Not provided";
+  const people = (values: any[]) => Array.isArray(values) && values.length ? values.map(person).join("; ") : "Not provided";
+  const sections = [
+    { heading: "I. Proposed establishment", content: `Proposed name: ${snapshot?.terms?.trustName || "Not provided"}. Type: ${snapshot?.terms?.trustType || "Not provided"}. Governing state: ${snapshot?.state?.governingState || "Not provided"}. Proposed effective date: ${snapshot?.state?.effectiveDate || "Not provided"}.` },
+    { heading: "II. Parties and fiduciaries", content: `Grantor: ${person(snapshot?.parties?.grantor)}. Trustees: ${people(snapshot?.parties?.trustees)}. Successor trustees: ${people(snapshot?.parties?.successorTrustees)}.` },
+    { heading: "III. Beneficial interests", content: Array.isArray(snapshot?.parties?.beneficiaries) && snapshot.parties.beneficiaries.length ? snapshot.parties.beneficiaries.map((b: any) => `${person(b.person)} — proposed share ${b.sharePct ?? "unspecified"}%${b.contingent ? " (contingent)" : ""}`).join("; ") : "Not provided" },
+    { heading: "IV. Purpose and trust terms", content: `Purpose: ${snapshot?.terms?.purposeNotes || "Requires drafting instructions"}. Proposed spendthrift protection: ${snapshot?.terms?.spendthrift ? "Requested" : "Not requested"}.` },
+    { heading: "V. Distributions", content: `Proposed standard: ${snapshot?.distributions?.distributionStandard || "Not provided"}. Schedule: ${snapshot?.distributions?.scheduleNotes || "Not provided"}.` },
+    { heading: "VI. Trustee powers", content: `Real estate: ${snapshot?.powers?.includeRealEstatePowers ? "Requested" : "Not requested"}; investment: ${snapshot?.powers?.includeInvestmentPowers ? "Requested" : "Not requested"}; business: ${snapshot?.powers?.includeBusinessPowers ? "Requested" : "Not requested"}; trust protector: ${snapshot?.powers?.protectorEnabled ? "Requested; appointment requires review" : "Not requested"}.` },
+    { heading: "VII. Property and funding schedule", content: snapshot?.funding?.initialFundingSummary || "Not provided. Funding and title transfer must be independently verified." },
+    { heading: "VIII. Legal review and execution", content: "Drafting instructions only. Attorney to supply or approve operative declaration clauses, succession, accounting, tax, amendment and termination terms, governing-law provisions, execution formalities, and asset-transfer instruments. No legal execution or funding is represented." },
+  ];
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Generate</h2>
+      <h2 className="text-lg font-semibold">Declaration preparation review</h2>
       <p className="text-sm text-muted-foreground">
-        This will validate all steps, lock the draft, and produce a generated output (DOCX/PDF once wired).
+        This structured preview organizes your wizard answers for legal drafting. It is not a trust agreement, a certificate, or an executable instrument. Final PDF release and USB verification are not yet enabled.
       </p>
+      <div className="space-y-4 rounded-lg border bg-white p-5 text-slate-900" aria-label="Drafting instructions preview">
+        <div className="border-b pb-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">Drafting instructions · Pending legal review</p>
+          <h3 className="mt-2 text-xl font-semibold">{snapshot?.terms?.trustName || "Unnamed trust"}</h3>
+          <p className="text-xs">Confidential intake summary — not an executed trust instrument</p>
+        </div>
+        {sections.map((section) => (
+          <section key={section.heading} className="space-y-1">
+            <h4 className="text-sm font-semibold">{section.heading}</h4>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">{section.content}</p>
+          </section>
+        ))}
+      </div>
+      <p className="text-xs text-amber-700">Document generation is not yet connected. The action below will check availability without locking your saved intake.</p>
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack} disabled={busy}>
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-        <Button disabled={busy} onClick={onGenerate}>
-          Generate Document
-        </Button>
+        <Button disabled={busy} onClick={onGenerate}>Check document generation</Button>
       </div>
     </div>
   );
