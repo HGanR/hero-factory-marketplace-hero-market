@@ -51,20 +51,20 @@ export default function PropertyAgentAssignmentEditor({ worldId }: { worldId: st
     } catch (e) { setNotice(e instanceof Error ? e.message : "Save failed"); }
     finally { setBusy(false); }
   }
-  return <details style={{ position: "absolute", top: 110, right: 18, zIndex: 80, background: "#0d1929", color: "#fff", padding: 12, borderRadius: 10, width: 260, maxWidth: "90vw" }}>
+  return <details style={{ position: "absolute", top: 110, right: 18, zIndex: 80, background: "#0d1929", color: "#fff", padding: 12, borderRadius: 10, width: 290, maxWidth: "90vw" }}>
     <summary style={{ cursor: "pointer", fontWeight: 700 }}>Assign Property Agent</summary>
     <label style={{ display: "block", marginTop: 12 }}>Building
-      <select aria-label="Building" value={buildingId} onChange={e => setBuildingId(e.target.value)} style={{ display: "block", width: "100%", color: "#111" }}>
+      <select aria-label="Building" value={buildingId} onChange={e => setBuildingId(e.target.value)} style={{ display: "block", width: "100%", color: "#f8fafc", background: "#17263d", border: "1px solid #64748b", borderRadius: 6, padding: 7, marginTop: 4 }}>
         <option value="">Select a building</option>{buildings.map(b => <option key={b.elementKey} value={b.elementKey}>{b.elementKey}</option>)}
       </select>
     </label>
     <label style={{ display: "block", marginTop: 12 }}>Active NPC
-      <select aria-label="Active NPC" value={agentId} onChange={e => setAgentId(e.target.value)} style={{ display: "block", width: "100%", color: "#111" }}>
+      <select aria-label="Active NPC" value={agentId} onChange={e => setAgentId(e.target.value)} style={{ display: "block", width: "100%", color: "#f8fafc", background: "#17263d", border: "1px solid #64748b", borderRadius: 6, padding: 7, marginTop: 4 }}>
         <option value="">Select an agent</option>{agents.map(a => <option key={a.npcId} value={a.npcId}>{a.name}</option>)}
       </select>
     </label>
     <label style={{ display: "block", marginTop: 12 }}>Listing
-      <select aria-label="Listing status" value={status} onChange={e => setStatus(e.target.value as "published" | "unlisted")} style={{ display: "block", width: "100%", color: "#111" }}>
+      <select aria-label="Listing status" value={status} onChange={e => setStatus(e.target.value as "published" | "unlisted")} style={{ display: "block", width: "100%", color: "#f8fafc", background: "#17263d", border: "1px solid #64748b", borderRadius: 6, padding: 7, marginTop: 4 }}>
         <option value="unlisted">Unlisted (hidden)</option><option value="published">Published (For Sale / Lease)</option>
       </select>
     </label>
