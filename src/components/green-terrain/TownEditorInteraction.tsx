@@ -149,7 +149,8 @@ export default function InteractionController(props: ICProps) {
         latest.current.onSelectAirport(airport.elementKey,part??'whole');
         dragging.current={kind:'airport',id:airport.elementKey,part,offsetX:origin[0]-pt.current.x,offsetZ:origin[2]-pt.current.z,y:origin[1]};
         if(latest.current.orbitRef.current)latest.current.orbitRef.current.enabled=false;
-        el.setPointerCapture(e.pointerId);return;
+        // Track dragging globally so moving beyond the canvas does not freeze the asset.
+        return;
       }
       latest.current.onSelectAirport(null);
       const treeHit = hitTree(e);
@@ -241,15 +242,15 @@ export default function InteractionController(props: ICProps) {
     };
 
     el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
-    el.addEventListener("pointercancel",onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel",onUp);
     el.addEventListener("lostpointercapture",onUp);
     return () => {
       el.removeEventListener("pointerdown", onDown);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-      el.removeEventListener("pointercancel",onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel",onUp);
       el.removeEventListener("lostpointercapture",onUp);onUp();
     };
   }, [props.isEditorMode,camera,gl,scene]);
