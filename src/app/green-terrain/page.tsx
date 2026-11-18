@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 import { AuthGate } from "@/components/AuthGate";
 import { WorldObjectRenderer, type WorldObjectType } from "@/components/green-terrain/WorldObjects";
 import WorldManagementUI from "@/components/green-terrain/WorldManagementUI";
+import PropertyAgentAssignmentEditor from "@/components/green-terrain/PropertyAgentAssignmentEditor";
 import BuildingInfoPanel from "@/components/green-terrain/BuildingInfoPanel";
 import TroothhertzInfoPanel from "@/components/green-terrain/TroothhertzInfoPanel";
 import AgentChatPanel from "@/components/green-terrain/AgentChatPanel";
@@ -1963,6 +1964,8 @@ function GreenTerrainPageContent() {
         <span style={{ fontSize: 16 }}>📊</span>
         Dashboard
       </a>
+
+      {isEditorMode && <PropertyAgentAssignmentEditor worldId={currentWorldId} />}
 
       {/* World Management Sidebar */}
       <WorldManagementUI
