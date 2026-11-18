@@ -15,7 +15,7 @@ export type GreenLayout = {
  version:1; buildings:Record<BuildingId,BuildingState>;
  trees:Array<{id:number;pos:Vec3;scale:number;phase:number;rotationY?:number}>;
  objects:Array<{id:string;type:ObjectKind;position:Vec3;rotation:Vec3;scale:number}>;
- imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[];airportParts?:AirportParts;interior?:InteriorItem[];transit?:TransitSettings}>;
+ imports:Array<{elementKey:string;glbUrl:string;position:Vec3;scale:number;rotationY:number;destinations?:AirportDestination[];airportParts?:AirportParts;interior?:InteriorItem[];transit?:TransitSettings;propertyBuildingId?:string}>;
  ambient:{enabled:boolean;sidewalks:boolean};
  stadium?:StadiumSettings;
 };
@@ -53,7 +53,8 @@ export function validateLayout(input:unknown):GreenLayout{
  for(const id of BUILDING_IDS){const row=object(b[id]);buildings[id]={position:vec(row.position),scale:num(row.scale,.05,20),rotationY:num(row.rotationY,-Math.PI*20,Math.PI*20),visible:bool(row.visible),...(row.interior===undefined?{}:{interior:furnishings(row.interior)})}}
  const trees=list(v.trees,1000).map(x=>{const r=object(x);const id=num(r.id,0,1000000000);if(!Number.isInteger(id))throw new LayoutError('Invalid tree ID');return{id,pos:vec(r.pos),scale:num(r.scale,.05,20),phase:num(r.phase,0,1000),...(r.rotationY===undefined?{}:{rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20)})}});
  const objects=list(v.objects,400).map(x=>{const r=object(x);if(!kinds.includes(String(r.type)))throw new LayoutError('Unsupported environment object');return{id:str(r.id),type:r.type as ObjectKind,position:vec(r.position),rotation:vec(r.rotation),scale:num(r.scale,.05,20)}});
- const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.airportParts===undefined?{}:{airportParts:validateAirportParts(r.airportParts)}),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)}),...(r.interior===undefined?{}:{interior:furnishings(r.interior)}),...(r.transit===undefined?{}:{transit:transitRoute(r.transit)})}});
+ const imports=list(v.imports,100).map(x=>{const r=object(x);return{elementKey:str(r.elementKey,80),glbUrl:modelUrl(r.glbUrl),position:vec(r.position),scale:num(r.scale,.05,20),rotationY:num(r.rotationY,-Math.PI*20,Math.PI*20),...(r.airportParts===undefined?{}:{airportParts:validateAirportParts(r.airportParts)}),...(r.destinations===undefined?{}:{destinations:validateDestinations(r.destinations)}),...(r.interior===undefined?{}:{interior:furnishings(r.interior)}),...(r.transit===undefined?{}:{transit:transitRoute(r.transit)}),...(r.propertyBuildingId===undefined?{}:{propertyBuildingId:str(r.propertyBuildingId,128)})}});
+ if(imports.some(p=>p.propertyBuildingId&&p.glbUrl!=='procedural:for-rent-sign'))throw new LayoutError("Property binding requires a rental sign");
  if(imports.some(p=>p.transit&&!isTransitBus(p)))throw new LayoutError("Bus route settings require a TROO Transit bus");
  if(imports.some(p=>p.airportParts&&p.glbUrl.split(/[?#]/)[0]!==AIRPORT.modelUrl))throw new LayoutError("Airport parts require an airport model");
  for(const rows of [trees,objects,imports]){const ids=rows.map(r=>'id'in r?r.id:r.elementKey);if(new Set(ids).size!==ids.length)throw new LayoutError('Duplicate layout identity')}
