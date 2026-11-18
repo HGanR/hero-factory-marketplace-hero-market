@@ -1828,6 +1828,62 @@ export default function TrustCertificatesConsolePage() {
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
       <div className="mx-auto max-w-6xl">
+        {/* Guided navigation is additive: the complete original console remains below. */}
+        <section aria-labelledby="trust-guided-title" className="mb-6 rounded-2xl border border-cyan-400/40 bg-slate-900 p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">Trust Records Workspace</p>
+              <h1 id="trust-guided-title" className="mt-1 text-2xl font-semibold">What would you like to do?</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">Choose a starting point. All existing records, certificates, tools, and settings remain available below.</p>
+            </div>
+            <a href="#trust-records-original-console" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-cyan-200 hover:bg-slate-800">View all existing tools</a>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <a href="/smart-trust" className="rounded-xl border border-cyan-400/30 bg-slate-950 p-4 hover:border-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <div className="font-semibold text-white">1. Start or continue trust setup</div>
+              <p className="mt-2 text-sm text-slate-300">Open the existing Smart Trust workspace and supported creation flows.</p>
+            </a>
+            <a href="/trust-records/wizard/irrevocable-trust" className="rounded-xl border border-cyan-400/30 bg-slate-950 p-4 hover:border-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <div className="font-semibold text-white">2. Irrevocable trust workflow</div>
+              <p className="mt-2 text-sm text-slate-300">Use the existing dedicated irrevocable trust wizard.</p>
+            </a>
+            <a href="#trust-records-original-console" className="rounded-xl border border-cyan-400/30 bg-slate-950 p-4 hover:border-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+              <div className="font-semibold text-white">3. Manage records and certificates</div>
+              <p className="mt-2 text-sm text-slate-300">Continue with registries, minutes, assets, certificates, and document settings.</p>
+            </a>
+          </div>
+          <details className="mt-4 rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-cyan-200">See the recommended trust preparation sequence</summary>
+            <ol className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">1. Choose the trust and purpose</strong>
+                <p className="mt-1 text-slate-300">Use the existing Smart Trust workspace to choose a supported trust workflow. Revocable living trust preparation may require a jurisdiction-specific process.</p>
+                <a href="/smart-trust" className="mt-2 inline-block text-cyan-300 underline">Open Smart Trust</a>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">2. Identify the people and roles</strong>
+                <p className="mt-1 text-slate-300">Record the grantor, trustees, successors, and beneficiaries in the applicable trust workflow.</p>
+                <a href="/smart-trust" className="mt-2 inline-block text-cyan-300 underline">Continue trust setup</a>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">3. Organize assets and records</strong>
+                <p className="mt-1 text-slate-300">Review the asset register before preparing supporting records.</p>
+                <button type="button" className="mt-2 text-cyan-300 underline" onClick={() => { startTabTransition(() => setActiveTab("assets")); document.getElementById("trust-records-original-console")?.scrollIntoView({ behavior: "smooth" }); }}>Open asset register</button>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3">
+                <strong className="block text-white">4. Prepare supporting documents</strong>
+                <p className="mt-1 text-slate-300">Use existing minutes and governance tools for records appropriate to the selected trust.</p>
+                <button type="button" className="mt-2 text-cyan-300 underline" onClick={() => { startTabTransition(() => setActiveTab("governance")); document.getElementById("trust-records-original-console")?.scrollIntoView({ behavior: "smooth" }); }}>Open minutes</button>
+              </li>
+              <li className="rounded-lg border border-slate-700 p-3 sm:col-span-2">
+                <strong className="block text-white">5. Review, save, and manage</strong>
+                <p className="mt-1 text-slate-300">Review existing documents and certificates. Execution, witnessing, notarization, and funding requirements depend on the jurisdiction and trust type.</p>
+                <button type="button" className="mt-2 text-cyan-300 underline" onClick={() => { startTabTransition(() => setActiveTab("registry")); document.getElementById("trust-records-original-console")?.scrollIntoView({ behavior: "smooth" }); }}>Open certificate registry</button>
+              </li>
+            </ol>
+          </details>
+          <p className="mt-4 text-xs text-slate-400">Organizing a record or preparing a document does not by itself establish or fund a legally effective trust. Requirements vary by jurisdiction.</p>
+        </section>
         {/* Network warning banner for token holders not on Polygon */}
         {!networkOk && (
           <Alert className="mb-6 border-amber-500/50 bg-amber-950/20">
@@ -1842,6 +1898,7 @@ export default function TrustCertificatesConsolePage() {
           </Alert>
         )}
 
+        <div id="trust-records-original-console" className="scroll-mt-6" />
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-3">
             <div className={`${NEON_TILE} p-3 shadow-sm`}>
@@ -2042,7 +2099,12 @@ export default function TrustCertificatesConsolePage() {
               startTabTransition(() => setActiveTab(v));
             }}
           >
-            <TabsList className="grid w-full grid-cols-2 bg-slate-900 md:grid-cols-7">
+            <div className="mb-3 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-100">Your records and certificate tools</p>
+              <p className="mt-1 text-xs text-slate-300">Choose a task below. All seven original sections are available; scroll horizontally on smaller screens.</p>
+            </div>
+            <div className="w-full overflow-x-auto pb-2" role="region" aria-label="Trust records tools" tabIndex={0}>
+            <TabsList className="flex h-auto min-w-max flex-nowrap justify-start gap-1 bg-slate-900 p-1">
               <TabsTrigger value="issue" className="gap-2">
                 <FilePlus2 className="h-4 w-4" />
                 Issue
@@ -2072,6 +2134,7 @@ export default function TrustCertificatesConsolePage() {
                 Settings
               </TabsTrigger>
             </TabsList>
+            </div>
 
             {/* Issue */}
             <TabsContent value="issue" className="mt-6">
@@ -2822,6 +2885,15 @@ export default function TrustCertificatesConsolePage() {
 
             {/* Settings */}
             <TabsContent value="settings" className="mt-6">
+              <div className="mb-4 rounded-xl border border-cyan-400/30 bg-slate-900/70 p-4">
+                <h2 className="text-lg font-semibold text-white">Document appearance & advanced settings</h2>
+                <p className="mt-1 text-sm text-slate-300">Customize certificates, seals, watermarks, QR codes, and record configuration when you need them. All existing controls are preserved.</p>
+              </div>
+              <details className="group rounded-xl border border-slate-700 bg-slate-950/40" open={undefined}>
+                <summary className="cursor-pointer list-item rounded-xl px-4 py-4 text-sm font-semibold text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+                  Show all certificate, identity, and document settings
+                </summary>
+                <div className="p-3 pt-0 sm:p-4 sm:pt-0">
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
                 <Card className={`${NEON_TILE} lg:col-span-2`}>
                   <CardHeader>
@@ -3199,6 +3271,8 @@ export default function TrustCertificatesConsolePage() {
                   </CardContent>
                 </Card>
               </div>
+                </div>
+              </details>
             </TabsContent>
 
             {/* Meetings */}
