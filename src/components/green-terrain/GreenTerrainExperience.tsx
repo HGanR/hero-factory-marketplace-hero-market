@@ -1201,6 +1201,29 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
   const [previewMode,setPreviewMode]=useState(false);
   const [oasisPreview,setOasisPreview]=useState(false);
   const [activeTier,setActiveTier]=useState<WorldTier>("metropolis");
+  // The transporter operates only in the isolated editor preview. Public Troo Town
+  // continues to render the saved single-level layout until publication is implemented.
+  const transportTo = useCallback((tier: WorldTier) => {
+    if (readOnly || !oasisPreview) return;
+    setActiveTier(tier);
+    setCameraState("world");
+    setWorldFirstPerson(false);
+  }, [readOnly,oasisPreview]);
+  useEffect(() => {
+    if (readOnly || !oasisPreview) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+      const element = event.target as HTMLElement | null;
+      if (element?.closest("input, textarea, select, [contenteditable=true]")) return;
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        transportTo(event.key === "ArrowUp" ? "oasis" : "metropolis");
+      }
+    };
+    window.addEventListener("keydown",onKey);
+    return () => window.removeEventListener("keydown",onKey);
+  },[readOnly,oasisPreview,transportTo]);
+
 
   const [trees, setTrees] = useState<TreeData[]>(() => generateInitialTrees());
   const [selectedTreeId, setSelectedTreeId] = useState<number | null>(null);
@@ -2084,7 +2107,7 @@ export default function GreenTerrainExperience({readOnly=false}:{readOnly?:boole
       <TouchWalkControls input={touchInput} active={(!eventConnection||!presenceLocked(presenceView.identity))&&!isEditorMode&&((worldFirstPerson&&cameraState==="world")||cameraState==="inside")}/>
       {!readOnly && <div style={{position:"absolute",left:270,bottom:18,zIndex:90,background:"#081a2de8",border:"1px solid #13d9f5",borderRadius:12,padding:10,color:"#fff",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",maxWidth:"calc(100vw - 290px)"}}>
         <button type="button" onClick={()=>setOasisPreview(v=>!v)} style={{background:"#10465a",padding:"8px 12px",borderRadius:8,color:"white"}}>{oasisPreview?"Hide Oasis preview":"Preview upper Oasis plane"}</button>
-        {oasisPreview && <><span>Orbit level:</span><button type="button" aria-pressed={activeTier==="metropolis"} onClick={()=>setActiveTier("metropolis")} style={{background:activeTier==="metropolis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↓ Metropolis</button><button type="button" aria-pressed={activeTier==="oasis"} onClick={()=>setActiveTier("oasis")} style={{background:activeTier==="oasis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↑ Oasis</button><span style={{fontSize:11,color:"#9dddea"}}>Preview only · not published</span></>}
+        {oasisPreview && <><span>Orbit level:</span><button type="button" aria-pressed={activeTier==="metropolis"} onClick={()=>setActiveTier("metropolis")} style={{background:activeTier==="metropolis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↓ Metropolis</button><button type="button" aria-pressed={activeTier==="oasis"} onClick={()=>setActiveTier("oasis")} style={{background:activeTier==="oasis"?"#087ca1":"#173047",padding:8,borderRadius:7}}>↑ Oasis</button><button type="button" aria-label="Transport to upper Oasis level" onClick={()=>transportTo("oasis")} style={{background:"#075e75",color:"#fff",padding:8,borderRadius:7}}>⇧ Transport up</button><button type="button" aria-label="Transport to lower Metropolis level" onClick={()=>transportTo("metropolis")} style={{background:"#075e75",color:"#fff",padding:8,borderRadius:7}}>⇩ Transport down</button><span style={{fontSize:11,color:"#9dddea"}}>Preview only · not published</span></>}
       </div>}
       {isEditorMode && <PropertyAgentAssignmentEditor worldId={currentWorldId} />}
       {!isEditorMode && <PropertyListings worldId={currentWorldId} />}
