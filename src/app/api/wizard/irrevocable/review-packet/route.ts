@@ -49,20 +49,53 @@ export async function GET(req: NextRequest) {
       "Confirm signatures, witnesses or acknowledgments, and separate asset-transfer formalities.",
       "Review tax identification and reporting with a qualified professional where necessary.",
     ];
-    const canonical = JSON.stringify({ schemaVersion: 1, sessionId, sections, reviewQuestions });
+    // Review flags are drafting prompts, not legal conclusions or automated approval.
+    const reviewFlags: { code: string; severity: "attention" | "information"; message: string }[] = [];
+    const primaryShares = d.parties.beneficiaries.filter((b) => !b.contingent);
+    const shareTotal = primaryShares.reduce((total, b) => total + b.sharePct, 0);
+    if (Math.abs(shareTotal - 100) > 0.01) reviewFlags.push({
+      code: "PRIMARY_SHARES", severity: "attention",
+      message: `Non-contingent beneficiary shares total ${shareTotal}%. Confirm the intended allocation and whether shares should total 100%.`,
+    });
+    if (!d.parties.successorTrustees.length) reviewFlags.push({
+      code: "SUCCESSION", severity: "attention",
+      message: "No successor trustee was identified. Confirm succession provisions and appointment mechanisms.",
+    });
+    if (!d.terms.purposeNotes?.trim()) reviewFlags.push({
+      code: "PURPOSE", severity: "attention",
+      message: "The trust purpose is not described. Obtain drafting instructions for the operative purpose clause.",
+    });
+    if (d.distributions.distributionStandard === "MandatorySchedule" && !d.distributions.scheduleNotes?.trim()) reviewFlags.push({
+      code: "DISTRIBUTION_SCHEDULE", severity: "attention",
+      message: "Mandatory distributions were selected without a written schedule.",
+    });
+    if (d.powers.protectorEnabled && !d.powers.protector) reviewFlags.push({
+      code: "PROTECTOR", severity: "attention",
+      message: "A trust protector was requested without identifying the proposed protector.",
+    });
+    if (!d.funding.assets.length) reviewFlags.push({
+      code: "FUNDING_SCHEDULE", severity: "information",
+      message: "No individual assets were listed in the schedule. A funding summary alone does not prove transfer.",
+    });
+    if (!d.review.confirmAccuracy || !d.review.confirmIrrevocable || !d.review.confirmNotLegalAdvice) reviewFlags.push({
+      code: "ACKNOWLEDGEMENTS", severity: "attention",
+      message: "One or more review acknowledgements are not confirmed.",
+    });
+    const canonical = JSON.stringify({ schemaVersion: 2, sessionId, sections, reviewQuestions, reviewFlags });
     const sha256 = createHash("sha256").update(canonical).digest("hex");
 
     return NextResponse.json({
       ok: true,
       packet: {
         kind: "TRUST_DRAFTING_INSTRUCTIONS",
-        schemaVersion: 1,
+        schemaVersion: 2,
         status: "DRAFT_PENDING_LEGAL_REVIEW",
         sessionId,
         sha256,
         title: `${d.terms.trustName} — Legal Review Intake Packet`,
         sections,
         reviewQuestions,
+        reviewFlags,
         disclaimer: "Confidential drafting instructions only. Not a trust declaration, attorney approval, executed instrument, certificate, or proof of funding.",
       },
     }, { headers: { "Cache-Control": "private, no-store" } });
