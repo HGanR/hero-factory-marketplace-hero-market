@@ -241,12 +241,15 @@ export default function InteractionController(props: ICProps) {
       }
     };
 
+    const preventNativeDrag = (event: DragEvent) => event.preventDefault();
+    el.addEventListener("dragstart", preventNativeDrag);
     el.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel",onUp);
     el.addEventListener("lostpointercapture",onUp);
     return () => {
+      el.removeEventListener("dragstart", preventNativeDrag);
       el.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
