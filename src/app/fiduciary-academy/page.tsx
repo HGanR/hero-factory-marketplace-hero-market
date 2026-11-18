@@ -3,7 +3,20 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Fiduciary Academy | TROOTHHURTZ",
-  description: "Explore the historical foundations of equity, legal identity, trust governance, and the educational role of digital credentials in the TROOTHHURTZ ecosystem.",
+  description: "Explore legal identity, the historical foundations of equity, fiduciary governance, and digital credentials in the TROOTHHURTZ Fiduciary Academy.",
+  openGraph: {
+    title: "TROOTHHURTZ Fiduciary Academy",
+    description: "From common law to equity: legal identity, trust establishment, fiduciary governance, and digital credentials.",
+    url: "https://troothhurtz.app/fiduciary-academy",
+    type: "website",
+    images: [{ url: "/fiduciary-academy-social.jpg", width: 1200, height: 630, alt: "TROOTHHURTZ Fiduciary Academy — historical equity and digital credentials" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TROOTHHURTZ Fiduciary Academy",
+    description: "Historical foundations, practical preparation, and modern digital verification.",
+    images: ["/fiduciary-academy-social.jpg"],
+  },
 };
 
 const modules = [
