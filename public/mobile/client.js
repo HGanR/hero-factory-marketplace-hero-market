@@ -23,12 +23,12 @@ async function refreshSession() {
   try {
     const {user} = await request();
     if (current !== generation) return;
-    if (!user || !Number.isSafeInteger(user.id) || user.id < 1 || typeof user.username !== 'string' || typeof user.email !== 'string') throw new Error('Account service returned an invalid profile.');
+    if (!user || typeof user.username !== 'string' || !user.username || (user.role !== 'administrator' && (!Number.isSafeInteger(user.id) || user.id < 1 || typeof user.email !== 'string'))) throw new Error('Account service returned an invalid profile.');
     $('welcome').textContent = 'WELCOME, ' + user.username;
     $('username').textContent = 'Username: ' + user.username;
-    $('email').textContent = 'Email: ' + user.email;
-    $('memberId').textContent = 'Account ID: ' + user.id;
-    $('wallet').textContent = user.walletAddress ? 'Saved wallet: ' + user.walletAddress : 'No wallet address saved.';
+    $('email').textContent = user.role === 'administrator' ? 'Website administrator account' : 'Email: ' + user.email;
+    $('memberId').textContent = user.role === 'administrator' ? 'Account type: Administrator' : 'Account ID: ' + user.id;
+    $('wallet').textContent = user.role === 'administrator' ? 'Administrator account (member wallet separate).' : user.walletAddress ? 'Saved wallet: ' + user.walletAddress : 'No wallet address saved.';
     $('account').hidden = false; status('Website session confirmed.');
   } catch (error) {
     if (current !== generation) return;
@@ -41,7 +41,7 @@ $('loginForm').addEventListener('submit', async event => {
   busy = true; ++generation; clearAccount(); $('loginButton').disabled = true;
   const password = $('password').value; $('password').value = '';
   status('Signing in…');
-  try { await request('POST', {identifier: $('identifier').value.trim(), password}); await refreshSession(); }
+  try { await request('POST', {identifier: $('identifier').value.trim(), password, accountType: $('accountType').value}); await refreshSession(); }
   catch (error) { status(error.name === 'AbortError' ? 'Sign-in timed out. Please retry.' : error.message); }
   finally { busy = false; $('loginButton').disabled = false; }
 });
