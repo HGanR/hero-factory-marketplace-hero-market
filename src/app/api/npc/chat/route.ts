@@ -135,6 +135,28 @@ export async function POST(req: Request) {
   // Only the current turn is classified; a selected jurisdiction must not imply a trust type.
   // Grantor/non-grantor are US federal income-tax classifications, not trust types
   // that can be inferred from revocability or applied globally.
+  // Explicit learning intent overrides stale workflow lanes and transcript routing.
+  // Never interpret "not ready to create a workspace" as a creation request.
+  const jarvaExplicitLearning =
+    npcId === "trust-advisor" &&
+    /\b(learn(?:ing)?|explain|understand|compare|difference|educat(?:ion|ional)|not ready|just exploring)\b/i.test(message) &&
+    !/\b(?:please |let's |i want to |i am ready to |i'm ready to )(?:create|open|start|save)\s+(?:a |my |the )?(?:trust |draft |new )?workspace\b/i.test(message);
+  const jarvaGeorgiaLearning =
+    jarvaExplicitLearning && /\bgeorgia\b/i.test(message) &&
+    /\b(?:united states|u\\.s\\.|usa|federal|grantor|non[ -]?grantor)\b/i.test(message);
+  const jarvaGeorgiaReply = jarvaGeorgiaLearning
+    ? [
+        "**Georgia trust education — no workspace needed**",
+        "",
+        "**Federal income-tax classification:** Under IRC sections 671–679, a grantor trust is treated as owned, in whole or part, by the grantor or another person for federal income-tax purposes. That owner generally reports the attributable income and deductions. A non-grantor trust is generally a separate taxpayer for the portion not treated as owned, with Form 1041 and beneficiary reporting potentially applicable. An irrevocable trust can still be a grantor trust; revocability and tax classification are different questions.",
+        "",
+        "**Georgia formation law:** Georgia's trust rules are primarily in Title 53, Chapter 12 of the Official Code of Georgia Annotated. Creating a valid trust generally involves a settlor with capacity, intent to create a trust, identifiable trust property, a trustee with duties, and beneficiaries or another legally recognized purpose. The actual requirements, including execution, funding, trustee powers, and whether a particular trust is revocable, depend on the instrument and applicable law. Georgia formation rules are distinct from federal income-tax classification.",
+        "",
+        "**What to explore next:** We can compare trustee responsibilities, revocable versus irrevocable terms, funding, and how state law and federal taxes interact. No trust type or workspace has been selected. I cannot verify current statutory text in this chat, so consult Georgia's current code and qualified Georgia trust and tax counsel before relying on formation or tax requirements.",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\\n")
+    : null;
   const jarvaTaxClassificationQuestion =
     npcId === "trust-advisor" &&
     /\b(grantor|non[ -]?grantor)\b/i.test(message) &&
@@ -785,7 +807,7 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaTaxClassificationReply) {
+  if (jarvaGeorgiaReply) {\n    response = { ...response, text: jarvaGeorgiaReply, source: "rule", intent: "help" };\n  } else if (jarvaTaxClassificationReply) {
     response = { ...response, text: jarvaTaxClassificationReply, source: "rule", intent: "help" };
   } else if (jarvaLearningReply) {
     response = { ...response, text: jarvaLearningReply, source: "rule", intent: "help" };
@@ -857,7 +879,7 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix && !jarvaLearningReply && !jarvaTaxClassificationReply) {
+  if (jarvaAppendix && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
@@ -889,7 +911,7 @@ export async function POST(req: Request) {
     };
   }
 
-  if (npcId === "trust-advisor" && !laneControlApplied) {
+  if (npcId === "trust-advisor" && !laneControlApplied && !jarvaExplicitLearning) {
     const persistPath = shouldPersistJarvaWorkflowPath({
       source: jarvaWorkflowPathSource,
       path: jarvaWorkflowPath,
