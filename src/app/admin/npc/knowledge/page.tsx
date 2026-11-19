@@ -71,9 +71,11 @@ function NPCKnowledgePageInner() {
   const [npcList, setNpcList] = useState<NPCInfo[]>([]);
   const [npcProfile, setNpcProfile] = useState<NPCInfo | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [jarvaPdfUploading, setJarvaPdfUploading] = useState(false);
   const [entries, setEntries] = useState<KnowledgeFormEntry[]>([{ ...EMPTY_ENTRY }]);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [jarvaKnowledgeView, setJarvaKnowledgeView] = useState<"topics" | "documents">("topics");
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +148,24 @@ function NPCKnowledgePageInner() {
     };
   }, [selectedNPCId]);
 
+  // Existing PDF entries are page-labelled topics. Group them in the UI without
+  // changing or deleting any stored NPC knowledge.
+  const allTopics = npcProfile?.knowledgeTopics ?? [];
+  const pdfTopicPattern = /^(.*\.pdf)\s+[—–-]\s+page\s+(\d+)$/i;
+  const documentGroups = new Map<string, { pages: Set<number>; entries: number }>();
+  for (const topic of allTopics) {
+    const match = topic.match(pdfTopicPattern);
+    if (!match) continue;
+    const name = match[1].trim();
+    const group = documentGroups.get(name) ?? { pages: new Set<number>(), entries: 0 };
+    group.pages.add(Number(match[2]));
+    group.entries++;
+    documentGroups.set(name, group);
+  }
+  const visibleTopics = selectedNPCId === "trust-advisor"
+    ? allTopics.filter((topic) => !pdfTopicPattern.test(topic))
+    : allTopics;
+
   const addEntry = () => setEntries((prev) => [...prev, { ...EMPTY_ENTRY }]);
 
   const removeEntry = (index: number) => {
@@ -155,6 +175,22 @@ function NPCKnowledgePageInner() {
 
   const updateEntry = (index: number, field: keyof KnowledgeFormEntry, value: string | number) => {
     setEntries((prev) => prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry)));
+  };
+
+  const uploadJarvaPdf = async (file: File) => {
+    if (selectedNPCId !== "trust-advisor") return;
+    setJarvaPdfUploading(true);
+    try {
+      const form = new FormData();
+      form.append("npcId", "trust-advisor");
+      form.append("file", file);
+      const res = await fetch("/api/npc/admin/knowledge/pdf", { method: "POST", credentials: "include", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data.error || "PDF upload failed"); return; }
+      toast.success(`Jarva indexed ${data.chunks} knowledge chunks from ${data.pages} pages.`);
+      await loadProfile("trust-advisor");
+    } catch { toast.error("PDF upload failed"); }
+    finally { setJarvaPdfUploading(false); }
   };
 
   const handleSubmitKnowledge = async () => {
@@ -212,6 +248,13 @@ function NPCKnowledgePageInner() {
               <p className="text-sm text-gray-400">Add and manage what your NPCs know</p>
             </div>
           </div>
+          {selectedNPCId === "trust-advisor" && (
+            <label className="cursor-pointer rounded-md border border-cyan-500/50 px-3 py-2 text-sm text-cyan-200">
+              {jarvaPdfUploading ? "Processing PDF..." : "Upload Jarva PDF"}
+              <input type="file" accept="application/pdf,.pdf" className="hidden" disabled={jarvaPdfUploading}
+                onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadJarvaPdf(file); }} />
+            </label>
+          )}
           {selectedNPCId && (
             <Button className="bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -269,6 +312,35 @@ function NPCKnowledgePageInner() {
           </Card>
         ) : (
           <>
+            {selectedNPCId === "trust-advisor" && (
+              <div className="mb-5 flex flex-wrap items-center gap-3">
+                <Button size="sm" variant={jarvaKnowledgeView === "topics" ? "default" : "outline"}
+                  onClick={() => setJarvaKnowledgeView("topics")}>Knowledge Topics ({visibleTopics.length})</Button>
+                <Button size="sm" variant={jarvaKnowledgeView === "documents" ? "default" : "outline"}
+                  onClick={() => setJarvaKnowledgeView("documents")}>Reference Documents ({documentGroups.size})</Button>
+                <span className="text-xs text-gray-400">PDF pages remain in Jarva's knowledge database; this view only organizes them.</span>
+              </div>
+            )}
+            {selectedNPCId === "trust-advisor" && jarvaKnowledgeView === "documents" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {[...documentGroups.entries()]
+                  .filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map(([name, info]) => (
+                    <Card key={name} className="bg-gray-800/50 border-gray-700">
+                      <CardContent className="py-4">
+                        <div className="flex gap-2 items-start"><FileText className="h-5 w-5 text-cyan-400 shrink-0" />
+                          <div><div className="font-semibold text-white">{name}</div>
+                            <p className="text-sm text-gray-300">{info.entries} stored entries · {info.pages.size} distinct pages indexed</p>
+                            <p className="text-xs text-amber-300 mt-1">Uploaded reference · Legal currency not independently verified</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                {documentGroups.size === 0 && <p className="text-gray-400">No page-labelled PDF entries found.</p>}
+              </div>
+            ) : (
+            <>
             <div className="flex items-center gap-4 mb-6">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -298,9 +370,9 @@ function NPCKnowledgePageInner() {
               </div>
             </div>
 
-            {npcProfile?.knowledgeTopics && npcProfile.knowledgeTopics.length > 0 ? (
+            {visibleTopics.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {npcProfile.knowledgeTopics
+                {visibleTopics
                   .filter((topic) => {
                     if (searchQuery) {
                       return topic.toLowerCase().includes(searchQuery.toLowerCase());
@@ -340,6 +412,8 @@ function NPCKnowledgePageInner() {
                   </Button>
                 </CardContent>
               </Card>
+            )}
+            </>
             )}
           </>
         )}
