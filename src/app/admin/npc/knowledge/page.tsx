@@ -151,7 +151,7 @@ function NPCKnowledgePageInner() {
   // Existing PDF entries are page-labelled topics. Group them in the UI without
   // changing or deleting any stored NPC knowledge.
   const allTopics = npcProfile?.knowledgeTopics ?? [];
-  const pdfTopicPattern = /^(.*\\.pdf)\\s+[—–-]\\s+page\\s+(\\d+)$/i;
+  const pdfTopicPattern = /^(.*\.pdf)\s+[—–-]\s+page\s+(\d+)$/i;
   const documentGroups = new Map<string, { pages: Set<number>; entries: number }>();
   for (const topic of allTopics) {
     const match = topic.match(pdfTopicPattern);
