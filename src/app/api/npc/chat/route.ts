@@ -7,6 +7,8 @@ import { ensureClientsTitleColumn } from "@/lib/db/clients-ensure";
 import { clients, trustDrafts, trusts } from "@/lib/db/schema";
 import { getAuthedUserId } from "@/lib/api/auth";
 import { insertAuditLog } from "@/lib/audit";
+import { isSkipperExecutiveNpcProfile } from "@/lib/agents/executive-admin-system-prompt";
+import { resolveUnifiedSkipperRuntimeContext } from "@/lib/agents/skipper-unified-runtime";
 import { buildNpcResponse } from "@/lib/npc/engine";
 import { generateLlmResponse, type ChatContext } from "@/lib/npc/llm-bridge";
 import {
@@ -129,6 +131,62 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing message" }, { status: 400 });
   }
 
+  // Educational routing is global: do not impose US trust terminology on other countries.
+  // Only the current turn is classified; a selected jurisdiction must not imply a trust type.
+  // Grantor/non-grantor are US federal income-tax classifications, not trust types
+  // that can be inferred from revocability or applied globally.
+  const jarvaTaxClassificationQuestion =
+    npcId === "trust-advisor" &&
+    /\\b(grantor|non[ -]?grantor)\\b/i.test(message) &&
+    !/\\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\\b/i.test(message);
+  const jarvaTaxClassificationReply = jarvaTaxClassificationQuestion
+    ? [
+        "**Grantor and non-grantor trusts — US federal income-tax education**",
+        "",
+        "**Grantor trust:** Under US federal income-tax rules, the grantor or another person is treated as the owner of all or part of the trust because of retained powers or other statutory conditions. That person generally reports the attributable income, deductions and credits. The relevant rules include Internal Revenue Code sections 671–679.",
+        "",
+        "**Non-grantor trust:** The trust is treated as a separate income-tax taxpayer to the extent it is not treated as owned under the grantor-trust rules. A domestic non-grantor trust generally files Form 1041 when required; income retained by the trust and income distributed to beneficiaries can have different tax consequences, including distributable net income and Schedule K-1 reporting.",
+        "",
+        "**What structuring requires:** Identify the governing jurisdiction and whether the trust is domestic or foreign for US tax purposes; the settlor/grantor, trustees, beneficiaries and their tax residencies; the purpose and assets; the trustee's powers and fiduciary duties; any powers to revoke, substitute assets, borrow, control beneficial enjoyment or benefit the grantor/spouse; distribution standards; funding and title transfers; and applicable income, gift, estate, generation-skipping and state tax rules. Have qualified trust and tax counsel draft and review the instrument and obtain any required tax identification and filings.",
+        "",
+        "**Important distinction:** Revocable does not mean the same thing as grantor, and irrevocable does not automatically mean non-grantor. Grantor status can apply to an irrevocable trust, and a trust may be partly grantor and partly non-grantor. Classification depends on the actual terms, powers, facts and applicable law. Foreign trusts can involve additional rules and reporting.",
+        "",
+        "**Which country and, if the US, which state applies?** Are you asking for a comparison or exploring a structure for yourself or a client? You can learn without opening a workspace; saving trust-specific details requires a workspace.",
+        "",
+        "**Educational information only, not tax or legal advice. No trust structure has been selected or created.**",
+      ].join("\n")
+    : null;
+  const jarvaEducationIntent =
+    npcId === "trust-advisor" &&
+    (/\b(what(?:'s| is) (?:a |an )?trust|trusts?|revocable|irrevocable)\b/i.test(message) &&
+      /\b(what|difference|compare|versus|vs\.?|explain|learn|learning|understand|options|how|why)\b/i.test(message) ||
+      /\b(jurisdiction|netherlands|dutch|united kingdom|england|wales|scotland|northern ireland|united states|usa|america)\b/i.test(message)) &&
+    !/\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\b/i.test(message);
+  const jarvaCountry =
+    /\b(netherlands|dutch)\b/i.test(message) ? "Netherlands" :
+    /\b(uk|united kingdom|england|wales|scotland|northern ireland)\b/i.test(message) ? "United Kingdom" :
+    /\b(united states|usa|u\.s\.a\.|america)\b/i.test(message) ? "United States" : null;
+  const jarvaLearningReply = jarvaEducationIntent
+    ? [
+        "**Understanding trusts across jurisdictions**",
+        "",
+        "A trust generally involves a trustee managing property for beneficiaries under defined duties. The legal meaning, availability, taxation and recognition of trusts depend on the jurisdiction; an American living-trust workflow does not automatically apply elsewhere.",
+        "",
+        ...(jarvaCountry === "Netherlands"
+          ? ["**Netherlands:** Dutch domestic law does not simply replicate the US revocable-living-trust model. Foreign trust recognition and tax treatment are separate questions. Which Dutch or cross-border situation would you like to understand?"]
+          : jarvaCountry === "United Kingdom"
+            ? ["**United Kingdom:** Trust rules vary across England and Wales, Scotland, and Northern Ireland. Which of those legal jurisdictions are you asking about?"]
+            : jarvaCountry === "United States"
+              ? ["**United States:** Trust formation, administration and some protections depend on state law. Which state would you like to explore?"]
+              : ["**Which country or legal jurisdiction are you asking about?** For example, the United States (and its state), England and Wales, Scotland, Northern Ireland, or the Netherlands. You can also name another country."]),
+        "",
+        ...(jarvaCountry === "Netherlands" || jarvaCountry === "United Kingdom" ? [] : ["For a US-law comparison only: a revocable living trust is generally amendable by its creator, while an irrevocable trust usually restricts that ability. These categories should not be assumed to describe arrangements in every country."]),
+        "",
+        "You may learn and ask questions without a Trust Workspace. A signed-in member must create or open a workspace before saving trust-specific intake, drafts, or records. The workspace is not a prerequisite for educational answers. Before stating jurisdiction-specific requirements, I need the applicable jurisdiction and reliable, current legal sources; I will not invent statutes or claim that unverified law is current.",
+        "",
+        "**Educational information, not legal advice. No trust type has been selected.**",
+      ].join("\n")
+    : null;
   const laneControl = npcId === "trust-advisor" ? parseJarvaLaneControlMessage(message) : null;
 
   const userId = await getAuthedUserId();
@@ -727,7 +785,11 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaFrontDoorReply) {
+  if (jarvaTaxClassificationReply) {
+    response = { ...response, text: jarvaTaxClassificationReply, source: "rule", intent: "help" };
+  } else if (jarvaLearningReply) {
+    response = { ...response, text: jarvaLearningReply, source: "rule", intent: "help" };
+  } else if (jarvaFrontDoorReply) {
     response = {
       ...response,
       text: jarvaFrontDoorReply,
@@ -751,7 +813,27 @@ export async function POST(req: Request) {
   // Optional enhancement: if LLM configured, improve rule-based fallbacks (never required)
   if (response.source === "rule" && response.intent === "unknown" && !jarvaFrontDoorReply && !laneControlApplied) {
     try {
-      const llmResponse = await generateLlmResponse({ message: messageForNpc, profile, knowledge, context: contextForNpc });
+      let unifiedPersonaBase: string | undefined;
+      if (isSkipperExecutiveNpcProfile(profile)) {
+        const dbNpc = db ?? (await getDb());
+        db = dbNpc;
+        const cognitive = await resolveUnifiedSkipperRuntimeContext({
+          surface: "npc",
+          db: dbNpc,
+          profile,
+          knowledgeEntryCount: knowledge.length,
+        });
+        if (cognitive) {
+          unifiedPersonaBase = `${cognitive.systemPrompt}\n\n---\nSURFACE BOUNDARY (NPC / authenticated API):\n${cognitive.analyticsContext}`;
+        }
+      }
+      const llmResponse = await generateLlmResponse({
+        message: messageForNpc,
+        profile,
+        knowledge,
+        context: contextForNpc,
+        unifiedPersonaBase,
+      });
       if (llmResponse?.text) {
         response = {
           ...llmResponse,
@@ -775,13 +857,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix) {
+  if (jarvaAppendix && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
+    if (!jarvaLearningReply && !jarvaTaxClassificationReply) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
       jarvaProceduralStep: jarvaProcedural.step,
