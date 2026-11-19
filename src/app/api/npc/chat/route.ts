@@ -131,27 +131,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing message" }, { status: 400 });
   }
 
-  // Educational questions must not be forced through the workspace-creation gate.
-  // Classify the CURRENT message, not accumulated history (which may contain a chosen lane).
-  const jarvaLearningQuestion =
+  // Educational routing is global: do not impose US trust terminology on other countries.
+  // Only the current turn is classified; a selected jurisdiction must not imply a trust type.
+  const jarvaEducationIntent =
     npcId === "trust-advisor" &&
-    /\b(trust|trusts|revocable|irrevocable)\b/i.test(message) &&
-    (/\b(difference|compare|versus|vs\.?|explain|learn|learning|understand|options)\b/i.test(message) ||
-      /before (asking|creating|opening)/i.test(message)) &&
-    !/\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\b/i.test(message);
-  const jarvaLearningReply = jarvaLearningQuestion
+    (/\\b(what(?:'s| is) (?:a |an )?trust|trusts?|revocable|irrevocable)\\b/i.test(message) &&
+      /\\b(what|difference|compare|versus|vs\\.?|explain|learn|learning|understand|options|how|why)\\b/i.test(message) ||
+      /\\b(jurisdiction|netherlands|dutch|united kingdom|england|wales|scotland|northern ireland|united states|usa|america)\\b/i.test(message)) &&
+    !/\\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\\b/i.test(message);
+  const jarvaCountry =
+    /\\b(netherlands|dutch)\\b/i.test(message) ? "Netherlands" :
+    /\\b(uk|united kingdom|england|wales|scotland|northern ireland)\\b/i.test(message) ? "United Kingdom" :
+    /\\b(united states|usa|u\\.s\\.a\\.|america)\\b/i.test(message) ? "United States" : null;
+  const jarvaLearningReply = jarvaEducationIntent
     ? [
-        "**Understanding your trust options**",
+        "**Understanding trusts across jurisdictions**",
         "",
-        "**Revocable living trust:** Generally, the person creating it can amend or revoke it during life. It can support incapacity planning and may avoid probate for assets properly transferred into the trust, but ordinarily does not shield the creator's assets from their creditors.",
+        "A trust generally involves a trustee managing property for beneficiaries under defined duties. The legal meaning, availability, taxation and recognition of trusts depend on the jurisdiction; an American living-trust workflow does not automatically apply elsewhere.",
         "",
-        "**Irrevocable trust:** Generally, the creator gives up some ability to change or revoke the arrangement. Depending on its terms, funding, and applicable law, it may serve specialized estate-tax, beneficiary-protection, or asset-planning goals. It does not automatically provide tax savings or creditor protection.",
+        ...(jarvaCountry === "Netherlands"
+          ? ["**Netherlands:** Dutch domestic law does not simply replicate the US revocable-living-trust model. Foreign trust recognition and tax treatment are separate questions. Which Dutch or cross-border situation would you like to understand?"]
+          : jarvaCountry === "United Kingdom"
+            ? ["**United Kingdom:** Trust rules vary across England and Wales, Scotland, and Northern Ireland. Which of those legal jurisdictions are you asking about?"]
+            : jarvaCountry === "United States"
+              ? ["**United States:** Trust formation, administration and some protections depend on state law. Which state would you like to explore?"]
+              : ["**Which country or legal jurisdiction are you asking about?** For example, the United States (and its state), England and Wales, Scotland, Northern Ireland, or the Netherlands. You can also name another country."]),
         "",
-        "**How to decide what to learn about:** Start with your goals: flexibility and incapacity/probate planning, or longer-term restrictions and specialized planning. State law, beneficiaries, assets, tax consequences, and the trustee's duties all matter. A qualified estate-planning attorney should review any actual choice.",
+        "For a US-law comparison only: a revocable living trust is generally amendable by its creator, while an irrevocable trust usually restricts that ability. These categories should not be assumed to describe arrangements in every country.",
         "",
-        "You can keep asking educational questions **without creating a workspace**. When you are ready to save a draft, I can help you create or open one. Are you learning for yourself or helping a client?",
+        "I can explain general concepts now, without a Trust ID or workspace. Before stating jurisdiction-specific requirements, I need the applicable jurisdiction and reliable, current legal sources; I will not invent statutes or claim that unverified law is current.",
         "",
-        "**Educational information only — not legal advice. No trust type has been selected and no documents have been executed.**",
+        "**Educational information, not legal advice. No trust type has been selected.**",
       ].join("\n")
     : null;
   const laneControl = npcId === "trust-advisor" ? parseJarvaLaneControlMessage(message) : null;
