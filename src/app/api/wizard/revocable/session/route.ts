@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     const session = await db
       .select()
       .from(wizardSessions)
-      .where(and(eq(wizardSessions.id, sessionId), eq(wizardSessions.userId, userId)))
+      .where(and(eq(wizardSessions.id, sessionId), eq(wizardSessions.userId, userId), eq(wizardSessions.kind, "REVOCABLE_TRUST")))
       .limit(1);
 
     if (session.length === 0) {
