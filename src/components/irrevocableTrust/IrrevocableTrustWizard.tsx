@@ -13,6 +13,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { US_STATE_CODES, type StepStateData, type StepPartiesData, type StepTrustTermsData, type StepDistributionsData, type StepPowersData, type StepFundingData, type StepReviewData } from "@/lib/irrevocableTrust/schema";
 import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 
+import { StepPartiesSchema } from "@/lib/irrevocableTrust/schema";
+
 type StepKey = "state" | "parties" | "terms" | "distributions" | "powers" | "funding" | "review" | "generate";
 
 type ReviewFlag = { code: string; severity: "attention" | "information"; message: string };
@@ -301,22 +303,99 @@ function StateStep({ defaultValue, busy, onNext }: { defaultValue?: StepStateDat
   );
 }
 
-function PartiesStep({ defaultValue, busy, onBack, onNext }: { defaultValue?: StepPartiesData; busy: boolean; onBack: () => void; onNext: (data: StepPartiesData) => void }) {
-  const [raw, setRaw] = useState(JSON.stringify(defaultValue ?? { grantor: { fullName: "", addressLine1: "", city: "", state: "NY", postalCode: "" }, trustees: [], beneficiaries: [] }, null, 2));
+type PartyPerson = StepPartiesData["grantor"];
+const blankPartyPerson = (): PartyPerson => ({ fullName: "", addressLine1: "", city: "", state: "NY", postalCode: "" });
+
+function PartyPersonFields({ person, onChange, prefix }: { person: PartyPerson; onChange: (person: PartyPerson) => void; prefix: string }) {
+  const field = (name: keyof PartyPerson, value: string) => onChange({ ...person, [name]: value });
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Parties</h2>
-      <p className="text-sm text-muted-foreground">
-        Replace this JSON editor with proper form fields (Grantor, Trustees, Beneficiaries). This is a scaffolding hook.
-      </p>
-      <Textarea className="w-full h-64 font-mono text-xs" value={raw} onChange={(e) => setRaw(e.target.value)} />
+    <div className="grid gap-3 sm:grid-cols-2">
+      {([
+        ["fullName", "Full legal name", "Full legal name"],
+        ["addressLine1", "Street address", "Street address"],
+        ["addressLine2", "Apartment / suite (optional)", "Apartment or suite"],
+        ["city", "City", "City"],
+        ["postalCode", "ZIP / postal code", "Postal code"],
+        ["email", "Email (optional)", "Email address"],
+        ["phone", "Phone (optional)", "Phone number"],
+      ] as const).map(([key, label, placeholder]) => (
+        <div key={key} className="space-y-1">
+          <Label htmlFor={prefix + key}>{label}</Label>
+          <Input id={prefix + key} value={person[key] ?? ""} placeholder={placeholder} onChange={e => field(key, e.target.value)} />
+        </div>
+      ))}
+      <div className="space-y-1">
+        <Label htmlFor={prefix + "state"}>State</Label>
+        <Select value={person.state} onValueChange={v => onChange({ ...person, state: v as PartyPerson["state"] })}>
+          <SelectTrigger id={prefix + "state"}><SelectValue /></SelectTrigger>
+          <SelectContent>{US_STATE_CODES.map(code => <SelectItem key={code} value={code}>{code}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+function PartiesStep({ defaultValue, busy, onBack, onNext }: { defaultValue?: StepPartiesData; busy: boolean; onBack: () => void; onNext: (data: StepPartiesData) => void }) {
+  const [grantor, setGrantor] = useState<PartyPerson>(defaultValue?.grantor ?? blankPartyPerson());
+  const [trustees, setTrustees] = useState<PartyPerson[]>(defaultValue?.trustees?.length ? defaultValue.trustees : [blankPartyPerson()]);
+  const [successorTrustees, setSuccessorTrustees] = useState<PartyPerson[]>(defaultValue?.successorTrustees ?? []);
+  const [beneficiaries, setBeneficiaries] = useState<StepPartiesData["beneficiaries"]>(defaultValue?.beneficiaries?.length ? defaultValue.beneficiaries : [{ person: blankPartyPerson(), sharePct: 100, contingent: false }]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const updatePerson = (people: PartyPerson[], setter: (v: PartyPerson[]) => void, index: number, value: PartyPerson) => setter(people.map((p, i) => i === index ? value : p));
+  const submit = () => {
+    const candidate = { grantor, trustees, successorTrustees, beneficiaries };
+    const result = StepPartiesSchema.safeParse(candidate);
+    if (!result.success) {
+      const first = result.error.issues[0];
+      setFormError("Please complete the required name and address fields for each person. " + (first?.message ?? ""));
+      return;
+    }
+    setFormError(null);
+    onNext(result.data);
+  };
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold">People involved in your trust</h2>
+        <p className="text-sm text-muted-foreground">Enter the legal names and contact information below. You do not need to write any code.</p>
+      </div>
+      <section className="space-y-3 rounded-lg border p-4">
+        <h3 className="font-semibold">Grantor (person creating the trust)</h3>
+        <PartyPersonFields prefix="grantor-" person={grantor} onChange={setGrantor} />
+      </section>
+      <section className="space-y-3 rounded-lg border p-4">
+        <h3 className="font-semibold">Trustees (people responsible for managing the trust)</h3>
+        {trustees.map((person, i) => <div key={i} className="space-y-3 border-b pb-4 last:border-b-0">
+          <div className="flex items-center justify-between"><strong>Trustee {i + 1}</strong>{trustees.length > 1 && <Button type="button" variant="outline" onClick={() => setTrustees(trustees.filter((_, j) => i !== j))}>Remove</Button>}</div>
+          <PartyPersonFields prefix={"trustee-" + i + "-"} person={person} onChange={value => updatePerson(trustees, setTrustees, i, value)} />
+        </div>)}
+        <Button type="button" variant="outline" onClick={() => setTrustees([...trustees, blankPartyPerson()])}>Add another trustee</Button>
+      </section>
+      <section className="space-y-3 rounded-lg border p-4">
+        <h3 className="font-semibold">Successor trustees (optional)</h3>
+        <p className="text-sm text-muted-foreground">People who may serve if a trustee can no longer act.</p>
+        {successorTrustees.map((person, i) => <div key={i} className="space-y-3 border-b pb-4 last:border-b-0">
+          <div className="flex items-center justify-between"><strong>Successor {i + 1}</strong><Button type="button" variant="outline" onClick={() => setSuccessorTrustees(successorTrustees.filter((_, j) => i !== j))}>Remove</Button></div>
+          <PartyPersonFields prefix={"successor-" + i + "-"} person={person} onChange={value => updatePerson(successorTrustees, setSuccessorTrustees, i, value)} />
+        </div>)}
+        <Button type="button" variant="outline" onClick={() => setSuccessorTrustees([...successorTrustees, blankPartyPerson()])}>Add successor trustee</Button>
+      </section>
+      <section className="space-y-3 rounded-lg border p-4">
+        <h3 className="font-semibold">Beneficiaries (people who may receive benefits)</h3>
+        {beneficiaries.map((entry, i) => <div key={i} className="space-y-3 border-b pb-4 last:border-b-0">
+          <div className="flex items-center justify-between"><strong>Beneficiary {i + 1}</strong>{beneficiaries.length > 1 && <Button type="button" variant="outline" onClick={() => setBeneficiaries(beneficiaries.filter((_, j) => i !== j))}>Remove</Button>}</div>
+          <PartyPersonFields prefix={"beneficiary-" + i + "-"} person={entry.person} onChange={person => setBeneficiaries(beneficiaries.map((e, j) => i === j ? { ...e, person } : e))} />
+          <div className="space-y-1"><Label htmlFor={"share-" + i}>Beneficial share (%)</Label>
+            <Input id={"share-" + i} type="number" min={0} max={100} value={entry.sharePct} onChange={e => setBeneficiaries(beneficiaries.map((v, j) => j === i ? { ...v, sharePct: Number(e.target.value) } : v))} />
+          </div>
+          <div className="flex items-center gap-2"><Checkbox id={"contingent-" + i} checked={!!entry.contingent} onCheckedChange={checked => setBeneficiaries(beneficiaries.map((v, j) => j === i ? { ...v, contingent: !!checked } : v))} /><Label htmlFor={"contingent-" + i}>Contingent beneficiary</Label></div>
+        </div>)}
+        <Button type="button" variant="outline" onClick={() => setBeneficiaries([...beneficiaries, { person: blankPartyPerson(), sharePct: 0, contingent: false }])}>Add beneficiary</Button>
+      </section>
+      {formError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{formError}</AlertDescription></Alert>}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={busy}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-        <Button disabled={busy} onClick={() => onNext(JSON.parse(raw))}>
-          Next <ChevronRight className="ml-2 h-4 w-4" />
-        </Button>
+        <Button variant="outline" onClick={onBack} disabled={busy}><ChevronLeft className="mr-2 h-4 w-4" /> Back</Button>
+        <Button disabled={busy} onClick={submit}>Save and continue <ChevronRight className="ml-2 h-4 w-4" /></Button>
       </div>
     </div>
   );
