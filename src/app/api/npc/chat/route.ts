@@ -144,6 +144,23 @@ export async function POST(req: Request) {
   const jarvaGeorgiaLearning =
     jarvaExplicitLearning && /\bgeorgia\b/i.test(message) &&
     /\b(?:united states|u\.s\.|usa|federal|grantor|non[ -]?grantor)\b/i.test(message);
+  const jarvaGeorgiaTrusteeDuties =
+    jarvaExplicitLearning && /\\bgeorgia\\b/i.test(message) &&
+    /\\btrustee\\b/i.test(message) &&
+    /\\b(responsibilit(?:y|ies)|duties|obligations|role|explain)\\b/i.test(message);
+  const jarvaGeorgiaTrusteeReply = jarvaGeorgiaTrusteeDuties
+    ? [
+        "**Georgia trustee responsibilities — educational overview**",
+        "",
+        "A trustee administers trust property for the beneficiaries according to the trust terms and applicable Georgia law (primarily O.C.G.A. Title 53, Chapter 12). The role generally includes acting loyally and in good faith, managing and safeguarding trust assets prudently, keeping adequate records, avoiding improper conflicts of interest, and communicating or accounting to beneficiaries as the law and trust terms require.",
+        "",
+        "Trustees must follow the trust instrument within legal limits, handle distributions consistently with its terms, and address tax filings or professional assistance where appropriate. The exact duties, disclosure rights, investment standards, and remedies depend on the trust and current Georgia statutes; this overview is not a substitute for checking the governing instrument and current law.",
+        "",
+        "You can keep learning without selecting a trust type or creating a workspace. Would you like an example of how a trustee handles investments, beneficiary requests, or distributions?",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : null;
   const jarvaGeorgiaReply = jarvaGeorgiaLearning
     ? [
         "**Georgia trust education — no workspace needed**",
@@ -807,7 +824,9 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaGeorgiaReply) {
+  if (jarvaGeorgiaTrusteeReply) {
+    response = { ...response, text: jarvaGeorgiaTrusteeReply, source: "rule", intent: "help" };
+  } else if (jarvaGeorgiaReply) {
     response = { ...response, text: jarvaGeorgiaReply, source: "rule", intent: "help" };
   } else if (jarvaTaxClassificationReply) {
     response = { ...response, text: jarvaTaxClassificationReply, source: "rule", intent: "help" };
@@ -881,13 +900,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
+  if (jarvaAppendix && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    const jarvaEducationalResponse = Boolean(jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
+    const jarvaEducationalResponse = Boolean(jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
     if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
