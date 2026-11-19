@@ -894,7 +894,7 @@ export async function POST(req: Request) {
   const jarvaAskedRevocable = /\brevoc(?:able|eable|ible|ab(?:el|le))\b/.test(jarvaQuestionText) &&
     /\btrust\b/.test(jarvaQuestionText);
   const jarvaAskedTrusteeDuties = /\btrustee(?:s|'s)?\b/.test(jarvaQuestionText) &&
-    /\b(?:dut(?:y|ies)|responsib(?:ility|ilities|lities)|obligation|role|do|does)\b/.test(jarvaQuestionText);
+    /\b(?:dut(?:y|ies)|responsib(?:ility|ilities|ilites|lities|lites)|obligation|role|do|does)\b/.test(jarvaQuestionText);
   const jarvaAskedEquitableRelief = /\b(?:equitable|equitible|equitatable|equity)\s+rel(?:ief|eif|eife)\b/.test(jarvaQuestionText);
   const jarvaSpecificEducationReply = npcId === "trust-advisor" &&
     (jarvaAskedRevocable || jarvaAskedTrusteeDuties || jarvaAskedEquitableRelief) &&
@@ -920,6 +920,34 @@ export async function POST(req: Request) {
         "**Educational information only; not legal or tax advice.**",
       ].join("\n")
     : null;
+
+  // Surface source text only when an uploaded PDF contains several substantive
+  // query terms. Keep the excerpt clearly separate from generated explanations.
+  const jarvaResearchTerms = Array.from(new Set(
+    message.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? []
+  )).filter((term) =>
+    !/^(what|which|when|where|does|have|with|from|that|this|would|could|please|explain|about|trust|trusts|their|there|your|tell|more|and|form)$/.test(term)
+  );
+  const jarvaPdfPassages = npcId === "trust-advisor" && jarvaResearchTerms.length >= 2
+    ? knowledge.filter((entry) =>
+        /\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic)
+      ).map((entry) => {
+        const sourceText = entry.content.split(/\n\n/).slice(1).join("\n\n").trim();
+        const normalized = sourceText.toLowerCase();
+        const matches = jarvaResearchTerms.filter((term) => normalized.includes(term));
+        return { entry, sourceText, matches: matches.length };
+      }).filter((item) => item.matches >= 2 && item.sourceText.length > 60)
+        .sort((a, b) => b.matches - a.matches).slice(0, 2)
+    : [];
+  const jarvaResearchSources = jarvaPdfPassages.length
+    ? "\n\n**Relevant uploaded reference excerpts (not independently verified):**\n" +
+      jarvaPdfPassages.map(({ entry, sourceText }) =>
+        "- **" + entry.topic + ":** “" +
+        sourceText.slice(0, 340).replace(/\s+/g, " ").trim() +
+        (sourceText.length > 340 ? "…" : "") + "”"
+      ).join("\n") +
+      "\nCheck the complete PDF passage and applicable filing year before relying on it."
+    : "";
 
   const jarvaFrontDoorReply =
     npcId === "trust-advisor" && jarvaEntryRoute && !laneControlApplied
@@ -953,6 +981,10 @@ export async function POST(req: Request) {
       source: "rule",
       intent: "help",
     };
+  }
+
+  if (jarvaResearchSources && (jarvaSpecificEducationReply || jarvaGeneralEducationReply) && !laneControlApplied) {
+    response = { ...response, text: response.text + jarvaResearchSources };
   }
 
   if (laneControlApplied && laneControl) {
