@@ -157,9 +157,9 @@ export async function POST(req: Request) {
               ? ["**United States:** Trust formation, administration and some protections depend on state law. Which state would you like to explore?"]
               : ["**Which country or legal jurisdiction are you asking about?** For example, the United States (and its state), England and Wales, Scotland, Northern Ireland, or the Netherlands. You can also name another country."]),
         "",
-        "For a US-law comparison only: a revocable living trust is generally amendable by its creator, while an irrevocable trust usually restricts that ability. These categories should not be assumed to describe arrangements in every country.",
+        ...(jarvaCountry === "Netherlands" || jarvaCountry === "United Kingdom" ? [] : ["For a US-law comparison only: a revocable living trust is generally amendable by its creator, while an irrevocable trust usually restricts that ability. These categories should not be assumed to describe arrangements in every country."]),
         "",
-        "I can explain general concepts now, without a Trust ID or workspace. Before stating jurisdiction-specific requirements, I need the applicable jurisdiction and reliable, current legal sources; I will not invent statutes or claim that unverified law is current.",
+        "You may learn and ask questions without a Trust Workspace. A signed-in member must create or open a workspace before saving trust-specific intake, drafts, or records. The workspace is not a prerequisite for educational answers. Before stating jurisdiction-specific requirements, I need the applicable jurisdiction and reliable, current legal sources; I will not invent statutes or claim that unverified law is current.",
         "",
         "**Educational information, not legal advice. No trust type has been selected.**",
       ].join("\n")
