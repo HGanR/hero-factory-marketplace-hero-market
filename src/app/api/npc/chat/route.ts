@@ -135,10 +135,10 @@ export async function POST(req: Request) {
   // Classify the CURRENT message, not accumulated history (which may contain a chosen lane).
   const jarvaLearningQuestion =
     npcId === "trust-advisor" &&
-    /\\b(trust|trusts|revocable|irrevocable)\\b/i.test(message) &&
-    (/\\b(difference|compare|versus|vs\\.?|explain|learn|learning|understand|options)\\b/i.test(message) ||
+    /\b(trust|trusts|revocable|irrevocable)\b/i.test(message) &&
+    (/\b(difference|compare|versus|vs\.?|explain|learn|learning|understand|options)\b/i.test(message) ||
       /before (asking|creating|opening)/i.test(message)) &&
-    !/\\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\\b/i.test(message);
+    !/\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\b/i.test(message);
   const jarvaLearningReply = jarvaLearningQuestion
     ? [
         "**Understanding your trust options**",
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
         "You can keep asking educational questions **without creating a workspace**. When you are ready to save a draft, I can help you create or open one. Are you learning for yourself or helping a client?",
         "",
         "**Educational information only — not legal advice. No trust type has been selected and no documents have been executed.**",
-      ].join("\\n")
+      ].join("\n")
     : null;
   const laneControl = npcId === "trust-advisor" ? parseJarvaLaneControlMessage(message) : null;
 
