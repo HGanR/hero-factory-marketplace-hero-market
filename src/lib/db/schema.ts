@@ -11,6 +11,9 @@ export * from "./schema.revenue-os-runtime";
 export * from "./schema.merch-revenue-ret";
 export * from "./schema.meet-broadcast";
 export * from "./schema.marketplace-extensions";
+// Resolve duplicate star-export names deterministically. The marketplace extension
+// definition includes the updatedAt on-update behavior.
+export { agentConversationSessions } from "./schema.marketplace-extensions";
 
 export const marketplaceUsers = mysqlTable("marketplace_users", {
   id: int("id").autoincrement().primaryKey(),
