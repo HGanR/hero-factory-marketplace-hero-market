@@ -7,7 +7,10 @@ import { mysqlTruthy } from "@/lib/mysqlTruthy";
 import { sessionCookieBase, cookieHostFromRequest } from "@/lib/auth-cookie-options";
 import { POST as websiteLogin } from "@/app/api/marketplace/login/route";
 import { mobileMemberId, mobileSameOrigin, mobileCredentials } from "@/lib/mobile/session-policy";
+import { checkMobileAdministrator, signInMobileAdministrator, mobileAdminCookie } from "@/lib/mobile/admin-session";
 export const dynamic = "force-dynamic";
+const adminEnabled = () => process.env.SMART_TRUST_MOBILE_ADMIN_LOGIN === "true";
+const adminCookieOptions = {httpOnly: true as const, secure: true, sameSite: "lax" as const, path: "/"};
 function reply(body: object, status = 200) {
   return NextResponse.json(body, {status, headers: {"Cache-Control": "no-store", "Vary": "Cookie"}});
 }
@@ -19,6 +22,11 @@ function unavailable() {
 }
 export async function GET(request: NextRequest) {
   const blocked = unavailable(); if (blocked) return blocked;
+  const adminToken = adminEnabled() ? request.cookies.get(mobileAdminCookie)?.value : undefined;
+  if (adminToken) {
+    const result = await checkMobileAdministrator(adminToken);
+    return result.ok ? reply({user: result.user}) : reply({error: result.status === 401 ? "Administrator session expired." : "Administrator account service unavailable."}, result.status);
+  }
   const token = request.cookies.get("auth-token")?.value;
   if (!token) return reply({error: "Sign in with your website account."}, 401);
   let id: number | null;
@@ -41,15 +49,27 @@ export async function POST(request: NextRequest) {
   if (!request.headers.get("content-type")?.startsWith("application/json")) return reply({error: "JSON required."}, 415);
   const raw = await request.text();
   if (raw.length > 8192) return reply({error: "Request too large."}, 413);
-  let credentials;
-  try { credentials = mobileCredentials(JSON.parse(raw)); } catch { return reply({error: "Invalid sign-in request."}, 400); }
+  let credentials; let input: Record<string, unknown>;
+  try { input = JSON.parse(raw); credentials = mobileCredentials(input); } catch { return reply({error: "Invalid sign-in request."}, 400); }
   if (!credentials) return reply({error: "Enter your username/email and password."}, 400);
+  const accountType = input!.accountType ?? "member";
+  if (accountType !== "member" && accountType !== "administrator") return reply({error: "Invalid account type."}, 400);
+  if (accountType === "administrator") {
+    if (!adminEnabled()) return reply({error: "Administrator mobile sign-in is not enabled."}, 503);
+    const result = await signInMobileAdministrator(credentials.identifier, credentials.password);
+    if (!result.ok || !result.token) return reply({error: !result.ok && result.status === 401 ? "Administrator sign-in failed." : "Administrator service unavailable."}, !result.ok ? result.status : 503);
+    const response = reply({success: true, user: result.user});
+    response.cookies.set(mobileAdminCookie, result.token, {...adminCookieOptions, maxAge: 86400});
+    response.cookies.set("auth-token", "", {...sessionCookieBase(cookieHostFromRequest(request)), maxAge: 0});
+    return response;
+  }
   const response = await websiteLogin(new NextRequest(request.url, {
     method: "POST", headers: request.headers, body: JSON.stringify(credentials)
   }));
   if (!response.ok) return reply({error: response.status >= 500 ? "Account service is unavailable." : "Sign-in failed. Check your credentials and account approval."}, response.status);
   // Preserve the existing HttpOnly Set-Cookie contract without exposing a token to JS.
   response.headers.set("Cache-Control", "no-store");
+  if (adminEnabled()) response.cookies.set(mobileAdminCookie, "", {...adminCookieOptions, maxAge: 0});
   return response;
 }
 export async function DELETE(request: NextRequest) {
@@ -57,5 +77,6 @@ export async function DELETE(request: NextRequest) {
   if (!mobileSameOrigin(request)) return reply({error: "Same-origin request required."}, 403);
   const response = reply({success: true});
   response.cookies.set("auth-token", "", {...sessionCookieBase(cookieHostFromRequest(request)), maxAge: 0});
+  if (adminEnabled()) response.cookies.set(mobileAdminCookie, "", {...adminCookieOptions, maxAge: 0});
   return response;
 }
