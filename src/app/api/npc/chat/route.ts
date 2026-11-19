@@ -11,6 +11,7 @@ import { isSkipperExecutiveNpcProfile } from "@/lib/agents/executive-admin-syste
 import { resolveUnifiedSkipperRuntimeContext } from "@/lib/agents/skipper-unified-runtime";
 import { buildNpcResponse } from "@/lib/npc/engine";
 import { generateLlmResponse, type ChatContext } from "@/lib/npc/llm-bridge";
+import { getJarvaDaptEvidence } from "@/lib/jarva/jarva-jurisdiction-evidence";
 import {
   addMessage,
   createSession,
@@ -131,6 +132,101 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing message" }, { status: 400 });
   }
 
+  // Educational routing is global: do not impose US trust terminology on other countries.
+  // Only the current turn is classified; a selected jurisdiction must not imply a trust type.
+  // Grantor/non-grantor are US federal income-tax classifications, not trust types
+  // that can be inferred from revocability or applied globally.
+  // Explicit learning intent overrides stale workflow lanes and transcript routing.
+  // Never interpret "not ready to create a workspace" as a creation request.
+  const jarvaExplicitLearning =
+    npcId === "trust-advisor" &&
+    /\b(learn(?:ing)?|explain|understand|compare|difference|educat(?:ion|ional)|not ready|just exploring)\b/i.test(message) &&
+    !/\b(?:please |let's |i want to |i am ready to |i'm ready to )(?:create|open|start|save)\s+(?:a |my |the )?(?:trust |draft |new )?workspace\b/i.test(message);
+  const jarvaGeorgiaLearning =
+    jarvaExplicitLearning && /\bgeorgia\b/i.test(message) &&
+    /\b(?:united states|u\.s\.|usa|federal|grantor|non[ -]?grantor)\b/i.test(message);
+  const jarvaGeorgiaTrusteeDuties =
+    jarvaExplicitLearning && /\bgeorgia\b/i.test(message) &&
+    /\btrustee\b/i.test(message) &&
+    /\b(responsibilit(?:y|ies)|duties|obligations|role|explain)\b/i.test(message);
+  const jarvaGeorgiaTrusteeReply = jarvaGeorgiaTrusteeDuties
+    ? [
+        "**Georgia trustee responsibilities — educational overview**",
+        "",
+        "A trustee administers trust property for the beneficiaries according to the trust terms and applicable Georgia law (primarily O.C.G.A. Title 53, Chapter 12). The role generally includes acting loyally and in good faith, managing and safeguarding trust assets prudently, keeping adequate records, avoiding improper conflicts of interest, and communicating or accounting to beneficiaries as the law and trust terms require.",
+        "",
+        "Trustees must follow the trust instrument within legal limits, handle distributions consistently with its terms, and address tax filings or professional assistance where appropriate. The exact duties, disclosure rights, investment standards, and remedies depend on the trust and current Georgia statutes; this overview is not a substitute for checking the governing instrument and current law.",
+        "",
+        "You can keep learning without selecting a trust type or creating a workspace. Would you like an example of how a trustee handles investments, beneficiary requests, or distributions?",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : null;
+  const jarvaGeorgiaReply = jarvaGeorgiaLearning
+    ? [
+        "**Georgia trust education — no workspace needed**",
+        "",
+        "**Federal income-tax classification:** Under IRC sections 671–679, a grantor trust is treated as owned, in whole or part, by the grantor or another person for federal income-tax purposes. That owner generally reports the attributable income and deductions. A non-grantor trust is generally a separate taxpayer for the portion not treated as owned, with Form 1041 and beneficiary reporting potentially applicable. An irrevocable trust can still be a grantor trust; revocability and tax classification are different questions.",
+        "",
+        "**Georgia formation law:** Georgia's trust rules are primarily in Title 53, Chapter 12 of the Official Code of Georgia Annotated. Creating a valid trust generally involves a settlor with capacity, intent to create a trust, identifiable trust property, a trustee with duties, and beneficiaries or another legally recognized purpose. The actual requirements, including execution, funding, trustee powers, and whether a particular trust is revocable, depend on the instrument and applicable law. Georgia formation rules are distinct from federal income-tax classification.",
+        "",
+        "**What to explore next:** We can compare trustee responsibilities, revocable versus irrevocable terms, funding, and how state law and federal taxes interact. No trust type or workspace has been selected. I cannot verify current statutory text in this chat, so consult Georgia's current code and qualified Georgia trust and tax counsel before relying on formation or tax requirements.",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : null;
+  const jarvaTaxClassificationQuestion =
+    npcId === "trust-advisor" &&
+    /\b(grantor|non[ -]?grantor)\b/i.test(message) &&
+    !/\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\b/i.test(message);
+  const jarvaTaxClassificationReply = jarvaTaxClassificationQuestion
+    ? [
+        "**Grantor and non-grantor trusts — US federal income-tax education**",
+        "",
+        "**Grantor trust:** Under US federal income-tax rules, the grantor or another person is treated as the owner of all or part of the trust because of retained powers or other statutory conditions. That person generally reports the attributable income, deductions and credits. The relevant rules include Internal Revenue Code sections 671–679.",
+        "",
+        "**Non-grantor trust:** The trust is treated as a separate income-tax taxpayer to the extent it is not treated as owned under the grantor-trust rules. A domestic non-grantor trust generally files Form 1041 when required; income retained by the trust and income distributed to beneficiaries can have different tax consequences, including distributable net income and Schedule K-1 reporting.",
+        "",
+        "**What structuring requires:** Identify the governing jurisdiction and whether the trust is domestic or foreign for US tax purposes; the settlor/grantor, trustees, beneficiaries and their tax residencies; the purpose and assets; the trustee's powers and fiduciary duties; any powers to revoke, substitute assets, borrow, control beneficial enjoyment or benefit the grantor/spouse; distribution standards; funding and title transfers; and applicable income, gift, estate, generation-skipping and state tax rules. Have qualified trust and tax counsel draft and review the instrument and obtain any required tax identification and filings.",
+        "",
+        "**Important distinction:** Revocable does not mean the same thing as grantor, and irrevocable does not automatically mean non-grantor. Grantor status can apply to an irrevocable trust, and a trust may be partly grantor and partly non-grantor. Classification depends on the actual terms, powers, facts and applicable law. Foreign trusts can involve additional rules and reporting.",
+        "",
+        "**Which country and, if the US, which state applies?** Are you asking for a comparison or exploring a structure for yourself or a client? You can learn without opening a workspace; saving trust-specific details requires a workspace.",
+        "",
+        "**Educational information only, not tax or legal advice. No trust structure has been selected or created.**",
+      ].join("\n")
+    : null;
+  const jarvaEducationIntent =
+    npcId === "trust-advisor" &&
+    (/\b(what(?:'s| is) (?:a |an )?trust|trusts?|revocable|irrevocable)\b/i.test(message) &&
+      /\b(what|difference|compare|versus|vs\.?|explain|learn|learning|understand|options|how|why)\b/i.test(message) ||
+      /\b(jurisdiction|netherlands|dutch|united kingdom|england|wales|scotland|northern ireland|united states|usa|america)\b/i.test(message)) &&
+    !/\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\b/i.test(message);
+  const jarvaCountry =
+    /\b(netherlands|dutch)\b/i.test(message) ? "Netherlands" :
+    /\b(uk|united kingdom|england|wales|scotland|northern ireland)\b/i.test(message) ? "United Kingdom" :
+    /\b(united states|usa|u\.s\.a\.|america)\b/i.test(message) ? "United States" : null;
+  const jarvaLearningReply = jarvaEducationIntent
+    ? [
+        "**Understanding trusts across jurisdictions**",
+        "",
+        "A trust generally involves a trustee managing property for beneficiaries under defined duties. The legal meaning, availability, taxation and recognition of trusts depend on the jurisdiction; an American living-trust workflow does not automatically apply elsewhere.",
+        "",
+        ...(jarvaCountry === "Netherlands"
+          ? ["**Netherlands:** Dutch domestic law does not simply replicate the US revocable-living-trust model. Foreign trust recognition and tax treatment are separate questions. Which Dutch or cross-border situation would you like to understand?"]
+          : jarvaCountry === "United Kingdom"
+            ? ["**United Kingdom:** Trust rules vary across England and Wales, Scotland, and Northern Ireland. Which of those legal jurisdictions are you asking about?"]
+            : jarvaCountry === "United States"
+              ? ["**United States:** Trust formation, administration and some protections depend on state law. Which state would you like to explore?"]
+              : ["**Which country or legal jurisdiction are you asking about?** For example, the United States (and its state), England and Wales, Scotland, Northern Ireland, or the Netherlands. You can also name another country."]),
+        "",
+        ...(jarvaCountry === "Netherlands" || jarvaCountry === "United Kingdom" ? [] : ["For a US-law comparison only: a revocable living trust is generally amendable by its creator, while an irrevocable trust usually restricts that ability. These categories should not be assumed to describe arrangements in every country."]),
+        "",
+        "You may learn and ask questions without a Trust Workspace. A signed-in member must create or open a workspace before saving trust-specific intake, drafts, or records. The workspace is not a prerequisite for educational answers. Before stating jurisdiction-specific requirements, I need the applicable jurisdiction and reliable, current legal sources; I will not invent statutes or claim that unverified law is current.",
+        "",
+        "**Educational information, not legal advice. No trust type has been selected.**",
+      ].join("\n")
+    : null;
   const laneControl = npcId === "trust-advisor" ? parseJarvaLaneControlMessage(message) : null;
 
   const userId = await getAuthedUserId();
@@ -697,10 +793,27 @@ export async function POST(req: Request) {
       : {}),
   };
 
+  // Only recent user turns are used to recover jurisdiction; no new persistence or trust intake.
+  const jarvaPriorJurisdiction = npcId === "trust-advisor"
+    ? [...userMessagesForEntry].reverse().map((m) => m.content).find((t) => /\b(georgia|netherlands|england|scotland|wales|united kingdom|united states|usa)\b/i.test(t))
+    : undefined;
+  const jarvaSessionContext = jarvaPriorJurisdiction
+    ? "Prior user-stated jurisdiction (confirm against current message): " + jarvaPriorJurisdiction.slice(0, 300)
+    : undefined;
+  const jarvaDaptEvidence = npcId === "trust-advisor"
+    ? getJarvaDaptEvidence(message, jarvaPriorJurisdiction)
+    : null;
+  const jarvaResearchContext = jarvaDaptEvidence
+    ? "Internal DAPT dataset (UNVERIFIED, DAPT-only; not current-law proof): " +
+      jarvaDaptEvidence.jurisdiction + "; " + jarvaDaptEvidence.summary +
+      " Statute identifiers for independent verification: " + jarvaDaptEvidence.authorities.join("; ") +
+      ". Do not describe these as verified current law or general trust rules."
+    : undefined;
   const contextForNpc: ChatContext | undefined =
     npcId === "trust-advisor"
       ? ({
           ...(context ?? {}),
+          jarvaSessionContext: [jarvaSessionContext, jarvaResearchContext].filter(Boolean).join("\n") || undefined,
           ...getJarvaProceduralContextPatch(proceduralInputForNpc),
           ...(jarvaEntryRoute
             ? {
@@ -718,6 +831,174 @@ export async function POST(req: Request) {
   const messageForNpc = laneControl != null ? "[Workflow lane]" : message;
   let response = buildNpcResponse({ message: messageForNpc, profile, knowledge, context: contextForNpc });
 
+  // Explicit tax-form questions are educational, not requests to open a trust workflow.
+  // Cite uploaded material only when its text actually supports the answer.
+  const jarvaForm1041Question =
+    npcId === "trust-advisor" &&
+    /\b(?:form\s*1041|1041\s*(?:form|tax form)|what is (?:a |the )?1041)\b/i.test(message) &&
+    !/\b(?:create|file|submit|prepare|generate)\s+(?:my |a |the )?(?:form|return|trust|workspace)\b/i.test(message);
+  // Score actual extracted PDF text; do not cite a page based only on its filename.
+  const jarvaForm1041Sources = jarvaForm1041Question
+    ? knowledge.filter((entry) =>
+        /^i1041\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic) &&
+        /\b(?:income tax return|estates and trusts)\b/i.test(entry.content)
+      ).map((entry) => ({
+        entry,
+        score: [
+          /\bform\s+1041\b/i,
+          /\b(?:income tax return|estates and trusts)\b/i,
+          /\b(?:fiduciary|beneficiar|schedule k-1)\b/i,
+        ].filter((pattern) => pattern.test(entry.content)).length,
+      })).sort((a, b) => b.score - a.score)
+    : [];
+  const jarvaForm1041Source = jarvaForm1041Sources[0]?.score >= 2
+    ? jarvaForm1041Sources[0].entry : undefined;
+  const jarvaForm1041Reply = jarvaForm1041Question
+    ? [
+        "**IRS Form 1041 — U.S. Income Tax Return for Estates and Trusts**",
+        "",
+        "Form 1041 is the federal income-tax return used by certain estates and trusts to report income, deductions, gains, losses, and applicable tax. A fiduciary, such as a trustee or executor, is generally responsible for filing when the applicable IRS filing requirements are met.",
+        "",
+        "Schedule K-1 (Form 1041) can report a beneficiary's share of income, deductions, and credits. A grantor trust may follow different reporting rules, so an irrevocable trust does not automatically mean Form 1041 is required in every case.",
+        "",
+        jarvaForm1041Source
+          ? "**Uploaded reference:** " + jarvaForm1041Source.topic + " (page label from the uploaded PDF; verify the relevant passage and current filing-year instructions)."
+          : "**Reference:** IRS Instructions for Form 1041. The uploaded PDF's relevant page has not been verified for this answer.",
+        "",
+        "Would you like to understand who must file, how Schedule K-1 works, or how Form 1041 applies to a particular trust type?",
+        "",
+        "**Educational tax information only; not individualized tax advice.**",
+      ].join("\n")
+    : null;
+
+  // Treat ordinary legal education questions as education, not a trust-building command.
+  // This guard is deliberately limited to questions, and preserves explicit build actions.
+  const jarvaGeneralEducationQuestion =
+    npcId === "trust-advisor" &&
+    /\b(?:what|why|how|when|who|which|define|meaning|explain|difference|compare|understand|learn)\b/i.test(message) &&
+    /\b(?:trust|trustee|beneficiar|fiduciar|equity|probate|estate|tax|irs|1041|k-1|grantor|revocab|irrevocab|ecclesiastical|charitable)\b/i.test(message) &&
+    !/\b(?:create|draft|generate|file|submit|issue|purchase|sign|open)\s+(?:my |a |an |the )?(?:trust|document|form|return|workspace|certificate)\b/i.test(message);
+  const jarvaGeneralEducationReply = jarvaGeneralEducationQuestion &&
+    !jarvaForm1041Reply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply &&
+    !jarvaTaxClassificationReply && !jarvaLearningReply
+    ? [
+        response.text,
+        "",
+        "**Educational information only; specific legal requirements depend on jurisdiction and current law.**",
+      ].join("\n")
+    : null;
+
+  // Answer each recognizable question independently, even when the user combines
+  // questions in one message. Common spelling variants should not block education.
+  const jarvaQuestionText = message.toLowerCase();
+  const jarvaAskedRevocable = /\brevoc(?:able|eable|ible|ab(?:el|le))\b/.test(jarvaQuestionText) &&
+    /\btrust\b/.test(jarvaQuestionText);
+  const jarvaAskedTrusteeDuties = /\btrustee(?:s|'s)?\b/.test(jarvaQuestionText) &&
+    /\b(?:dut(?:y|ies)|responsib(?:ility|ilities|ilites|lities|lites)|obligation|role|do|does)\b/.test(jarvaQuestionText);
+  const jarvaAskedEquitableRelief = /\b(?:equitable|equitible|equitatable|equity)\s+rel(?:ief|eif|eife)\b/.test(jarvaQuestionText);
+  const jarvaSpecificEducationReply = npcId === "trust-advisor" &&
+    (jarvaAskedRevocable || jarvaAskedTrusteeDuties || jarvaAskedEquitableRelief) &&
+    !/\b(?:create|draft|generate|file|submit|issue|purchase|sign|open)\s+(?:my |a |an |the )?(?:trust|document|form|return|workspace|certificate)\b/i.test(message)
+    ? [
+        ...(jarvaAskedRevocable ? [
+          "**What is a revocable trust?**",
+          "A revocable trust is an arrangement whose terms can generally be changed or revoked by the person who created it while they retain the legal power to do so. In the United States, a revocable living trust is often used to manage assets during life and to provide for their administration after death. It does not automatically shield assets from the settlor's creditors or eliminate taxes.",
+          "",
+        ] : []),
+        ...(jarvaAskedTrusteeDuties ? [
+          "**What duties does a trustee have?**",
+          "A trustee generally must administer trust property according to the trust terms and applicable law, act loyally in beneficiaries' interests, avoid improper conflicts of interest, manage assets prudently, keep records, and provide information or accountings when required. The precise duties and beneficiaries' rights depend on the governing jurisdiction and trust instrument.",
+          "",
+        ] : []),
+        ...(jarvaAskedEquitableRelief ? [
+          "**What is equitable relief?**",
+          "Equitable relief is a court remedy directed at conduct or specific property rather than simply awarding money damages. Examples include an injunction, specific performance, and in appropriate circumstances remedies involving trust property. Whether a court can grant a particular remedy depends on the claim, available legal remedies, and applicable law.",
+          "",
+        ] : []),
+        "These are general explanations, not a determination of the law governing a particular trust. If you share a country and state or other jurisdiction, I can help narrow the rules and identify sources.",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : null;
+
+  // Surface source text only when an uploaded PDF contains several substantive
+  // query terms. Keep the excerpt clearly separate from generated explanations.
+  const jarvaResearchTerms = Array.from(new Set(
+    message.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? []
+  )).filter((term) =>
+    !/^(what|which|when|where|does|have|with|from|that|this|would|could|please|explain|about|trust|trusts|their|there|your|tell|more|and|form)$/.test(term)
+  );
+  const jarvaPdfPassages = npcId === "trust-advisor" && jarvaResearchTerms.length >= 2
+    ? knowledge.filter((entry) =>
+        /\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic)
+      ).map((entry) => {
+        const sourceText = entry.content.split(/\n\n/).slice(1).join("\n\n").trim();
+        const normalized = sourceText.toLowerCase();
+        const matches = jarvaResearchTerms.filter((term) => normalized.includes(term));
+        return { entry, sourceText, matches: matches.length };
+      }).filter((item) => item.matches >= 2 && item.sourceText.length > 60)
+        .sort((a, b) => b.matches - a.matches).slice(0, 2)
+    : [];
+  const jarvaResearchSources = jarvaPdfPassages.length
+    ? "\n\n**Relevant uploaded reference excerpts (not independently verified):**\n" +
+      jarvaPdfPassages.map(({ entry, sourceText }) =>
+        "- **" + entry.topic + ":** “" +
+        sourceText.slice(0, 340).replace(/\s+/g, " ").trim() +
+        (sourceText.length > 340 ? "…" : "") + "”"
+      ).join("\n") +
+      "\nCheck the complete PDF passage and applicable filing year before relying on it."
+    : "";
+
+  // Explicit uploaded-document questions must not be answered by a generic
+  // jurisdiction router or by an unrelated US tax reference.
+  const jarvaAsksUploadedSources = npcId === "trust-advisor" &&
+    /\b(?:uploaded|my documents|my pdfs?|reference documents?|according to (?:my|the) (?:documents?|pdf|irs))\b/i.test(message);
+  const jarvaAsksDutchFiling = jarvaAsksUploadedSources &&
+    /\b(?:netherlands|dutch)\b/i.test(message) &&
+    /\b(?:filing|file|tax|reporting|requirements?)\b/i.test(message);
+  const jarvaAsksScheduleK1 = jarvaAsksUploadedSources &&
+    /\b(?:schedule\s*k[\s-]*1|k[\s-]*1)\b/i.test(message);
+  const jarvaK1Passage = jarvaAsksScheduleK1
+    ? knowledge.filter((entry) =>
+        /\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic)
+      ).map((entry) => {
+        // Extracted PDFs can contain non-breaking spaces, en dashes and
+        // line breaks inside "Schedule K-1"; normalize before matching.
+        const body = entry.content.split(/\n\n/).slice(1).join("\n\n").trim()
+          .replace(/[\u00a0\u2007\u202f]/g, " ")
+          .replace(/[\u2010-\u2015\u2212]/g, "-")
+          .replace(/\s+/g, " ");
+        const k1 = /\b(?:schedule\s*k\s*[- ]?\s*1|k\s*[- ]\s*1)\b/i;
+        const hit = body.search(k1);
+        const support = /\b(?:beneficiar(?:y|ies)|share|income|deductions?|credits?|distribution|allocation)\b/i.test(body);
+        return { topic: entry.topic, excerpt: hit >= 0 && support
+          ? body.slice(Math.max(0, hit - 110), hit + 300).trim() : "" };
+      }).find((item) => item.excerpt.length > 30)
+    : undefined;
+  const jarvaDocumentQuestionReply = jarvaAsksDutchFiling
+    ? [
+        "**Netherlands trust filing requirements — uploaded-document check**",
+        "",
+        "The available uploaded references have not been established as authoritative guidance on Dutch trust filing obligations. I cannot determine Netherlands filing requirements from these documents alone.",
+        "",
+        "Dutch filing obligations may depend on the arrangement, the parties, and the applicable reporting regime. To give a document-grounded answer, please upload the relevant Dutch authority guidance or identify the precise filing regime. I will not treat US IRS Form 1041 instructions as Dutch law.",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : jarvaAsksScheduleK1
+      ? [
+          "**What is Schedule K-1 (Form 1041) used for?**",
+          "",
+          "Schedule K-1 (Form 1041) reports a beneficiary's share of certain income, deductions, credits, and other tax items from an estate or trust so the beneficiary can use the information when preparing their own tax return.",
+          "",
+          jarvaK1Passage
+            ? "**Uploaded PDF passage — " + jarvaK1Passage.topic + ":** “" + jarvaK1Passage.excerpt + "”\nThis is an extracted passage, not independent verification of current-year requirements."
+            : "**Source status:** No supporting Schedule K-1 passage could be confirmed from the currently retrieved uploaded PDF text. This explanation is general tax information, not a verified quotation from your documents.",
+          "",
+          "**Educational tax information only; not individualized tax advice.**",
+        ].join("\n")
+      : null;
+
   const jarvaFrontDoorReply =
     npcId === "trust-advisor" && jarvaEntryRoute && !laneControlApplied
       ? formatJarvaEntryRouterReply({
@@ -729,13 +1010,33 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaFrontDoorReply) {
+  if (jarvaDocumentQuestionReply) {
+    response = { ...response, text: jarvaDocumentQuestionReply, source: "rule", intent: "help" };
+  } else if (jarvaSpecificEducationReply) {
+    response = { ...response, text: jarvaSpecificEducationReply, source: "rule", intent: "help" };
+  } else if (jarvaForm1041Reply) {
+    response = { ...response, text: jarvaForm1041Reply, source: "rule", intent: "help" };
+  } else if (jarvaGeorgiaTrusteeReply) {
+    response = { ...response, text: jarvaGeorgiaTrusteeReply, source: "rule", intent: "help" };
+  } else if (jarvaGeorgiaReply) {
+    response = { ...response, text: jarvaGeorgiaReply, source: "rule", intent: "help" };
+  } else if (jarvaTaxClassificationReply) {
+    response = { ...response, text: jarvaTaxClassificationReply, source: "rule", intent: "help" };
+  } else if (jarvaLearningReply) {
+    response = { ...response, text: jarvaLearningReply, source: "rule", intent: "help" };
+  } else if (jarvaGeneralEducationReply) {
+    response = { ...response, text: jarvaGeneralEducationReply, source: "rule", intent: "help" };
+  } else if (jarvaFrontDoorReply) {
     response = {
       ...response,
       text: jarvaFrontDoorReply,
       source: "rule",
       intent: "help",
     };
+  }
+
+  if (jarvaResearchSources && (jarvaSpecificEducationReply || jarvaGeneralEducationReply) && !laneControlApplied) {
+    response = { ...response, text: response.text + jarvaResearchSources };
   }
 
   if (laneControlApplied && laneControl) {
@@ -797,16 +1098,18 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix) {
+  if (jarvaAppendix && !jarvaDocumentQuestionReply && !jarvaSpecificEducationReply && !jarvaForm1041Reply && !jarvaGeneralEducationReply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
+    const jarvaEducationalResponse = Boolean(jarvaDocumentQuestionReply || jarvaSpecificEducationReply || jarvaForm1041Reply || jarvaGeneralEducationReply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
+    if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
-      jarvaProceduralStep: jarvaProcedural.step,
+      ...(jarvaEducationalResponse ? { jarvaConversationMode: "education", jarvaNextUiActionBundle: null } : {}),
+      jarvaProceduralStep: jarvaEducationalResponse ? null : jarvaProcedural.step,
       jarvaProceduralTitle: jarvaProcedural.title,
       jarvaProceduralIndex: jarvaProcedural.stepIndex,
       jarvaProceduralTotalSteps: jarvaProcedural.totalSteps,
@@ -820,7 +1123,7 @@ export async function POST(req: Request) {
         : {}),
       jarvaWorkflowPath: jarvaWorkflowPath ?? null,
       jarvaWorkflowPathSource: jarvaWorkflowPathSource ?? null,
-      jarvaNextUiActionBundle: buildJarvaNextUiActionBundleFromJarvaState({
+      jarvaNextUiActionBundle: jarvaEducationalResponse ? null : buildJarvaNextUiActionBundleFromJarvaState({
         lane: jarvaWorkflowPath ?? null,
         proceduralStep: jarvaProcedural.step,
         proceduralTitle: jarvaProcedural.title,
@@ -829,7 +1132,7 @@ export async function POST(req: Request) {
     };
   }
 
-  if (npcId === "trust-advisor" && !laneControlApplied) {
+  if (npcId === "trust-advisor" && !laneControlApplied && !jarvaExplicitLearning) {
     const persistPath = shouldPersistJarvaWorkflowPath({
       source: jarvaWorkflowPathSource,
       path: jarvaWorkflowPath,
