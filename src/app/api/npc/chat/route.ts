@@ -835,13 +835,13 @@ export async function POST(req: Request) {
   // Cite uploaded material only when its text actually supports the answer.
   const jarvaForm1041Question =
     npcId === "trust-advisor" &&
-    /\\b(?:form\\s*1041|1041\\s*(?:form|tax form)|what is (?:a |the )?1041)\\b/i.test(message) &&
-    !/\\b(?:create|file|submit|prepare|generate)\\s+(?:my |a |the )?(?:form|return|trust|workspace)\\b/i.test(message);
+    /\b(?:form\s*1041|1041\s*(?:form|tax form)|what is (?:a |the )?1041)\b/i.test(message) &&
+    !/\b(?:create|file|submit|prepare|generate)\s+(?:my |a |the )?(?:form|return|trust|workspace)\b/i.test(message);
   const jarvaForm1041Source = jarvaForm1041Question
     ? knowledge.find((entry) =>
-        /i1041\\.pdf\\s+[—–-]\\s+page\\s+\\d+/i.test(entry.topic) &&
-        /\\b1041\\b/i.test(entry.content) &&
-        /\\b(?:income tax return|estates and trusts)\\b/i.test(entry.content)
+        /i1041\.pdf\s+[—–-]\s+page\s+\d+/i.test(entry.topic) &&
+        /\b1041\b/i.test(entry.content) &&
+        /\b(?:income tax return|estates and trusts)\b/i.test(entry.content)
       )
     : undefined;
   const jarvaForm1041Reply = jarvaForm1041Question
@@ -859,7 +859,7 @@ export async function POST(req: Request) {
         "Would you like to understand who must file, how Schedule K-1 works, or how Form 1041 applies to a particular trust type?",
         "",
         "**Educational tax information only; not individualized tax advice.**",
-      ].join("\\n")
+      ].join("\n")
     : null;
 
   const jarvaFrontDoorReply =
