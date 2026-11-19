@@ -831,6 +831,37 @@ export async function POST(req: Request) {
   const messageForNpc = laneControl != null ? "[Workflow lane]" : message;
   let response = buildNpcResponse({ message: messageForNpc, profile, knowledge, context: contextForNpc });
 
+  // Explicit tax-form questions are educational, not requests to open a trust workflow.
+  // Cite uploaded material only when its text actually supports the answer.
+  const jarvaForm1041Question =
+    npcId === "trust-advisor" &&
+    /\\b(?:form\\s*1041|1041\\s*(?:form|tax form)|what is (?:a |the )?1041)\\b/i.test(message) &&
+    !/\\b(?:create|file|submit|prepare|generate)\\s+(?:my |a |the )?(?:form|return|trust|workspace)\\b/i.test(message);
+  const jarvaForm1041Source = jarvaForm1041Question
+    ? knowledge.find((entry) =>
+        /i1041\\.pdf\\s+[—–-]\\s+page\\s+\\d+/i.test(entry.topic) &&
+        /\\b1041\\b/i.test(entry.content) &&
+        /\\b(?:income tax return|estates and trusts)\\b/i.test(entry.content)
+      )
+    : undefined;
+  const jarvaForm1041Reply = jarvaForm1041Question
+    ? [
+        "**IRS Form 1041 — U.S. Income Tax Return for Estates and Trusts**",
+        "",
+        "Form 1041 is the federal income-tax return used by certain estates and trusts to report income, deductions, gains, losses, and applicable tax. A fiduciary, such as a trustee or executor, is generally responsible for filing when the applicable IRS filing requirements are met.",
+        "",
+        "Schedule K-1 (Form 1041) can report a beneficiary's share of income, deductions, and credits. A grantor trust may follow different reporting rules, so an irrevocable trust does not automatically mean Form 1041 is required in every case.",
+        "",
+        jarvaForm1041Source
+          ? "**Uploaded reference:** " + jarvaForm1041Source.topic + " (page label from the uploaded PDF; verify the relevant passage and current filing-year instructions)."
+          : "**Reference:** IRS Instructions for Form 1041. The uploaded PDF's relevant page has not been verified for this answer.",
+        "",
+        "Would you like to understand who must file, how Schedule K-1 works, or how Form 1041 applies to a particular trust type?",
+        "",
+        "**Educational tax information only; not individualized tax advice.**",
+      ].join("\\n")
+    : null;
+
   const jarvaFrontDoorReply =
     npcId === "trust-advisor" && jarvaEntryRoute && !laneControlApplied
       ? formatJarvaEntryRouterReply({
@@ -842,7 +873,9 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaGeorgiaTrusteeReply) {
+  if (jarvaForm1041Reply) {
+    response = { ...response, text: jarvaForm1041Reply, source: "rule", intent: "help" };
+  } else if (jarvaGeorgiaTrusteeReply) {
     response = { ...response, text: jarvaGeorgiaTrusteeReply, source: "rule", intent: "help" };
   } else if (jarvaGeorgiaReply) {
     response = { ...response, text: jarvaGeorgiaReply, source: "rule", intent: "help" };
@@ -918,13 +951,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
+  if (jarvaAppendix && !jarvaForm1041Reply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    const jarvaEducationalResponse = Boolean(jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
+    const jarvaEducationalResponse = Boolean(jarvaForm1041Reply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
     if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
