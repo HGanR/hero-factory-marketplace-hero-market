@@ -3091,9 +3091,9 @@ export default function TrustCertificatesConsolePage() {
             <a href="#trust-records-tools" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-cyan-200 hover:bg-slate-800">All existing tools</a>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <a href="/trust-records/wizard/irrevocable-trust?step=state" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+            <a href="/trust-records/choose-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
               <strong className="block">Start or continue a trust</strong>
-              <span className="mt-2 block text-sm text-slate-300">Start the irrevocable trust workflow at its first step. To resume the last saved step, use the Irrevocable trust workflow link.</span>
+              <span className="mt-2 block text-sm text-slate-300">Choose a revocable or irrevocable trust. The irrevocable questionnaire is available now; the revocable workflow is in development.</span>
             </a>
             <a href="/trust-records/wizard/irrevocable-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
               <strong className="block">Irrevocable trust workflow</strong>
