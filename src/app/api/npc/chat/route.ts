@@ -960,13 +960,19 @@ export async function POST(req: Request) {
     /\b(?:schedule\s*k[\s-]*1|k[\s-]*1)\b/i.test(message);
   const jarvaK1Passage = jarvaAsksScheduleK1
     ? knowledge.filter((entry) =>
-        /\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic) &&
-        /\b(?:schedule\s*k[\s-]*1|k[\s-]*1)\b/i.test(entry.content) &&
-        /\b(?:beneficiar|share|income|deduction|credit)\b/i.test(entry.content)
+        /\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic)
       ).map((entry) => {
-        const body = entry.content.split(/\n\n/).slice(1).join("\n\n").trim();
-        const hit = body.search(/\b(?:schedule\s*k[\s-]*1|k[\s-]*1)\b/i);
-        return { topic: entry.topic, excerpt: hit >= 0 ? body.slice(Math.max(0, hit - 100), hit + 260).replace(/\s+/g, " ").trim() : "" };
+        // Extracted PDFs can contain non-breaking spaces, en dashes and
+        // line breaks inside "Schedule K-1"; normalize before matching.
+        const body = entry.content.split(/\n\n/).slice(1).join("\n\n").trim()
+          .replace(/[\u00a0\u2007\u202f]/g, " ")
+          .replace(/[\u2010-\u2015\u2212]/g, "-")
+          .replace(/\s+/g, " ");
+        const k1 = /\b(?:schedule\s*k\s*[- ]?\s*1|k\s*[- ]\s*1)\b/i;
+        const hit = body.search(k1);
+        const support = /\b(?:beneficiar(?:y|ies)|share|income|deductions?|credits?|distribution|allocation)\b/i.test(body);
+        return { topic: entry.topic, excerpt: hit >= 0 && support
+          ? body.slice(Math.max(0, hit - 110), hit + 300).trim() : "" };
       }).find((item) => item.excerpt.length > 30)
     : undefined;
   const jarvaDocumentQuestionReply = jarvaAsksDutchFiling
