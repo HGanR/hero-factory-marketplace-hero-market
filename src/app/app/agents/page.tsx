@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   BarChart3,
   Bot,
+  BookOpen,
   Check,
   ChevronDown,
   Globe,
@@ -1900,6 +1901,15 @@ function AgentsPageContent() {
                             <MessageSquare className="h-3 w-3" />
                             Chat
                           </Link>
+                          {key === "trust-advisor" && (
+                            <Link
+                              href="/admin/npc/knowledge?npcId=trust-advisor"
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[11px] hover:bg-emerald-500/15"
+                            >
+                              <BookOpen className="h-3 w-3" />
+                              Knowledge / PDFs
+                            </Link>
+                          )}
                           <Link
                             href={`/admin/npc?npcId=${encodeURIComponent(key)}`}
                             className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[11px] hover:bg-white/10"

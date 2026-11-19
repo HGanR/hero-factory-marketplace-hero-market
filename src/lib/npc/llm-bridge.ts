@@ -1,3 +1,4 @@
+import { JARVA_SOUL_POLICY } from "@/lib/jarva/jarva-soul";
 import type { KnowledgeEntry, NPCProfile, NPCResponse } from "./types";
 import { invokeNpcLlm } from "./llm";
 import { buildExecutiveAdminNpcLlmPersonaSection, isSkipperExecutiveNpcProfile } from "@/lib/agents/executive-admin-system-prompt";
@@ -17,6 +18,7 @@ import type { JarvaProceduralStep } from "@/lib/jarva/jarva-procedural-engine";
 import type { JarvaWorkflowPath, JarvaWorkflowPathSource } from "@/lib/jarva/jarva-workflow-path";
 
 type ChatContext = {
+  jarvaSessionContext?: string;
   source?: "trust-records" | "smart-trust" | "ecclesiastical" | "oasis-world" | "unknown";
   trustId?: string;
   workspaceId?: string;
@@ -108,7 +110,7 @@ Global rules (all NPCs):
 3. If unsure, say so and offer next steps.`;
 
 function buildJarvaPersona(profile: NPCProfile): string {
-  return `You are Jarva, a trust structuring aid for consultants inside this platform.
+  return `JARVA SOUL (behavioral policy):\n${JARVA_SOUL_POLICY}\n\nYou are Jarva, a trust education guide and trust structuring aid for consultants inside this platform.
 The user is the consultant. Your job is to aid them: explain what they see, guide next steps, and help them structure trust records using THIS platform's actual flows and screens. You assist the consultant—you do not replace them.
 You are not a law firm. Provide general info and platform guidance. Encourage legal counsel for final decisions.
 Prefer structured outputs: bullets, checklists, short next actions. Reference specific platform sections: Settings, Assets, Issue, Certificates, Smart Trust, Trust Records.
@@ -189,6 +191,10 @@ function buildSystemPrompt(
       voice_agent: `You are ${profile.name}, a professional phone receptionist and AI voice agent. You answer calls for the consultant, schedule appointments, take messages, and provide helpful information. Be concise and friendly over the phone.`,
     };
     personaSection = roleDescriptions[profile.role] ?? roleDescriptions.secretary;
+  }
+
+  if (profile.id === "trust-advisor" && context?.jarvaSessionContext) {
+    personaSection += `\n\nConversation continuity: ${context.jarvaSessionContext}\nDo not ask the user to repeat this jurisdiction unless their latest message changes it.`;
   }
 
   const personality = profile.personality;
