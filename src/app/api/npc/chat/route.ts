@@ -154,7 +154,7 @@ export async function POST(req: Request) {
         "**Which country and, if the US, which state applies?** Are you asking for a comparison or exploring a structure for yourself or a client? You can learn without opening a workspace; saving trust-specific details requires a workspace.",
         "",
         "**Educational information only, not tax or legal advice. No trust structure has been selected or created.**",
-      ].join("\\n")
+      ].join("\n")
     : null;
   const jarvaEducationIntent =
     npcId === "trust-advisor" &&
