@@ -143,7 +143,7 @@ export async function POST(req: Request) {
     !/\b(?:please |let's |i want to |i am ready to |i'm ready to )(?:create|open|start|save)\s+(?:a |my |the )?(?:trust |draft |new )?workspace\b/i.test(message);
   const jarvaGeorgiaLearning =
     jarvaExplicitLearning && /\bgeorgia\b/i.test(message) &&
-    /\b(?:united states|u\\.s\\.|usa|federal|grantor|non[ -]?grantor)\b/i.test(message);
+    /\b(?:united states|u\.s\.|usa|federal|grantor|non[ -]?grantor)\b/i.test(message);
   const jarvaGeorgiaReply = jarvaGeorgiaLearning
     ? [
         "**Georgia trust education — no workspace needed**",
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
         "**What to explore next:** We can compare trustee responsibilities, revocable versus irrevocable terms, funding, and how state law and federal taxes interact. No trust type or workspace has been selected. I cannot verify current statutory text in this chat, so consult Georgia's current code and qualified Georgia trust and tax counsel before relying on formation or tax requirements.",
         "",
         "**Educational information only; not legal or tax advice.**",
-      ].join("\\n")
+      ].join("\n")
     : null;
   const jarvaTaxClassificationQuestion =
     npcId === "trust-advisor" &&
