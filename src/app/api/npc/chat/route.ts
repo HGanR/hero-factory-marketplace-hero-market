@@ -145,9 +145,9 @@ export async function POST(req: Request) {
     jarvaExplicitLearning && /\bgeorgia\b/i.test(message) &&
     /\b(?:united states|u\.s\.|usa|federal|grantor|non[ -]?grantor)\b/i.test(message);
   const jarvaGeorgiaTrusteeDuties =
-    jarvaExplicitLearning && /\\bgeorgia\\b/i.test(message) &&
-    /\\btrustee\\b/i.test(message) &&
-    /\\b(responsibilit(?:y|ies)|duties|obligations|role|explain)\\b/i.test(message);
+    jarvaExplicitLearning && /\bgeorgia\b/i.test(message) &&
+    /\btrustee\b/i.test(message) &&
+    /\b(responsibilit(?:y|ies)|duties|obligations|role|explain)\b/i.test(message);
   const jarvaGeorgiaTrusteeReply = jarvaGeorgiaTrusteeDuties
     ? [
         "**Georgia trustee responsibilities — educational overview**",
