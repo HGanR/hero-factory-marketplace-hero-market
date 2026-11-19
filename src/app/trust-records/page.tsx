@@ -3093,7 +3093,7 @@ export default function TrustCertificatesConsolePage() {
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <a href="/trust-records/wizard/irrevocable-trust?step=state" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
               <strong className="block">Start or continue a trust</strong>
-              <span className="mt-2 block text-sm text-slate-300">Open the trust preparation wizard at its first step; existing drafts resume automatically.</span>
+              <span className="mt-2 block text-sm text-slate-300">Start the irrevocable trust workflow at its first step. To resume the last saved step, use the Irrevocable trust workflow link.</span>
             </a>
             <a href="/trust-records/wizard/irrevocable-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
               <strong className="block">Irrevocable trust workflow</strong>
@@ -3107,7 +3107,7 @@ export default function TrustCertificatesConsolePage() {
           <details open className="mt-4 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
             <summary className="cursor-pointer text-sm font-semibold text-cyan-200">Step-by-step preparation guide</summary>
             <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-slate-300">
-              <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=state">Choose the appropriate trust type and purpose in Smart Trust.</a></li>
+              <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=state">For an irrevocable trust, select the governing state and effective date.</a></li>
               <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=parties">Identify the grantor, trustees, successors, and beneficiaries.</a></li>
               <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=funding">Organize assets and review the funding plan.</a></li>
               <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=terms">Prepare applicable instruments, supporting records, and governance documents.</a></li>
