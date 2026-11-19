@@ -15,6 +15,18 @@ import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 
 type StepKey = "state" | "parties" | "terms" | "distributions" | "powers" | "funding" | "review" | "generate";
 
+type ReviewFlag = { code: string; severity: "attention" | "information"; message: string };
+type ReviewPacketSummary = { sha256: string; reviewFlags: ReviewFlag[] };
+const REVIEW_FLAG_STEPS: Record<string, StepKey> = {
+  PRIMARY_SHARES: "parties",
+  SUCCESSION: "parties",
+  PURPOSE: "terms",
+  DISTRIBUTION_SCHEDULE: "distributions",
+  PROTECTOR: "powers",
+  FUNDING_SCHEDULE: "funding",
+  ACKNOWLEDGEMENTS: "review",
+};
+
 const STEPS: { key: StepKey; title: string }[] = [
   { key: "state", title: "State & Effective Date" },
   { key: "parties", title: "Parties" },
@@ -50,6 +62,7 @@ export default function IrrevocableTrustWizard() {
   const [data, setData] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [reviewPacket, setReviewPacket] = useState<ReviewPacketSummary | null>(null);
 
   const stepIndex = useMemo(() => STEPS.findIndex(s => s.key === currentStep), [currentStep]);
 
@@ -80,10 +93,27 @@ export default function IrrevocableTrustWizard() {
         nextStep: next,
       });
       const sessionData = res.session.dataJson ? JSON.parse(res.session.dataJson) : {};
+      setReviewPacket(null);
       setData(sessionData);
       if (next) setCurrentStep(next);
     } catch (e: any) {
       setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareReviewPacket() {
+    if (!sessionId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const response = await apiGet<{ ok: true; packet: ReviewPacketSummary }>(
+        "/api/wizard/irrevocable/review-packet?sessionId=" + encodeURIComponent(sessionId)
+      );
+      setReviewPacket(response.packet);
+    } catch (e: any) {
+      setErr(e.message || "Unable to prepare review packet");
     } finally {
       setBusy(false);
     }
@@ -132,13 +162,21 @@ export default function IrrevocableTrustWizard() {
             {STEPS.map((s, idx) => (
               <li key={s.key}>
                 <button
-                  className={`w-full text-left text-sm rounded-md px-3 py-2 ${
-                    idx === stepIndex ? "bg-neutral-100 font-medium" : "hover:bg-neutral-50"
+                  aria-current={idx === stepIndex ? "step" : undefined}
+                  aria-label={`${s.title} — ${s.key !== "generate" && data[s.key] ? "completed" : idx === stepIndex ? "current" : "not completed"}`}
+                  className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 ${
+                    s.key !== "generate" && data[s.key]
+                      ? idx === stepIndex
+                        ? "border-amber-600 bg-amber-400 font-semibold text-amber-950 ring-2 ring-amber-600"
+                        : "border-amber-500 bg-amber-400 font-semibold text-amber-950 hover:bg-amber-300"
+                      : idx === stepIndex
+                        ? "border-slate-500 bg-slate-200 font-semibold text-slate-900"
+                        : "border-transparent text-inherit hover:bg-neutral-100"
                   }`}
                   onClick={() => setCurrentStep(s.key)}
                   disabled={!sessionId || busy}
                 >
-                  {idx + 1}. {s.title}
+                  {s.key !== "generate" && data[s.key] ? "✓ " : ""}{idx + 1}. {s.title}
                 </button>
               </li>
             ))}
@@ -210,7 +248,7 @@ export default function IrrevocableTrustWizard() {
           )}
 
           {currentStep === "generate" && (
-            <GenerateStep busy={busy} onBack={() => setCurrentStep("review")} onGenerate={generate} />
+            <GenerateStep busy={busy} snapshot={data} reviewPacket={reviewPacket} onNavigate={setCurrentStep} onPrepareReview={prepareReviewPacket} onBack={() => setCurrentStep("review")} onGenerate={generate} />
           )}
         </main>
       </div>
@@ -503,20 +541,64 @@ function ReviewStep({ snapshot, defaultValue, busy, onBack, onNext }: { snapshot
   );
 }
 
-function GenerateStep({ busy, onBack, onGenerate }: { busy: boolean; onBack: () => void; onGenerate: () => void }) {
+function GenerateStep({ busy, snapshot, reviewPacket, onNavigate, onPrepareReview, onBack, onGenerate }: { busy: boolean; snapshot: any; reviewPacket: ReviewPacketSummary | null; onNavigate: (step: StepKey) => void; onPrepareReview: () => void; onBack: () => void; onGenerate: () => void }) {
+  const person = (value: any) => value?.fullName || "Not provided";
+  const people = (values: any[]) => Array.isArray(values) && values.length ? values.map(person).join("; ") : "Not provided";
+  const sections = [
+    { heading: "I. Proposed establishment", content: `Proposed name: ${snapshot?.terms?.trustName || "Not provided"}. Type: ${snapshot?.terms?.trustType || "Not provided"}. Governing state: ${snapshot?.state?.governingState || "Not provided"}. Proposed effective date: ${snapshot?.state?.effectiveDate || "Not provided"}.` },
+    { heading: "II. Parties and fiduciaries", content: `Grantor: ${person(snapshot?.parties?.grantor)}. Trustees: ${people(snapshot?.parties?.trustees)}. Successor trustees: ${people(snapshot?.parties?.successorTrustees)}.` },
+    { heading: "III. Beneficial interests", content: Array.isArray(snapshot?.parties?.beneficiaries) && snapshot.parties.beneficiaries.length ? snapshot.parties.beneficiaries.map((b: any) => `${person(b.person)} — proposed share ${b.sharePct ?? "unspecified"}%${b.contingent ? " (contingent)" : ""}`).join("; ") : "Not provided" },
+    { heading: "IV. Purpose and trust terms", content: `Purpose: ${snapshot?.terms?.purposeNotes || "Requires drafting instructions"}. Proposed spendthrift protection: ${snapshot?.terms?.spendthrift ? "Requested" : "Not requested"}.` },
+    { heading: "V. Distributions", content: `Proposed standard: ${snapshot?.distributions?.distributionStandard || "Not provided"}. Schedule: ${snapshot?.distributions?.scheduleNotes || "Not provided"}.` },
+    { heading: "VI. Trustee powers", content: `Real estate: ${snapshot?.powers?.includeRealEstatePowers ? "Requested" : "Not requested"}; investment: ${snapshot?.powers?.includeInvestmentPowers ? "Requested" : "Not requested"}; business: ${snapshot?.powers?.includeBusinessPowers ? "Requested" : "Not requested"}; trust protector: ${snapshot?.powers?.protectorEnabled ? "Requested; appointment requires review" : "Not requested"}.` },
+    { heading: "VII. Property and funding schedule", content: snapshot?.funding?.initialFundingSummary || "Not provided. Funding and title transfer must be independently verified." },
+    { heading: "VIII. Legal review and execution", content: "Drafting instructions only. Attorney to supply or approve operative declaration clauses, succession, accounting, tax, amendment and termination terms, governing-law provisions, execution formalities, and asset-transfer instruments. No legal execution or funding is represented." },
+  ];
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Generate</h2>
+      <h2 className="text-lg font-semibold">Declaration preparation review</h2>
       <p className="text-sm text-muted-foreground">
-        This will validate all steps, lock the draft, and produce a generated output (DOCX/PDF once wired).
+        This structured preview organizes your wizard answers for legal drafting. It is not a trust agreement, a certificate, or an executable instrument. Final PDF release and USB verification are not yet enabled.
       </p>
+      <div className="space-y-4 rounded-lg border bg-white p-5 text-slate-900" aria-label="Drafting instructions preview">
+        <div className="border-b pb-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">Drafting instructions · Pending legal review</p>
+          <h3 className="mt-2 text-xl font-semibold">{snapshot?.terms?.trustName || "Unnamed trust"}</h3>
+          <p className="text-xs">Confidential intake summary — not an executed trust instrument</p>
+        </div>
+        {sections.map((section) => (
+          <section key={section.heading} className="space-y-1">
+            <h4 className="text-sm font-semibold">{section.heading}</h4>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">{section.content}</p>
+          </section>
+        ))}
+      </div>
+      <div className="space-y-2 rounded-lg border p-4">
+        <h3 className="font-semibold">Legal-review intake packet</h3>
+        <p className="text-sm">Validate saved answers and prepare the authenticated drafting-instructions packet.</p>
+        <Button type="button" variant="secondary" disabled={busy} onClick={onPrepareReview}>Prepare review packet</Button>
+        {reviewPacket && <div role="status" className="space-y-3 text-sm">
+          <p className="break-all text-xs">Review packet prepared · SHA-256: {reviewPacket.sha256}. Not submitted for attorney review.</p>
+          <h4 className="font-semibold">Completeness findings ({reviewPacket.reviewFlags.length})</h4>
+          {reviewPacket.reviewFlags.length === 0 ? <p>No automated completeness flags. Legal review is still required.</p> : (
+            <ul className="space-y-2">
+              {reviewPacket.reviewFlags.map((flag) => (
+                <li key={flag.code} className="rounded-md border p-3">
+                  <p className="text-xs font-semibold uppercase">{flag.severity === "attention" ? "Needs attention" : "Information"}</p>
+                  <p className="mt-1">{flag.message}</p>
+                  {REVIEW_FLAG_STEPS[flag.code] && <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => onNavigate(REVIEW_FLAG_STEPS[flag.code])}>Review related step</Button>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>}
+      </div>
+      <p className="text-xs text-amber-700">Document generation is not yet connected. The action below will check availability without locking your saved intake.</p>
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack} disabled={busy}>
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-        <Button disabled={busy} onClick={onGenerate}>
-          Generate Document
-        </Button>
+        <Button disabled={busy} onClick={onGenerate}>Check document generation</Button>
       </div>
     </div>
   );
