@@ -1105,7 +1105,7 @@ export const wizardSessions = mysqlTable("wizard_sessions", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: int("userId").notNull(),
   trustId: varchar("trustId", { length: 36 }),
-  kind: mysqlEnum("kind", ["IRREVOCABLE_TRUST"]).notNull(),
+  kind: mysqlEnum("kind", ["IRREVOCABLE_TRUST", "REVOCABLE_TRUST"]).notNull(),
   status: mysqlEnum("status", ["DRAFT", "REVIEW", "LOCKED", "GENERATED"]).notNull().default("DRAFT"),
   currentStep: varchar("currentStep", { length: 50 }).notNull().default("state"),
   dataJson: text("dataJson").notNull().default("{}"),
