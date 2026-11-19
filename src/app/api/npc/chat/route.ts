@@ -888,6 +888,39 @@ export async function POST(req: Request) {
       ].join("\n")
     : null;
 
+  // Answer each recognizable question independently, even when the user combines
+  // questions in one message. Common spelling variants should not block education.
+  const jarvaQuestionText = message.toLowerCase();
+  const jarvaAskedRevocable = /\brevoc(?:able|eable|ible|ab(?:el|le))\b/.test(jarvaQuestionText) &&
+    /\btrust\b/.test(jarvaQuestionText);
+  const jarvaAskedTrusteeDuties = /\btrustee(?:s|'s)?\b/.test(jarvaQuestionText) &&
+    /\b(?:dut(?:y|ies)|responsib(?:ility|ilities|lities)|obligation|role|do|does)\b/.test(jarvaQuestionText);
+  const jarvaAskedEquitableRelief = /\b(?:equitable|equitible|equitatable|equity)\s+rel(?:ief|eif|eife)\b/.test(jarvaQuestionText);
+  const jarvaSpecificEducationReply = npcId === "trust-advisor" &&
+    (jarvaAskedRevocable || jarvaAskedTrusteeDuties || jarvaAskedEquitableRelief) &&
+    !/\b(?:create|draft|generate|file|submit|issue|purchase|sign|open)\s+(?:my |a |an |the )?(?:trust|document|form|return|workspace|certificate)\b/i.test(message)
+    ? [
+        ...(jarvaAskedRevocable ? [
+          "**What is a revocable trust?**",
+          "A revocable trust is an arrangement whose terms can generally be changed or revoked by the person who created it while they retain the legal power to do so. In the United States, a revocable living trust is often used to manage assets during life and to provide for their administration after death. It does not automatically shield assets from the settlor's creditors or eliminate taxes.",
+          "",
+        ] : []),
+        ...(jarvaAskedTrusteeDuties ? [
+          "**What duties does a trustee have?**",
+          "A trustee generally must administer trust property according to the trust terms and applicable law, act loyally in beneficiaries' interests, avoid improper conflicts of interest, manage assets prudently, keep records, and provide information or accountings when required. The precise duties and beneficiaries' rights depend on the governing jurisdiction and trust instrument.",
+          "",
+        ] : []),
+        ...(jarvaAskedEquitableRelief ? [
+          "**What is equitable relief?**",
+          "Equitable relief is a court remedy directed at conduct or specific property rather than simply awarding money damages. Examples include an injunction, specific performance, and in appropriate circumstances remedies involving trust property. Whether a court can grant a particular remedy depends on the claim, available legal remedies, and applicable law.",
+          "",
+        ] : []),
+        "These are general explanations, not a determination of the law governing a particular trust. If you share a country and state or other jurisdiction, I can help narrow the rules and identify sources.",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : null;
+
   const jarvaFrontDoorReply =
     npcId === "trust-advisor" && jarvaEntryRoute && !laneControlApplied
       ? formatJarvaEntryRouterReply({
@@ -899,7 +932,9 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaForm1041Reply) {
+  if (jarvaSpecificEducationReply) {
+    response = { ...response, text: jarvaSpecificEducationReply, source: "rule", intent: "help" };
+  } else if (jarvaForm1041Reply) {
     response = { ...response, text: jarvaForm1041Reply, source: "rule", intent: "help" };
   } else if (jarvaGeorgiaTrusteeReply) {
     response = { ...response, text: jarvaGeorgiaTrusteeReply, source: "rule", intent: "help" };
@@ -979,13 +1014,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix && !jarvaForm1041Reply && !jarvaGeneralEducationReply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
+  if (jarvaAppendix && !jarvaSpecificEducationReply && !jarvaForm1041Reply && !jarvaGeneralEducationReply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    const jarvaEducationalResponse = Boolean(jarvaForm1041Reply || jarvaGeneralEducationReply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
+    const jarvaEducationalResponse = Boolean(jarvaSpecificEducationReply || jarvaForm1041Reply || jarvaGeneralEducationReply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
     if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
