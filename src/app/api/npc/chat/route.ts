@@ -137,8 +137,8 @@ export async function POST(req: Request) {
   // that can be inferred from revocability or applied globally.
   const jarvaTaxClassificationQuestion =
     npcId === "trust-advisor" &&
-    /\\b(grantor|non[ -]?grantor)\\b/i.test(message) &&
-    !/\\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\\b/i.test(message);
+    /\b(grantor|non[ -]?grantor)\b/i.test(message) &&
+    !/\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\b/i.test(message);
   const jarvaTaxClassificationReply = jarvaTaxClassificationQuestion
     ? [
         "**Grantor and non-grantor trusts — US federal income-tax education**",
