@@ -3091,9 +3091,9 @@ export default function TrustCertificatesConsolePage() {
             <a href="#trust-records-tools" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-cyan-200 hover:bg-slate-800">All existing tools</a>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <a href="/smart-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+            <a href="/trust-records/choose-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
               <strong className="block">Start or continue a trust</strong>
-              <span className="mt-2 block text-sm text-slate-300">Open the existing Smart Trust preparation workspace.</span>
+              <span className="mt-2 block text-sm text-slate-300">Choose a revocable or irrevocable trust. The irrevocable questionnaire is available now; the revocable workflow is in development.</span>
             </a>
             <a href="/trust-records/wizard/irrevocable-trust" className="rounded-xl border border-slate-700 bg-slate-950 p-4 hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
               <strong className="block">Irrevocable trust workflow</strong>
@@ -3107,11 +3107,11 @@ export default function TrustCertificatesConsolePage() {
           <details open className="mt-4 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
             <summary className="cursor-pointer text-sm font-semibold text-cyan-200">Step-by-step preparation guide</summary>
             <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-slate-300">
-              <li>Choose the appropriate trust type and purpose in Smart Trust.</li>
-              <li>Identify the grantor, trustees, successors, and beneficiaries.</li>
-              <li>Organize assets and review the funding plan.</li>
-              <li>Prepare applicable instruments, supporting records, and governance documents.</li>
-              <li>Review documents and follow jurisdiction-specific execution and funding requirements.</li>
+              <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=state">For an irrevocable trust, select the governing state and effective date.</a></li>
+              <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=parties">Identify the grantor, trustees, successors, and beneficiaries.</a></li>
+              <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=funding">Organize assets and review the funding plan.</a></li>
+              <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=terms">Prepare applicable instruments, supporting records, and governance documents.</a></li>
+              <li><a className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" href="/trust-records/wizard/irrevocable-trust?step=review">Review documents and follow jurisdiction-specific execution and funding requirements.</a></li>
             </ol>
           </details>
           <p className="mt-3 text-xs text-slate-400">Preparing records does not by itself establish or fund a legally effective trust.</p>

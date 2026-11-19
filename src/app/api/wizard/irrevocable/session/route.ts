@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Wizard session creation error:", error);
     return NextResponse.json(
-      { ok: false, error: { code: "INTERNAL_ERROR", message: error?.message || "Failed to create session" } },
+      { ok: false, error: { code: "INTERNAL_ERROR", message: "Unable to open your saved trust draft. Please try again or contact support. Your existing records have not been changed." } },
       { status: 500 }
     );
   }
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Wizard session fetch error:", error);
     return NextResponse.json(
-      { ok: false, error: { code: "INTERNAL_ERROR", message: error?.message || "Failed to fetch session" } },
+      { ok: false, error: { code: "INTERNAL_ERROR", message: "Unable to load your trust draft. Please try again or contact support." } },
       { status: 500 }
     );
   }
