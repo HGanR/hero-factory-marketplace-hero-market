@@ -11,6 +11,7 @@ import { isSkipperExecutiveNpcProfile } from "@/lib/agents/executive-admin-syste
 import { resolveUnifiedSkipperRuntimeContext } from "@/lib/agents/skipper-unified-runtime";
 import { buildNpcResponse } from "@/lib/npc/engine";
 import { generateLlmResponse, type ChatContext } from "@/lib/npc/llm-bridge";
+import { getJarvaDaptEvidence } from "@/lib/jarva/jarva-jurisdiction-evidence";
 import {
   addMessage,
   createSession,
@@ -799,11 +800,20 @@ export async function POST(req: Request) {
   const jarvaSessionContext = jarvaPriorJurisdiction
     ? "Prior user-stated jurisdiction (confirm against current message): " + jarvaPriorJurisdiction.slice(0, 300)
     : undefined;
+  const jarvaDaptEvidence = npcId === "trust-advisor"
+    ? getJarvaDaptEvidence(message, jarvaPriorJurisdiction)
+    : null;
+  const jarvaResearchContext = jarvaDaptEvidence
+    ? "Internal DAPT dataset (UNVERIFIED, DAPT-only; not current-law proof): " +
+      jarvaDaptEvidence.jurisdiction + "; " + jarvaDaptEvidence.summary +
+      " Statute identifiers for independent verification: " + jarvaDaptEvidence.authorities.join("; ") +
+      ". Do not describe these as verified current law or general trust rules."
+    : undefined;
   const contextForNpc: ChatContext | undefined =
     npcId === "trust-advisor"
       ? ({
           ...(context ?? {}),
-          jarvaSessionContext,
+          jarvaSessionContext: [jarvaSessionContext, jarvaResearchContext].filter(Boolean).join("\n") || undefined,
           ...getJarvaProceduralContextPatch(proceduralInputForNpc),
           ...(jarvaEntryRoute
             ? {
