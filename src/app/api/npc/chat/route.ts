@@ -133,6 +133,29 @@ export async function POST(req: Request) {
 
   // Educational routing is global: do not impose US trust terminology on other countries.
   // Only the current turn is classified; a selected jurisdiction must not imply a trust type.
+  // Grantor/non-grantor are US federal income-tax classifications, not trust types
+  // that can be inferred from revocability or applied globally.
+  const jarvaTaxClassificationQuestion =
+    npcId === "trust-advisor" &&
+    /\\b(grantor|non[ -]?grantor)\\b/i.test(message) &&
+    !/\\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\\b/i.test(message);
+  const jarvaTaxClassificationReply = jarvaTaxClassificationQuestion
+    ? [
+        "**Grantor and non-grantor trusts — US federal income-tax education**",
+        "",
+        "**Grantor trust:** Under US federal income-tax rules, the grantor or another person is treated as the owner of all or part of the trust because of retained powers or other statutory conditions. That person generally reports the attributable income, deductions and credits. The relevant rules include Internal Revenue Code sections 671–679.",
+        "",
+        "**Non-grantor trust:** The trust is treated as a separate income-tax taxpayer to the extent it is not treated as owned under the grantor-trust rules. A domestic non-grantor trust generally files Form 1041 when required; income retained by the trust and income distributed to beneficiaries can have different tax consequences, including distributable net income and Schedule K-1 reporting.",
+        "",
+        "**What structuring requires:** Identify the governing jurisdiction and whether the trust is domestic or foreign for US tax purposes; the settlor/grantor, trustees, beneficiaries and their tax residencies; the purpose and assets; the trustee's powers and fiduciary duties; any powers to revoke, substitute assets, borrow, control beneficial enjoyment or benefit the grantor/spouse; distribution standards; funding and title transfers; and applicable income, gift, estate, generation-skipping and state tax rules. Have qualified trust and tax counsel draft and review the instrument and obtain any required tax identification and filings.",
+        "",
+        "**Important distinction:** Revocable does not mean the same thing as grantor, and irrevocable does not automatically mean non-grantor. Grantor status can apply to an irrevocable trust, and a trust may be partly grantor and partly non-grantor. Classification depends on the actual terms, powers, facts and applicable law. Foreign trusts can involve additional rules and reporting.",
+        "",
+        "**Which country and, if the US, which state applies?** Are you asking for a comparison or exploring a structure for yourself or a client? You can learn without opening a workspace; saving trust-specific details requires a workspace.",
+        "",
+        "**Educational information only, not tax or legal advice. No trust structure has been selected or created.**",
+      ].join("\\n")
+    : null;
   const jarvaEducationIntent =
     npcId === "trust-advisor" &&
     (/\b(what(?:'s| is) (?:a |an )?trust|trusts?|revocable|irrevocable)\b/i.test(message) &&
@@ -762,7 +785,9 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaLearningReply) {
+  if (jarvaTaxClassificationReply) {
+    response = { ...response, text: jarvaTaxClassificationReply, source: "rule", intent: "help" };
+  } else if (jarvaLearningReply) {
     response = { ...response, text: jarvaLearningReply, source: "rule", intent: "help" };
   } else if (jarvaFrontDoorReply) {
     response = {
@@ -832,13 +857,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix && !jarvaLearningReply) {
+  if (jarvaAppendix && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    if (!jarvaLearningReply) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
+    if (!jarvaLearningReply && !jarvaTaxClassificationReply) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
       jarvaProceduralStep: jarvaProcedural.step,
