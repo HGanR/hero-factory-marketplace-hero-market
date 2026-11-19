@@ -873,13 +873,9 @@ export async function POST(req: Request) {
     !jarvaForm1041Reply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply &&
     !jarvaTaxClassificationReply && !jarvaLearningReply
     ? [
-        "**Trust and fiduciary education**",
+        response.text,
         "",
-        "I can explain this topic without opening a trust-creation workflow. To give a legally accurate answer, I need to distinguish general principles from rules that depend on jurisdiction, the trust instrument, and the applicable tax year.",
-        "",
-        "Please tell me which aspect you would like explained. I can discuss the relevant definitions, trustee and beneficiary responsibilities, or federal-versus-state law distinctions. I will identify primary sources when they are available rather than inventing citations.",
-        "",
-        "**Educational information only; not legal or tax advice.**",
+        "**Educational information only; specific legal requirements depend on jurisdiction and current law.**",
       ].join("\n")
     : null;
 
