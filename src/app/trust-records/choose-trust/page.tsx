@@ -12,8 +12,8 @@ export default function TrustTypeSelectionPage() {
         <section className="rounded-2xl border border-slate-700 bg-slate-900 p-6">
           <h2 className="text-xl font-semibold">Revocable Living Trust</h2>
           <p className="mt-3 text-sm text-slate-300">Generally allows the settlor to amend or revoke the trust while retaining capacity, subject to its terms and applicable law.</p>
-          <p className="mt-4 text-sm text-amber-200">The dedicated revocable trust questionnaire and drafting workflow are being prepared. Do not use the irrevocable questionnaire for a revocable trust.</p>
-          <span className="mt-5 block rounded-lg border border-slate-600 px-4 py-3 text-center text-sm text-slate-300">Revocable trust wizard — coming soon</span>
+          <p className="mt-4 text-sm text-amber-200">The guided questionnaire is available for testing after the database upgrade. Drafting and execution are not yet enabled.</p>
+          <Link href="/trust-records/wizard/revocable-trust" className="mt-5 block rounded-lg border border-slate-600 px-4 py-3 text-center text-sm text-cyan-200 hover:bg-slate-800">Open revocable trust questionnaire (testing)</Link>
         </section>
         <section className="rounded-2xl border border-cyan-500/50 bg-slate-900 p-6">
           <h2 className="text-xl font-semibold">Irrevocable Trust</h2>
