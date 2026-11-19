@@ -56,6 +56,9 @@ export default function IrrevocableTrustWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trustId = searchParams?.get("trustId") || null;
+  const requestedStep = searchParams?.get("step");
+  const validRequestedStep = STEPS.find(step => step.key === requestedStep)?.key;
+
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<StepKey>("state");
@@ -74,12 +77,12 @@ export default function IrrevocableTrustWizard() {
         setSessionId(created.sessionId);
         const sessionData = created.session.dataJson ? JSON.parse(created.session.dataJson) : {};
         setData(sessionData);
-        setCurrentStep((created.session.currentStep as StepKey) ?? "state");
+        setCurrentStep(validRequestedStep ?? ((created.session.currentStep as StepKey) || "state"));
       } catch (e: any) {
         setErr(e.message);
       }
     })();
-  }, [trustId]);
+  }, [trustId, validRequestedStep]);
 
   async function saveStep(stepKey: StepKey, stepData: any, next?: StepKey) {
     if (!sessionId) return;
