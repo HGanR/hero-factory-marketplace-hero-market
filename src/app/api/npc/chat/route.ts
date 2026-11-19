@@ -131,6 +131,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing message" }, { status: 400 });
   }
 
+  // Educational questions must not be forced through the workspace-creation gate.
+  // Classify the CURRENT message, not accumulated history (which may contain a chosen lane).
+  const jarvaLearningQuestion =
+    npcId === "trust-advisor" &&
+    /\\b(trust|trusts|revocable|irrevocable)\\b/i.test(message) &&
+    (/\\b(difference|compare|versus|vs\\.?|explain|learn|learning|understand|options)\\b/i.test(message) ||
+      /before (asking|creating|opening)/i.test(message)) &&
+    !/\\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\\b/i.test(message);
+  const jarvaLearningReply = jarvaLearningQuestion
+    ? [
+        "**Understanding your trust options**",
+        "",
+        "**Revocable living trust:** Generally, the person creating it can amend or revoke it during life. It can support incapacity planning and may avoid probate for assets properly transferred into the trust, but ordinarily does not shield the creator's assets from their creditors.",
+        "",
+        "**Irrevocable trust:** Generally, the creator gives up some ability to change or revoke the arrangement. Depending on its terms, funding, and applicable law, it may serve specialized estate-tax, beneficiary-protection, or asset-planning goals. It does not automatically provide tax savings or creditor protection.",
+        "",
+        "**How to decide what to learn about:** Start with your goals: flexibility and incapacity/probate planning, or longer-term restrictions and specialized planning. State law, beneficiaries, assets, tax consequences, and the trustee's duties all matter. A qualified estate-planning attorney should review any actual choice.",
+        "",
+        "You can keep asking educational questions **without creating a workspace**. When you are ready to save a draft, I can help you create or open one. Are you learning for yourself or helping a client?",
+        "",
+        "**Educational information only — not legal advice. No trust type has been selected and no documents have been executed.**",
+      ].join("\\n")
+    : null;
   const laneControl = npcId === "trust-advisor" ? parseJarvaLaneControlMessage(message) : null;
 
   const userId = await getAuthedUserId();
@@ -729,7 +752,9 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaFrontDoorReply) {
+  if (jarvaLearningReply) {
+    response = { ...response, text: jarvaLearningReply, source: "rule", intent: "help" };
+  } else if (jarvaFrontDoorReply) {
     response = {
       ...response,
       text: jarvaFrontDoorReply,
@@ -797,13 +822,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix) {
+  if (jarvaAppendix && !jarvaLearningReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
+    if (!jarvaLearningReply) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
       jarvaProceduralStep: jarvaProcedural.step,
