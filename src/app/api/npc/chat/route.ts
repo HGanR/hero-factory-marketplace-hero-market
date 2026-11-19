@@ -887,10 +887,11 @@ export async function POST(req: Request) {
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    if (!jarvaLearningReply && !jarvaTaxClassificationReply) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
+    const jarvaEducationalResponse = Boolean(jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);\n    if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
-      jarvaProceduralStep: jarvaProcedural.step,
+      ...(jarvaEducationalResponse ? { jarvaConversationMode: "education", jarvaNextUiActionBundle: null } : {}),
+      jarvaProceduralStep: jarvaEducationalResponse ? null : jarvaProcedural.step,
       jarvaProceduralTitle: jarvaProcedural.title,
       jarvaProceduralIndex: jarvaProcedural.stepIndex,
       jarvaProceduralTotalSteps: jarvaProcedural.totalSteps,
@@ -904,7 +905,7 @@ export async function POST(req: Request) {
         : {}),
       jarvaWorkflowPath: jarvaWorkflowPath ?? null,
       jarvaWorkflowPathSource: jarvaWorkflowPathSource ?? null,
-      jarvaNextUiActionBundle: buildJarvaNextUiActionBundleFromJarvaState({
+      jarvaNextUiActionBundle: jarvaEducationalResponse ? null : buildJarvaNextUiActionBundleFromJarvaState({
         lane: jarvaWorkflowPath ?? null,
         proceduralStep: jarvaProcedural.step,
         proceduralTitle: jarvaProcedural.title,
