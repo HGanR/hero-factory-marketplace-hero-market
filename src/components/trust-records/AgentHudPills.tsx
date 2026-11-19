@@ -10,12 +10,12 @@ const AGENTS = [
     id: "jarva" as const,
     npcId: "trust-advisor",
     name: "Jarva",
-    title: "Trust Structuring Aid",
+    title: "Trust Learning Guide",
     avatarPlaceholder: "📋",
-    panelTitle: "Jarva · Your Trust Structuring Aid",
+    panelTitle: "Jarva · Your Trust Learning Guide",
     inputPlaceholder: "Ask Jarva...",
     initialGreeting:
-      "I'm Jarva. I aid you, the consultant, in trust structuring—prompting you to ask clients the right questions and guiding you through the platform. What would you like to work on today?",
+      "I'm Jarva, your guide to understanding trusts. I can explain revocable and irrevocable trusts, help you explore how state laws and privacy considerations differ, and walk you through each step of your trust workspace in plain language. Are you creating a trust for yourself or helping a client? My explanations are educational, not legal advice; a qualified attorney should review legal decisions and documents.",
   },
   {
     id: "eleanor" as const,
