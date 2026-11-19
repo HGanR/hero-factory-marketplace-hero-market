@@ -794,7 +794,7 @@ export async function POST(req: Request) {
 
   // Only recent user turns are used to recover jurisdiction; no new persistence or trust intake.
   const jarvaPriorJurisdiction = npcId === "trust-advisor"
-    ? [...userMessagesForEntry].reverse().map((m) => m.content).find((t) => /\\b(georgia|netherlands|england|scotland|wales|united kingdom|united states|usa)\\b/i.test(t))
+    ? [...userMessagesForEntry].reverse().map((m) => m.content).find((t) => /\b(georgia|netherlands|england|scotland|wales|united kingdom|united states|usa)\b/i.test(t))
     : undefined;
   const jarvaSessionContext = jarvaPriorJurisdiction
     ? "Prior user-stated jurisdiction (confirm against current message): " + jarvaPriorJurisdiction.slice(0, 300)
