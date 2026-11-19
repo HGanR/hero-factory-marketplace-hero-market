@@ -862,6 +862,27 @@ export async function POST(req: Request) {
       ].join("\n")
     : null;
 
+  // Treat ordinary legal education questions as education, not a trust-building command.
+  // This guard is deliberately limited to questions, and preserves explicit build actions.
+  const jarvaGeneralEducationQuestion =
+    npcId === "trust-advisor" &&
+    /\b(?:what|why|how|when|who|which|define|meaning|explain|difference|compare|understand|learn)\b/i.test(message) &&
+    /\b(?:trust|trustee|beneficiar|fiduciar|equity|probate|estate|tax|irs|1041|k-1|grantor|revocab|irrevocab|ecclesiastical|charitable)\b/i.test(message) &&
+    !/\b(?:create|draft|generate|file|submit|issue|purchase|sign|open)\s+(?:my |a |an |the )?(?:trust|document|form|return|workspace|certificate)\b/i.test(message);
+  const jarvaGeneralEducationReply = jarvaGeneralEducationQuestion &&
+    !jarvaForm1041Reply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply &&
+    !jarvaTaxClassificationReply && !jarvaLearningReply
+    ? [
+        "**Trust and fiduciary education**",
+        "",
+        "I can explain this topic without opening a trust-creation workflow. To give a legally accurate answer, I need to distinguish general principles from rules that depend on jurisdiction, the trust instrument, and the applicable tax year.",
+        "",
+        "Please tell me which aspect you would like explained. I can discuss the relevant definitions, trustee and beneficiary responsibilities, or federal-versus-state law distinctions. I will identify primary sources when they are available rather than inventing citations.",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : null;
+
   const jarvaFrontDoorReply =
     npcId === "trust-advisor" && jarvaEntryRoute && !laneControlApplied
       ? formatJarvaEntryRouterReply({
@@ -883,6 +904,8 @@ export async function POST(req: Request) {
     response = { ...response, text: jarvaTaxClassificationReply, source: "rule", intent: "help" };
   } else if (jarvaLearningReply) {
     response = { ...response, text: jarvaLearningReply, source: "rule", intent: "help" };
+  } else if (jarvaGeneralEducationReply) {
+    response = { ...response, text: jarvaGeneralEducationReply, source: "rule", intent: "help" };
   } else if (jarvaFrontDoorReply) {
     response = {
       ...response,
@@ -951,13 +974,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix && !jarvaForm1041Reply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
+  if (jarvaAppendix && !jarvaForm1041Reply && !jarvaGeneralEducationReply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    const jarvaEducationalResponse = Boolean(jarvaForm1041Reply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
+    const jarvaEducationalResponse = Boolean(jarvaForm1041Reply || jarvaGeneralEducationReply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
     if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
