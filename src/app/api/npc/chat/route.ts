@@ -837,13 +837,22 @@ export async function POST(req: Request) {
     npcId === "trust-advisor" &&
     /\b(?:form\s*1041|1041\s*(?:form|tax form)|what is (?:a |the )?1041)\b/i.test(message) &&
     !/\b(?:create|file|submit|prepare|generate)\s+(?:my |a |the )?(?:form|return|trust|workspace)\b/i.test(message);
-  const jarvaForm1041Source = jarvaForm1041Question
-    ? knowledge.find((entry) =>
-        /i1041\.pdf\s+[—–-]\s+page\s+\d+/i.test(entry.topic) &&
-        /\b1041\b/i.test(entry.content) &&
+  // Score actual extracted PDF text; do not cite a page based only on its filename.
+  const jarvaForm1041Sources = jarvaForm1041Question
+    ? knowledge.filter((entry) =>
+        /^i1041\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic) &&
         /\b(?:income tax return|estates and trusts)\b/i.test(entry.content)
-      )
-    : undefined;
+      ).map((entry) => ({
+        entry,
+        score: [
+          /\bform\s+1041\b/i,
+          /\b(?:income tax return|estates and trusts)\b/i,
+          /\b(?:fiduciary|beneficiar|schedule k-1)\b/i,
+        ].filter((pattern) => pattern.test(entry.content)).length,
+      })).sort((a, b) => b.score - a.score)
+    : [];
+  const jarvaForm1041Source = jarvaForm1041Sources[0]?.score >= 2
+    ? jarvaForm1041Sources[0].entry : undefined;
   const jarvaForm1041Reply = jarvaForm1041Question
     ? [
         "**IRS Form 1041 — U.S. Income Tax Return for Estates and Trusts**",
