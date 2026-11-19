@@ -949,6 +949,50 @@ export async function POST(req: Request) {
       "\nCheck the complete PDF passage and applicable filing year before relying on it."
     : "";
 
+  // Explicit uploaded-document questions must not be answered by a generic
+  // jurisdiction router or by an unrelated US tax reference.
+  const jarvaAsksUploadedSources = npcId === "trust-advisor" &&
+    /\b(?:uploaded|my documents|my pdfs?|reference documents?|according to (?:my|the) (?:documents?|pdf|irs))\b/i.test(message);
+  const jarvaAsksDutchFiling = jarvaAsksUploadedSources &&
+    /\b(?:netherlands|dutch)\b/i.test(message) &&
+    /\b(?:filing|file|tax|reporting|requirements?)\b/i.test(message);
+  const jarvaAsksScheduleK1 = jarvaAsksUploadedSources &&
+    /\b(?:schedule\s*k[\s-]*1|k[\s-]*1)\b/i.test(message);
+  const jarvaK1Passage = jarvaAsksScheduleK1
+    ? knowledge.filter((entry) =>
+        /\.pdf\s+[—–-]\s+page\s+\d+$/i.test(entry.topic) &&
+        /\b(?:schedule\s*k[\s-]*1|k[\s-]*1)\b/i.test(entry.content) &&
+        /\b(?:beneficiar|share|income|deduction|credit)\b/i.test(entry.content)
+      ).map((entry) => {
+        const body = entry.content.split(/\n\n/).slice(1).join("\n\n").trim();
+        const hit = body.search(/\b(?:schedule\s*k[\s-]*1|k[\s-]*1)\b/i);
+        return { topic: entry.topic, excerpt: hit >= 0 ? body.slice(Math.max(0, hit - 100), hit + 260).replace(/\s+/g, " ").trim() : "" };
+      }).find((item) => item.excerpt.length > 30)
+    : undefined;
+  const jarvaDocumentQuestionReply = jarvaAsksDutchFiling
+    ? [
+        "**Netherlands trust filing requirements — uploaded-document check**",
+        "",
+        "The available uploaded references have not been established as authoritative guidance on Dutch trust filing obligations. I cannot determine Netherlands filing requirements from these documents alone.",
+        "",
+        "Dutch filing obligations may depend on the arrangement, the parties, and the applicable reporting regime. To give a document-grounded answer, please upload the relevant Dutch authority guidance or identify the precise filing regime. I will not treat US IRS Form 1041 instructions as Dutch law.",
+        "",
+        "**Educational information only; not legal or tax advice.**",
+      ].join("\n")
+    : jarvaAsksScheduleK1
+      ? [
+          "**What is Schedule K-1 (Form 1041) used for?**",
+          "",
+          "Schedule K-1 (Form 1041) reports a beneficiary's share of certain income, deductions, credits, and other tax items from an estate or trust so the beneficiary can use the information when preparing their own tax return.",
+          "",
+          jarvaK1Passage
+            ? "**Uploaded PDF passage — " + jarvaK1Passage.topic + ":** “" + jarvaK1Passage.excerpt + "”\nThis is an extracted passage, not independent verification of current-year requirements."
+            : "**Source status:** No supporting Schedule K-1 passage could be confirmed from the currently retrieved uploaded PDF text. This explanation is general tax information, not a verified quotation from your documents.",
+          "",
+          "**Educational tax information only; not individualized tax advice.**",
+        ].join("\n")
+      : null;
+
   const jarvaFrontDoorReply =
     npcId === "trust-advisor" && jarvaEntryRoute && !laneControlApplied
       ? formatJarvaEntryRouterReply({
@@ -960,7 +1004,9 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaSpecificEducationReply) {
+  if (jarvaDocumentQuestionReply) {
+    response = { ...response, text: jarvaDocumentQuestionReply, source: "rule", intent: "help" };
+  } else if (jarvaSpecificEducationReply) {
     response = { ...response, text: jarvaSpecificEducationReply, source: "rule", intent: "help" };
   } else if (jarvaForm1041Reply) {
     response = { ...response, text: jarvaForm1041Reply, source: "rule", intent: "help" };
@@ -1046,13 +1092,13 @@ export async function POST(req: Request) {
   });
 
   let responseText = response.text;
-  if (jarvaAppendix && !jarvaSpecificEducationReply && !jarvaForm1041Reply && !jarvaGeneralEducationReply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
+  if (jarvaAppendix && !jarvaDocumentQuestionReply && !jarvaSpecificEducationReply && !jarvaForm1041Reply && !jarvaGeneralEducationReply && !jarvaGeorgiaTrusteeReply && !jarvaGeorgiaReply && !jarvaLearningReply && !jarvaTaxClassificationReply) {
     responseText += jarvaAppendix;
   }
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    const jarvaEducationalResponse = Boolean(jarvaSpecificEducationReply || jarvaForm1041Reply || jarvaGeneralEducationReply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
+    const jarvaEducationalResponse = Boolean(jarvaDocumentQuestionReply || jarvaSpecificEducationReply || jarvaForm1041Reply || jarvaGeneralEducationReply || jarvaGeorgiaTrusteeReply || jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
     if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
