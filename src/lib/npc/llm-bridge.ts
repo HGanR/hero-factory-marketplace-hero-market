@@ -18,6 +18,7 @@ import type { JarvaProceduralStep } from "@/lib/jarva/jarva-procedural-engine";
 import type { JarvaWorkflowPath, JarvaWorkflowPathSource } from "@/lib/jarva/jarva-workflow-path";
 
 type ChatContext = {
+  jarvaSessionContext?: string;
   source?: "trust-records" | "smart-trust" | "ecclesiastical" | "oasis-world" | "unknown";
   trustId?: string;
   workspaceId?: string;
@@ -190,6 +191,10 @@ function buildSystemPrompt(
       voice_agent: `You are ${profile.name}, a professional phone receptionist and AI voice agent. You answer calls for the consultant, schedule appointments, take messages, and provide helpful information. Be concise and friendly over the phone.`,
     };
     personaSection = roleDescriptions[profile.role] ?? roleDescriptions.secretary;
+  }
+
+  if (profile.id === "trust-advisor" && context?.jarvaSessionContext) {
+    personaSection += `\n\nConversation continuity: ${context.jarvaSessionContext}\nDo not ask the user to repeat this jurisdiction unless their latest message changes it.`;
   }
 
   const personality = profile.personality;
