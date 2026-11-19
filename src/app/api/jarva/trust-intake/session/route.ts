@@ -10,6 +10,9 @@ import { buildFieldExplainabilityMap, buildFieldSourceMap } from "@/lib/jarva/ja
 import { buildJarvaApplyReadiness, evaluateJarvaIntakeReadiness, evaluateJarvaReadinessFull } from "@/lib/jarva/jarva-readiness";
 import { JARVA_INTAKE_DRAFT_TYPE, saveJarvaIntakeDraft } from "@/lib/jarva/persist-jarva-intake-draft";
 
+// Trust intake contains sensitive member and client information; never cache responses.
+const PRIVATE_RESPONSE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
+
 const PostBody = z.object({
   trustId: z.string().min(10).max(64),
   intake: z.unknown(),
@@ -29,13 +32,13 @@ async function loadTrustForUser(trustId: string, userId: number) {
 /** GET ?trustId= — latest saved Jarva intake draft (+ lineage) */
 export async function GET(req: NextRequest) {
   const userId = await getAuthedUserId();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE_RESPONSE_HEADERS });
 
   const trustId = (req.nextUrl.searchParams.get("trustId") || "").trim();
-  if (trustId.length < 10) return NextResponse.json({ error: "trustId required" }, { status: 400 });
+  if (trustId.length < 10) return NextResponse.json({ error: "trustId required" }, { status: 400, headers: PRIVATE_RESPONSE_HEADERS });
 
   const { db, row } = await loadTrustForUser(trustId, userId);
-  if (!row) return NextResponse.json({ error: "Trust not found" }, { status: 404 });
+  if (!row) return NextResponse.json({ error: "Trust not found" }, { status: 404, headers: PRIVATE_RESPONSE_HEADERS });
 
   const rows = await db
     .select()
@@ -56,7 +59,7 @@ export async function GET(req: NextRequest) {
       jarvaMode: "assist",
       fieldSources: {},
       fieldExplainability: {},
-    });
+    }, { headers: PRIVATE_RESPONSE_HEADERS });
   }
 
   let payload: any = null;
@@ -97,19 +100,19 @@ export async function GET(req: NextRequest) {
     jarvaMode: (payload?.jarvaMode as "assist" | "build" | "review" | undefined) ?? "assist",
     fieldSources,
     fieldExplainability,
-  });
+  }, { headers: PRIVATE_RESPONSE_HEADERS });
 }
 
-/** POST — save Jarva intake snapshot (consultant work-in-progress) */
+/** POST — save Jarva intake snapshot (member or consultant work-in-progress) */
 export async function POST(req: NextRequest) {
   const userId = await getAuthedUserId();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE_RESPONSE_HEADERS });
 
   let body: z.infer<typeof PostBody>;
   try {
     body = PostBody.parse(await req.json());
   } catch {
-    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid body" }, { status: 400, headers: PRIVATE_RESPONSE_HEADERS });
   }
 
   const parsed = parseJarvaTrustIntake({
@@ -118,10 +121,10 @@ export async function POST(req: NextRequest) {
     collectedByUserId: userId,
     collectedAt: new Date().toISOString(),
   });
-  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400, headers: PRIVATE_RESPONSE_HEADERS });
 
   const { db, row } = await loadTrustForUser(body.trustId, userId);
-  if (!row) return NextResponse.json({ error: "Trust not found" }, { status: 404 });
+  if (!row) return NextResponse.json({ error: "Trust not found" }, { status: 404, headers: PRIVATE_RESPONSE_HEADERS });
 
   try {
     const result = await saveJarvaIntakeDraft({
@@ -139,10 +142,10 @@ export async function POST(req: NextRequest) {
       version: result.nextVersion,
       intake: JarvaTrustIntakeSchema.parse(parsed.data),
       jarvaMode: result.jarvaMode ?? "assist",
-    });
+    }, { headers: PRIVATE_RESPONSE_HEADERS });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Save failed";
-    if (msg === "Intake payload too large") return NextResponse.json({ error: msg }, { status: 413 });
-    return NextResponse.json({ error: msg }, { status: 500 });
+    if (msg === "Intake payload too large") return NextResponse.json({ error: msg }, { status: 413, headers: PRIVATE_RESPONSE_HEADERS });
+    return NextResponse.json({ error: msg }, { status: 500, headers: PRIVATE_RESPONSE_HEADERS });
   }
 }
