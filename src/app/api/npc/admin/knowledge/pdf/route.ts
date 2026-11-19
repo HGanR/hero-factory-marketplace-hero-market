@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import { requireNpcAdminSession } from "@/lib/admin/require-npc-admin";
-import { addKnowledge, getNpcRowByNpcId } from "@/lib/npc/db";
+import { addKnowledge, getKnowledgeForNpc, getNpcRowByNpcId } from "@/lib/npc/db";
 
 /** Admin-only PDF ingestion for existing NPC identity, not a cloned AI Agent. */
 export async function POST(req: NextRequest) {
@@ -18,6 +19,30 @@ export async function POST(req: NextRequest) {
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") return NextResponse.json({ error: "Invalid PDF signature." }, { status: 400 });
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    const existing = await getKnowledgeForNpc(row.id);
+    const alreadyIndexed = existing.some((entry) =>
+      entry.content.includes("Document SHA-256: " + digest)
+    );
+    if (alreadyIndexed) {
+      return NextResponse.json({
+        success: true, duplicate: true, fileName: file.name,
+        message: "This exact PDF is already indexed. No new entries were added.",
+        chunks: 0, pages: 0,
+      });
+    }
+    // Legacy PDF uploads predate content hashes. Avoid accidental duplicate
+    // imports by filename; admins can rename an intentionally revised document.
+    const legacySameName = existing.some((entry) =>
+      entry.topic.toLowerCase().startsWith(file.name.toLowerCase() + " — page ") &&
+      !entry.content.includes("Document SHA-256:")
+    );
+    if (legacySameName) {
+      return NextResponse.json({
+        error: "A PDF with this filename was previously indexed without a content fingerprint. No entries were changed. Rename a revised document before importing it.",
+        duplicate: true,
+      }, { status: 409 });
+    }
     const pdf = await getDocumentProxy(bytes);
     const extracted = await extractText(pdf, { mergePages: false });
     const pages = Array.isArray(extracted.text) ? extracted.text : [String(extracted.text ?? "")];
@@ -29,7 +54,7 @@ export async function POST(req: NextRequest) {
         chunks.push({
           topic: file.name + " — page " + (index + 1),
           keywords: ["Jarva", "legal reference", file.name],
-          content: "Source document: " + file.name + "\nPage: " + (index + 1) + "\nVerification: unverified uploaded reference; confirm current law independently.\n\n" + clean.slice(start, start + 3500),
+          content: "Source document: " + file.name + "\nDocument SHA-256: " + digest + "\nPage: " + (index + 1) + "\nVerification: unverified uploaded reference; confirm current law independently.\n\n" + clean.slice(start, start + 3500),
           priority: 5,
           category: "general",
         });
