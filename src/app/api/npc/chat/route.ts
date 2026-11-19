@@ -807,7 +807,9 @@ export async function POST(req: Request) {
         })
       : null;
 
-  if (jarvaGeorgiaReply) {\n    response = { ...response, text: jarvaGeorgiaReply, source: "rule", intent: "help" };\n  } else if (jarvaTaxClassificationReply) {
+  if (jarvaGeorgiaReply) {
+    response = { ...response, text: jarvaGeorgiaReply, source: "rule", intent: "help" };
+  } else if (jarvaTaxClassificationReply) {
     response = { ...response, text: jarvaTaxClassificationReply, source: "rule", intent: "help" };
   } else if (jarvaLearningReply) {
     response = { ...response, text: jarvaLearningReply, source: "rule", intent: "help" };
