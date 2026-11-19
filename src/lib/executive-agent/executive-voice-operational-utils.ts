@@ -22,3 +22,8 @@ export function formatVoiceTimestamp(iso: string): string {
     minute: "2-digit",
   });
 }
+
+/** Read a contact number digit by digit for clear voice playback. */
+export function formatPhoneForVoice(phone: string): string {
+  return phone.replace(/\d/g, (digit) => `${digit} `).replace(/\s+/g, " ").trim();
+}
