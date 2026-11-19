@@ -71,6 +71,7 @@ function NPCKnowledgePageInner() {
   const [npcList, setNpcList] = useState<NPCInfo[]>([]);
   const [npcProfile, setNpcProfile] = useState<NPCInfo | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [jarvaPdfUploading, setJarvaPdfUploading] = useState(false);
   const [entries, setEntries] = useState<KnowledgeFormEntry[]>([{ ...EMPTY_ENTRY }]);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -157,6 +158,22 @@ function NPCKnowledgePageInner() {
     setEntries((prev) => prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry)));
   };
 
+  const uploadJarvaPdf = async (file: File) => {
+    if (selectedNPCId !== "trust-advisor") return;
+    setJarvaPdfUploading(true);
+    try {
+      const form = new FormData();
+      form.append("npcId", "trust-advisor");
+      form.append("file", file);
+      const res = await fetch("/api/npc/admin/knowledge/pdf", { method: "POST", credentials: "include", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data.error || "PDF upload failed"); return; }
+      toast.success(`Jarva indexed ${data.chunks} knowledge chunks from ${data.pages} pages.`);
+      await loadProfile("trust-advisor");
+    } catch { toast.error("PDF upload failed"); }
+    finally { setJarvaPdfUploading(false); }
+  };
+
   const handleSubmitKnowledge = async () => {
     const validEntries = entries.filter((e) => e.topic.trim() && e.content.trim());
     if (validEntries.length === 0) {
@@ -212,6 +229,13 @@ function NPCKnowledgePageInner() {
               <p className="text-sm text-gray-400">Add and manage what your NPCs know</p>
             </div>
           </div>
+          {selectedNPCId === "trust-advisor" && (
+            <label className="cursor-pointer rounded-md border border-cyan-500/50 px-3 py-2 text-sm text-cyan-200">
+              {jarvaPdfUploading ? "Processing PDF..." : "Upload Jarva PDF"}
+              <input type="file" accept="application/pdf,.pdf" className="hidden" disabled={jarvaPdfUploading}
+                onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadJarvaPdf(file); }} />
+            </label>
+          )}
           {selectedNPCId && (
             <Button className="bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
