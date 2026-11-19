@@ -594,8 +594,48 @@ function ReviewStep({ snapshot, defaultValue, busy, onBack, onNext }: { snapshot
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Review & Acknowledgements</h2>
-      <div className="border rounded-md p-3 text-xs overflow-auto max-h-64 bg-neutral-50">
-        <pre>{JSON.stringify(snapshot, null, 2)}</pre>
+      <p className="text-sm text-muted-foreground">Review the information you entered before preparing a draft for professional legal review. This is not an executed trust.</p>
+      <div className="space-y-4 rounded-lg border p-4" aria-label="Trust intake summary">
+        {([
+          { title: "Trust details", items: [
+            ["Trust name", snapshot?.terms?.trustName],
+            ["Trust type", snapshot?.terms?.trustType],
+            ["Governing state", snapshot?.state?.governingState],
+            ["Proposed effective date", snapshot?.state?.effectiveDate],
+            ["County", snapshot?.state?.county],
+            ["Purpose", snapshot?.terms?.purposeNotes],
+          ] },
+          { title: "People involved", items: [
+            ["Grantor", snapshot?.parties?.grantor?.fullName],
+            ["Trustees", snapshot?.parties?.trustees?.map((p: PartyPerson) => p.fullName).join(", ")],
+            ["Successor trustees", snapshot?.parties?.successorTrustees?.map((p: PartyPerson) => p.fullName).join(", ")],
+            ["Beneficiaries", snapshot?.parties?.beneficiaries?.map((b: StepPartiesData["beneficiaries"][number]) => b.person.fullName + " (" + b.sharePct + "%" + (b.contingent ? ", contingent" : "") + ")").join(", ")],
+          ] },
+          { title: "Distributions and powers", items: [
+            ["Distribution standard", snapshot?.distributions?.distributionStandard],
+            ["Distribution schedule", snapshot?.distributions?.scheduleNotes],
+            ["Real estate powers", snapshot?.powers?.includeRealEstatePowers ? "Requested" : "Not requested"],
+            ["Investment powers", snapshot?.powers?.includeInvestmentPowers ? "Requested" : "Not requested"],
+            ["Business powers", snapshot?.powers?.includeBusinessPowers ? "Requested" : "Not requested"],
+            ["Trust protector", snapshot?.powers?.protectorEnabled ? "Requested" : "Not requested"],
+          ] },
+          { title: "Funding plan", items: [
+            ["Initial assets and funding", snapshot?.funding?.initialFundingSummary],
+            ["Transfer acknowledgement", snapshot?.funding?.transferPlanAcknowledgement ? "Acknowledged" : "Not acknowledged"],
+          ] },
+        ] as { title: string; items: [string, string | undefined][] }[]).map(section => (
+          <section key={section.title} className="space-y-2">
+            <h3 className="font-semibold">{section.title}</h3>
+            <dl className="grid gap-2 sm:grid-cols-2">
+              {section.items.map(([label, value]) => (
+                <div key={label} className="rounded-md border p-3">
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="mt-1 break-words text-sm">{value || "Not provided"}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
       </div>
       <div className="space-y-2">
         <div className="flex items-start gap-2">
