@@ -887,7 +887,8 @@ export async function POST(req: Request) {
 
   if (npcId === "trust-advisor") {
     const jarvaProcedural = evaluateJarvaProceduralStep(proceduralInputForNpc);
-    const jarvaEducationalResponse = Boolean(jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);\n    if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
+    const jarvaEducationalResponse = Boolean(jarvaGeorgiaReply || jarvaLearningReply || jarvaTaxClassificationReply);
+    if (!jarvaEducationalResponse) responseText = `${formatProceduralJarvaBanner(jarvaProcedural)}\n\n${responseText}`;
     jarvaPayload = {
       ...jarvaPayload,
       ...(jarvaEducationalResponse ? { jarvaConversationMode: "education", jarvaNextUiActionBundle: null } : {}),
