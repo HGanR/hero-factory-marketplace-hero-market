@@ -22,14 +22,14 @@ export async function POST(req: NextRequest) {
     const extracted = await extractText(pdf, { mergePages: false });
     const pages = Array.isArray(extracted.text) ? extracted.text : [String(extracted.text ?? "")];
     const entries = pages.flatMap((page, index) => {
-      const clean = String(page).replace(/\\u0000/g, "").trim();
+      const clean = String(page).replace(/\u0000/g, "").trim();
       if (!clean) return [];
       const chunks: { topic: string; keywords: string[]; content: string; priority: number; category: "general" }[] = [];
       for (let start = 0; start < clean.length; start += 3500) {
         chunks.push({
           topic: file.name + " — page " + (index + 1),
           keywords: ["Jarva", "legal reference", file.name],
-          content: "Source document: " + file.name + "\\nPage: " + (index + 1) + "\\nVerification: unverified uploaded reference; confirm current law independently.\\n\\n" + clean.slice(start, start + 3500),
+          content: "Source document: " + file.name + "\nPage: " + (index + 1) + "\nVerification: unverified uploaded reference; confirm current law independently.\n\n" + clean.slice(start, start + 3500),
           priority: 5,
           category: "general",
         });
