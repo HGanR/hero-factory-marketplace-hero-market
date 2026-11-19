@@ -135,14 +135,14 @@ export async function POST(req: Request) {
   // Only the current turn is classified; a selected jurisdiction must not imply a trust type.
   const jarvaEducationIntent =
     npcId === "trust-advisor" &&
-    (/\\b(what(?:'s| is) (?:a |an )?trust|trusts?|revocable|irrevocable)\\b/i.test(message) &&
-      /\\b(what|difference|compare|versus|vs\\.?|explain|learn|learning|understand|options|how|why)\\b/i.test(message) ||
-      /\\b(jurisdiction|netherlands|dutch|united kingdom|england|wales|scotland|northern ireland|united states|usa|america)\\b/i.test(message)) &&
-    !/\\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\\b/i.test(message);
+    (/\b(what(?:'s| is) (?:a |an )?trust|trusts?|revocable|irrevocable)\b/i.test(message) &&
+      /\b(what|difference|compare|versus|vs\.?|explain|learn|learning|understand|options|how|why)\b/i.test(message) ||
+      /\b(jurisdiction|netherlands|dutch|united kingdom|england|wales|scotland|northern ireland|united states|usa|america)\b/i.test(message)) &&
+    !/\b(create (a |my |the )?workspace|save (my |the )?draft|open (my |the )?workspace)\b/i.test(message);
   const jarvaCountry =
-    /\\b(netherlands|dutch)\\b/i.test(message) ? "Netherlands" :
-    /\\b(uk|united kingdom|england|wales|scotland|northern ireland)\\b/i.test(message) ? "United Kingdom" :
-    /\\b(united states|usa|u\\.s\\.a\\.|america)\\b/i.test(message) ? "United States" : null;
+    /\b(netherlands|dutch)\b/i.test(message) ? "Netherlands" :
+    /\b(uk|united kingdom|england|wales|scotland|northern ireland)\b/i.test(message) ? "United Kingdom" :
+    /\b(united states|usa|u\.s\.a\.|america)\b/i.test(message) ? "United States" : null;
   const jarvaLearningReply = jarvaEducationIntent
     ? [
         "**Understanding trusts across jurisdictions**",
