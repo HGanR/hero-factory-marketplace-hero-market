@@ -1,0 +1,75 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Fingerprint, ShieldCheck, Lock, FileCheck, Database, Landmark } from "lucide-react";
+import styles from "./sovereignty.module.css";
+
+export const metadata: Metadata = {
+  title: "Digital Sovereignty | TROOTHHURTZ",
+  description: "Explore digital identity, privacy rights and digital asset governance. Schedule a consultation.",
+};
+
+const services = [
+  { icon: Fingerprint, title: "Digital Identity", description: "Explore verifiable credentials and authorized identity relationships." },
+  { icon: ShieldCheck, title: "Personal Data Rights", description: "Understand applicable privacy rights and organize requests to data processors." },
+  { icon: Lock, title: "Digital Evidence", description: "Plan confidential record retention and cryptographic integrity verification." },
+  { icon: FileCheck, title: "Intellectual Property", description: "Document creative assets, permissions and licensing arrangements." },
+  { icon: Database, title: "Consent Management", description: "Organize consent records, retention policies and privacy requests." },
+  { icon: Landmark, title: "Digital Legacy", description: "Explore digital asset administration, trust governance and succession planning." },
+];
+
+const cta = "inline-flex items-center justify-center rounded-full border border-cyan-400 bg-cyan-400 px-6 py-3 font-semibold text-slate-950 shadow-[0_0_24px_rgba(0,209,255,.35)] transition hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300";
+
+export default function DigitalSovereigntyPage() {
+  return (
+    <main className="min-h-screen bg-slate-900 text-slate-100">
+      <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-6">
+        <Link href="/" className="font-bold tracking-wider text-cyan-200">TROOTHHURTZ™</Link>
+        <Link href="/consultations" className="rounded-full border border-cyan-400 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-950">Consultations</Link>
+      </header>
+      <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-12 md:grid-cols-2 md:py-20">
+        <div>
+          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-cyan-300">Digital Sovereignty</p>
+          <h1 className="text-4xl font-extrabold leading-tight sm:text-5xl">Your Identity. Your Data. Your Assets. <span className="text-cyan-300">Your Legacy.</span></h1>
+          <p className="mt-6 text-lg leading-relaxed text-slate-300">Take a proactive approach to your digital identity, personal information, intellectual property and digital legacy with the TROOTHHURTZ digital family office.</p>
+          <Link href="/consultations" className={cta + " mt-8"}>Schedule a Consultation</Link>
+          <p className="mt-3 text-sm text-slate-400">Sign in to schedule through our existing consultation service.</p>
+        </div>
+        <figure className={styles.stage}>
+          <div className={styles.credential}>
+            <p className={styles.brand}>TROOTHHURTZ™</p>
+            <p className={styles.eyebrow}>DIGITAL SOVEREIGNTY</p>
+            <div className={styles.emblem} aria-hidden="true"><Fingerprint size={92} strokeWidth={1.1}/></div>
+            <p className="text-xl font-bold tracking-widest">SOVEREIGN ID</p>
+            <p className="mt-2 text-sm tracking-widest text-cyan-300">SOULBOUND TOKEN</p>
+            <div className={styles.rule}/>
+            <p className="text-xs tracking-wider text-slate-300">NON-TRANSFERABLE CREDENTIAL</p>
+            <p className="mt-3 text-xs text-amber-200">CONCEPT • NOT ISSUED</p>
+          </div>
+          <figcaption className="mt-8 text-center text-xs text-slate-400">Illustrative credential. No token has been issued.</figcaption>
+        </figure>
+      </section>
+      <section className="mx-auto max-w-6xl px-5 py-12" aria-labelledby="services">
+        <h2 id="services" className="text-3xl font-bold">Protect. Verify. Administer. Build.</h2>
+        <p className="mt-3 text-slate-300">Explore these proposed service areas with a specialist.</p>
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {services.map(({icon: Icon, title, description}) => (
+            <article key={title} className="rounded-3xl border border-white/10 bg-slate-800/40 p-6 transition hover:ring-1 hover:ring-cyan-400/40 hover:shadow-[0_0_34px_rgba(0,209,255,.35)]">
+              <Icon aria-hidden="true" className="mb-4 text-cyan-300" size={30}/>
+              <h3 className="text-lg font-semibold">{title}</h3>
+              <p className="mt-2 leading-relaxed text-slate-300">{description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="mx-auto max-w-6xl px-5 py-12">
+        <div className="rounded-3xl border border-cyan-400/30 bg-slate-950 p-8 text-center md:p-12">
+          <h2 className="text-3xl font-bold">Take Control of Your Digital Future.</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-slate-300">Discuss your goals, identify your priorities and explore a digital governance roadmap tailored to your needs.</p>
+          <Link href="/consultations" className={cta + " mt-6"}>Schedule a Consultation</Link>
+          <p className="mx-auto mt-6 max-w-2xl text-xs leading-relaxed text-slate-400">This page introduces proposed capabilities. A digital credential or blockchain record does not itself establish legal ownership, government identity or entitlement to compensation. No payment or token issuance is offered here.</p>
+        </div>
+      </section>
+      <footer className="mx-auto max-w-6xl px-5 pb-8 text-sm text-slate-400"><Link href="/" className="hover:text-cyan-300">Return to HERO Market</Link></footer>
+    </main>
+  );
+}
