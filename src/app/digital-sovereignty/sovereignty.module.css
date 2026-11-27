@@ -1,0 +1,10 @@
+.stage { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:420px; padding:32px 12px; perspective:900px; background:radial-gradient(ellipse,rgba(0,209,255,.13),transparent 70%); }
+.credential { position:relative; isolation:isolate; overflow:hidden; width:min(100%,280px); box-sizing:border-box; padding:25px 16px; border:1px solid #67e8f9; border-radius:22px; text-align:center; background:linear-gradient(145deg,#123349,#07121e 52%,#153343); box-shadow:0 0 36px #00d1ff44,inset 0 0 20px #00d1ff22; animation:float 7s ease-in-out infinite; }
+.credential::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(115deg,transparent 30%,#b0efff22 48%,transparent 65%); background-size:300% 100%; animation:shine 5s linear infinite; }
+.brand { color:#e4c77e; font-size:12px; letter-spacing:3px; }
+.eyebrow { color:#a5f3fc; font-size:10px; letter-spacing:2px; margin-top:8px; }
+.emblem { display:grid; place-items:center; width:142px; height:142px; margin:20px auto; border:1px dashed #67e8f9; border-radius:50%; color:#67e8f9; box-shadow:inset 0 0 24px #00d1ff22; }
+.rule { height:1px; margin:16px 0; background:linear-gradient(90deg,transparent,#e4c77e,transparent); }
+@keyframes float { 0%,100% { transform:translateY(-7px) rotateY(-12deg) rotateX(5deg); } 50% { transform:translateY(9px) rotateY(12deg) rotateX(-3deg); } }
+@keyframes shine { from { background-position:180% 0; } to { background-position:-180% 0; } }
+@media (prefers-reduced-motion:reduce) { .credential,.credential::after { animation:none; } }
