@@ -165,6 +165,15 @@ export default function Home() {
             </a>
 
             <Link
+              href="/digital-sovereignty"
+              className={`${LINK_PILL} w-full justify-center`}
+              onClick={closeWelcomeMenu}
+              role="menuitem"
+            >
+              Digital Sovereignty
+            </Link>
+
+            <Link
               href="/consultations"
               className={`${LINK_PILL} w-full justify-center`}
               onClick={closeWelcomeMenu}
