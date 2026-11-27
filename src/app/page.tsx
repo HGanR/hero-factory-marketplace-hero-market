@@ -519,6 +519,22 @@ function HomePageContent() {
                     Consultations
                   </button>
                   <Link
+                    href="/digital-sovereignty"
+                    className={`${LINK_PILL} w-full justify-center`}
+                    onClick={() => {
+                      trackLandingCta(
+                        LANDING_HOME_SITE_EVENTS.WELCOME_MENU_CTA,
+                        "welcome_menu",
+                        "Digital Sovereignty",
+                        "/digital-sovereignty",
+                      );
+                      setShowWelcomeMenu(false);
+                    }}
+                    role="menuitem"
+                  >
+                    Digital Sovereignty
+                  </Link>
+                  <Link
                     href="/meet/troothhurts-meets"
                     className={`${LINK_PILL} w-full justify-center`}
                     onClick={() => {
