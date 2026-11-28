@@ -81,6 +81,32 @@ export default function DigitalSovereigntyPage() {
           ))}
         </div>
       </section>
+      <section id="smart-ip-rights" className="mx-auto max-w-6xl px-5 py-12" aria-labelledby="ip-rights-heading">
+        <div className="rounded-3xl border border-cyan-400/30 bg-slate-950 p-6 md:p-10">
+          <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">TROOTHHURTZ™ · Digital Sovereignty</p>
+          <h2 id="ip-rights-heading" className="mt-4 text-3xl font-bold text-cyan-200 sm:text-4xl">SMART IP RIGHTS OS™</h2>
+          <p className="mt-3 text-xl font-semibold">Document. Protect. License. Commercialize.</p>
+          <p className="mt-4 max-w-3xl leading-relaxed text-slate-300">Explore how to organize your intellectual property, document ownership and permissions, and develop a roadmap for responsible commercialization and digital legacy planning.</p>
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { icon: Database, title: "IP Asset Registry", description: "Document creative works, software and digital assets." },
+              { icon: FileCheck, title: "Chain of Title", description: "Organize ownership evidence, assignments and provenance." },
+              { icon: ShieldCheck, title: "Rights & Licensing", description: "Define permissions, restrictions and commercial usage rights." },
+              { icon: Landmark, title: "Collateral Readiness", description: "Prepare collateral and encumbrance documentation for professional review." },
+              { icon: Lock, title: "Royalty Administration", description: "Plan tracking of licensing income and contractual allocations." },
+              { icon: Fingerprint, title: "Digital Commercialization", description: "Explore marketplace and tokenization opportunities subject to legal and technical review." },
+            ].map(({ icon: Icon, title, description }) => (
+              <article key={title} className="rounded-2xl border border-cyan-400/20 bg-slate-800/40 p-5 transition hover:ring-1 hover:ring-cyan-400/40">
+                <Icon aria-hidden="true" className="mb-3 text-cyan-300" size={28}/>
+                <h3 className="text-lg font-semibold">{title}</h3>
+                <p className="mt-2 leading-relaxed text-slate-300">{description}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mt-6 text-sm leading-relaxed text-slate-400">Proposed capabilities intended to integrate with SMART TRUST OS™, SKIPPER and HERO Factory Marketplace. These tools are not yet offered as operational services. Documentation or tokenization alone does not establish ownership, valuation or perfection of a security interest.</p>
+          <Link href="/consultations" className={cta + " mt-6"}>Schedule an Intellectual Property Consultation</Link>
+        </div>
+      </section>
       <section className="mx-auto max-w-6xl px-5 py-12">
         <div className="rounded-3xl border border-cyan-400/30 bg-slate-950 p-8 text-center md:p-12">
           <h2 className="text-3xl font-bold">Take Control of Your Digital Future.</h2>
