@@ -3,9 +3,29 @@ import Link from "next/link";
 import { Fingerprint, ShieldCheck, Lock, FileCheck, Database, Landmark } from "lucide-react";
 import styles from "./sovereignty.module.css";
 
+const socialTitle = "Digital Sovereignty™ | TROOTHHURTZ";
+const socialDescription = "Your Identity. Your Data. Your Assets. Your Legacy. Explore digital identity, privacy rights and digital asset governance.";
+const canonicalUrl = "https://troothhurtz.app/digital-sovereignty";
+const socialImage = "https://troothhurtz.app/images/digital-sovereignty-og.png";
+
 export const metadata: Metadata = {
-  title: "Digital Sovereignty | TROOTHHURTZ",
-  description: "Explore digital identity, privacy rights and digital asset governance. Schedule a consultation.",
+  title: socialTitle,
+  description: socialDescription,
+  alternates: { canonical: canonicalUrl },
+  openGraph: {
+    title: socialTitle,
+    description: socialDescription,
+    url: canonicalUrl,
+    siteName: "TROOTHHURTZ",
+    type: "website",
+    images: [{ url: socialImage, alt: "TROOTHHURTZ Digital Sovereignty" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: socialTitle,
+    description: socialDescription,
+    images: [socialImage],
+  },
 };
 
 const services = [
